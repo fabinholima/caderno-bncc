@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { BarChart3, BookOpenCheck, ChevronDown, CircleHelp, FileOutput, Filter, GraduationCap, LayoutDashboard, LibraryBig, MoreHorizontal, Plus, Search, Settings, Sparkles, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ const initialQuestions: Question[] = [
 ];
 
 const nav = [['Visão geral', LayoutDashboard], ['Questões', LibraryBig], ['Planejamento', BookOpenCheck], ['Avaliações', FileOutput], ['Resultados', BarChart3]] as const;
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
 function difficultyClass(value: Question['difficulty']) {
   if (value === 'Fácil') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
@@ -28,13 +29,38 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [subject, setSubject] = useState('Todas');
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
   const visible = useMemo(() => questions.filter((q) => `${q.statement} ${q.code} ${q.skill}`.toLowerCase().includes(query.toLowerCase()) && (subject === 'Todas' || q.subject === subject)), [questions, query, subject]);
 
-  function createQuestion(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (!apiUrl) return;
+    fetch(`${apiUrl}/api/questions`).then((response) => {
+      if (!response.ok) throw new Error('API indisponível');
+      return response.json();
+    }).then((body) => setQuestions(body.data)).catch(() => setNotice('API local indisponível; exibindo dados de demonstração.'));
+  }, []);
+
+  async function createQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    setQuestions((current) => [{ id: crypto.randomUUID(), code: `MAT-${String(current.length + 19).padStart(4, '0')}`, statement: String(data.get('statement')), subject: String(data.get('subject')), grade: String(data.get('grade')), skill: String(data.get('skill') || 'Não vinculada'), difficulty: String(data.get('difficulty')) as Question['difficulty'], status: 'Rascunho', alternatives: 4, updatedAt: 'Agora' }, ...current]);
-    setOpen(false);
+    const correct = String(data.get('correct'));
+    const input = { statement: String(data.get('statement')), subject: String(data.get('subject')), grade: String(data.get('grade')), skill: String(data.get('skill')), difficulty: String(data.get('difficulty')), alternatives: ['A', 'B', 'C', 'D'].map((letter, index) => ({ stableKey: `alt-${letter.toLowerCase()}`, content: String(data.get(`alternative_${letter}`)), isCorrect: correct === letter, position: index + 1 })) };
+    setSaving(true); setNotice('');
+    try {
+      if (apiUrl) {
+        const response = await fetch(`${apiUrl}/api/questions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'Não foi possível salvar.');
+        setQuestions((current) => [body.data, ...current]);
+        setNotice('Questão salva no PostgreSQL.');
+      } else {
+        setQuestions((current) => [{ id: crypto.randomUUID(), code: `MAT-${String(current.length + 19).padStart(4, '0')}`, statement: input.statement, subject: input.subject, grade: input.grade, skill: input.skill || 'Não vinculada', difficulty: input.difficulty as Question['difficulty'], status: 'Rascunho', alternatives: 4, updatedAt: 'Agora' }, ...current]);
+        setNotice('Rascunho criado na demonstração. Configure a API para persistir no PostgreSQL.');
+      }
+      setOpen(false);
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Erro ao salvar a questão.'); }
+    finally { setSaving(false); }
   }
 
   return <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
@@ -48,6 +74,7 @@ export default function Home() {
       <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/90 px-5 backdrop-blur-xl sm:px-8"><div className="lg:hidden"><span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-white"><GraduationCap className="size-5" /></span></div><div className="ml-auto flex items-center gap-2"><Button variant="ghost" size="icon" aria-label="Ajuda"><CircleHelp /></Button><div className="ml-2 hidden border-l border-slate-200 pl-4 sm:block"><p className="text-xs font-semibold">Colégio Horizonte</p><p className="text-[11px] text-slate-500">Ano letivo 2026</p></div></div></header>
       <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">Banco institucional</p><h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">Banco de questões</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Cadastre unidades reutilizáveis, relacione habilidades da BNCC e prepare questões para qualquer formato de avaliação.</p></div><Button onClick={() => setOpen(true)} size="lg" className="h-11 bg-[var(--blue)] px-4 text-white shadow-sm hover:bg-blue-700"><Plus />Nova questão</Button></div>
+        {notice && <div role="status" className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">{notice}</div>}
         <div className="mt-8 grid gap-3 sm:grid-cols-3">{[['248','questões no acervo','+12 este mês'],['196','aprovadas','79% do acervo'],['37','habilidades cobertas','8 componentes']].map(([value,label,note], index) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)]"><div className="flex items-start justify-between"><div><p className="font-display text-3xl font-bold tracking-tight text-[var(--navy)]">{value}</p><p className="mt-1 text-sm font-medium text-slate-600">{label}</p></div><span className={`grid size-9 place-items-center rounded-xl ${index === 1 ? 'bg-emerald-50 text-emerald-600' : index === 2 ? 'bg-violet-50 text-violet-600' : 'bg-blue-50 text-blue-600'}`}>{index === 0 ? <LibraryBig className="size-4" /> : index === 1 ? <BookOpenCheck className="size-4" /> : <Sparkles className="size-4" />}</span></div><p className="mt-4 text-xs text-slate-400">{note}</p></article>)}</div>
         <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
           <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={query} onChange={(e) => setQuery(e.target.value)} className="h-10 border-slate-200 bg-slate-50 pl-9" placeholder="Buscar por enunciado, código ou habilidade..." /></div><div className="flex flex-wrap gap-2"><label className="sr-only" htmlFor="subject">Componente</label><select id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-200"><option>Todas</option><option>Matemática</option><option>Língua Portuguesa</option><option>Ciências</option><option>História</option></select><Button variant="outline" className="h-10 px-3"><Filter />Filtros avançados</Button></div></div>
@@ -57,6 +84,6 @@ export default function Home() {
       </div>
     </section>
 
-    {open && <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35 backdrop-blur-[2px]" role="presentation" onMouseDown={(e) => { if (e.currentTarget === e.target) setOpen(false) }}><section role="dialog" aria-modal="true" aria-labelledby="dialog-title" className="h-full w-full max-w-[560px] overflow-y-auto bg-white shadow-2xl"><header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5"><div><p className="text-xs font-bold uppercase tracking-[.13em] text-[var(--blue)]">Cadastro estruturado</p><h2 id="dialog-title" className="font-display mt-1 text-2xl font-bold text-[var(--navy)]">Nova questão</h2></div><Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Fechar"><X /></Button></header><form onSubmit={createQuestion} className="space-y-6 p-6"><div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900"><strong>Unidade reutilizável.</strong> O enunciado, as alternativas, a resposta e a pontuação ficam independentes da prova e do template de PDF.</div><label className="block"><span className="mb-2 block text-sm font-semibold">Enunciado</span><textarea required name="statement" rows={6} className="w-full rounded-xl border border-slate-200 p-3 text-sm leading-6 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100" placeholder="Digite o texto da questão..." /></label><div className="grid gap-4 sm:grid-cols-2">{[['subject','Componente',['Matemática','Língua Portuguesa','Ciências','História']],['grade','Ano/Série',['6º ano','7º ano','8º ano','9º ano']],['difficulty','Dificuldade',['Fácil','Média','Difícil']]].map(([name,label,options]) => <label key={String(name)} className="block"><span className="mb-2 block text-sm font-semibold">{String(label)}</span><select name={String(name)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-200">{(options as string[]).map((option) => <option key={option}>{option}</option>)}</select></label>)}<label className="block"><span className="mb-2 block text-sm font-semibold">Habilidade BNCC</span><Input name="skill" className="h-10" placeholder="Ex.: EF07MA02" /></label></div><div><div className="mb-3 flex items-center justify-between"><span className="text-sm font-semibold">Alternativas</span><Badge variant="secondary">Resposta única</Badge></div>{['A','B','C','D'].map((letter) => <label key={letter} className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3"><input required={letter === 'A'} type="radio" name="correct" value={letter} className="size-4 accent-blue-600" /><span className="grid size-7 place-items-center rounded-md bg-slate-100 text-xs font-bold">{letter}</span><Input required name={`alternative_${letter}`} className="border-0 shadow-none focus-visible:ring-0" placeholder={`Texto da alternativa ${letter}`} /></label>)}</div><footer className="flex justify-end gap-2 border-t border-slate-200 pt-5"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" className="bg-[var(--blue)] text-white hover:bg-blue-700">Salvar rascunho</Button></footer></form></section></div>}
+    {open && <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35 backdrop-blur-[2px]" role="presentation" onMouseDown={(e) => { if (e.currentTarget === e.target) setOpen(false) }}><section role="dialog" aria-modal="true" aria-labelledby="dialog-title" className="h-full w-full max-w-[560px] overflow-y-auto bg-white shadow-2xl"><header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5"><div><p className="text-xs font-bold uppercase tracking-[.13em] text-[var(--blue)]">Cadastro estruturado</p><h2 id="dialog-title" className="font-display mt-1 text-2xl font-bold text-[var(--navy)]">Nova questão</h2></div><Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Fechar"><X /></Button></header><form onSubmit={createQuestion} className="space-y-6 p-6"><div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900"><strong>Unidade reutilizável.</strong> O enunciado, as alternativas, a resposta e a pontuação ficam independentes da prova e do template de PDF.</div><label className="block"><span className="mb-2 block text-sm font-semibold">Enunciado</span><textarea required name="statement" rows={6} className="w-full rounded-xl border border-slate-200 p-3 text-sm leading-6 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100" placeholder="Digite o texto da questão..." /></label><div className="grid gap-4 sm:grid-cols-2">{[['subject','Componente',['Matemática','Língua Portuguesa','Ciências','História']],['grade','Ano/Série',['6º ano','7º ano','8º ano','9º ano']],['difficulty','Dificuldade',['Fácil','Média','Difícil']]].map(([name,label,options]) => <label key={String(name)} className="block"><span className="mb-2 block text-sm font-semibold">{String(label)}</span><select name={String(name)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-200">{(options as string[]).map((option) => <option key={option}>{option}</option>)}</select></label>)}<label className="block"><span className="mb-2 block text-sm font-semibold">Habilidade BNCC</span><Input name="skill" className="h-10" placeholder="Ex.: EF07MA02" /></label></div><div><div className="mb-3 flex items-center justify-between"><span className="text-sm font-semibold">Alternativas</span><Badge variant="secondary">Resposta única</Badge></div>{['A','B','C','D'].map((letter) => <label key={letter} className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3"><input required={letter === 'A'} type="radio" name="correct" value={letter} className="size-4 accent-blue-600" /><span className="grid size-7 place-items-center rounded-md bg-slate-100 text-xs font-bold">{letter}</span><Input required name={`alternative_${letter}`} className="border-0 shadow-none focus-visible:ring-0" placeholder={`Texto da alternativa ${letter}`} /></label>)}</div><footer className="flex justify-end gap-2 border-t border-slate-200 pt-5"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button disabled={saving} type="submit" className="bg-[var(--blue)] text-white hover:bg-blue-700">{saving ? 'Salvando...' : 'Salvar rascunho'}</Button></footer></form></section></div>}
   </main>
 }

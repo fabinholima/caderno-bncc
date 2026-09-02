@@ -9,6 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
+    "test:services": "pnpm --filter @caderno/api test && pnpm --filter @caderno/renderer test",
     "lint": "oxlint",
     "format": "oxfmt"
   },

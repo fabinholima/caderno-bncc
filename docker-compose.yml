@@ -10,6 +10,7 @@ services:
     volumes:
       - caderno_pgdata:/var/lib/postgresql/data
       - ./database/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./database/002_demo_seed.sql:/docker-entrypoint-initdb.d/002_demo_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U caderno -d caderno"]
       interval: 5s
