@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: caderno
+      POSTGRES_USER: caderno
+      POSTGRES_PASSWORD: caderno_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - caderno_pgdata:/var/lib/postgresql/data
+      - ./database/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caderno -d caderno"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  caderno_pgdata:

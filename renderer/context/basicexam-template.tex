@@ -1,0 +1,31 @@
+% Arquivo gerado pelo worker a partir de AssessmentRenderContract.
+% t-basicexam permanece um adaptador de apresentação, nunca a fonte dos dados.
+\usemodule[basicexam][mode=student]
+\setuppapersize[A4]
+\setupbodyfont[modern,11pt]
+\setuplayout[topspace=16mm,backspace=18mm,width=middle,height=middle]
+
+\starttext
+\midaligned{\tfd\bf Colégio Horizonte}
+\blank[small]
+\midaligned{\tfb Avaliação bimestral — Matemática}
+\midaligned{7º ano \quad Versão A \quad Valor: 1 ponto}
+\blank
+Nome: \thinrules[n=1,width=9cm] \quad Turma: \thinrules[n=1,width=2cm]
+\blank[big]
+
+\startquestion[point=1,showanswer=false,answer=B]
+Uma escola organizou 240 livros em 8 estantes com a mesma quantidade.
+Quantos livros ficaram em cada estante?
+  \startchoice
+    \startcitem 20 \stopcitem
+    \startcitem[*] 30 \stopcitem
+    \startcitem 32 \stopcitem
+    \startcitem 40 \stopcitem
+  \stopchoice
+  \startanswer
+    240 ÷ 8 = 30.
+  \stopanswer
+\stopquestion
+
+\stoptext
