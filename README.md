@@ -28,6 +28,10 @@ pnpm --filter @caderno/api start
 
 Em outro terminal, inicie o portal com `NEXT_PUBLIC_API_URL=http://localhost:8788 pnpm dev`. Para consumir a fila de PDFs, execute `pnpm --filter @caderno/renderer start` em um ambiente com ConTeXt/LuaMetaTeX e `t-basicexam` instalados.
 
+Em produção, configure `API_TOKEN`; a API passa a exigir `Authorization: Bearer ...`. O token deve ser injetado por um proxy/BFF confiável, nunca gravado no JavaScript público. `DEMO_INSTITUTION_ID` e `DEMO_USER_ID` delimitam a instituição e a autoria nesta fase; a evolução prevista é resolver esses valores pela identidade autenticada e pela tabela `memberships`.
+
+`POST /api/assessments` congela a avaliação, cria entre uma e seis versões determinísticas, embaralha questões e alternativas por semente, preserva o gabarito pelas chaves estáveis e enfileira um PDF por versão.
+
 Os testes de contrato e validação rodam com `pnpm test:services`; o portal completo é verificado com `pnpm build`.
 
 ## Decisões herdadas da filosofia do t-basicexam
