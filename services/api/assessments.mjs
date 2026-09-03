@@ -62,8 +62,8 @@ export async function createAssessment({ institutionId, userId, input }) {
       const snapshot = { schemaVersion: '1.0', assessment: { id: assessment.rows[0].id, title: value.title, subject: value.subject, grade: value.grade, instructions: value.instructions }, institution: { id: institutionId, name: institution.rows[0].name }, version: { id: crypto.randomUUID(), code, seed, generatedAt: new Date().toISOString() }, candidateFields: ['name', 'class', 'number', 'date'], questions: snapshotQuestions, totals: { points: snapshotQuestions.reduce((sum, question) => sum + question.points, 0), questions: snapshotQuestions.length }, render: { locale: 'pt-BR', paper: 'A4', mode: 'student', template: 'basicexam-v1' } };
       const answerKey = snapshotQuestions.map((question) => ({ number: question.number, correctStableKeys: question.answer.correctStableKeys }));
       const version = await client.query(`INSERT INTO assessment_versions (assessment_id, code, seed, snapshot, answer_key) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb) RETURNING id`, [assessment.rows[0].id, code, seed, JSON.stringify(snapshot), JSON.stringify(answerKey)]);
-      await client.query(`INSERT INTO render_jobs (assessment_version_id, template_version) VALUES ($1, 'basicexam-v1')`, [version.rows[0].id]);
-      versions.push({ id: version.rows[0].id, code, status: 'queued' });
+      const renderJob = await client.query(`INSERT INTO render_jobs (assessment_version_id, template_version) VALUES ($1, 'basicexam-v1') RETURNING id`, [version.rows[0].id]);
+      versions.push({ id: version.rows[0].id, code, status: 'queued', renderJobId: renderJob.rows[0].id });
     }
     return { id: assessment.rows[0].id, title: value.title, status: 'frozen', versions };
   });

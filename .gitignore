@@ -38,6 +38,7 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/tmp/
 
 # ConTeXt generated files
 /basicexam-template.pdf

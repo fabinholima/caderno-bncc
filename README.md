@@ -38,6 +38,14 @@ O cadastro percorre `curriculum_subjects → knowledge_objects → curriculum_sk
 
 Cada alternativa pertence a `(question_id, revision)` e guarda uma `stable_key` imutável e `is_correct`. A letra A/B/C/D é apenas apresentação: quando alternativas são embaralhadas, o sistema mantém a resposta pela chave estável e calcula a nova letra somente no snapshot da avaliação.
 
+## Geração dos PDFs
+
+Cada item de `render_jobs` produz dois documentos pelo ConTeXt/LuaMetaTeX: `prova.pdf`, sem respostas, e `gabarito.pdf`, com respostas e explicações. O manifesto gravado no PostgreSQL guarda os caminhos dos dois arquivos e de seus fontes `.tex`.
+
+Os downloads autenticados são expostos por `GET /api/render-jobs/:id/prova` e `GET /api/render-jobs/:id/gabarito`. A API confirma que o trabalho pertence à instituição antes de transmitir o arquivo e não aceita caminhos enviados pelo navegador.
+
+Enquanto a API externa ainda não está ligada ao portal público, a tela de avaliações oferece um PDF demonstrativo de duas páginas, contendo a prova e o gabarito comentado.
+
 Os testes de contrato e validação rodam com `pnpm test:services`; o portal completo é verificado com `pnpm build`.
 
 ## Decisões herdadas da filosofia do t-basicexam

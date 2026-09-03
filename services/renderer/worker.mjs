@@ -29,23 +29,26 @@ async function claimJob() {
   finally { client.release(); }
 }
 
-function compile(source, cwd) {
+function compile(source, cwd, resultName) {
   return new Promise((resolve, reject) => {
-    const process = spawn(contextBin, ['--batchmode', '--result=assessment.pdf', path.basename(source)], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(contextBin, ['--batchmode', `--result=${resultName}`, path.basename(source)], { cwd, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, TEXMFCACHE: process.env.TEXMFCACHE || path.join(cwd, '.tex-cache') } });
     let errorOutput = '';
-    process.stderr.on('data', (chunk) => { errorOutput += chunk; });
-    process.on('error', reject);
-    process.on('close', (code) => code === 0 ? resolve() : reject(new Error(errorOutput || `ConTeXt terminou com código ${code}.`)));
+    child.stderr.on('data', (chunk) => { errorOutput += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => code === 0 ? resolve() : reject(new Error(errorOutput || `ConTeXt terminou com código ${code}.`)));
   });
 }
 
 async function render(job) {
   const directory = path.join(outputRoot, job.id);
   await mkdir(directory, { recursive: true });
-  const source = path.join(directory, 'assessment.tex');
-  await writeFile(source, renderAssessment(job.snapshot), 'utf8');
-  await compile(source, directory);
-  await pool.query("UPDATE render_jobs SET status = 'completed', completed_at = now(), output_manifest = $2::jsonb WHERE id = $1", [job.id, JSON.stringify({ pdf: path.join(job.id, 'assessment.pdf'), source: path.join(job.id, 'assessment.tex') })]);
+  const studentSource = path.join(directory, 'prova.tex');
+  const answerKeySource = path.join(directory, 'gabarito.tex');
+  await writeFile(studentSource, renderAssessment({ ...job.snapshot, render: { ...job.snapshot.render, mode: 'student' } }), 'utf8');
+  await writeFile(answerKeySource, renderAssessment({ ...job.snapshot, render: { ...job.snapshot.render, mode: 'answer-key' } }), 'utf8');
+  await compile(studentSource, directory, 'prova.pdf');
+  await compile(answerKeySource, directory, 'gabarito.pdf');
+  await pool.query("UPDATE render_jobs SET status = 'completed', completed_at = now(), output_manifest = $2::jsonb WHERE id = $1", [job.id, JSON.stringify({ studentPdf: path.join(job.id, 'prova.pdf'), answerKeyPdf: path.join(job.id, 'gabarito.pdf'), studentSource: path.join(job.id, 'prova.tex'), answerKeySource: path.join(job.id, 'gabarito.tex') })]);
 }
 
 async function tick() {
