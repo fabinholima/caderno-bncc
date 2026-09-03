@@ -1,14 +1,56 @@
 import { z } from 'zod';
+import {
+  DEFAULT_RENDER_TEMPLATE,
+  renderTemplateIds,
+} from '../../lib/render-templates.mjs';
 import { transaction } from './db.mjs';
 
-export const createAssessmentSchema = z.object({
-  title: z.string().trim().min(5).max(180),
-  subject: z.string().trim().min(2).max(120),
-  grade: z.string().trim().min(2).max(40),
-  questionIds: z.array(z.string().uuid()).min(1).max(100),
-  versionCount: z.number().int().min(1).max(6),
-  instructions: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
-});
+export const createAssessmentSchema = z
+  .object({
+    title: z.string().trim().min(5).max(180),
+    grade: z.string().trim().min(2).max(40),
+    sections: z
+      .array(
+        z.object({
+          subject: z.string().trim().min(2).max(120),
+          title: z.string().trim().min(2).max(180).optional(),
+          columns: z.union([z.literal(1), z.literal(2)]).default(1),
+          startOnNewPage: z.boolean().default(true),
+          questionIds: z.array(z.string().uuid()).min(1).max(100),
+        }),
+      )
+      .min(1)
+      .max(20),
+    versionCount: z.number().int().min(1).max(6),
+    paper: z.enum(['A4', 'A5']).default('A4'),
+    template: z.enum(renderTemplateIds).default(DEFAULT_RENDER_TEMPLATE),
+    instructions: z
+      .array(z.string().trim().min(1).max(500))
+      .max(10)
+      .default([]),
+  })
+  .superRefine((value, context) => {
+    const questionIds = value.sections.flatMap(
+      (section) => section.questionIds,
+    );
+    if (questionIds.length > 100) {
+      context.addIssue({
+        code: z.ZodIssueCode.too_big,
+        maximum: 100,
+        inclusive: true,
+        type: 'array',
+        path: ['sections'],
+        message: 'A avaliação pode ter no máximo 100 questões.',
+      });
+    }
+    if (new Set(questionIds).size !== questionIds.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['sections'],
+        message: 'Uma questão não pode aparecer em mais de uma seção.',
+      });
+    }
+  });
 
 function seededShuffle(items, seed) {
   const result = [...items];
@@ -23,10 +65,20 @@ function seededShuffle(items, seed) {
 
 export async function createAssessment({ institutionId, userId, input }) {
   const value = createAssessmentSchema.parse(input);
+  const questionIds = value.sections.flatMap((section) => section.questionIds);
+  const assessmentSubject =
+    value.sections.length === 1
+      ? value.sections[0].subject
+      : 'Multidisciplinar';
   return transaction(async (client) => {
-    const institution = await client.query('SELECT name FROM institutions WHERE id = $1', [institutionId]);
+    const institution = await client.query(
+      'SELECT name FROM institutions WHERE id = $1',
+      [institutionId],
+    );
     const questions = await client.query({
-      text: `SELECT q.id, q.current_revision, qr.type, qr.statement, qr.default_points,
+      text: `SELECT q.id, q.current_revision, qr.type, qr.statement, qr.explanation, qr.default_points,
+                    qr.subject, qr.grade,
+                    qr.source_institution, qr.source_year, qr.difficulty,
                     COALESCE(jsonb_agg(jsonb_build_object('stableKey', a.stable_key, 'content', a.content, 'isCorrect', a.is_correct) ORDER BY a.position) FILTER (WHERE a.id IS NOT NULL), '[]') AS alternatives,
                     COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', cs.code, 'primary', qs.is_primary)) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills
              FROM questions q
@@ -36,36 +88,161 @@ export async function createAssessment({ institutionId, userId, input }) {
              LEFT JOIN curriculum_skills cs ON cs.id = qs.skill_id
              WHERE q.institution_id = $1 AND q.id = ANY($2::uuid[])
              GROUP BY q.id, qr.question_id, qr.revision`,
-      values: [institutionId, value.questionIds],
+      values: [institutionId, questionIds],
     });
-    if (questions.rowCount !== value.questionIds.length) throw new Error('Uma ou mais questões não pertencem à instituição.');
+    if (questions.rowCount !== questionIds.length)
+      throw new Error('Uma ou mais questões não pertencem à instituição.');
+    const questionById = new Map(
+      questions.rows.map((question) => [question.id, question]),
+    );
+    for (const section of value.sections) {
+      if (
+        section.questionIds.some(
+          (questionId) =>
+            questionById.get(questionId)?.subject !== section.subject,
+        )
+      ) {
+        throw new Error(
+          'A disciplina da seção não corresponde às questões selecionadas.',
+        );
+      }
+    }
     const assessment = await client.query(
       `INSERT INTO assessments (institution_id, title, subject, grade, instructions, status, created_by)
        VALUES ($1, $2, $3, $4, $5, 'frozen', $6) RETURNING id`,
-      [institutionId, value.title, value.subject, value.grade, value.instructions.join('\n'), userId],
+      [
+        institutionId,
+        value.title,
+        assessmentSubject,
+        value.grade,
+        value.instructions.join('\n'),
+        userId,
+      ],
     );
     const versions = [];
     for (let index = 0; index < value.versionCount; index++) {
       const code = String.fromCharCode(65 + index);
       const seed = Date.now() + index * 7919;
-      const ordered = seededShuffle(questions.rows, seed);
-      const snapshotQuestions = ordered.map((question, position) => {
-        const alternatives = seededShuffle(question.alternatives, seed + position + 1);
+      let questionNumber = 0;
+      const snapshotSections = value.sections.map((section, sectionIndex) => {
+        const sectionQuestions = section.questionIds.map((id) =>
+          questionById.get(id),
+        );
+        const ordered = seededShuffle(
+          sectionQuestions,
+          seed + sectionIndex * 997,
+        );
+        const snapshotQuestions = ordered.map((question, position) => {
+          const alternatives = seededShuffle(
+            question.alternatives,
+            seed + sectionIndex * 997 + position + 1,
+          );
+          questionNumber += 1;
+          return {
+            id: crypto.randomUUID(),
+            sourceQuestionId: question.id,
+            sourceRevision: question.current_revision,
+            number: questionNumber,
+            type: question.type,
+            statement: question.statement,
+            source: {
+              institution: question.source_institution,
+              year: question.source_year,
+            },
+            difficulty: question.difficulty,
+            alternatives: alternatives.map((answer, answerIndex) => ({
+              stableKey: answer.stableKey,
+              label: String.fromCharCode(65 + answerIndex),
+              content: answer.content,
+            })),
+            answer: {
+              correctStableKeys: alternatives
+                .filter((answer) => answer.isCorrect)
+                .map((answer) => answer.stableKey),
+              explanation: question.explanation || [],
+            },
+            points: Number(question.default_points),
+            skills: question.skills,
+          };
+        });
         return {
-          id: crypto.randomUUID(), sourceQuestionId: question.id, sourceRevision: question.current_revision,
-          number: position + 1, type: question.type, statement: question.statement,
-          alternatives: alternatives.map((answer, answerIndex) => ({ stableKey: answer.stableKey, label: String.fromCharCode(65 + answerIndex), content: answer.content })),
-          answer: { correctStableKeys: alternatives.filter((answer) => answer.isCorrect).map((answer) => answer.stableKey) },
-          points: Number(question.default_points), skills: question.skills,
+          id: crypto.randomUUID(),
+          title: section.title || section.subject,
+          subject: section.subject,
+          columns: section.columns,
+          startOnNewPage: section.startOnNewPage,
+          questions: snapshotQuestions,
         };
       });
-      const snapshot = { schemaVersion: '1.0', assessment: { id: assessment.rows[0].id, title: value.title, subject: value.subject, grade: value.grade, instructions: value.instructions }, institution: { id: institutionId, name: institution.rows[0].name }, version: { id: crypto.randomUUID(), code, seed, generatedAt: new Date().toISOString() }, candidateFields: ['name', 'class', 'number', 'date'], questions: snapshotQuestions, totals: { points: snapshotQuestions.reduce((sum, question) => sum + question.points, 0), questions: snapshotQuestions.length }, render: { locale: 'pt-BR', paper: 'A4', mode: 'student', template: 'basicexam-v1' } };
-      const answerKey = snapshotQuestions.map((question) => ({ number: question.number, correctStableKeys: question.answer.correctStableKeys }));
-      const version = await client.query(`INSERT INTO assessment_versions (assessment_id, code, seed, snapshot, answer_key) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb) RETURNING id`, [assessment.rows[0].id, code, seed, JSON.stringify(snapshot), JSON.stringify(answerKey)]);
-      const renderJob = await client.query(`INSERT INTO render_jobs (assessment_version_id, template_version) VALUES ($1, 'basicexam-v1') RETURNING id`, [version.rows[0].id]);
-      versions.push({ id: version.rows[0].id, code, status: 'queued', renderJobId: renderJob.rows[0].id });
+      const snapshotQuestions = snapshotSections.flatMap(
+        (section) => section.questions,
+      );
+      const snapshot = {
+        schemaVersion: '1.0',
+        assessment: {
+          id: assessment.rows[0].id,
+          title: value.title,
+          subject: assessmentSubject,
+          grade: value.grade,
+          instructions: value.instructions,
+        },
+        institution: { id: institutionId, name: institution.rows[0].name },
+        version: {
+          id: crypto.randomUUID(),
+          code,
+          seed,
+          generatedAt: new Date().toISOString(),
+        },
+        candidateFields: ['name', 'class', 'number', 'date'],
+        sections: snapshotSections,
+        questions: snapshotQuestions,
+        totals: {
+          points: snapshotQuestions.reduce(
+            (sum, question) => sum + question.points,
+            0,
+          ),
+          questions: snapshotQuestions.length,
+        },
+        render: {
+          locale: 'pt-BR',
+          paper: value.paper,
+          mode: 'student',
+          template: value.template,
+        },
+      };
+      const answerKey = snapshotQuestions.map((question) => ({
+        number: question.number,
+        type: question.type,
+        correctStableKeys: question.answer.correctStableKeys,
+        manualReview: question.type === 'essay',
+      }));
+      const version = await client.query(
+        `INSERT INTO assessment_versions (assessment_id, code, seed, snapshot, answer_key) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb) RETURNING id`,
+        [
+          assessment.rows[0].id,
+          code,
+          seed,
+          JSON.stringify(snapshot),
+          JSON.stringify(answerKey),
+        ],
+      );
+      const renderJob = await client.query(
+        `INSERT INTO render_jobs (assessment_version_id, template_version) VALUES ($1, $2) RETURNING id`,
+        [version.rows[0].id, value.template],
+      );
+      versions.push({
+        id: version.rows[0].id,
+        code,
+        status: 'queued',
+        renderJobId: renderJob.rows[0].id,
+      });
     }
-    return { id: assessment.rows[0].id, title: value.title, status: 'frozen', versions };
+    return {
+      id: assessment.rows[0].id,
+      title: value.title,
+      status: 'frozen',
+      versions,
+    };
   });
 }
 

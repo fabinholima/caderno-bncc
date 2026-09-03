@@ -1,33 +1,159 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { BarChart3, BookOpenCheck, ChevronDown, CircleHelp, FileOutput, Filter, GraduationCap, LayoutDashboard, LibraryBig, MoreHorizontal, Plus, Search, Settings, Sparkles, X } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpenCheck,
+  ChevronDown,
+  CircleHelp,
+  FileOutput,
+  Filter,
+  GraduationCap,
+  LayoutDashboard,
+  LibraryBig,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Settings,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AssessmentBuilder } from './assessment-builder';
+import { CurriculumManager, type CurriculumOption } from './curriculum-manager';
 
-type Question = { id: string; code: string; statement: string; subject: string; grade: string; skill: string; knowledgeObject?: string; difficulty: 'Fácil' | 'Média' | 'Difícil'; status: 'Aprovada' | 'Em revisão' | 'Rascunho'; alternatives: number; updatedAt: string };
-type CurriculumOption = { subject: string; stage: string; grade_range: string; knowledge_object_id: string; knowledge_object: string; skill_code: string; skill_description: string };
-
+type Question = {
+  id: string;
+  code: string;
+  statement: string;
+  type: 'single_choice' | 'multiple_choice' | 'essay';
+  subject: string;
+  grade: string;
+  sourceInstitution: string;
+  sourceYear: number;
+  skill: string;
+  knowledgeObject?: string;
+  difficulty: 'Fácil' | 'Média' | 'Difícil';
+  status: 'Aprovada' | 'Em revisão' | 'Rascunho';
+  alternatives: number;
+  updatedAt: string;
+};
 const curriculumDemo: CurriculumOption[] = [
-  { subject: 'Química', stage: 'Ensino Médio', grade_range: '1ª série', knowledge_object_id: '40000000-0000-4000-8000-000000000001', knowledge_object: 'Transformações químicas e conservação da matéria', skill_code: 'EM13CNT101', skill_description: 'Analisar transformações e conservações em sistemas que envolvem matéria e energia.' },
-  { subject: 'Química', stage: 'Ensino Médio', grade_range: '1ª série', knowledge_object_id: '40000000-0000-4000-8000-000000000002', knowledge_object: 'Estrutura da matéria e propriedades dos materiais', skill_code: 'EM13CNT104', skill_description: 'Avaliar propriedades de materiais com base em modelos explicativos.' },
-  { subject: 'Matemática', stage: 'Ensino Fundamental', grade_range: '7º ano', knowledge_object_id: '40000000-0000-4000-8000-000000000003', knowledge_object: 'Números inteiros', skill_code: 'EF07MA02', skill_description: 'Resolver e elaborar problemas com números inteiros.' },
+  {
+    subject_id: '30000000-0000-4000-8000-000000000001',
+    subject: 'Química',
+    stage: 'Ensino Médio',
+    grade_range: '1ª série',
+    knowledge_object_id: '40000000-0000-4000-8000-000000000001',
+    knowledge_object: 'Transformações químicas e conservação da matéria',
+    skill_code: 'EM13CNT101',
+    skill_description:
+      'Analisar transformações e conservações em sistemas que envolvem matéria e energia.',
+  },
+  {
+    subject_id: '30000000-0000-4000-8000-000000000001',
+    subject: 'Química',
+    stage: 'Ensino Médio',
+    grade_range: '1ª série',
+    knowledge_object_id: '40000000-0000-4000-8000-000000000002',
+    knowledge_object: 'Estrutura da matéria e propriedades dos materiais',
+    skill_code: 'EM13CNT104',
+    skill_description:
+      'Avaliar propriedades de materiais com base em modelos explicativos.',
+  },
+  {
+    subject_id: '30000000-0000-4000-8000-000000000002',
+    subject: 'Matemática',
+    stage: 'Ensino Fundamental',
+    grade_range: '7º ano',
+    knowledge_object_id: '40000000-0000-4000-8000-000000000003',
+    knowledge_object: 'Números inteiros',
+    skill_code: 'EF07MA02',
+    skill_description: 'Resolver e elaborar problemas com números inteiros.',
+  },
 ];
 
 const initialQuestions: Question[] = [
-  { id: '1', code: 'MAT-0018', subject: 'Matemática', grade: '7º ano', statement: 'Uma escola organizou 240 livros em 8 estantes com a mesma quantidade. Quantos livros ficaram em cada estante?', skill: 'EF07MA02', difficulty: 'Fácil', status: 'Aprovada', alternatives: 4, updatedAt: 'Hoje, 09:42' },
-  { id: '2', code: 'LP-0041', subject: 'Língua Portuguesa', grade: '8º ano', statement: 'No trecho apresentado, qual recurso produz o efeito de humor no último parágrafo?', skill: 'EF89LP05', difficulty: 'Média', status: 'Em revisão', alternatives: 5, updatedAt: 'Ontem, 16:20' },
-  { id: '3', code: 'CIE-0027', subject: 'Ciências', grade: '6º ano', statement: 'Qual transformação de energia ocorre principalmente durante o funcionamento de uma lâmpada?', skill: 'EF06CI04', difficulty: 'Média', status: 'Aprovada', alternatives: 4, updatedAt: '30 ago, 11:08' },
-  { id: '4', code: 'HIS-0012', subject: 'História', grade: '9º ano', statement: 'A partir da fonte histórica, identifique uma característica do processo de industrialização brasileiro.', skill: 'EF09HI05', difficulty: 'Difícil', status: 'Rascunho', alternatives: 4, updatedAt: '28 ago, 14:31' },
+  {
+    id: '1',
+    code: 'MAT-0018',
+    subject: 'Matemática',
+    grade: '7º ano',
+    sourceInstitution: 'ENEM',
+    sourceYear: 2023,
+    statement:
+      'Uma escola organizou 240 livros em 8 estantes com a mesma quantidade. Quantos livros ficaram em cada estante?',
+    type: 'single_choice',
+    skill: 'EF07MA02',
+    difficulty: 'Fácil',
+    status: 'Aprovada',
+    alternatives: 4,
+    updatedAt: 'Hoje, 09:42',
+  },
+  {
+    id: '2',
+    code: 'LP-0041',
+    subject: 'Língua Portuguesa',
+    grade: '8º ano',
+    sourceInstitution: 'FUVEST',
+    sourceYear: 2024,
+    statement:
+      'No trecho apresentado, qual recurso produz o efeito de humor no último parágrafo?',
+    type: 'single_choice',
+    skill: 'EF89LP05',
+    difficulty: 'Média',
+    status: 'Em revisão',
+    alternatives: 5,
+    updatedAt: 'Ontem, 16:20',
+  },
+  {
+    id: '3',
+    code: 'CIE-0027',
+    subject: 'Ciências',
+    grade: '6º ano',
+    sourceInstitution: 'UEMS',
+    sourceYear: 2022,
+    statement:
+      'Qual transformação de energia ocorre principalmente durante o funcionamento de uma lâmpada?',
+    type: 'multiple_choice',
+    skill: 'EF06CI04',
+    difficulty: 'Média',
+    status: 'Aprovada',
+    alternatives: 4,
+    updatedAt: '30 ago, 11:08',
+  },
+  {
+    id: '4',
+    code: 'HIS-0012',
+    subject: 'História',
+    grade: '9º ano',
+    sourceInstitution: 'UFMS',
+    sourceYear: 2021,
+    statement:
+      'A partir da fonte histórica, identifique uma característica do processo de industrialização brasileiro.',
+    type: 'essay',
+    skill: 'EF09HI05',
+    difficulty: 'Difícil',
+    status: 'Rascunho',
+    alternatives: 0,
+    updatedAt: '28 ago, 14:31',
+  },
 ];
 
-const nav = [['Visão geral', LayoutDashboard], ['Questões', LibraryBig], ['Planejamento', BookOpenCheck], ['Avaliações', FileOutput], ['Resultados', BarChart3]] as const;
+const nav = [
+  ['Visão geral', LayoutDashboard],
+  ['Questões', LibraryBig],
+  ['Planejamento', BookOpenCheck],
+  ['Avaliações', FileOutput],
+  ['Resultados', BarChart3],
+] as const;
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
 function difficultyClass(value: Question['difficulty']) {
-  if (value === 'Fácil') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (value === 'Fácil')
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   if (value === 'Difícil') return 'border-rose-200 bg-rose-50 text-rose-700';
   return 'border-amber-200 bg-amber-50 text-amber-700';
 }
@@ -37,70 +163,795 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [subject, setSubject] = useState('Todas');
   const [open, setOpen] = useState(false);
+  const [questionType, setQuestionType] =
+    useState<Question['type']>('single_choice');
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const [active, setActive] = useState('Questões');
   const [curriculum, setCurriculum] = useState(curriculumDemo);
   const [discipline, setDiscipline] = useState('Química');
-  const [knowledgeObjectId, setKnowledgeObjectId] = useState(curriculumDemo[0].knowledge_object_id);
-  const visible = useMemo(() => questions.filter((q) => `${q.statement} ${q.code} ${q.skill}`.toLowerCase().includes(query.toLowerCase()) && (subject === 'Todas' || q.subject === subject)), [questions, query, subject]);
+  const [knowledgeObjectId, setKnowledgeObjectId] = useState(
+    curriculumDemo[0].knowledge_object_id || '',
+  );
+  const visible = useMemo(
+    () =>
+      questions.filter(
+        (q) =>
+          `${q.statement} ${q.code} ${q.skill} ${q.sourceInstitution} ${q.sourceYear}`
+            .toLowerCase()
+            .includes(query.toLowerCase()) &&
+          (subject === 'Todas' || q.subject === subject),
+      ),
+    [questions, query, subject],
+  );
 
   useEffect(() => {
     if (!apiUrl) return;
-    fetch(`${apiUrl}/api/questions`).then((response) => {
-      if (!response.ok) throw new Error('API indisponível');
-      return response.json();
-    }).then((body) => setQuestions(body.data)).catch(() => setNotice('API local indisponível; exibindo dados de demonstração.'));
+    fetch(`${apiUrl}/api/questions`)
+      .then((response) => {
+        if (!response.ok) throw new Error('API indisponível');
+        return response.json() as Promise<{ data: Question[] }>;
+      })
+      .then((body) => setQuestions(body.data))
+      .catch(() =>
+        setNotice('API local indisponível; exibindo dados de demonstração.'),
+      );
   }, []);
 
   useEffect(() => {
     if (!apiUrl) return;
-    fetch(`${apiUrl}/api/curriculum`).then((response) => response.ok ? response.json() : Promise.reject()).then((body) => body.data?.length && setCurriculum(body.data)).catch(() => undefined);
+    fetch(`${apiUrl}/api/curriculum`)
+      .then((response) =>
+        response.ok
+          ? (response.json() as Promise<{ data: CurriculumOption[] }>)
+          : Promise.reject(),
+      )
+      .then((body) => body.data?.length && setCurriculum(body.data))
+      .catch(() => undefined);
   }, []);
 
   async function createQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const correct = String(data.get('correct'));
-    const input = { statement: String(data.get('statement')), subject: String(data.get('subject')), grade: String(data.get('grade')), knowledgeObjectId: String(data.get('knowledgeObjectId')), skill: String(data.get('skill')), difficulty: String(data.get('difficulty')), alternatives: ['A', 'B', 'C', 'D'].map((letter, index) => ({ stableKey: `alt-${letter.toLowerCase()}`, content: String(data.get(`alternative_${letter}`)), isCorrect: correct === letter, position: index + 1 })) };
-    setSaving(true); setNotice('');
+    const correct = new Set(data.getAll('correct').map(String));
+    const input = {
+      type: questionType,
+      statement: String(data.get('statement')),
+      metapostCode: String(data.get('metapostCode')),
+      answerGuide: String(data.get('answerGuide')),
+      subject: String(data.get('subject')),
+      grade: String(data.get('grade')),
+      sourceInstitution: String(data.get('sourceInstitution')),
+      sourceYear: Number(data.get('sourceYear')),
+      knowledgeObjectId: String(data.get('knowledgeObjectId')),
+      skill: String(data.get('skill')),
+      difficulty: String(data.get('difficulty')),
+      alternatives:
+        questionType === 'essay'
+          ? []
+          : ['A', 'B', 'C', 'D'].map((letter, index) => ({
+              stableKey: `alt-${letter.toLowerCase()}`,
+              content: String(data.get(`alternative_${letter}`)),
+              isCorrect: correct.has(letter),
+              position: index + 1,
+            })),
+    };
+    setSaving(true);
+    setNotice('');
     try {
       if (apiUrl) {
-        const response = await fetch(`${apiUrl}/api/questions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error || 'Não foi possível salvar.');
+        const response = await fetch(`${apiUrl}/api/questions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(input),
+        });
+        const body = (await response.json()) as {
+          data: Question;
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(body.error || 'Não foi possível salvar.');
         setQuestions((current) => [body.data, ...current]);
         setNotice('Questão salva no PostgreSQL.');
       } else {
-        setQuestions((current) => [{ id: crypto.randomUUID(), code: `${input.subject === 'Química' ? 'QUI' : 'MAT'}-${String(current.length + 19).padStart(4, '0')}`, statement: input.statement, subject: input.subject, grade: input.grade, skill: input.skill || 'Não vinculada', knowledgeObject: curriculum.find((item) => item.knowledge_object_id === input.knowledgeObjectId)?.knowledge_object, difficulty: input.difficulty as Question['difficulty'], status: 'Rascunho', alternatives: 4, updatedAt: 'Agora' }, ...current]);
-        setNotice('Rascunho criado na demonstração. Configure a API para persistir no PostgreSQL.');
+        setQuestions((current) => [
+          {
+            id: crypto.randomUUID(),
+            code: `${input.subject === 'Química' ? 'QUI' : 'MAT'}-${String(current.length + 19).padStart(4, '0')}`,
+            statement: input.statement,
+            type: input.type,
+            subject: input.subject,
+            grade: input.grade,
+            sourceInstitution: input.sourceInstitution,
+            sourceYear: input.sourceYear,
+            skill: input.skill || 'Não vinculada',
+            knowledgeObject:
+              curriculum.find(
+                (item) => item.knowledge_object_id === input.knowledgeObjectId,
+              )?.knowledge_object || undefined,
+            difficulty: input.difficulty as Question['difficulty'],
+            status: 'Rascunho',
+            alternatives: 4,
+            updatedAt: 'Agora',
+          },
+          ...current,
+        ]);
+        setNotice(
+          'Rascunho criado na demonstração. Configure a API para persistir no PostgreSQL.',
+        );
       }
       setOpen(false);
-    } catch (error) { setNotice(error instanceof Error ? error.message : 'Erro ao salvar a questão.'); }
-    finally { setSaving(false); }
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : 'Erro ao salvar a questão.',
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
-  return <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
-      <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6"><span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]"><GraduationCap className="size-5" /></span><div><p className="font-display text-[17px] font-bold leading-tight">Caderno</p><p className="text-[11px] font-medium tracking-[.12em] text-slate-400">AVALIAÇÕES BNCC</p></div></div>
-      <nav aria-label="Navegação principal" className="flex-1 px-3 py-6"><p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">Espaço de trabalho</p>{nav.map(([label, Icon]) => <button key={label} onClick={() => (label === 'Questões' || label === 'Avaliações') && setActive(label)} className={`mb-1 flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition ${active === label ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/7 hover:text-white'}`}><Icon className="size-[18px]" />{label}{label === 'Questões' && <span className="ml-auto rounded-full bg-[var(--lime)] px-2 py-0.5 text-[10px] font-bold text-[var(--navy)]">248</span>}</button>)}</nav>
-      <div className="border-t border-white/10 p-3"><button className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7"><Settings className="size-[18px]" />Configurações</button><div className="mt-2 flex items-center gap-3 rounded-xl bg-white/6 p-3"><span className="grid size-9 place-items-center rounded-full bg-cyan-200 text-xs font-bold text-cyan-950">FM</span><div className="min-w-0"><p className="truncate text-sm font-semibold">Fabio Martins</p><p className="truncate text-xs text-slate-400">Professor</p></div><ChevronDown className="ml-auto size-4 text-slate-400" /></div></div>
-    </aside>
+  return (
+    <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
+        <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6">
+          <span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]">
+            <GraduationCap className="size-5" />
+          </span>
+          <div>
+            <p className="font-display text-[17px] font-bold leading-tight">
+              Caderno
+            </p>
+            <p className="text-[11px] font-medium tracking-[.12em] text-slate-400">
+              AVALIAÇÕES BNCC
+            </p>
+          </div>
+        </div>
+        <nav aria-label="Navegação principal" className="flex-1 px-3 py-6">
+          <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">
+            Espaço de trabalho
+          </p>
+          {nav.map(([label, Icon]) => (
+            <button
+              key={label}
+              onClick={() =>
+                (label === 'Questões' ||
+                  label === 'Planejamento' ||
+                  label === 'Avaliações') &&
+                setActive(label)
+              }
+              className={`mb-1 flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition ${active === label ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/7 hover:text-white'}`}
+            >
+              <Icon className="size-[18px]" />
+              {label}
+              {label === 'Questões' && (
+                <span className="ml-auto rounded-full bg-[var(--lime)] px-2 py-0.5 text-[10px] font-bold text-[var(--navy)]">
+                  248
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="border-t border-white/10 p-3">
+          <button className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7">
+            <Settings className="size-[18px]" />
+            Configurações
+          </button>
+          <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/6 p-3">
+            <span className="grid size-9 place-items-center rounded-full bg-cyan-200 text-xs font-bold text-cyan-950">
+              FM
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">Fabio Martins</p>
+              <p className="truncate text-xs text-slate-400">Professor</p>
+            </div>
+            <ChevronDown className="ml-auto size-4 text-slate-400" />
+          </div>
+        </div>
+      </aside>
 
-    <section className="lg:pl-[252px]">
-      <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/90 px-5 backdrop-blur-xl sm:px-8"><div className="lg:hidden"><span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-white"><GraduationCap className="size-5" /></span></div><div className="ml-auto flex items-center gap-2"><Button variant="ghost" size="icon" aria-label="Ajuda"><CircleHelp /></Button><div className="ml-2 hidden border-l border-slate-200 pl-4 sm:block"><p className="text-xs font-semibold">Colégio Horizonte</p><p className="text-[11px] text-slate-500">Ano letivo 2026</p></div></div></header>
-      {active === 'Avaliações' ? <AssessmentBuilder questions={questions} apiUrl={apiUrl} /> : <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">Banco institucional</p><h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">Banco de questões</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Cadastre unidades reutilizáveis, relacione habilidades da BNCC e prepare questões para qualquer formato de avaliação.</p></div><Button onClick={() => setOpen(true)} size="lg" className="h-11 bg-[var(--blue)] px-4 text-white shadow-sm hover:bg-blue-700"><Plus />Nova questão</Button></div>
-        {notice && <div role="status" className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">{notice}</div>}
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">{[['248','questões no acervo','+12 este mês'],['196','aprovadas','79% do acervo'],['37','habilidades cobertas','8 componentes']].map(([value,label,note], index) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)]"><div className="flex items-start justify-between"><div><p className="font-display text-3xl font-bold tracking-tight text-[var(--navy)]">{value}</p><p className="mt-1 text-sm font-medium text-slate-600">{label}</p></div><span className={`grid size-9 place-items-center rounded-xl ${index === 1 ? 'bg-emerald-50 text-emerald-600' : index === 2 ? 'bg-violet-50 text-violet-600' : 'bg-blue-50 text-blue-600'}`}>{index === 0 ? <LibraryBig className="size-4" /> : index === 1 ? <BookOpenCheck className="size-4" /> : <Sparkles className="size-4" />}</span></div><p className="mt-4 text-xs text-slate-400">{note}</p></article>)}</div>
-        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
-          <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={query} onChange={(e) => setQuery(e.target.value)} className="h-10 border-slate-200 bg-slate-50 pl-9" placeholder="Buscar por enunciado, código ou habilidade..." /></div><div className="flex flex-wrap gap-2"><label className="sr-only" htmlFor="subject">Componente</label><select id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-200"><option>Todas</option><option>Matemática</option><option>Língua Portuguesa</option><option>Ciências</option><option>História</option></select><Button variant="outline" className="h-10 px-3"><Filter />Filtros avançados</Button></div></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[920px] border-collapse text-left"><thead><tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-[.08em] text-slate-500"><th className="w-[47%] px-5 py-3">Questão</th><th className="px-4 py-3">BNCC</th><th className="px-4 py-3">Dificuldade</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Atualização</th><th className="w-12 px-3 py-3"><span className="sr-only">Ações</span></th></tr></thead><tbody>{visible.map((q) => <tr key={q.id} className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30"><td className="px-5 py-4"><div className="flex gap-3"><span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-[10px] font-bold text-slate-500">{q.alternatives}A</span><div><div className="mb-1 flex items-center gap-2"><span className="font-mono text-[11px] font-semibold text-[var(--blue)]">{q.code}</span><span className="text-[11px] text-slate-400">{q.subject} · {q.grade}</span></div><p className="max-w-2xl text-sm font-medium leading-5 text-slate-800">{q.statement}</p></div></div></td><td className="px-4 py-4"><Badge variant="outline" className="border-violet-200 bg-violet-50 font-mono text-violet-700">{q.skill}</Badge></td><td className="px-4 py-4"><Badge variant="outline" className={difficultyClass(q.difficulty)}>{q.difficulty}</Badge></td><td className="px-4 py-4"><span className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"><span className={`size-1.5 rounded-full ${q.status === 'Aprovada' ? 'bg-emerald-500' : q.status === 'Em revisão' ? 'bg-amber-500' : 'bg-slate-400'}`} />{q.status}</span></td><td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{q.updatedAt}</td><td className="px-3 py-4"><Button variant="ghost" size="icon-sm" aria-label={`Ações de ${q.code}`}><MoreHorizontal /></Button></td></tr>)}</tbody></table>{!visible.length && <div className="grid place-items-center px-6 py-16 text-center"><Search className="mb-3 size-7 text-slate-300" /><p className="font-semibold text-slate-700">Nenhuma questão encontrada</p><p className="mt-1 text-sm text-slate-400">Tente remover um filtro ou pesquisar outro termo.</p></div>}</div>
-          <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-xs text-slate-500"><span>Exibindo {visible.length} de {questions.length} questões desta demonstração</span><Button variant="ghost" size="sm">Ver acervo completo</Button></footer>
-        </section>
-      </div>}
-    </section>
+      <section className="lg:pl-[252px]">
+        <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/90 px-5 backdrop-blur-xl sm:px-8">
+          <div className="lg:hidden">
+            <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-white">
+              <GraduationCap className="size-5" />
+            </span>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="icon" aria-label="Ajuda">
+              <CircleHelp />
+            </Button>
+            <div className="ml-2 hidden border-l border-slate-200 pl-4 sm:block">
+              <p className="text-xs font-semibold">Colégio Horizonte</p>
+              <p className="text-[11px] text-slate-500">Ano letivo 2026</p>
+            </div>
+          </div>
+        </header>
+        {active === 'Avaliações' ? (
+          <AssessmentBuilder questions={questions} apiUrl={apiUrl} />
+        ) : active === 'Planejamento' ? (
+          <CurriculumManager
+            items={curriculum}
+            apiUrl={apiUrl}
+            onChange={setCurriculum}
+          />
+        ) : (
+          <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
+            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+              <div>
+                <p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">
+                  Banco institucional
+                </p>
+                <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
+                  Banco de questões
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-slate-500">
+                  Cadastre unidades reutilizáveis, relacione habilidades da BNCC
+                  e prepare questões para qualquer formato de avaliação.
+                </p>
+              </div>
+              <Button
+                onClick={() => setOpen(true)}
+                size="lg"
+                className="h-11 bg-[var(--blue)] px-4 text-white shadow-sm hover:bg-blue-700"
+              >
+                <Plus />
+                Nova questão
+              </Button>
+            </div>
+            {notice && (
+              <div
+                role="status"
+                className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+              >
+                {notice}
+              </div>
+            )}
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {[
+                ['248', 'questões no acervo', '+12 este mês'],
+                ['196', 'aprovadas', '79% do acervo'],
+                ['37', 'habilidades cobertas', '8 componentes'],
+              ].map(([value, label, note], index) => (
+                <article
+                  key={label}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)]"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-display text-3xl font-bold tracking-tight text-[var(--navy)]">
+                        {value}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-600">
+                        {label}
+                      </p>
+                    </div>
+                    <span
+                      className={`grid size-9 place-items-center rounded-xl ${index === 1 ? 'bg-emerald-50 text-emerald-600' : index === 2 ? 'bg-violet-50 text-violet-600' : 'bg-blue-50 text-blue-600'}`}
+                    >
+                      {index === 0 ? (
+                        <LibraryBig className="size-4" />
+                      ) : index === 1 ? (
+                        <BookOpenCheck className="size-4" />
+                      ) : (
+                        <Sparkles className="size-4" />
+                      )}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-xs text-slate-400">{note}</p>
+                </article>
+              ))}
+            </div>
+            <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
+              <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="h-10 border-slate-200 bg-slate-50 pl-9"
+                    placeholder="Buscar por enunciado, código ou habilidade..."
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <label className="sr-only" htmlFor="subject">
+                    Componente
+                  </label>
+                  <select
+                    id="subject"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option>Todas</option>
+                    <option>Matemática</option>
+                    <option>Língua Portuguesa</option>
+                    <option>Ciências</option>
+                    <option>História</option>
+                  </select>
+                  <Button variant="outline" className="h-10 px-3">
+                    <Filter />
+                    Filtros avançados
+                  </Button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[920px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-[.08em] text-slate-500">
+                      <th className="w-[47%] px-5 py-3">Questão</th>
+                      <th className="px-4 py-3">BNCC</th>
+                      <th className="px-4 py-3">Dificuldade</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Atualização</th>
+                      <th className="w-12 px-3 py-3">
+                        <span className="sr-only">Ações</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((q) => (
+                      <tr
+                        key={q.id}
+                        className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex gap-3">
+                            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-[10px] font-bold text-slate-500">
+                              {q.type === 'essay'
+                                ? 'DIS'
+                                : `${q.alternatives}A`}
+                            </span>
+                            <div>
+                              <div className="mb-1 flex items-center gap-2">
+                                <span className="font-mono text-[11px] font-semibold text-[var(--blue)]">
+                                  {q.code}
+                                </span>
+                                <span className="text-[11px] text-slate-400">
+                                  {q.subject} · {q.grade} ·{' '}
+                                  {q.sourceInstitution} {q.sourceYear}
+                                </span>
+                              </div>
+                              <p className="max-w-2xl text-sm font-medium leading-5 text-slate-800">
+                                {q.statement}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Badge
+                            variant="outline"
+                            className="border-violet-200 bg-violet-50 font-mono text-violet-700"
+                          >
+                            {q.skill}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Badge
+                            variant="outline"
+                            className={difficultyClass(q.difficulty)}
+                          >
+                            {q.difficulty}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                            <span
+                              className={`size-1.5 rounded-full ${q.status === 'Aprovada' ? 'bg-emerald-500' : q.status === 'Em revisão' ? 'bg-amber-500' : 'bg-slate-400'}`}
+                            />
+                            {q.status}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">
+                          {q.updatedAt}
+                        </td>
+                        <td className="px-3 py-4">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Ações de ${q.code}`}
+                          >
+                            <MoreHorizontal />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!visible.length && (
+                  <div className="grid place-items-center px-6 py-16 text-center">
+                    <Search className="mb-3 size-7 text-slate-300" />
+                    <p className="font-semibold text-slate-700">
+                      Nenhuma questão encontrada
+                    </p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Tente remover um filtro ou pesquisar outro termo.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-xs text-slate-500">
+                <span>
+                  Exibindo {visible.length} de {questions.length} questões desta
+                  demonstração
+                </span>
+                <Button variant="ghost" size="sm">
+                  Ver acervo completo
+                </Button>
+              </footer>
+            </section>
+          </div>
+        )}
+      </section>
 
-    {open && <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35 backdrop-blur-[2px]" role="presentation" onMouseDown={(e) => { if (e.currentTarget === e.target) setOpen(false) }}><section role="dialog" aria-modal="true" aria-labelledby="dialog-title" className="h-full w-full max-w-[620px] overflow-y-auto bg-white shadow-2xl"><header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5"><div><p className="text-xs font-bold uppercase tracking-[.13em] text-[var(--blue)]">Cadastro estruturado</p><h2 id="dialog-title" className="font-display mt-1 text-2xl font-bold text-[var(--navy)]">Nova questão</h2></div><Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Fechar"><X /></Button></header><form onSubmit={createQuestion} className="space-y-6 p-6"><div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900"><strong>Unidade reutilizável.</strong> Classificação curricular, conteúdo e gabarito são gravados juntos na revisão da questão, sem decisões de layout.</div><section><div className="mb-3"><p className="text-sm font-semibold">Classificação curricular</p><p className="mt-1 text-xs text-slate-500">Disciplina → Objeto de conhecimento → Habilidade BNCC</p></div><div className="grid gap-4 sm:grid-cols-2"><label className="block"><span className="mb-2 block text-sm font-semibold">Disciplina</span><select required name="subject" value={discipline} onChange={(event) => { const next = event.target.value; setDiscipline(next); setKnowledgeObjectId(curriculum.find((item) => item.subject === next)?.knowledge_object_id || ''); }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{[...new Set(curriculum.map((item) => item.subject))].map((item) => <option key={item}>{item}</option>)}</select></label><label className="block"><span className="mb-2 block text-sm font-semibold">Ano/Série</span><select name="grade" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{[...new Set(curriculum.filter((item) => item.subject === discipline).map((item) => item.grade_range))].map((item) => <option key={item}>{item}</option>)}</select></label><label className="block sm:col-span-2"><span className="mb-2 block text-sm font-semibold">Objeto de conhecimento</span><select required name="knowledgeObjectId" value={knowledgeObjectId} onChange={(event) => setKnowledgeObjectId(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{curriculum.filter((item, index, list) => item.subject === discipline && list.findIndex((candidate) => candidate.knowledge_object_id === item.knowledge_object_id) === index).map((item) => <option key={item.knowledge_object_id} value={item.knowledge_object_id}>{item.knowledge_object}</option>)}</select></label><label className="block sm:col-span-2"><span className="mb-2 block text-sm font-semibold">Habilidade BNCC</span><select required name="skill" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{curriculum.filter((item) => item.knowledge_object_id === knowledgeObjectId).map((item) => <option key={item.skill_code} value={item.skill_code}>{item.skill_code} — {item.skill_description}</option>)}</select></label><label className="block"><span className="mb-2 block text-sm font-semibold">Dificuldade</span><select name="difficulty" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option>Fácil</option><option>Média</option><option>Difícil</option></select></label></div></section><label className="block"><span className="mb-2 block text-sm font-semibold">Enunciado</span><textarea required name="statement" rows={6} className="w-full rounded-xl border border-slate-200 p-3 text-sm leading-6 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100" placeholder="Digite o texto da questão..." /></label><div><div className="mb-3 flex items-center justify-between"><span className="text-sm font-semibold">Alternativas e gabarito</span><Badge variant="secondary">Resposta única</Badge></div>{['A','B','C','D'].map((letter) => <label key={letter} className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3"><input required={letter === 'A'} type="radio" name="correct" value={letter} className="size-4 accent-blue-600" /><span className="grid size-7 place-items-center rounded-md bg-slate-100 text-xs font-bold">{letter}</span><Input required name={`alternative_${letter}`} className="border-0 shadow-none focus-visible:ring-0" placeholder={`Texto da alternativa ${letter}`} /></label>)}</div><footer className="flex justify-end gap-2 border-t border-slate-200 pt-5"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button disabled={saving} type="submit" className="bg-[var(--blue)] text-white hover:bg-blue-700">{saving ? 'Salvando...' : 'Salvar rascunho'}</Button></footer></form></section></div>}
-  </main>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-slate-950/35 backdrop-blur-[2px]"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.currentTarget === e.target) setOpen(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dialog-title"
+            className="h-full w-full max-w-[620px] overflow-y-auto bg-white shadow-2xl"
+          >
+            <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[.13em] text-[var(--blue)]">
+                  Cadastro estruturado
+                </p>
+                <h2
+                  id="dialog-title"
+                  className="font-display mt-1 text-2xl font-bold text-[var(--navy)]"
+                >
+                  Nova questão
+                </h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(false)}
+                aria-label="Fechar"
+              >
+                <X />
+              </Button>
+            </header>
+            <form onSubmit={createQuestion} className="space-y-6 p-6">
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                <strong>Unidade reutilizável.</strong> Classificação curricular,
+                conteúdo e gabarito são gravados juntos na revisão da questão,
+                sem decisões de layout.
+              </div>
+              <section>
+                <div className="mb-3">
+                  <p className="text-sm font-semibold">Tipo de questão</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    O tipo define as alternativas e a forma de correção; o
+                    t-basicexam cuida apenas da apresentação.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    ['single_choice', 'Resposta única'],
+                    ['multiple_choice', 'Múltiplas'],
+                    ['essay', 'Discursiva'],
+                  ].map(([value, label]) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={questionType === value ? 'default' : 'outline'}
+                      onClick={() => setQuestionType(value as Question['type'])}
+                      className={
+                        questionType === value
+                          ? 'bg-[var(--blue)] text-white'
+                          : ''
+                      }
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <div className="mb-3">
+                  <p className="text-sm font-semibold">
+                    Classificação curricular
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Disciplina → Objeto de conhecimento → Habilidade BNCC
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Disciplina
+                    </span>
+                    <select
+                      required
+                      name="subject"
+                      value={discipline}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setDiscipline(next);
+                        setKnowledgeObjectId(
+                          curriculum.find((item) => item.subject === next)
+                            ?.knowledge_object_id || '',
+                        );
+                      }}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      {[...new Set(curriculum.map((item) => item.subject))].map(
+                        (item) => (
+                          <option key={item}>{item}</option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Ano/Série
+                    </span>
+                    <select
+                      name="grade"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      {[
+                        ...new Set(
+                          curriculum
+                            .filter(
+                              (item) =>
+                                item.subject === discipline && item.grade_range,
+                            )
+                            .map((item) => item.grade_range as string),
+                        ),
+                      ].map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block sm:col-span-2">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Objeto de conhecimento
+                    </span>
+                    <select
+                      required
+                      name="knowledgeObjectId"
+                      value={knowledgeObjectId}
+                      onChange={(event) =>
+                        setKnowledgeObjectId(event.target.value)
+                      }
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      {curriculum
+                        .filter(
+                          (item, index, list) =>
+                            item.subject === discipline &&
+                            Boolean(item.knowledge_object_id) &&
+                            list.findIndex(
+                              (candidate) =>
+                                candidate.knowledge_object_id ===
+                                item.knowledge_object_id,
+                            ) === index,
+                        )
+                        .map((item) => (
+                          <option
+                            key={item.knowledge_object_id || item.subject}
+                            value={item.knowledge_object_id || ''}
+                          >
+                            {item.knowledge_object || 'Objeto sem nome'}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="block sm:col-span-2">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Habilidade BNCC
+                    </span>
+                    <select
+                      required
+                      name="skill"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      {curriculum
+                        .filter(
+                          (item) =>
+                            item.knowledge_object_id === knowledgeObjectId &&
+                            Boolean(item.skill_code),
+                        )
+                        .map((item) => (
+                          <option
+                            key={item.skill_code || item.knowledge_object_id}
+                            value={item.skill_code || ''}
+                          >
+                            {item.skill_code} — {item.skill_description}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Dificuldade
+                    </span>
+                    <select
+                      name="difficulty"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option>Fácil</option>
+                      <option>Média</option>
+                      <option>Difícil</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+              <section>
+                <div className="mb-3">
+                  <p className="text-sm font-semibold">Origem da questão</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Identificação da instituição proprietária e da prova
+                    anterior
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block sm:col-span-2">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Instituição proprietária
+                    </span>
+                    <Input
+                      readOnly
+                      value="Colégio Horizonte"
+                      className="bg-slate-50 text-slate-600"
+                    />
+                    <span className="mt-1.5 block text-xs text-slate-400">
+                      Definida pela conta autenticada e aplicada
+                      automaticamente.
+                    </span>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Instituição/Banca de origem
+                    </span>
+                    <Input
+                      required
+                      name="sourceInstitution"
+                      list="source-institutions"
+                      placeholder="Ex.: ENEM"
+                    />
+                    <datalist id="source-institutions">
+                      <option value="ENEM" />
+                      <option value="FUVEST" />
+                      <option value="UEMS" />
+                      <option value="UFMS" />
+                    </datalist>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold">
+                      Ano da prova
+                    </span>
+                    <Input
+                      required
+                      name="sourceYear"
+                      type="number"
+                      min="1900"
+                      max="2100"
+                      defaultValue="2024"
+                    />
+                  </label>
+                </div>
+              </section>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold">
+                  Enunciado
+                </span>
+                <textarea
+                  required
+                  name="statement"
+                  rows={6}
+                  className="w-full rounded-xl border border-slate-200 p-3 text-sm leading-6 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder="Digite o texto da questão..."
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold">
+                  Ilustração MetaPost (opcional)
+                </span>
+                <textarea
+                  name="metapostCode"
+                  rows={5}
+                  spellCheck={false}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder={
+                    'draw fullcircle scaled 2cm;\nlabel("A", origin);'
+                  }
+                />
+                <span className="mt-1.5 block text-xs leading-5 text-slate-400">
+                  O worker insere este bloco em startMPcode. Comandos de acesso
+                  externo, leitura de arquivos e execução de scripts são
+                  bloqueados.
+                </span>
+              </label>
+              {questionType !== 'essay' && (
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm font-semibold">
+                      Alternativas e gabarito
+                    </span>
+                    <Badge variant="secondary">
+                      {questionType === 'single_choice'
+                        ? 'Uma resposta correta'
+                        : 'Duas ou mais corretas'}
+                    </Badge>
+                  </div>
+                  {['A', 'B', 'C', 'D'].map((letter) => (
+                    <label
+                      key={letter}
+                      className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3"
+                    >
+                      <input
+                        required={
+                          questionType === 'single_choice' && letter === 'A'
+                        }
+                        type={
+                          questionType === 'single_choice'
+                            ? 'radio'
+                            : 'checkbox'
+                        }
+                        name="correct"
+                        value={letter}
+                        className="size-4 accent-blue-600"
+                      />
+                      <span className="grid size-7 place-items-center rounded-md bg-slate-100 text-xs font-bold">
+                        {letter}
+                      </span>
+                      <Input
+                        required
+                        name={`alternative_${letter}`}
+                        className="border-0 shadow-none focus-visible:ring-0"
+                        placeholder={`Texto da alternativa ${letter}`}
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold">
+                  {questionType === 'essay'
+                    ? 'Resposta esperada e critérios de correção'
+                    : 'Resolução comentada (opcional)'}
+                </span>
+                <textarea
+                  required={questionType === 'essay'}
+                  name="answerGuide"
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 p-3 text-sm leading-6 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder={
+                    questionType === 'essay'
+                      ? 'Descreva os elementos esperados na resposta e como atribuir os pontos.'
+                      : 'Explique a resposta para o gabarito do professor.'
+                  }
+                />
+              </label>
+              <footer className="flex justify-end gap-2 border-t border-slate-200 pt-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  disabled={saving}
+                  type="submit"
+                  className="bg-[var(--blue)] text-white hover:bg-blue-700"
+                >
+                  {saving ? 'Salvando...' : 'Salvar rascunho'}
+                </Button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
+    </main>
+  );
 }

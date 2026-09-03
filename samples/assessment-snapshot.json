@@ -5,30 +5,69 @@
     "title": "Avaliação bimestral — Matemática",
     "subject": "Matemática",
     "grade": "7º ano",
-    "instructions": ["Leia cada questão com atenção.", "Marque apenas uma alternativa por questão."]
+    "instructions": [
+      "Leia cada questão com atenção.",
+      "Marque apenas uma alternativa por questão."
+    ]
   },
   "institution": { "id": "demo", "name": "Colégio Horizonte" },
-  "version": { "id": "version-a", "code": "A", "seed": 24092026, "generatedAt": "2026-09-02T15:00:00Z" },
+  "version": {
+    "id": "version-a",
+    "code": "A",
+    "seed": 24092026,
+    "generatedAt": "2026-09-02T15:00:00Z"
+  },
   "candidateFields": ["name", "class", "number", "date"],
   "questions": [
     {
       "id": "snapshot-1",
       "sourceQuestionId": "question-18",
       "sourceRevision": 3,
+      "source": { "institution": "ENEM", "year": 2023 },
+      "difficulty": "easy",
       "number": 1,
       "type": "single_choice",
-      "statement": [{ "type": "paragraph", "text": "Uma escola organizou 240 livros em 8 estantes com a mesma quantidade. Quantos livros ficaram em cada estante?" }],
-      "alternatives": [
-        { "stableKey": "alt-a", "label": "A", "content": [{ "type": "paragraph", "text": "20" }] },
-        { "stableKey": "alt-b", "label": "B", "content": [{ "type": "paragraph", "text": "30" }] },
-        { "stableKey": "alt-c", "label": "C", "content": [{ "type": "paragraph", "text": "32" }] },
-        { "stableKey": "alt-d", "label": "D", "content": [{ "type": "paragraph", "text": "40" }] }
+      "statement": [
+        {
+          "type": "paragraph",
+          "text": "Uma escola organizou 240 livros em 8 estantes com a mesma quantidade. Quantos livros ficaram em cada estante?"
+        }
       ],
-      "answer": { "correctStableKeys": ["alt-b"], "explanation": [{ "type": "paragraph", "text": "240 ÷ 8 = 30." }] },
+      "alternatives": [
+        {
+          "stableKey": "alt-a",
+          "label": "A",
+          "content": [{ "type": "paragraph", "text": "20" }]
+        },
+        {
+          "stableKey": "alt-b",
+          "label": "B",
+          "content": [{ "type": "paragraph", "text": "30" }]
+        },
+        {
+          "stableKey": "alt-c",
+          "label": "C",
+          "content": [{ "type": "paragraph", "text": "32" }]
+        },
+        {
+          "stableKey": "alt-d",
+          "label": "D",
+          "content": [{ "type": "paragraph", "text": "40" }]
+        }
+      ],
+      "answer": {
+        "correctStableKeys": ["alt-b"],
+        "explanation": [{ "type": "paragraph", "text": "240 ÷ 8 = 30." }]
+      },
       "points": 1,
       "skills": [{ "code": "EF07MA02", "primary": true }]
     }
   ],
   "totals": { "points": 1, "questions": 1 },
-  "render": { "locale": "pt-BR", "paper": "A4", "mode": "student", "template": "basicexam-v1" }
+  "render": {
+    "locale": "pt-BR",
+    "paper": "A4",
+    "mode": "student",
+    "template": "basicexam-v1"
+  }
 }

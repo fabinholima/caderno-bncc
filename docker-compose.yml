@@ -6,15 +6,16 @@ services:
       POSTGRES_USER: caderno
       POSTGRES_PASSWORD: caderno_dev
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - caderno_pgdata:/var/lib/postgresql/data
       - ./database/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
       - ./database/002_demo_seed.sql:/docker-entrypoint-initdb.d/002_demo_seed.sql:ro
       - ./database/003_curriculum_hierarchy.sql:/docker-entrypoint-initdb.d/003_curriculum_hierarchy.sql:ro
       - ./database/004_curriculum_demo.sql:/docker-entrypoint-initdb.d/004_curriculum_demo.sql:ro
+      - ./database/005_question_source_metadata.sql:/docker-entrypoint-initdb.d/005_question_source_metadata.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U caderno -d caderno"]
+      test: ['CMD-SHELL', 'pg_isready -U caderno -d caderno']
       interval: 5s
       timeout: 3s
       retries: 10

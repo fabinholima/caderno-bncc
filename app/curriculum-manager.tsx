@@ -1,0 +1,460 @@
+'use client';
+
+import { FormEvent, useMemo, useState } from 'react';
+import {
+  BookMarked,
+  Check,
+  ChevronRight,
+  Layers3,
+  Plus,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+export type CurriculumOption = {
+  subject_id: string;
+  subject: string;
+  stage: string;
+  grade_range: string | null;
+  knowledge_object_id: string | null;
+  knowledge_object: string | null;
+  skill_id?: string | null;
+  skill_code: string | null;
+  skill_description: string | null;
+};
+
+type Mode = 'subject' | 'object' | 'skill';
+
+export function CurriculumManager({
+  items,
+  apiUrl,
+  onChange,
+}: {
+  items: CurriculumOption[];
+  apiUrl: string;
+  onChange: (items: CurriculumOption[]) => void;
+}) {
+  const [mode, setMode] = useState<Mode>('skill');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const subjects = useMemo(
+    () => [...new Map(items.map((item) => [item.subject_id, item])).values()],
+    [items],
+  );
+  const objects = useMemo(
+    () => [
+      ...new Map(
+        items
+          .filter((item) => item.knowledge_object_id)
+          .map((item) => [item.knowledge_object_id, item]),
+      ).values(),
+    ],
+    [items],
+  );
+  const skillCount = items.filter((item) => item.skill_code).length;
+  const metrics: Array<{ value: number; label: string; icon: LucideIcon }> = [
+    { value: subjects.length, label: 'disciplinas', icon: BookMarked },
+    { value: objects.length, label: 'objetos de conhecimento', icon: Layers3 },
+    { value: skillCount, label: 'habilidades cadastradas', icon: Sparkles },
+  ];
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const endpoint =
+      mode === 'subject'
+        ? 'subjects'
+        : mode === 'object'
+          ? 'knowledge-objects'
+          : 'skills';
+    const payload =
+      mode === 'subject'
+        ? { name: String(data.get('name')), stage: String(data.get('stage')) }
+        : mode === 'object'
+          ? {
+              subjectId: String(data.get('subjectId')),
+              name: String(data.get('name')),
+              gradeRange: String(data.get('gradeRange')),
+              description: String(data.get('description')),
+            }
+          : {
+              knowledgeObjectId: String(data.get('knowledgeObjectId')),
+              code: String(data.get('code')).toUpperCase(),
+              description: String(data.get('description')),
+            };
+    setSaving(true);
+    setMessage('');
+    try {
+      if (apiUrl) {
+        const response = await fetch(`${apiUrl}/api/curriculum/${endpoint}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const body = (await response.json()) as {
+          data?: unknown;
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(
+            body.error || 'Não foi possível salvar a classificação.',
+          );
+        const refreshed = (await fetch(`${apiUrl}/api/curriculum`).then(
+          (result) => result.json(),
+        )) as { data: CurriculumOption[] };
+        onChange(refreshed.data);
+        setMessage('Classificação salva no PostgreSQL.');
+      } else {
+        const id = crypto.randomUUID();
+        if (mode === 'subject')
+          onChange([
+            ...items,
+            {
+              subject_id: id,
+              subject: payload.name,
+              stage: payload.stage,
+              grade_range: null,
+              knowledge_object_id: null,
+              knowledge_object: null,
+              skill_code: null,
+              skill_description: null,
+            } as CurriculumOption,
+          ]);
+        if (mode === 'object') {
+          const subject = subjects.find(
+            (item) => item.subject_id === payload.subjectId,
+          )!;
+          onChange([
+            ...items,
+            {
+              subject_id: subject.subject_id,
+              subject: subject.subject,
+              stage: subject.stage,
+              grade_range: payload.gradeRange,
+              knowledge_object_id: id,
+              knowledge_object: payload.name,
+              skill_code: null,
+              skill_description: null,
+            } as CurriculumOption,
+          ]);
+        }
+        if (mode === 'skill') {
+          const object = objects.find(
+            (item) => item.knowledge_object_id === payload.knowledgeObjectId,
+          )!;
+          onChange([
+            ...items,
+            {
+              ...object,
+              skill_id: id,
+              skill_code: payload.code,
+              skill_description: payload.description,
+            } as CurriculumOption,
+          ]);
+        }
+        setMessage(
+          'Classificação adicionada à demonstração. A API persistirá o mesmo cadastro no PostgreSQL.',
+        );
+      }
+      form.reset();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao salvar a classificação.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
+      <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">
+            Planejamento curricular
+          </p>
+          <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
+            Estrutura BNCC
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-500">
+            Organize a taxonomia usada no banco de questões. Uma habilidade
+            pertence a um objeto, e o objeto pertence a uma disciplina.
+          </p>
+        </div>
+        <Badge
+          variant="outline"
+          className="w-fit border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700"
+        >
+          <Check className="mr-1 size-3" />
+          Hierarquia normalizada
+        </Badge>
+      </div>
+      <div className="mt-8 grid gap-5 sm:grid-cols-3">
+        {metrics.map(({ value, label, icon: Icon }) => (
+          <article
+            key={label}
+            className="rounded-2xl border border-slate-200 bg-white p-5"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-display text-3xl font-bold text-[var(--navy)]">
+                  {value}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">{label}</p>
+              </div>
+              <span className="grid size-9 place-items-center rounded-xl bg-blue-50 text-blue-600">
+                <Icon className="size-4" />
+              </span>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_430px]">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <header className="border-b border-slate-200 p-5">
+            <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+              Mapa curricular
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Relações disponíveis para classificar novas questões
+            </p>
+          </header>
+          <div className="divide-y divide-slate-100">
+            {subjects.map((subject) => (
+              <div key={subject.subject_id} className="p-5">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[var(--navy)]">
+                    {subject.subject}
+                  </span>
+                  <Badge variant="secondary">{subject.stage}</Badge>
+                </div>
+                <div className="mt-3 space-y-3">
+                  {objects
+                    .filter((item) => item.subject_id === subject.subject_id)
+                    .map((object) => (
+                      <div
+                        key={object.knowledge_object_id}
+                        className="rounded-xl border border-slate-200 bg-slate-50/60 p-4"
+                      >
+                        <div className="flex gap-2">
+                          <ChevronRight className="mt-0.5 size-4 shrink-0 text-blue-500" />
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">
+                              {object.knowledge_object}
+                            </p>
+                            <p className="mt-0.5 text-xs text-slate-400">
+                              {object.grade_range}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {items
+                            .filter(
+                              (item) =>
+                                item.knowledge_object_id ===
+                                  object.knowledge_object_id && item.skill_code,
+                            )
+                            .map((skill) => (
+                              <Badge
+                                key={skill.skill_code}
+                                variant="outline"
+                                title={skill.skill_description || ''}
+                                className="border-violet-200 bg-white font-mono text-violet-700"
+                              >
+                                {skill.skill_code}
+                              </Badge>
+                            ))}
+                          {!items.some(
+                            (item) =>
+                              item.knowledge_object_id ===
+                                object.knowledge_object_id && item.skill_code,
+                          ) && (
+                            <span className="text-xs text-slate-400">
+                              Nenhuma habilidade vinculada
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  {!objects.some(
+                    (item) => item.subject_id === subject.subject_id,
+                  ) && (
+                    <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
+                      Cadastre o primeiro objeto de conhecimento.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5">
+          <div>
+            <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+              Adicionar classificação
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Cadastre um nível por vez.
+            </p>
+          </div>
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            {(
+              [
+                ['subject', 'Disciplina'],
+                ['object', 'Objeto'],
+                ['skill', 'Habilidade'],
+              ] as const
+            ).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                variant={mode === value ? 'default' : 'outline'}
+                onClick={() => {
+                  setMode(value);
+                  setMessage('');
+                }}
+                className={mode === value ? 'bg-[var(--blue)] text-white' : ''}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <form key={mode} onSubmit={submit} className="mt-5 space-y-4">
+            {mode === 'subject' && (
+              <>
+                <Field label="Nome">
+                  <Input required name="name" placeholder="Ex.: Química" />
+                </Field>
+                <Field label="Etapa">
+                  <select
+                    required
+                    name="stage"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    <option>Ensino Fundamental</option>
+                    <option>Ensino Médio</option>
+                  </select>
+                </Field>
+              </>
+            )}
+            {mode === 'object' && (
+              <>
+                <Field label="Disciplina">
+                  <select
+                    required
+                    name="subjectId"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    {subjects.map((item) => (
+                      <option key={item.subject_id} value={item.subject_id}>
+                        {item.subject} — {item.stage}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Objeto de conhecimento">
+                  <Input
+                    required
+                    name="name"
+                    placeholder="Ex.: Transformações químicas"
+                  />
+                </Field>
+                <Field label="Ano/Série">
+                  <Input
+                    required
+                    name="gradeRange"
+                    placeholder="Ex.: 1ª série"
+                  />
+                </Field>
+                <Field label="Descrição (opcional)">
+                  <textarea
+                    name="description"
+                    rows={3}
+                    className="w-full rounded-lg border border-slate-200 p-3 text-sm"
+                  />
+                </Field>
+              </>
+            )}
+            {mode === 'skill' && (
+              <>
+                <Field label="Objeto de conhecimento">
+                  <select
+                    required
+                    name="knowledgeObjectId"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    {objects.map((item) => (
+                      <option
+                        key={item.knowledge_object_id}
+                        value={item.knowledge_object_id!}
+                      >
+                        {item.subject} · {item.knowledge_object}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Código BNCC">
+                  <Input
+                    required
+                    name="code"
+                    placeholder="Ex.: EM13CNT101"
+                    className="font-mono uppercase"
+                  />
+                </Field>
+                <Field label="Descrição da habilidade">
+                  <textarea
+                    required
+                    minLength={10}
+                    name="description"
+                    rows={5}
+                    className="w-full rounded-lg border border-slate-200 p-3 text-sm leading-6"
+                  />
+                </Field>
+              </>
+            )}
+            <Button
+              disabled={
+                saving ||
+                (mode === 'object' && !subjects.length) ||
+                (mode === 'skill' && !objects.length)
+              }
+              className="w-full bg-[var(--blue)] text-white hover:bg-blue-700"
+            >
+              <Plus />
+              {saving ? 'Salvando...' : 'Adicionar'}
+            </Button>
+            {message && (
+              <p
+                role="status"
+                className="rounded-lg bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800"
+              >
+                {message}
+              </p>
+            )}
+          </form>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold">{label}</span>
+      {children}
+    </label>
+  );
+}

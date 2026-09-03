@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node worker.mjs",
-    "test": "node --test render-contract.test.mjs"
+    "test": "node --test"
   },
   "dependencies": {
     "pg": "8.16.3"
