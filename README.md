@@ -1,5 +1,7 @@
 # Caderno — Avaliações BNCC
 
+[![CI](https://github.com/fabinholima/caderno-bncc/actions/workflows/ci.yml/badge.svg)](https://github.com/fabinholima/caderno-bncc/actions/workflows/ci.yml)
+
 Fatia funcional do portal: banco de questões, cadastro estruturado, API PostgreSQL e fila de renderização ConTeXt.
 
 ## Princípio central
