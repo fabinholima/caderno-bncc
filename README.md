@@ -14,6 +14,7 @@ A questão é uma unidade reutilizável e versionada. Enunciado, alternativas, r
 - `services/api/`: API HTTP validada para consultar e cadastrar questões;
 - `services/renderer/`: worker da fila que transforma snapshots em ConTeXt e PDF;
 - `database/`: modelo PostgreSQL multi-instituição e dados mínimos de desenvolvimento;
+- `docs/api.md`: contrato das rotas do MVP e exemplos de correção;
 - `lib/assessment-contract.ts`: contrato estável entre aplicação e renderizador;
 - `samples/assessment-snapshot.json`: exemplo completo do contrato;
 - `renderer/context/`: primeiro adaptador ConTeXt/t-basicexam;
@@ -66,6 +67,8 @@ Antes de marcar um trabalho como concluído, o worker confirma que os dois arqui
 Enquanto a API externa ainda não está ligada ao portal público, a tela de avaliações oferece um PDF demonstrativo de duas páginas, contendo a prova e o gabarito comentado.
 
 Os testes de contrato e validação rodam com `pnpm test:services`; o portal completo é verificado com `pnpm build`.
+
+A API também mantém revisões imutáveis de questões, consulta avaliações e registra respostas. A correção objetiva compara as letras com o gabarito da versão congelada; respostas discursivas são sinalizadas para revisão manual. O contrato completo está em `docs/api.md`.
 
 ## Decisões herdadas da filosofia do t-basicexam
 

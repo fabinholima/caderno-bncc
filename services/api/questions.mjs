@@ -90,6 +90,10 @@ export const createQuestionSchema = z
     }
   });
 
+export const questionStatusSchema = z.object({
+  status: z.enum(['draft', 'review', 'approved', 'archived']),
+});
+
 const difficultyToDb = { Fácil: 'easy', Média: 'medium', Difícil: 'hard' };
 const difficultyFromDb = { easy: 'Fácil', medium: 'Média', hard: 'Difícil' };
 const statusFromDb = {
@@ -150,9 +154,124 @@ export async function listQuestions({
   }));
 }
 
+export async function getQuestion({ institutionId, questionId }) {
+  const result = await pool.query({
+    text: `SELECT q.id, q.public_code, q.current_revision, q.status, q.updated_at,
+                  qr.type, qr.statement, qr.explanation, qr.difficulty,
+                  qr.default_points, qr.subject, qr.grade,
+                  qr.source_institution, qr.source_year,
+                  COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
+                    'stableKey', a.stable_key,
+                    'content', a.content,
+                    'isCorrect', a.is_correct,
+                    'position', a.position
+                  )) FILTER (WHERE a.id IS NOT NULL), '[]') AS alternatives,
+                  COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
+                    'id', cs.id,
+                    'code', cs.code,
+                    'description', cs.description,
+                    'isPrimary', qs.is_primary,
+                    'knowledgeObjectId', cs.knowledge_object_id
+                  )) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills
+           FROM questions q
+           JOIN question_revisions qr
+             ON qr.question_id = q.id AND qr.revision = q.current_revision
+           LEFT JOIN alternatives a
+             ON a.question_id = qr.question_id AND a.revision = qr.revision
+           LEFT JOIN question_skills qs
+             ON qs.question_id = qr.question_id AND qs.revision = qr.revision
+           LEFT JOIN curriculum_skills cs ON cs.id = qs.skill_id
+           WHERE q.id = $1 AND q.institution_id = $2
+           GROUP BY q.id, qr.question_id, qr.revision`,
+    values: [questionId, institutionId],
+  });
+  if (!result.rowCount) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    code: row.public_code,
+    revision: row.current_revision,
+    status: row.status,
+    type: row.type,
+    statement: row.statement,
+    explanation: row.explanation || [],
+    difficulty: row.difficulty,
+    defaultPoints: Number(row.default_points),
+    subject: row.subject,
+    grade: row.grade,
+    sourceInstitution: row.source_institution,
+    sourceYear: row.source_year,
+    alternatives: [...row.alternatives].sort((a, b) => a.position - b.position),
+    skills: row.skills,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function insertRevision({ client, questionId, revision, userId, value }) {
+  await client.query(
+    `INSERT INTO question_revisions
+       (question_id, revision, type, statement, explanation, difficulty, subject, grade, source_institution, source_year, authored_by)
+     VALUES ($1, $2, $3, $4::jsonb, NULLIF($5, '')::jsonb, $6, $7, $8, $9, $10, $11)`,
+    [
+      questionId,
+      revision,
+      value.type,
+      JSON.stringify(richStatement(value.statement, value.metapostCode)),
+      value.answerGuide
+        ? JSON.stringify([{ type: 'paragraph', text: value.answerGuide }])
+        : '',
+      difficultyToDb[value.difficulty],
+      value.subject,
+      value.grade,
+      value.sourceInstitution,
+      value.sourceYear,
+      userId,
+    ],
+  );
+  for (const alternative of value.alternatives) {
+    await client.query(
+      `INSERT INTO alternatives (question_id, revision, stable_key, content, is_correct, position)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6)`,
+      [
+        questionId,
+        revision,
+        alternative.stableKey,
+        JSON.stringify(richParagraph(alternative.content)),
+        alternative.isCorrect,
+        alternative.position,
+      ],
+    );
+  }
+  if (value.skill) {
+    const skill = await client.query(
+      `SELECT id FROM curriculum_skills
+       WHERE code = $1 AND subject = $2
+         AND ($3::uuid IS NULL OR knowledge_object_id = $3::uuid)
+       ORDER BY curriculum_version DESC LIMIT 1`,
+      [value.skill, value.subject, value.knowledgeObjectId || null],
+    );
+    if (!skill.rowCount)
+      throw Object.assign(
+        new Error(
+          'A habilidade informada não pertence à classificação selecionada.',
+        ),
+        { statusCode: 422 },
+      );
+    await client.query(
+      `INSERT INTO question_skills
+         (question_id, revision, skill_id, is_primary)
+       VALUES ($1, $2, $3, true)`,
+      [questionId, revision, skill.rows[0].id],
+    );
+  }
+}
+
 export async function createQuestion({ institutionId, userId, input }) {
   const value = createQuestionSchema.parse(input);
   return transaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
+      institutionId,
+    ]);
     const sequence = await client.query(
       'SELECT COUNT(*)::int + 1 AS next FROM questions WHERE institution_id = $1',
       [institutionId],
@@ -173,49 +292,13 @@ export async function createQuestion({ institutionId, userId, input }) {
        RETURNING id, public_code, status, updated_at`,
       [institutionId, publicCode, userId],
     );
-    await client.query(
-      `INSERT INTO question_revisions
-         (question_id, revision, type, statement, explanation, difficulty, subject, grade, source_institution, source_year, authored_by)
-       VALUES ($1, 1, $2, $3::jsonb, NULLIF($4, '')::jsonb, $5, $6, $7, $8, $9, $10)`,
-      [
-        question.rows[0].id,
-        value.type,
-        JSON.stringify(richStatement(value.statement, value.metapostCode)),
-        value.answerGuide
-          ? JSON.stringify([{ type: 'paragraph', text: value.answerGuide }])
-          : '',
-        difficultyToDb[value.difficulty],
-        value.subject,
-        value.grade,
-        value.sourceInstitution,
-        value.sourceYear,
-        userId,
-      ],
-    );
-    for (const alternative of value.alternatives) {
-      await client.query(
-        `INSERT INTO alternatives (question_id, revision, stable_key, content, is_correct, position)
-         VALUES ($1, 1, $2, $3::jsonb, $4, $5)`,
-        [
-          question.rows[0].id,
-          alternative.stableKey,
-          JSON.stringify(richParagraph(alternative.content)),
-          alternative.isCorrect,
-          alternative.position,
-        ],
-      );
-    }
-    if (value.skill) {
-      const skill = await client.query(
-        `SELECT id FROM curriculum_skills WHERE code = $1 AND subject = $2 AND ($3::uuid IS NULL OR knowledge_object_id = $3::uuid) ORDER BY curriculum_version DESC LIMIT 1`,
-        [value.skill, value.subject, value.knowledgeObjectId || null],
-      );
-      if (skill.rowCount)
-        await client.query(
-          'INSERT INTO question_skills (question_id, revision, skill_id, is_primary) VALUES ($1, 1, $2, true)',
-          [question.rows[0].id, skill.rows[0].id],
-        );
-    }
+    await insertRevision({
+      client,
+      questionId: question.rows[0].id,
+      revision: 1,
+      userId,
+      value,
+    });
     return {
       id: question.rows[0].id,
       code: publicCode,
@@ -233,4 +316,59 @@ export async function createQuestion({ institutionId, userId, input }) {
       updatedAt: 'Agora',
     };
   });
+}
+
+export async function createQuestionRevision({
+  institutionId,
+  userId,
+  questionId,
+  input,
+}) {
+  const value = createQuestionSchema.parse(input);
+  return transaction(async (client) => {
+    const question = await client.query(
+      `SELECT id, public_code, current_revision
+       FROM questions
+       WHERE id = $1 AND institution_id = $2
+       FOR UPDATE`,
+      [questionId, institutionId],
+    );
+    if (!question.rowCount)
+      throw Object.assign(new Error('Questão não encontrada.'), {
+        statusCode: 404,
+      });
+    const revision = question.rows[0].current_revision + 1;
+    await insertRevision({ client, questionId, revision, userId, value });
+    await client.query(
+      `UPDATE questions
+       SET current_revision = $2, status = 'draft', updated_at = now()
+       WHERE id = $1`,
+      [questionId, revision],
+    );
+    return {
+      id: questionId,
+      code: question.rows[0].public_code,
+      revision,
+      status: 'draft',
+    };
+  });
+}
+
+export async function setQuestionStatus({ institutionId, questionId, input }) {
+  const value = questionStatusSchema.parse(input);
+  const result = await pool.query(
+    `UPDATE questions
+     SET status = $3, updated_at = now()
+     WHERE id = $1 AND institution_id = $2
+     RETURNING id, public_code, current_revision, status, updated_at`,
+    [questionId, institutionId, value.status],
+  );
+  if (!result.rowCount) return null;
+  return {
+    id: result.rows[0].id,
+    code: result.rows[0].public_code,
+    revision: result.rows[0].current_revision,
+    status: result.rows[0].status,
+    updatedAt: result.rows[0].updated_at,
+  };
 }

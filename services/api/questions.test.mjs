@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createQuestionSchema } from './questions.mjs';
+import { createQuestionSchema, questionStatusSchema } from './questions.mjs';
 
 const baseQuestion = {
   type: 'single_choice',
@@ -72,4 +72,12 @@ test('bloqueia comandos MetaPost que acessam execução externa', () => {
       metapostCode: 'runscript "comando externo";',
     }),
   );
+});
+
+test('aceita somente estados previstos no fluxo editorial', () => {
+  assert.equal(
+    questionStatusSchema.parse({ status: 'approved' }).status,
+    'approved',
+  );
+  assert.throws(() => questionStatusSchema.parse({ status: 'deleted' }));
 });

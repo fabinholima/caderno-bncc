@@ -14,6 +14,7 @@ services:
       - ./database/003_curriculum_hierarchy.sql:/docker-entrypoint-initdb.d/003_curriculum_hierarchy.sql:ro
       - ./database/004_curriculum_demo.sql:/docker-entrypoint-initdb.d/004_curriculum_demo.sql:ro
       - ./database/005_question_source_metadata.sql:/docker-entrypoint-initdb.d/005_question_source_metadata.sql:ro
+      - ./database/006_assessment_submissions.sql:/docker-entrypoint-initdb.d/006_assessment_submissions.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U caderno -d caderno']
       interval: 5s

@@ -3,7 +3,7 @@ import {
   DEFAULT_RENDER_TEMPLATE,
   renderTemplateIds,
 } from '../../lib/render-templates.mjs';
-import { transaction } from './db.mjs';
+import { pool, transaction } from './db.mjs';
 
 export const createAssessmentSchema = z
   .object({
@@ -86,7 +86,8 @@ export async function createAssessment({ institutionId, userId, input }) {
              LEFT JOIN alternatives a ON a.question_id = q.id AND a.revision = qr.revision
              LEFT JOIN question_skills qs ON qs.question_id = q.id AND qs.revision = qr.revision
              LEFT JOIN curriculum_skills cs ON cs.id = qs.skill_id
-             WHERE q.institution_id = $1 AND q.id = ANY($2::uuid[])
+             WHERE q.institution_id = $1 AND q.status <> 'archived'
+               AND q.id = ANY($2::uuid[])
              GROUP BY q.id, qr.question_id, qr.revision`,
       values: [institutionId, questionIds],
     });
@@ -247,3 +248,86 @@ export async function createAssessment({ institutionId, userId, input }) {
 }
 
 export { seededShuffle };
+
+export async function listAssessments({ institutionId }) {
+  const result = await pool.query({
+    text: `SELECT a.id, a.title, a.subject, a.grade, a.status, a.created_at,
+                  COUNT(DISTINCT av.id)::int AS version_count,
+                  COUNT(DISTINCT rj.id) FILTER (WHERE rj.status = 'completed')::int AS completed_renders,
+                  COUNT(DISTINCT s.id)::int AS submission_count
+           FROM assessments a
+           LEFT JOIN assessment_versions av ON av.assessment_id = a.id
+           LEFT JOIN render_jobs rj ON rj.assessment_version_id = av.id
+           LEFT JOIN assessment_submissions s ON s.assessment_version_id = av.id
+           WHERE a.institution_id = $1
+           GROUP BY a.id
+           ORDER BY a.created_at DESC
+           LIMIT 100`,
+    values: [institutionId],
+  });
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    subject: row.subject,
+    grade: row.grade,
+    status: row.status,
+    versionCount: row.version_count,
+    completedRenders: row.completed_renders,
+    submissionCount: row.submission_count,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function getAssessment({ institutionId, assessmentId }) {
+  const assessment = await pool.query({
+    text: `SELECT id, title, subject, grade, instructions, status, created_at
+           FROM assessments
+           WHERE id = $1 AND institution_id = $2`,
+    values: [assessmentId, institutionId],
+  });
+  if (!assessment.rowCount) return null;
+  const versions = await pool.query({
+    text: `SELECT av.id, av.code, av.seed, av.snapshot, av.created_at,
+                  rj.id AS render_job_id, rj.template_version,
+                  rj.status AS render_status, rj.error_message,
+                  rj.created_at AS render_created_at,
+                  rj.completed_at AS render_completed_at,
+                  COUNT(s.id)::int AS submission_count
+           FROM assessment_versions av
+           LEFT JOIN render_jobs rj ON rj.assessment_version_id = av.id
+           LEFT JOIN assessment_submissions s ON s.assessment_version_id = av.id
+           WHERE av.assessment_id = $1
+           GROUP BY av.id, rj.id
+           ORDER BY av.code`,
+    values: [assessmentId],
+  });
+  const row = assessment.rows[0];
+  return {
+    id: row.id,
+    title: row.title,
+    subject: row.subject,
+    grade: row.grade,
+    instructions: row.instructions ? row.instructions.split('\n') : [],
+    status: row.status,
+    createdAt: row.created_at,
+    versions: versions.rows.map((version) => ({
+      id: version.id,
+      code: version.code,
+      seed: Number(version.seed),
+      snapshot: version.snapshot,
+      template: version.template_version,
+      submissionCount: version.submission_count,
+      createdAt: version.created_at,
+      renderJob: version.render_job_id
+        ? {
+            id: version.render_job_id,
+            status: version.render_status,
+            error:
+              version.render_status === 'failed' ? version.error_message : null,
+            createdAt: version.render_created_at,
+            completedAt: version.render_completed_at,
+          }
+        : null,
+    })),
+  };
+}

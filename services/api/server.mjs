@@ -1,8 +1,18 @@
 import { createServer } from 'node:http';
 import { ZodError } from 'zod';
 import { pool } from './db.mjs';
-import { createQuestion, listQuestions } from './questions.mjs';
-import { createAssessment } from './assessments.mjs';
+import {
+  createQuestion,
+  createQuestionRevision,
+  getQuestion,
+  listQuestions,
+  setQuestionStatus,
+} from './questions.mjs';
+import {
+  createAssessment,
+  getAssessment,
+  listAssessments,
+} from './assessments.mjs';
 import {
   createKnowledgeObject,
   createSkill,
@@ -11,6 +21,11 @@ import {
 } from './curriculum.mjs';
 import { getRenderFile, getRenderJobStatus } from './renders.mjs';
 import { renderTemplateCatalog } from '../../lib/render-templates.mjs';
+import {
+  createSubmission,
+  getSubmission,
+  listSubmissions,
+} from './submissions.mjs';
 
 const port = Number(process.env.PORT || 8788);
 const institutionId = process.env.DEMO_INSTITUTION_ID;
@@ -23,7 +38,7 @@ function json(response, status, body) {
     'content-type': 'application/json; charset=utf-8',
     'access-control-allow-origin': allowedOrigin,
     'access-control-allow-headers': 'content-type, authorization',
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
   });
   response.end(JSON.stringify(body));
 }
@@ -67,6 +82,43 @@ const server = createServer(async (request, response) => {
           subject: url.searchParams.get('subject') || '',
         }),
       });
+    const questionMatch = url.pathname.match(
+      /^\/api\/questions\/([0-9a-f-]{36})$/i,
+    );
+    if (request.method === 'GET' && questionMatch) {
+      const question = await getQuestion({
+        institutionId,
+        questionId: questionMatch[1],
+      });
+      if (!question)
+        return json(response, 404, { error: 'Questão não encontrada.' });
+      return json(response, 200, { data: question });
+    }
+    const revisionMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/revisions$/i);
+    if (revisionMatch)
+      return json(response, 201, {
+        data: await createQuestionRevision({
+          institutionId,
+          userId,
+          questionId: revisionMatch[1],
+          input: await readJson(request),
+        }),
+      });
+    const questionStatusMatch =
+      request.method === 'PATCH' &&
+      url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/status$/i);
+    if (questionStatusMatch) {
+      const question = await setQuestionStatus({
+        institutionId,
+        questionId: questionStatusMatch[1],
+        input: await readJson(request),
+      });
+      if (!question)
+        return json(response, 404, { error: 'Questão não encontrada.' });
+      return json(response, 200, { data: question });
+    }
     if (request.method === 'GET' && url.pathname === '/api/curriculum')
       return json(response, 200, {
         data: await listCurriculum({
@@ -133,6 +185,22 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
+    if (request.method === 'GET' && url.pathname === '/api/assessments')
+      return json(response, 200, {
+        data: await listAssessments({ institutionId }),
+      });
+    const assessmentMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/assessments\/([0-9a-f-]{36})$/i);
+    if (assessmentMatch) {
+      const assessment = await getAssessment({
+        institutionId,
+        assessmentId: assessmentMatch[1],
+      });
+      if (!assessment)
+        return json(response, 404, { error: 'Avaliação não encontrada.' });
+      return json(response, 200, { data: assessment });
+    }
     if (request.method === 'POST' && url.pathname === '/api/assessments')
       return json(response, 201, {
         data: await createAssessment({
@@ -141,6 +209,43 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
+    const submissionCreateMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/assessment-versions\/([0-9a-f-]{36})\/submissions$/i,
+      );
+    const submissionListMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/assessment-versions\/([0-9a-f-]{36})\/submissions$/i,
+      );
+    if (submissionListMatch)
+      return json(response, 200, {
+        data: await listSubmissions({
+          institutionId,
+          versionId: submissionListMatch[1],
+        }),
+      });
+    if (submissionCreateMatch)
+      return json(response, 201, {
+        data: await createSubmission({
+          institutionId,
+          versionId: submissionCreateMatch[1],
+          input: await readJson(request),
+        }),
+      });
+    const submissionMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/submissions\/([0-9a-f-]{36})$/i);
+    if (submissionMatch) {
+      const submission = await getSubmission({
+        institutionId,
+        submissionId: submissionMatch[1],
+      });
+      if (!submission)
+        return json(response, 404, { error: 'Correção não encontrada.' });
+      return json(response, 200, { data: submission });
+    }
     return json(response, 404, { error: 'Rota não encontrada.' });
   } catch (error) {
     if (error instanceof ZodError)
