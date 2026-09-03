@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { pool } from './db.mjs';
 import { createQuestion, listQuestions } from './questions.mjs';
 import { createAssessment } from './assessments.mjs';
+import { listCurriculum } from './curriculum.mjs';
 
 const port = Number(process.env.PORT || 8788);
 const institutionId = process.env.DEMO_INSTITUTION_ID;
@@ -29,6 +30,7 @@ const server = createServer(async (request, response) => {
     if (apiToken && request.headers.authorization !== `Bearer ${apiToken}`) return json(response, 401, { error: 'Acesso institucional não autorizado.' });
     if (!institutionId || !userId) return json(response, 503, { error: 'Identidade de desenvolvimento não configurada.' });
     if (request.method === 'GET' && url.pathname === '/api/questions') return json(response, 200, { data: await listQuestions({ institutionId, query: url.searchParams.get('q') || '', subject: url.searchParams.get('subject') || '' }) });
+    if (request.method === 'GET' && url.pathname === '/api/curriculum') return json(response, 200, { data: await listCurriculum({ subject: url.searchParams.get('subject') || '' }) });
     if (request.method === 'POST' && url.pathname === '/api/questions') return json(response, 201, { data: await createQuestion({ institutionId, userId, input: await readJson(request) }) });
     if (request.method === 'POST' && url.pathname === '/api/assessments') return json(response, 201, { data: await createAssessment({ institutionId, userId, input: await readJson(request) }) });
     return json(response, 404, { error: 'Rota não encontrada.' });

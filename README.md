@@ -32,6 +32,12 @@ Em produção, configure `API_TOKEN`; a API passa a exigir `Authorization: Beare
 
 `POST /api/assessments` congela a avaliação, cria entre uma e seis versões determinísticas, embaralha questões e alternativas por semente, preserva o gabarito pelas chaves estáveis e enfileira um PDF por versão.
 
+## Classificação curricular e gabarito
+
+O cadastro percorre `curriculum_subjects → knowledge_objects → curriculum_skills`. A questão aponta para a habilidade por `question_skills`; a habilidade aponta para seu objeto de conhecimento. Assim, nomes e descrições curriculares não são repetidos em cada questão e podem ser atualizados ou versionados centralmente.
+
+Cada alternativa pertence a `(question_id, revision)` e guarda uma `stable_key` imutável e `is_correct`. A letra A/B/C/D é apenas apresentação: quando alternativas são embaralhadas, o sistema mantém a resposta pela chave estável e calcula a nova letra somente no snapshot da avaliação.
+
 Os testes de contrato e validação rodam com `pnpm test:services`; o portal completo é verificado com `pnpm build`.
 
 ## Decisões herdadas da filosofia do t-basicexam

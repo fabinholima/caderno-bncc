@@ -8,6 +8,7 @@ export const createQuestionSchema = z.object({
   subject: z.string().trim().min(2).max(120),
   grade: z.string().trim().min(2).max(40),
   skill: z.string().trim().regex(/^[A-Z]{2}[0-9A-Z]{4,12}$/).optional().or(z.literal('')),
+  knowledgeObjectId: z.string().uuid().optional().or(z.literal('')),
   difficulty: z.enum(['Fácil', 'Média', 'Difícil']),
   alternatives: z.array(z.object({
     stableKey: z.string().regex(/^alt-[a-z]$/),
@@ -31,17 +32,19 @@ export async function listQuestions({ institutionId, query = '', subject = '' })
       SELECT q.id, q.public_code, q.status, q.updated_at,
              qr.statement, qr.subject, qr.grade, qr.difficulty,
              COALESCE(cs.code, 'Não vinculada') AS skill,
+             COALESCE(ko.name, 'Não vinculado') AS knowledge_object,
              COUNT(a.id)::int AS alternatives
       FROM questions q
       JOIN question_revisions qr ON qr.question_id = q.id AND qr.revision = q.current_revision
       LEFT JOIN question_skills qs ON qs.question_id = qr.question_id AND qs.revision = qr.revision AND qs.is_primary
       LEFT JOIN curriculum_skills cs ON cs.id = qs.skill_id
+      LEFT JOIN knowledge_objects ko ON ko.id = cs.knowledge_object_id
       LEFT JOIN alternatives a ON a.question_id = qr.question_id AND a.revision = qr.revision
       WHERE q.institution_id = $1
         AND ($2 = '' OR qr.subject = $2)
         AND ($3 = '' OR to_tsvector('portuguese', qr.statement::text) @@ plainto_tsquery('portuguese', $3)
              OR q.public_code ILIKE '%' || $3 || '%' OR cs.code ILIKE '%' || $3 || '%')
-      GROUP BY q.id, qr.question_id, qr.revision, cs.code
+      GROUP BY q.id, qr.question_id, qr.revision, cs.code, ko.name
       ORDER BY q.updated_at DESC
       LIMIT 100`,
     values: [institutionId, subject === 'Todas' ? '' : subject, query],
@@ -49,7 +52,7 @@ export async function listQuestions({ institutionId, query = '', subject = '' })
   return result.rows.map((row) => ({
     id: row.id, code: row.public_code,
     statement: row.statement?.[0]?.text ?? '', subject: row.subject, grade: row.grade,
-    skill: row.skill, difficulty: difficultyFromDb[row.difficulty], status: statusFromDb[row.status],
+    skill: row.skill, knowledgeObject: row.knowledge_object, difficulty: difficultyFromDb[row.difficulty], status: statusFromDb[row.status],
     alternatives: row.alternatives, updatedAt: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(row.updated_at),
   }));
 }
@@ -58,7 +61,7 @@ export async function createQuestion({ institutionId, userId, input }) {
   const value = createQuestionSchema.parse(input);
   return transaction(async (client) => {
     const sequence = await client.query('SELECT COUNT(*)::int + 1 AS next FROM questions WHERE institution_id = $1', [institutionId]);
-    const prefix = value.subject === 'Matemática' ? 'MAT' : value.subject === 'Ciências' ? 'CIE' : value.subject === 'História' ? 'HIS' : 'LP';
+    const prefix = value.subject === 'Matemática' ? 'MAT' : value.subject === 'Química' ? 'QUI' : value.subject === 'Ciências' ? 'CIE' : value.subject === 'História' ? 'HIS' : 'LP';
     const publicCode = `${prefix}-${String(sequence.rows[0].next).padStart(4, '0')}`;
     const question = await client.query(
       `INSERT INTO questions (institution_id, public_code, created_by) VALUES ($1, $2, $3)
@@ -77,9 +80,9 @@ export async function createQuestion({ institutionId, userId, input }) {
       );
     }
     if (value.skill) {
-      const skill = await client.query('SELECT id FROM curriculum_skills WHERE code = $1 ORDER BY curriculum_version DESC LIMIT 1', [value.skill]);
+      const skill = await client.query(`SELECT id FROM curriculum_skills WHERE code = $1 AND subject = $2 AND ($3::uuid IS NULL OR knowledge_object_id = $3::uuid) ORDER BY curriculum_version DESC LIMIT 1`, [value.skill, value.subject, value.knowledgeObjectId || null]);
       if (skill.rowCount) await client.query('INSERT INTO question_skills (question_id, revision, skill_id, is_primary) VALUES ($1, 1, $2, true)', [question.rows[0].id, skill.rows[0].id]);
     }
-    return { id: question.rows[0].id, code: publicCode, statement: value.statement, subject: value.subject, grade: value.grade, skill: value.skill || 'Não vinculada', difficulty: value.difficulty, status: 'Rascunho', alternatives: value.alternatives.length, updatedAt: 'Agora' };
+    return { id: question.rows[0].id, code: publicCode, statement: value.statement, subject: value.subject, grade: value.grade, skill: value.skill || 'Não vinculada', knowledgeObject: 'Vinculado pela habilidade', difficulty: value.difficulty, status: 'Rascunho', alternatives: value.alternatives.length, updatedAt: 'Agora' };
   });
 }
