@@ -29,10 +29,30 @@ export async function listCurriculum({ subject = '' } = {}) {
                   sk.id AS skill_id, sk.code AS skill_code, sk.description AS skill_description
            FROM curriculum_subjects cs
            LEFT JOIN knowledge_objects ko ON ko.subject_id = cs.id
-           LEFT JOIN curriculum_skills sk ON sk.knowledge_object_id = ko.id
+           LEFT JOIN skill_knowledge_objects sko ON sko.knowledge_object_id = ko.id
+           LEFT JOIN curriculum_skills sk ON sk.id = sko.skill_id
            WHERE ($1 = '' OR cs.name = $1)
            ORDER BY cs.name, ko.grade_range, ko.name, sk.code`,
     values: [subject],
+  });
+  return result.rows;
+}
+
+export async function listHighSchoolCurriculum({ area = '' } = {}) {
+  const result = await pool.query({
+    text: `SELECT ca.id AS area_id, ca.source_key AS area_source_key, ca.name AS area, ca.stage,
+                  cc.id AS competency_id, cc.number AS competency_number,
+                  cc.description AS competency_description,
+                  sk.id AS skill_id, sk.code AS skill_code,
+                  sk.description AS skill_description, sk.grade_range,
+                  sk.source_metadata
+           FROM curriculum_areas ca
+           JOIN curriculum_competencies cc ON cc.area_id = ca.id
+           LEFT JOIN skill_competencies sc ON sc.competency_id = cc.id
+           LEFT JOIN curriculum_skills sk ON sk.id = sc.skill_id
+           WHERE ($1 = '' OR ca.source_key = $1 OR ca.name = $1)
+           ORDER BY ca.name, cc.number, sk.code`,
+    values: [area],
   });
   return result.rows;
 }
@@ -96,5 +116,14 @@ export async function createSkill(input) {
       value.knowledgeObjectId,
     ],
   );
-  return result.rows[0];
+  const created = result.rows[0];
+  await pool.query('DELETE FROM skill_knowledge_objects WHERE skill_id = $1', [
+    created.skill_id,
+  ]);
+  await pool.query(
+    `INSERT INTO skill_knowledge_objects (skill_id, knowledge_object_id, position)
+     VALUES ($1, $2, 1)`,
+    [created.skill_id, value.knowledgeObjectId],
+  );
+  return created;
 }

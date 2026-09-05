@@ -68,6 +68,8 @@
     "locale": "pt-BR",
     "paper": "A4",
     "mode": "student",
-    "template": "basicexam-v1"
+    "template": "basicexam-v1",
+    "font": "plex",
+    "fontSize": 11
   }
 }

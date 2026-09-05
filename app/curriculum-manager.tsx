@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   BookMarked,
   Check,
@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { apiFetch } from '@/lib/api-client';
 
 export type CurriculumOption = {
   subject_id: string;
@@ -28,6 +29,49 @@ export type CurriculumOption = {
 
 type Mode = 'subject' | 'object' | 'skill';
 
+type HighSchoolItem = {
+  area_source_key: string;
+  area_id: string;
+  area: string;
+  stage: string;
+  competency_id: string;
+  competency_number: number;
+  competency_description: string;
+  skill_id: string;
+  skill_code: string;
+  skill_description: string;
+};
+
+type PedagogicalDiscipline = {
+  id: string;
+  name: string;
+  area_source_key: string;
+  skills: Array<{ id: string; code: string }>;
+};
+
+type EducationStage = 'Ensino Fundamental' | 'Ensino Médio';
+
+type SaebMatrix = {
+  id: string;
+  name: string;
+  subject: string;
+  grade_range: string;
+  version: string;
+  source_url: string;
+  topic_count: number;
+  descriptor_count: number;
+};
+
+type SaebDescriptor = {
+  id: string;
+  code: string;
+  description: string;
+  topic_code: string;
+  topic_id: string;
+  topic: string;
+  matrix_id: string;
+};
+
 export function CurriculumManager({
   items,
   apiUrl,
@@ -38,23 +82,148 @@ export function CurriculumManager({
   onChange: (items: CurriculumOption[]) => void;
 }) {
   const [mode, setMode] = useState<Mode>('skill');
+  const [educationStage, setEducationStage] =
+    useState<EducationStage>('Ensino Fundamental');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [highSchool, setHighSchool] = useState<HighSchoolItem[]>([]);
+  const [saebMatrices, setSaebMatrices] = useState<SaebMatrix[]>([]);
+  const [saebDescriptors, setSaebDescriptors] = useState<SaebDescriptor[]>([]);
+  const [selectedSaebMatrix, setSelectedSaebMatrix] = useState('');
+  const [pedagogicalDisciplines, setPedagogicalDisciplines] = useState<
+    PedagogicalDiscipline[]
+  >([]);
+  const [selectedChemistrySkills, setSelectedChemistrySkills] = useState<
+    Set<string>
+  >(new Set());
+  const [chemistrySaving, setChemistrySaving] = useState(false);
+  const chemistry = pedagogicalDisciplines.find(
+    (item) => item.name === 'Química',
+  );
+  const natureHighSchool = highSchool.filter(
+    (item) => item.area_source_key === 'em-area-cnt',
+  );
+
+  const refreshPedagogicalDisciplines = async () => {
+    if (!apiUrl) return;
+    const body = (await apiFetch(
+      `${apiUrl}/api/curriculum/pedagogical-disciplines`,
+    ).then((response) => response.json())) as {
+      data: PedagogicalDiscipline[];
+    };
+    setPedagogicalDisciplines(body.data || []);
+    const saved = body.data?.find((item) => item.name === 'Química');
+    setSelectedChemistrySkills(
+      new Set(saved?.skills.map((skill) => skill.id) || []),
+    );
+  };
+  useEffect(() => {
+    if (!apiUrl) return;
+    apiFetch(`${apiUrl}/api/curriculum/high-school`)
+      .then(
+        (response) => response.json() as Promise<{ data: HighSchoolItem[] }>,
+      )
+      .then((body) => setHighSchool(body.data || []))
+      .catch(() => undefined);
+  }, [apiUrl]);
+  useEffect(() => {
+    if (!apiUrl) return;
+    apiFetch(`${apiUrl}/api/curriculum/saeb/matrices`)
+      .then((response) => response.json() as Promise<{ data: SaebMatrix[] }>)
+      .then((body) => {
+        setSaebMatrices(body.data || []);
+        setSelectedSaebMatrix((current) => current || body.data?.[0]?.id || '');
+      })
+      .catch(() => undefined);
+  }, [apiUrl]);
+  useEffect(() => {
+    if (!apiUrl || !selectedSaebMatrix) return;
+    apiFetch(
+      `${apiUrl}/api/curriculum/saeb/descriptors?matrixId=${encodeURIComponent(selectedSaebMatrix)}`,
+    )
+      .then(
+        (response) => response.json() as Promise<{ data: SaebDescriptor[] }>,
+      )
+      .then((body) => setSaebDescriptors(body.data || []))
+      .catch(() => undefined);
+  }, [apiUrl, selectedSaebMatrix]);
+  useEffect(() => {
+    refreshPedagogicalDisciplines().catch(() => undefined);
+  }, [apiUrl]);
+
+  async function activateChemistry() {
+    setChemistrySaving(true);
+    setMessage('');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/curriculum/pedagogical-disciplines`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Química',
+            areaSourceKey: 'em-area-cnt',
+          }),
+        },
+      );
+      if (!response.ok) throw new Error('Não foi possível ativar Química.');
+      await refreshPedagogicalDisciplines();
+      setMessage('Módulo pedagógico de Química ativado.');
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Erro ao ativar Química.',
+      );
+    } finally {
+      setChemistrySaving(false);
+    }
+  }
+
+  async function saveChemistrySkills() {
+    if (!chemistry) return;
+    setChemistrySaving(true);
+    setMessage('');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/curriculum/pedagogical-disciplines/${chemistry.id}/skills`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ skillIds: [...selectedChemistrySkills] }),
+        },
+      );
+      if (!response.ok)
+        throw new Error('Não foi possível salvar as habilidades.');
+      await refreshPedagogicalDisciplines();
+      setMessage('Habilidades pedagógicas de Química atualizadas.');
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Erro ao salvar habilidades.',
+      );
+    } finally {
+      setChemistrySaving(false);
+    }
+  }
+  const stageItems = useMemo(
+    () => items.filter((item) => item.stage === educationStage),
+    [items, educationStage],
+  );
   const subjects = useMemo(
-    () => [...new Map(items.map((item) => [item.subject_id, item])).values()],
-    [items],
+    () => [
+      ...new Map(stageItems.map((item) => [item.subject_id, item])).values(),
+    ],
+    [stageItems],
   );
   const objects = useMemo(
     () => [
       ...new Map(
-        items
+        stageItems
           .filter((item) => item.knowledge_object_id)
           .map((item) => [item.knowledge_object_id, item]),
       ).values(),
     ],
-    [items],
+    [stageItems],
   );
-  const skillCount = items.filter((item) => item.skill_code).length;
+  const skillCount = stageItems.filter((item) => item.skill_code).length;
   const metrics: Array<{ value: number; label: string; icon: LucideIcon }> = [
     { value: subjects.length, label: 'disciplinas', icon: BookMarked },
     { value: objects.length, label: 'objetos de conhecimento', icon: Layers3 },
@@ -90,11 +259,14 @@ export function CurriculumManager({
     setMessage('');
     try {
       if (apiUrl) {
-        const response = await fetch(`${apiUrl}/api/curriculum/${endpoint}`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        const response = await apiFetch(
+          `${apiUrl}/api/curriculum/${endpoint}`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          },
+        );
         const body = (await response.json()) as {
           data?: unknown;
           error?: string;
@@ -103,7 +275,7 @@ export function CurriculumManager({
           throw new Error(
             body.error || 'Não foi possível salvar a classificação.',
           );
-        const refreshed = (await fetch(`${apiUrl}/api/curriculum`).then(
+        const refreshed = (await apiFetch(`${apiUrl}/api/curriculum`).then(
           (result) => result.json(),
         )) as { data: CurriculumOption[] };
         onChange(refreshed.data);
@@ -195,6 +367,23 @@ export function CurriculumManager({
           Hierarquia normalizada
         </Badge>
       </div>
+      <div className="mt-7 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        {(['Ensino Fundamental', 'Ensino Médio'] as const).map((stage) => (
+          <Button
+            key={stage}
+            type="button"
+            variant="ghost"
+            onClick={() => setEducationStage(stage)}
+            className={
+              educationStage === stage
+                ? 'bg-[var(--navy)] text-white hover:bg-[var(--navy)] hover:text-white'
+                : 'text-slate-600'
+            }
+          >
+            {stage}
+          </Button>
+        ))}
+      </div>
       <div className="mt-8 grid gap-5 sm:grid-cols-3">
         {metrics.map(({ value, label, icon: Icon }) => (
           <article
@@ -215,6 +404,236 @@ export function CurriculumManager({
           </article>
         ))}
       </div>
+      {educationStage === 'Ensino Médio' && highSchool.length > 0 && (
+        <section className="mt-6 rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+                Ensino Médio — áreas oficiais da BNCC
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Estrutura oficial da BNCC, sem seriação e sem objetos de
+                conhecimento artificiais.
+              </p>
+            </div>
+            <Badge
+              variant="outline"
+              className="border-violet-200 bg-white text-violet-700"
+            >
+              {new Set(highSchool.map((item) => item.skill_code)).size}{' '}
+              habilidades
+            </Badge>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            {[
+              ...new Map(
+                highSchool.map((item) => [item.competency_id, item]),
+              ).values(),
+            ].map((competency) => (
+              <article
+                key={competency.competency_id}
+                className="rounded-xl border border-violet-100 bg-white p-4"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-violet-700">
+                  {competency.area} · Competência {competency.competency_number}
+                </p>
+                <p
+                  className="mt-2 line-clamp-4 text-xs leading-5 text-slate-600"
+                  title={competency.competency_description}
+                >
+                  {competency.competency_description}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {highSchool
+                    .filter(
+                      (item) => item.competency_id === competency.competency_id,
+                    )
+                    .map((item) => (
+                      <Badge
+                        key={item.skill_code}
+                        variant="outline"
+                        title={item.skill_description}
+                        className="font-mono text-violet-700"
+                      >
+                        {item.skill_code}
+                      </Badge>
+                    ))}
+                </div>
+              </article>
+            ))}
+          </div>
+          <p className="mt-4 text-xs leading-5 text-slate-500">
+            “Química” será uma etiqueta pedagógica local aplicada às habilidades
+            pertinentes; ela não altera a autoria oficial da área.
+          </p>
+          <div className="mt-5 border-t border-violet-200 pt-5">
+            {!chemistry ? (
+              <Button
+                type="button"
+                disabled={!apiUrl || chemistrySaving}
+                onClick={activateChemistry}
+                className="bg-violet-700 text-white hover:bg-violet-800"
+              >
+                <Plus /> Ativar módulo de Química
+              </Button>
+            ) : (
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-[var(--navy)]">
+                      Curadoria de Química
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Marque somente as habilidades que a instituição trabalhará
+                      em Química.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={chemistrySaving}
+                    onClick={saveChemistrySkills}
+                  >
+                    {chemistrySaving ? 'Salvando...' : 'Salvar seleção'}
+                  </Button>
+                </div>
+                <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {[
+                    ...new Map(
+                      natureHighSchool.map((item) => [item.skill_id, item]),
+                    ).values(),
+                  ].map((skill) => (
+                    <label
+                      key={skill.skill_id}
+                      className="flex gap-2 rounded-lg border border-violet-100 bg-white p-3 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedChemistrySkills.has(skill.skill_id)}
+                        onChange={(event) =>
+                          setSelectedChemistrySkills((current) => {
+                            const next = new Set(current);
+                            event.target.checked
+                              ? next.add(skill.skill_id)
+                              : next.delete(skill.skill_id);
+                            return next;
+                          })
+                        }
+                        className="mt-0.5 size-4 accent-violet-700"
+                      />
+                      <span>
+                        <strong className="font-mono text-violet-700">
+                          {skill.skill_code}
+                        </strong>
+                        <span className="mt-1 line-clamp-3 block leading-5 text-slate-600">
+                          {skill.skill_description}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+      {educationStage === 'Ensino Fundamental' && (
+        <section className="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+                Indicadores/descritores do SAEB
+              </h2>
+              <p className="mt-1 max-w-3xl text-sm text-slate-600">
+                Referência de avaliação externa para o Ensino Fundamental,
+                apresentada separadamente das habilidades curriculares da BNCC.
+              </p>
+            </div>
+            <Badge
+              variant="outline"
+              className="border-cyan-200 bg-white text-cyan-800"
+            >
+              Fonte oficial: Inep
+            </Badge>
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-[300px_1fr]">
+            <div>
+              <label
+                htmlFor="saeb-matrix"
+                className="text-xs font-bold uppercase tracking-wider text-slate-500"
+              >
+                Matriz e ano escolar
+              </label>
+              <select
+                id="saeb-matrix"
+                value={selectedSaebMatrix}
+                onChange={(event) => setSelectedSaebMatrix(event.target.value)}
+                className="mt-2 h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+              >
+                {saebMatrices.map((matrix) => (
+                  <option key={matrix.id} value={matrix.id}>
+                    {matrix.subject} · {matrix.grade_range}
+                  </option>
+                ))}
+              </select>
+              {saebMatrices.find((item) => item.id === selectedSaebMatrix) && (
+                <div className="mt-3 rounded-xl border border-cyan-100 bg-white p-3 text-xs leading-5 text-slate-600">
+                  <p>
+                    <strong>{saebDescriptors.length}</strong> descritores
+                    carregados
+                  </p>
+                  <p>
+                    {new Set(saebDescriptors.map((item) => item.topic_id))
+                      .size ||
+                      saebMatrices.find(
+                        (item) => item.id === selectedSaebMatrix,
+                      )?.topic_count}{' '}
+                    temas
+                  </p>
+                  <a
+                    href={
+                      saebMatrices.find(
+                        (item) => item.id === selectedSaebMatrix,
+                      )?.source_url
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block font-semibold text-cyan-800 underline"
+                  >
+                    Consultar documento do Inep
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="max-h-[430px] space-y-2 overflow-y-auto pr-1">
+              {saebDescriptors.map((descriptor) => (
+                <article
+                  key={descriptor.id}
+                  className="rounded-xl border border-cyan-100 bg-white p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <Badge className="shrink-0 bg-cyan-800 font-mono text-white">
+                      {descriptor.code}
+                    </Badge>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-cyan-800">
+                        {descriptor.topic}
+                      </p>
+                      <p className="mt-1 text-sm leading-5 text-slate-700">
+                        {descriptor.description}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {!saebDescriptors.length && (
+                <p className="rounded-xl border border-dashed border-cyan-200 bg-white p-5 text-sm text-slate-500">
+                  Importe as matrizes oficiais para visualizar os descritores.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
       <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_430px]">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <header className="border-b border-slate-200 p-5">
@@ -254,7 +673,7 @@ export function CurriculumManager({
                           </div>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {items
+                          {stageItems
                             .filter(
                               (item) =>
                                 item.knowledge_object_id ===
@@ -270,7 +689,7 @@ export function CurriculumManager({
                                 {skill.skill_code}
                               </Badge>
                             ))}
-                          {!items.some(
+                          {!stageItems.some(
                             (item) =>
                               item.knowledge_object_id ===
                                 object.knowledge_object_id && item.skill_code,
@@ -337,8 +756,7 @@ export function CurriculumManager({
                     name="stage"
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                   >
-                    <option>Ensino Fundamental</option>
-                    <option>Ensino Médio</option>
+                    <option>{educationStage}</option>
                   </select>
                 </Field>
               </>

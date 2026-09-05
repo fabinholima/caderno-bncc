@@ -13,6 +13,7 @@ const snapshot = {
         { stableKey: 'alt-b', label: 'B' },
       ],
       answer: { correctStableKeys: ['alt-b'] },
+      skills: [{ code: 'EM13CNT101', primary: true }],
     },
     {
       number: 2,
@@ -48,6 +49,9 @@ test('corrige respostas objetivas pela letra da versão congelada', () => {
   assert.equal(graded.maxScore, 6);
   assert.equal(graded.requiresManualReview, true);
   assert.equal(graded.result.items[0].status, 'correct');
+  assert.deepEqual(graded.result.items[0].skills, [
+    { code: 'EM13CNT101', primary: true },
+  ]);
   assert.equal(graded.result.items[2].status, 'pending_manual_review');
 });
 

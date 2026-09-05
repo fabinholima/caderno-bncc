@@ -7,9 +7,11 @@
   },
   "scripts": {
     "dev": "vinext dev",
+    "dev:lan": "vinext dev --hostname 0.0.0.0",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "test:services": "pnpm --filter @caderno/api test && pnpm --filter @caderno/renderer test",
+    "start:omr": "node services/omr/worker.mjs",
     "lint": "oxlint",
     "format": "oxfmt"
   },

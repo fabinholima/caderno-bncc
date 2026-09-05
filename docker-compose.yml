@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: caderno
       POSTGRES_PASSWORD: caderno_dev
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - caderno_pgdata:/var/lib/postgresql/data
       - ./database/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
@@ -15,6 +15,21 @@ services:
       - ./database/004_curriculum_demo.sql:/docker-entrypoint-initdb.d/004_curriculum_demo.sql:ro
       - ./database/005_question_source_metadata.sql:/docker-entrypoint-initdb.d/005_question_source_metadata.sql:ro
       - ./database/006_assessment_submissions.sql:/docker-entrypoint-initdb.d/006_assessment_submissions.sql:ro
+      - ./database/007_assessment_presets.sql:/docker-entrypoint-initdb.d/007_assessment_presets.sql:ro
+      - ./database/008_bncc_catalog.sql:/docker-entrypoint-initdb.d/008_bncc_catalog.sql:ro
+      - ./database/009_high_school_curriculum.sql:/docker-entrypoint-initdb.d/009_high_school_curriculum.sql:ro
+      - ./database/010_pedagogical_disciplines.sql:/docker-entrypoint-initdb.d/010_pedagogical_disciplines.sql:ro
+      - ./database/011_academic_roster.sql:/docker-entrypoint-initdb.d/011_academic_roster.sql:ro
+      - ./database/012_individual_assessment_applications.sql:/docker-entrypoint-initdb.d/012_individual_assessment_applications.sql:ro
+      - ./database/013_card_scans.sql:/docker-entrypoint-initdb.d/013_card_scans.sql:ro
+      - ./database/014_pdf_card_scans.sql:/docker-entrypoint-initdb.d/014_pdf_card_scans.sql:ro
+      - ./database/015_scan_submissions.sql:/docker-entrypoint-initdb.d/015_scan_submissions.sql:ro
+      - ./database/016_multipage_card_scans.sql:/docker-entrypoint-initdb.d/016_multipage_card_scans.sql:ro
+      - ./database/017_question_knowledge_topics.sql:/docker-entrypoint-initdb.d/017_question_knowledge_topics.sql:ro
+      - ./database/018_card_scan_review.sql:/docker-entrypoint-initdb.d/018_card_scan_review.sql:ro
+      - ./database/019_auth_subscriptions_audit.sql:/docker-entrypoint-initdb.d/019_auth_subscriptions_audit.sql:ro
+      - ./database/020_pedagogical_topics.sql:/docker-entrypoint-initdb.d/020_pedagogical_topics.sql:ro
+      - ./database/021_saeb_reference.sql:/docker-entrypoint-initdb.d/021_saeb_reference.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U caderno -d caderno']
       interval: 5s

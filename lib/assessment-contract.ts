@@ -1,7 +1,28 @@
 export type RichTextNode =
   | { type: 'paragraph'; text: string }
+  | { type: 'romanList'; items: string[] }
   | { type: 'math'; tex: string }
-  | { type: 'image'; assetId: string; alt: string }
+  | { type: 'contextFormula'; code: string }
+  | { type: 'contextInline'; code: string }
+  | { type: 'chemical'; formula: string }
+  | {
+      type: 'thermochemicalEquation';
+      equation: string;
+      temperature: string;
+      enthalpy: string;
+    }
+  | {
+      type: 'chemicalStructure';
+      preset: 'benzene' | 'cyclohexane';
+      caption?: string;
+    }
+  | {
+      type: 'image';
+      dataUrl?: string;
+      fileName?: string;
+      alt: string;
+      caption?: string;
+    }
   | { type: 'metapost'; code: string };
 
 export type AssessmentQuestionSnapshot = {
@@ -31,8 +52,22 @@ export type AssessmentRenderContract = {
     subject: string;
     grade: string;
     instructions: string[];
+    header?: {
+      institutionName: string;
+      teacherName: string;
+      className: string;
+      term: string;
+      date: string;
+      transcriptionPhrase?: string;
+    };
   };
-  institution: { id: string; name: string; logoAssetId?: string };
+  institution: {
+    id: string;
+    name: string;
+    logoAssetId?: string;
+    logoDataUrl?: string;
+    logoFileName?: string;
+  };
   version: { id: string; code: string; seed: number; generatedAt: string };
   candidateFields: Array<'name' | 'class' | 'number' | 'date'>;
   sections: Array<{
@@ -50,5 +85,8 @@ export type AssessmentRenderContract = {
     paper: 'A4' | 'A5';
     mode: 'student' | 'answer-key';
     template: string;
+    font: 'plex' | 'heros' | 'bonum' | 'schola' | 'libertinus';
+    fontSize: number;
+    showBnccSkills?: boolean;
   };
 };

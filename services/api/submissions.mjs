@@ -77,6 +77,10 @@ export function gradeSubmission(snapshot, input) {
         status: response?.text ? 'pending_manual_review' : 'unanswered',
         awardedPoints: null,
         maxPoints: points,
+        skills: (question.skills ?? []).map((skill) => ({
+          code: skill.code,
+          primary: Boolean(skill.primary),
+        })),
       };
     }
     const correctKeys = question.answer?.correctStableKeys ?? [];
@@ -98,6 +102,10 @@ export function gradeSubmission(snapshot, input) {
       correctLabels,
       awardedPoints: correct ? points : 0,
       maxPoints: points,
+      skills: (question.skills ?? []).map((skill) => ({
+        code: skill.code,
+        primary: Boolean(skill.primary),
+      })),
     };
   });
   return {

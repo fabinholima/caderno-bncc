@@ -7,10 +7,12 @@ import {
 
 test('expõe somente metadados seguros dos layouts registrados', () => {
   const templates = listRenderTemplates();
-  assert.equal(templates.length, 1);
+  assert.equal(templates.length, 2);
   assert.equal(templates[0].id, 'basicexam-v1');
   assert.equal(templates[0].engine, 'ConTeXt / LuaMetaTeX');
   assert.equal('render' in templates[0], false);
+  assert.equal(templates[1].id, 'simulado-v1');
+  assert.equal('render' in templates[1], false);
 });
 
 test('não aceita nome ou caminho de layout arbitrário', () => {

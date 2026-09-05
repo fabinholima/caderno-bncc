@@ -1,14 +1,41 @@
 import { z } from 'zod';
+import crypto from 'node:crypto';
 import {
   DEFAULT_RENDER_TEMPLATE,
+  DEFAULT_RENDER_FONT,
+  renderFontIds,
   renderTemplateIds,
 } from '../../lib/render-templates.mjs';
+import { assertInstitutionLimit } from './auth.mjs';
 import { pool, transaction } from './db.mjs';
+
+export const logoDataUrlSchema = z
+  .string()
+  .max(550_000)
+  .regex(
+    /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/,
+    'O logotipo deve ser uma imagem PNG ou JPEG válida.',
+  )
+  .refine((value) => {
+    const encoded = value.slice(value.indexOf(',') + 1);
+    return Buffer.byteLength(encoded, 'base64') <= 400_000;
+  }, 'O logotipo deve ter no máximo 400 KB.');
+
+export const assessmentHeaderSchema = z.object({
+  institutionName: z.string().trim().min(2).max(180),
+  teacherName: z.string().trim().max(160).default(''),
+  className: z.string().trim().max(80).default(''),
+  term: z.string().trim().max(80).default(''),
+  date: z.string().trim().max(40).default(''),
+  transcriptionPhrase: z.string().trim().max(240).default(''),
+  logoDataUrl: logoDataUrlSchema.optional().or(z.literal('')),
+});
 
 export const createAssessmentSchema = z
   .object({
     title: z.string().trim().min(5).max(180),
     grade: z.string().trim().min(2).max(40),
+    header: assessmentHeaderSchema.optional(),
     sections: z
       .array(
         z.object({
@@ -24,6 +51,9 @@ export const createAssessmentSchema = z
     versionCount: z.number().int().min(1).max(6),
     paper: z.enum(['A4', 'A5']).default('A4'),
     template: z.enum(renderTemplateIds).default(DEFAULT_RENDER_TEMPLATE),
+    font: z.enum(renderFontIds).default(DEFAULT_RENDER_FONT),
+    fontSize: z.number().int().min(10).max(16).default(11),
+    showBnccSkills: z.boolean().default(false),
     instructions: z
       .array(z.string().trim().min(1).max(500))
       .max(10)
@@ -64,6 +94,7 @@ function seededShuffle(items, seed) {
 }
 
 export async function createAssessment({ institutionId, userId, input }) {
+  await assertInstitutionLimit({ institutionId, kind: 'assessment' });
   const value = createAssessmentSchema.parse(input);
   const questionIds = value.sections.flatMap((section) => section.questionIds);
   const assessmentSubject =
@@ -78,7 +109,7 @@ export async function createAssessment({ institutionId, userId, input }) {
     const questions = await client.query({
       text: `SELECT q.id, q.current_revision, qr.type, qr.statement, qr.explanation, qr.default_points,
                     qr.subject, qr.grade,
-                    qr.source_institution, qr.source_year, qr.difficulty,
+                    qr.source_institution, qr.source_year, qr.difficulty, qr.knowledge_topic,
                     COALESCE(jsonb_agg(jsonb_build_object('stableKey', a.stable_key, 'content', a.content, 'isCorrect', a.is_correct) ORDER BY a.position) FILTER (WHERE a.id IS NOT NULL), '[]') AS alternatives,
                     COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', cs.code, 'primary', qs.is_primary)) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills
              FROM questions q
@@ -91,8 +122,13 @@ export async function createAssessment({ institutionId, userId, input }) {
              GROUP BY q.id, qr.question_id, qr.revision`,
       values: [institutionId, questionIds],
     });
-    if (questions.rowCount !== questionIds.length)
-      throw new Error('Uma ou mais questões não pertencem à instituição.');
+    if (questions.rowCount !== questionIds.length) {
+      const error = new Error(
+        'Uma ou mais questões estão arquivadas ou não pertencem à instituição.',
+      );
+      error.statusCode = 422;
+      throw error;
+    }
     const questionById = new Map(
       questions.rows.map((question) => [question.id, question]),
     );
@@ -122,6 +158,7 @@ export async function createAssessment({ institutionId, userId, input }) {
     );
     const versions = [];
     for (let index = 0; index < value.versionCount; index++) {
+      const versionId = crypto.randomUUID();
       const code = String.fromCharCode(65 + index);
       const seed = Date.now() + index * 7919;
       let questionNumber = 0;
@@ -151,6 +188,7 @@ export async function createAssessment({ institutionId, userId, input }) {
               year: question.source_year,
             },
             difficulty: question.difficulty,
+            knowledgeTopic: question.knowledge_topic,
             alternatives: alternatives.map((answer, answerIndex) => ({
               stableKey: answer.stableKey,
               label: String.fromCharCode(65 + answerIndex),
@@ -186,13 +224,34 @@ export async function createAssessment({ institutionId, userId, input }) {
           subject: assessmentSubject,
           grade: value.grade,
           instructions: value.instructions,
+          header: {
+            institutionName:
+              value.header?.institutionName || institution.rows[0].name,
+            teacherName: value.header?.teacherName || '',
+            className: value.header?.className || '',
+            term: value.header?.term || '',
+            date: value.header?.date || '',
+            transcriptionPhrase: value.header?.transcriptionPhrase || '',
+          },
         },
-        institution: { id: institutionId, name: institution.rows[0].name },
+        institution: {
+          id: institutionId,
+          name: value.header?.institutionName || institution.rows[0].name,
+          logoDataUrl: value.header?.logoDataUrl || undefined,
+        },
         version: {
-          id: crypto.randomUUID(),
+          id: versionId,
           code,
           seed,
           generatedAt: new Date().toISOString(),
+          qrPayload: `CB1:${versionId}:${crypto
+            .createHmac(
+              'sha256',
+              process.env.QR_SIGNING_SECRET || 'caderno-local-development',
+            )
+            .update(versionId)
+            .digest('hex')
+            .slice(0, 20)}`,
         },
         candidateFields: ['name', 'class', 'number', 'date'],
         sections: snapshotSections,
@@ -209,6 +268,9 @@ export async function createAssessment({ institutionId, userId, input }) {
           paper: value.paper,
           mode: 'student',
           template: value.template,
+          font: value.font,
+          fontSize: value.fontSize,
+          showBnccSkills: value.showBnccSkills,
         },
       };
       const answerKey = snapshotQuestions.map((question) => ({
@@ -218,8 +280,9 @@ export async function createAssessment({ institutionId, userId, input }) {
         manualReview: question.type === 'essay',
       }));
       const version = await client.query(
-        `INSERT INTO assessment_versions (assessment_id, code, seed, snapshot, answer_key) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb) RETURNING id`,
+        `INSERT INTO assessment_versions (id, assessment_id, code, seed, snapshot, answer_key) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb) RETURNING id`,
         [
+          versionId,
           assessment.rows[0].id,
           code,
           seed,
@@ -238,6 +301,15 @@ export async function createAssessment({ institutionId, userId, input }) {
         renderJobId: renderJob.rows[0].id,
       });
     }
+    await client.query(
+      `INSERT INTO usage_events(institution_id,user_id,kind,metadata)
+       VALUES($1,$2,'assessment',$3::jsonb)`,
+      [
+        institutionId,
+        userId,
+        JSON.stringify({ assessmentId: assessment.rows[0].id }),
+      ],
+    );
     return {
       id: assessment.rows[0].id,
       title: value.title,

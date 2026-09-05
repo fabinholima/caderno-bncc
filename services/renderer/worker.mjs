@@ -24,10 +24,18 @@ async function claimJob() {
   try {
     await client.query('BEGIN');
     const result = await client.query(`
-      SELECT rj.id, rj.template_version, av.snapshot
+      SELECT rj.id, rj.template_version, av.snapshot,
+             aps.qr_payload, s.name AS student_name, s.registration,
+             ce.number AS student_number, c.name AS class_name
       FROM render_jobs rj
       JOIN assessment_versions av ON av.id = rj.assessment_version_id
+      LEFT JOIN application_students aps ON aps.id = rj.application_student_id
+      LEFT JOIN students s ON s.id = aps.student_id
+      LEFT JOIN assessment_applications aa ON aa.id = aps.application_id
+      LEFT JOIN classes c ON c.id = aa.class_id
+      LEFT JOIN class_enrollments ce ON ce.class_id = c.id AND ce.student_id = s.id
       WHERE rj.status = 'queued' AND rj.renderer = 'context-lmtx'
+        AND (aps.id IS NULL OR aa.status <> 'cancelled')
       ORDER BY rj.created_at
       FOR UPDATE OF rj SKIP LOCKED LIMIT 1`);
     if (!result.rowCount) {
@@ -101,19 +109,183 @@ export async function validatePdf(file) {
   return metadata.size;
 }
 
+export async function compileAndValidate(source, cwd, resultName) {
+  const pdf = path.join(cwd, `${resultName}.pdf`);
+  await compile(source, cwd, resultName);
+  try {
+    return await validatePdf(pdf);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    // A primeira execução de uma instalação nova pode apenas gerar formatos e
+    // caches de fontes. Nesse caso, uma segunda passagem produz o documento.
+    await compile(source, cwd, resultName);
+    return validatePdf(pdf);
+  }
+}
+
+export async function materializeInstitutionLogo(snapshot, directory) {
+  const dataUrl = snapshot.institution?.logoDataUrl;
+  if (!dataUrl) return snapshot;
+  const match = dataUrl.match(
+    /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/,
+  );
+  if (!match) throw new Error('Logotipo institucional inválido.');
+  const contents = Buffer.from(match[2], 'base64');
+  if (!contents.length || contents.length > 400_000)
+    throw new Error('Logotipo institucional vazio ou maior que 400 KB.');
+  const isPng =
+    match[1] === 'png' &&
+    contents.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+  const isJpeg =
+    match[1] === 'jpeg' &&
+    contents[0] === 0xff &&
+    contents[1] === 0xd8 &&
+    contents.at(-2) === 0xff &&
+    contents.at(-1) === 0xd9;
+  if (!isPng && !isJpeg)
+    throw new Error('O conteúdo do logotipo não corresponde a PNG ou JPEG.');
+  const fileName = `institution-logo.${isPng ? 'png' : 'jpg'}`;
+  await writeFile(path.join(directory, fileName), contents);
+  return {
+    ...snapshot,
+    institution: {
+      ...snapshot.institution,
+      logoDataUrl: undefined,
+      logoFileName: fileName,
+    },
+  };
+}
+
+export async function materializeQuestionImages(snapshot, directory) {
+  let imageNumber = 0;
+  const materializeNodes = async (nodes = []) =>
+    Promise.all(
+      nodes.map(async (node) => {
+        if (node.type !== 'image') return node;
+        const match = String(node.dataUrl ?? '').match(
+          /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/,
+        );
+        if (!match) throw new Error('Imagem de questão inválida.');
+        const contents = Buffer.from(match[2], 'base64');
+        if (!contents.length || contents.length > 400_000)
+          throw new Error('Imagem de questão vazia ou maior que 400 KB.');
+        const isPng =
+          match[1] === 'png' &&
+          contents
+            .subarray(0, 8)
+            .equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+        const isJpeg =
+          match[1] === 'jpeg' &&
+          contents[0] === 0xff &&
+          contents[1] === 0xd8 &&
+          contents.at(-2) === 0xff &&
+          contents.at(-1) === 0xd9;
+        if (!isPng && !isJpeg)
+          throw new Error(
+            'O conteúdo da imagem não corresponde a PNG ou JPEG.',
+          );
+        imageNumber += 1;
+        const fileName = `question-image-${imageNumber}.${isPng ? 'png' : 'jpg'}`;
+        await writeFile(path.join(directory, fileName), contents);
+        return { ...node, dataUrl: undefined, fileName };
+      }),
+    );
+  const sections = [];
+  for (const section of snapshot.sections ?? []) {
+    const questions = [];
+    for (const question of section.questions ?? []) {
+      const alternatives = [];
+      for (const alternative of question.alternatives ?? [])
+        alternatives.push({
+          ...alternative,
+          content: await materializeNodes(alternative.content),
+        });
+      questions.push({
+        ...question,
+        statement: await materializeNodes(question.statement),
+        alternatives,
+        answer: {
+          ...question.answer,
+          explanation: await materializeNodes(question.answer?.explanation),
+        },
+      });
+    }
+    sections.push({ ...section, questions });
+  }
+  return {
+    ...snapshot,
+    sections,
+    questions: sections.flatMap((section) => section.questions),
+  };
+}
+
+export async function materializeVersionQr(snapshot, directory) {
+  const payload = String(snapshot.version?.qrPayload || '');
+  if (!payload) return snapshot;
+  if (!/^CBS?1:[0-9a-f-]{36}:[0-9a-f]{20}$/.test(payload))
+    throw new Error('Identificador QR inválido.');
+  const fileName = 'assessment-qr.png';
+  await new Promise((resolve, reject) => {
+    const child = spawn('zint', [
+      '--barcode=58',
+      `--data=${payload}`,
+      '--scale=3',
+      '--border=2',
+      `--output=${path.join(directory, fileName)}`,
+    ]);
+    let error = '';
+    child.stderr.on('data', (chunk) => (error += chunk));
+    child.on('error', reject);
+    child.on('close', (code) =>
+      code === 0
+        ? resolve()
+        : reject(new Error(error || `Zint terminou com código ${code}.`)),
+    );
+  });
+  return {
+    ...snapshot,
+    version: { ...snapshot.version, qrFileName: fileName },
+  };
+}
+
 export async function render(job) {
   const directory = path.join(outputRoot, job.id);
   await mkdir(directory, { recursive: true });
+  await mkdir(path.join(outputRoot, '.tex-cache'), { recursive: true });
+  const personalizedSnapshot = job.student_name
+    ? {
+        ...job.snapshot,
+        assessment: {
+          ...job.snapshot.assessment,
+          header: {
+            ...job.snapshot.assessment?.header,
+            className: job.class_name,
+          },
+        },
+        candidate: {
+          name: job.student_name,
+          registration: job.registration,
+          number: job.student_number,
+        },
+        version: { ...job.snapshot.version, qrPayload: job.qr_payload },
+      }
+    : job.snapshot;
+  const withLogo = await materializeInstitutionLogo(
+    personalizedSnapshot,
+    directory,
+  );
+  const withImages = await materializeQuestionImages(withLogo, directory);
+  const snapshot = await materializeVersionQr(withImages, directory);
   const studentSource = path.join(directory, 'prova.tex');
   const answerKeySource = path.join(directory, 'gabarito.tex');
   await writeFile(
     studentSource,
     renderAssessment({
-      ...job.snapshot,
+      ...snapshot,
       render: {
-        ...job.snapshot.render,
+        ...snapshot.render,
         mode: 'student',
-        template: job.template_version || job.snapshot.render?.template,
+        template: job.template_version || snapshot.render?.template,
       },
     }),
     'utf8',
@@ -121,19 +293,17 @@ export async function render(job) {
   await writeFile(
     answerKeySource,
     renderAssessment({
-      ...job.snapshot,
+      ...snapshot,
       render: {
-        ...job.snapshot.render,
+        ...snapshot.render,
         mode: 'answer-key',
-        template: job.template_version || job.snapshot.render?.template,
+        template: job.template_version || snapshot.render?.template,
       },
     }),
     'utf8',
   );
-  await compile(studentSource, directory, 'prova');
-  await validatePdf(path.join(directory, 'prova.pdf'));
-  await compile(answerKeySource, directory, 'gabarito');
-  await validatePdf(path.join(directory, 'gabarito.pdf'));
+  await compileAndValidate(studentSource, directory, 'prova');
+  await compileAndValidate(answerKeySource, directory, 'gabarito');
   await pool.query(
     "UPDATE render_jobs SET status = 'completed', completed_at = now(), output_manifest = $2::jsonb WHERE id = $1",
     [
@@ -145,6 +315,13 @@ export async function render(job) {
         answerKeySource: path.join(job.id, 'gabarito.tex'),
       }),
     ],
+  );
+  await pool.query(
+    `INSERT INTO usage_events(institution_id,kind,quantity,metadata)
+     SELECT a.institution_id,'render',1,$2::jsonb
+     FROM render_jobs rj JOIN assessment_versions av ON av.id=rj.assessment_version_id
+     JOIN assessments a ON a.id=av.assessment_id WHERE rj.id=$1`,
+    [job.id, JSON.stringify({ renderJobId: job.id })],
   );
 }
 
