@@ -99,12 +99,16 @@ import {
   createExamImport,
   cropExamImportCandidateImage,
   extractExamImportAnswerKey,
-  extractExamImportQuestions,
   getExamImportDocument,
   getExamImportPagePreview,
   listExamImports,
   updateExamImportCandidate,
 } from './exam-imports.mjs';
+import {
+  cancelExamImportJob,
+  enqueueExamImportExtraction,
+  retryExamImportJob,
+} from './exam-import-jobs.mjs';
 
 const port = Number(process.env.PORT || 8788);
 const maxConcurrentPreviews = Number(process.env.PREVIEW_CONCURRENCY || 2);
@@ -263,10 +267,34 @@ const server = createServer(async (request, response) => {
       request.method === 'POST' &&
       url.pathname.match(/^\/api\/exam-imports\/([0-9a-f-]{36})\/extract$/i);
     if (examImportExtractMatch)
-      return json(response, 200, {
-        data: await extractExamImportQuestions({
+      return json(response, 202, {
+        data: await enqueueExamImportExtraction({
           institutionId,
+          userId,
           examImportId: examImportExtractMatch[1],
+        }),
+      });
+    const examImportCancelMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/exam-imports\/([0-9a-f-]{36})\/cancel$/i);
+    if (examImportCancelMatch) {
+      const job = await cancelExamImportJob({
+        institutionId,
+        examImportId: examImportCancelMatch[1],
+      });
+      if (!job)
+        return json(response, 404, { error: 'Trabalho ativo não encontrado.' });
+      return json(response, 202, { data: job });
+    }
+    const examImportRetryMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/exam-imports\/([0-9a-f-]{36})\/retry$/i);
+    if (examImportRetryMatch)
+      return json(response, 202, {
+        data: await retryExamImportJob({
+          institutionId,
+          userId,
+          examImportId: examImportRetryMatch[1],
         }),
       });
     const examImportCandidateMatch =

@@ -41,6 +41,7 @@ services:
       - ./database/030_classify_legacy_chemistry_questions.sql:/docker-entrypoint-initdb.d/030_classify_legacy_chemistry_questions.sql:ro
       - ./database/031_question_duplicates.sql:/docker-entrypoint-initdb.d/031_question_duplicates.sql:ro
       - ./database/032_exam_import_completion.sql:/docker-entrypoint-initdb.d/032_exam_import_completion.sql:ro
+      - ./database/033_exam_import_processing.sql:/docker-entrypoint-initdb.d/033_exam_import_processing.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U caderno -d caderno']
       interval: 5s

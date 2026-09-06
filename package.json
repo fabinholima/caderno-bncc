@@ -12,6 +12,7 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "test:services": "pnpm --filter @caderno/api test && pnpm --filter @caderno/renderer test",
     "start:omr": "node services/omr/worker.mjs",
+    "start:imports": "node services/api/exam-import-worker.mjs",
     "lint": "oxlint",
     "format": "oxfmt"
   },

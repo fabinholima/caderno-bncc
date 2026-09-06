@@ -7,6 +7,7 @@
     "start": "node server.mjs",
     "import:bncc": "node bncc-import.mjs",
     "import:saeb": "node saeb-import.mjs",
+    "worker:imports": "node exam-import-worker.mjs",
     "test": "node --test"
   },
   "dependencies": {

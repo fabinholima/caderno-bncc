@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { readExamDocument, storeExamDocument } from './exam-import-storage.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -441,20 +442,29 @@ export async function createExamImport({ institutionId, userId, role, input }) {
         value.rightsStatus,
       ],
     );
-    for (const document of documents)
+    for (const document of documents) {
+      const stored = await storeExamDocument(
+        created.rows[0].id,
+        document.kind,
+        document.contents,
+      );
       await client.query(
         `INSERT INTO exam_import_documents
-           (exam_import_id,kind,file_name,size_bytes,sha256,file_data)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
+           (exam_import_id,kind,file_name,size_bytes,sha256,file_data,
+            storage_provider,storage_key)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           created.rows[0].id,
           document.kind,
           document.fileName,
           document.contents.length,
           createHash('sha256').update(document.contents).digest('hex'),
-          document.contents,
+          stored.databaseContents,
+          stored.provider,
+          stored.key,
         ],
       );
+    }
     const totalBytes = documents.reduce(
       (sum, document) => sum + document.contents.length,
       0,
@@ -493,14 +503,25 @@ export async function listExamImports({ institutionId }) {
                   i.primary_subject,i.source_url,i.rights_status,i.status,
                   i.detected_questions,i.reviewed_questions,i.error_message,
                   i.extracted_candidates,i.created_at,
+                  latest_job.id AS job_id,latest_job.status AS job_status,
+                  latest_job.stage AS job_stage,latest_job.progress AS job_progress,
+                  latest_job.attempts AS job_attempts,
+                  latest_job.error_message AS job_error,
                   COALESCE(jsonb_agg(jsonb_build_object(
                     'id',d.id,'kind',d.kind,'fileName',d.file_name,
                     'sizeBytes',d.size_bytes,'sha256',d.sha256
                   ) ORDER BY d.kind) FILTER (WHERE d.id IS NOT NULL),'[]') documents
            FROM exam_imports i
+           LEFT JOIN LATERAL (
+             SELECT job.id,job.status,job.stage,job.progress,job.attempts,
+                    job.error_message
+             FROM exam_import_jobs job WHERE job.exam_import_id=i.id
+             ORDER BY job.created_at DESC LIMIT 1
+           ) latest_job ON true
            LEFT JOIN exam_import_documents d ON d.exam_import_id=i.id
            WHERE i.institution_id=$1
-           GROUP BY i.id
+           GROUP BY i.id,latest_job.id,latest_job.status,latest_job.stage,
+                    latest_job.progress,latest_job.attempts,latest_job.error_message
            ORDER BY i.created_at DESC`,
     values: [institutionId],
   });
@@ -518,6 +539,16 @@ export async function listExamImports({ institutionId }) {
     reviewedQuestions: row.reviewed_questions,
     error: row.error_message,
     candidates: row.extracted_candidates || [],
+    processingJob: row.job_id
+      ? {
+          id: row.job_id,
+          status: row.job_status,
+          stage: row.job_stage,
+          progress: row.job_progress,
+          attempts: row.job_attempts,
+          error: row.job_error,
+        }
+      : null,
     documents: row.documents,
     createdAt: row.created_at,
   }));
@@ -526,9 +557,11 @@ export async function listExamImports({ institutionId }) {
 export async function extractExamImportQuestions({
   institutionId,
   examImportId,
+  onProgress = async () => {},
+  shouldCancel = async () => false,
 }) {
   const source = await pool.query(
-    `SELECT i.id,i.extracted_candidates,d.file_data
+    `SELECT i.id,i.extracted_candidates,d.file_data,d.storage_provider,d.storage_key
        FROM exam_imports i
        JOIN exam_import_documents d ON d.exam_import_id=i.id AND d.kind='exam'
       WHERE i.institution_id=$1 AND i.id=$2`,
@@ -545,8 +578,17 @@ export async function extractExamImportQuestions({
   );
   const workingDirectory = await mkdtemp(join(tmpdir(), 'caderno-import-'));
   try {
+    const checkpoint = async (stage, progress) => {
+      if (await shouldCancel()) {
+        const error = new Error('Importação cancelada pelo usuário.');
+        error.code = 'IMPORT_CANCELLED';
+        throw error;
+      }
+      await onProgress(stage, progress);
+    };
+    await checkpoint('reading_pdf', 10);
     const pdfPath = join(workingDirectory, 'prova.pdf');
-    await writeFile(pdfPath, source.rows[0].file_data);
+    await writeFile(pdfPath, await readExamDocument(source.rows[0]));
     const { stdout } = await execFileAsync(
       process.env.PDFTOTEXT_BIN || 'pdftotext',
       ['-layout', '-enc', 'UTF-8', pdfPath, '-'],
@@ -559,7 +601,9 @@ export async function extractExamImportQuestions({
         extractionMethod: 'text',
       })),
     );
+    await checkpoint('extracting_text', 35);
     if (!candidates.length) {
+      await checkpoint('rendering_pages', 45);
       const imagePrefix = join(workingDirectory, 'pagina');
       await execFileAsync(
         process.env.PDFTOPPM_BIN || 'pdftoppm',
@@ -570,6 +614,7 @@ export async function extractExamImportQuestions({
         .filter((name) => /^pagina-\d+\.png$/.test(name))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
       try {
+        await checkpoint('running_ocr', 55);
         candidates = (
           await Promise.all(
             pageImages.map(async (name, pageIndex) => {
@@ -611,6 +656,7 @@ export async function extractExamImportQuestions({
         ),
         { statusCode: 422 },
       );
+    await checkpoint('normalizing_questions', 72);
     candidates = mergeReextractedCandidates(
       candidates,
       source.rows[0].extracted_candidates || [],
@@ -620,6 +666,7 @@ export async function extractExamImportQuestions({
         questionNeedsVisualCapture(candidate.rawText),
       )
     ) {
+      await checkpoint('extracting_images', 82);
       try {
         const { stdout: boundingXml } = await execFileAsync(
           process.env.PDFTOTEXT_BIN || 'pdftotext',
@@ -653,6 +700,7 @@ export async function extractExamImportQuestions({
         );
       }
     }
+    await checkpoint('saving_results', 95);
     await pool.query(
       `UPDATE exam_imports
           SET status='needs_review',detected_questions=$3,
@@ -668,9 +716,14 @@ export async function extractExamImportQuestions({
     return candidates;
   } catch (error) {
     await pool.query(
-      `UPDATE exam_imports SET status='failed',error_message=$3,updated_at=now()
+      `UPDATE exam_imports SET status=$3,error_message=$4,updated_at=now()
         WHERE institution_id=$1 AND id=$2`,
-      [institutionId, examImportId, error.message || 'Falha na extração.'],
+      [
+        institutionId,
+        examImportId,
+        error.code === 'IMPORT_CANCELLED' ? 'cancelled' : 'failed',
+        error.message || 'Falha na extração.',
+      ],
     );
     throw error;
   } finally {
@@ -686,7 +739,7 @@ export async function getExamImportPagePreview({
   if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > 500)
     return { status: 422, error: 'Número de página inválido.' };
   const source = await pool.query(
-    `SELECT d.file_data
+    `SELECT d.file_data,d.storage_provider,d.storage_key
        FROM exam_imports i
        JOIN exam_import_documents d ON d.exam_import_id=i.id AND d.kind='exam'
       WHERE i.institution_id=$1 AND i.id=$2`,
@@ -698,7 +751,7 @@ export async function getExamImportPagePreview({
   try {
     const pdfPath = join(workingDirectory, 'prova.pdf');
     const imagePath = join(workingDirectory, 'pagina.jpg');
-    await writeFile(pdfPath, source.rows[0].file_data);
+    await writeFile(pdfPath, await readExamDocument(source.rows[0]));
     await execFileAsync(
       process.env.PDFTOPPM_BIN || 'pdftoppm',
       [
@@ -732,7 +785,7 @@ export async function cropExamImportCandidateImage({
 }) {
   const crop = cropSchema.parse(input);
   const source = await pool.query(
-    `SELECT d.file_data,i.extracted_candidates
+    `SELECT d.file_data,d.storage_provider,d.storage_key,i.extracted_candidates
        FROM exam_imports i
        JOIN exam_import_documents d ON d.exam_import_id=i.id AND d.kind='exam'
       WHERE i.institution_id=$1 AND i.id=$2`,
@@ -754,7 +807,7 @@ export async function cropExamImportCandidateImage({
     const pdfPath = join(workingDirectory, 'prova.pdf');
     const pagePath = join(workingDirectory, 'pagina.jpg');
     const cropPath = join(workingDirectory, 'recorte.jpg');
-    await writeFile(pdfPath, source.rows[0].file_data);
+    await writeFile(pdfPath, await readExamDocument(source.rows[0]));
     await execFileAsync(
       process.env.PDFTOPPM_BIN || 'pdftoppm',
       [
@@ -846,7 +899,7 @@ export async function extractExamImportAnswerKey({
   examImportId,
 }) {
   const source = await pool.query(
-    `SELECT d.file_data,i.extracted_candidates
+    `SELECT d.file_data,d.storage_provider,d.storage_key,i.extracted_candidates
        FROM exam_imports i
        JOIN exam_import_documents d ON d.exam_import_id=i.id AND d.kind='answer_key'
       WHERE i.institution_id=$1 AND i.id=$2`,
@@ -867,7 +920,7 @@ export async function extractExamImportAnswerKey({
   const workingDirectory = await mkdtemp(join(tmpdir(), 'caderno-key-'));
   try {
     const pdfPath = join(workingDirectory, 'gabarito.pdf');
-    await writeFile(pdfPath, source.rows[0].file_data);
+    await writeFile(pdfPath, await readExamDocument(source.rows[0]));
     const { stdout } = await execFileAsync(
       process.env.PDFTOTEXT_BIN || 'pdftotext',
       ['-layout', '-enc', 'UTF-8', pdfPath, '-'],
@@ -923,7 +976,7 @@ export async function getExamImportDocument({
   documentId,
 }) {
   const result = await pool.query(
-    `SELECT d.file_name,d.size_bytes,d.file_data
+    `SELECT d.file_name,d.size_bytes,d.file_data,d.storage_provider,d.storage_key
        FROM exam_import_documents d
        JOIN exam_imports i ON i.id=d.exam_import_id
       WHERE i.institution_id=$1 AND i.id=$2 AND d.id=$3`,
@@ -934,6 +987,6 @@ export async function getExamImportDocument({
   return {
     fileName: result.rows[0].file_name,
     size: result.rows[0].size_bytes,
-    contents: result.rows[0].file_data,
+    contents: await readExamDocument(result.rows[0]),
   };
 }

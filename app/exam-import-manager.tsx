@@ -32,6 +32,14 @@ type ExamImport = {
   reviewedQuestions: number;
   error?: string;
   candidates: ExamImportCandidate[];
+  processingJob?: {
+    id: string;
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+    stage: string;
+    progress: number;
+    attempts: number;
+    error?: string;
+  } | null;
   documents: Array<{
     id: string;
     kind: 'exam' | 'answer_key';
@@ -409,6 +417,20 @@ export function ExamImportManager({
     refreshDuplicates().catch((error) => setMessage(error.message));
   }, [apiUrl]);
 
+  useEffect(() => {
+    if (
+      !imports.some((item) =>
+        ['queued', 'running'].includes(item.processingJob?.status || ''),
+      )
+    )
+      return;
+    const timer = window.setInterval(
+      () => refresh().catch((error) => setMessage(error.message)),
+      2000,
+    );
+    return () => window.clearInterval(timer);
+  }, [apiUrl, imports]);
+
   const clearDuplicate = async (duplicate: DuplicateQuestion) => {
     if (
       !window.confirm(
@@ -591,14 +613,14 @@ export function ExamImportManager({
         { method: 'POST' },
       );
       const body = (await response.json()) as {
-        data?: ExamImportCandidate[];
+        data?: { id: string; status: string };
         error?: string;
       };
       if (!response.ok)
         throw new Error(body.error || 'Não foi possível extrair as questões.');
       await refresh();
       setMessage(
-        `${body.data?.length || 0} questões encontradas. Revise antes de cadastrar.`,
+        'Extração adicionada à fila. O progresso será atualizado automaticamente.',
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha na extração.');
@@ -606,6 +628,25 @@ export function ExamImportManager({
     } finally {
       setExtractingId('');
     }
+  };
+
+  const controlProcessing = async (
+    item: ExamImport,
+    action: 'cancel' | 'retry',
+  ) => {
+    const response = await apiFetch(
+      `${apiUrl}/api/exam-imports/${item.id}/${action}`,
+      { method: 'POST' },
+    );
+    const body = (await response.json()) as { error?: string };
+    if (!response.ok)
+      throw new Error(body.error || 'Não foi possível atualizar o trabalho.');
+    await refresh();
+    setMessage(
+      action === 'cancel'
+        ? 'Cancelamento solicitado.'
+        : 'Nova tentativa adicionada à fila.',
+    );
   };
 
   const updateCandidate = async (
@@ -1301,6 +1342,67 @@ export function ExamImportManager({
                     onClose={() => setStoredPreview(null)}
                   />
                 )}
+                {item.processingJob && (
+                  <section className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wide text-sky-900">
+                          Processamento ·{' '}
+                          {item.processingJob.stage.replaceAll('_', ' ')}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          Tentativa {item.processingJob.attempts} ·{' '}
+                          {item.processingJob.progress}% concluído
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        {['queued', 'running'].includes(
+                          item.processingJob.status,
+                        ) && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              controlProcessing(item, 'cancel').catch((error) =>
+                                setMessage(error.message),
+                              )
+                            }
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                        {['failed', 'cancelled'].includes(
+                          item.processingJob.status,
+                        ) && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              controlProcessing(item, 'retry').catch((error) =>
+                                setMessage(error.message),
+                              )
+                            }
+                          >
+                            Repetir processamento
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-sky-100">
+                      <div
+                        className="h-full rounded-full bg-sky-600 transition-all"
+                        style={{ width: `${item.processingJob.progress}%` }}
+                      />
+                    </div>
+                    {item.processingJob.error && (
+                      <p className="mt-2 text-xs text-rose-800">
+                        {item.processingJob.error}
+                      </p>
+                    )}
+                  </section>
+                )}
                 <section className="mt-4 border-t border-slate-100 pt-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1316,7 +1418,12 @@ export function ExamImportManager({
                       <Button
                         type="button"
                         variant="outline"
-                        disabled={extractingId === item.id}
+                        disabled={
+                          extractingId === item.id ||
+                          ['queued', 'running'].includes(
+                            item.processingJob?.status || '',
+                          )
+                        }
                         onClick={() => extractQuestions(item)}
                       >
                         <ScanText />

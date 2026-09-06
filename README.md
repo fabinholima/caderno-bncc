@@ -53,6 +53,15 @@ trabalho de importação passa para `completed`. Duplicatas são arquivadas com
 uma referência explícita para a questão principal e podem ser revisadas pela
 coordenação na própria tela de importação.
 
+Em produção, execute `pnpm start:imports` como processo separado da API. A
+extração fica em uma fila persistente no PostgreSQL, com progresso, tentativas,
+cancelamento, retomada e concorrência definida pelo plano da instituição. Use
+`EXAM_STORAGE_DIR` para guardar os PDFs fora do PostgreSQL em um volume
+persistente compartilhado entre API e worker; sem essa variável, o modo de
+desenvolvimento mantém os bytes no banco. A tabela `exam_import_jobs` também
+reserva trabalhos `ai_analysis`, provedor, modelo, métricas e resultado JSON
+para a futura integração com um serviço de IA sem acoplá-lo à API HTTP.
+
 ### Acesso pelo celular na rede local
 
 Use o IP local do computador tanto no endereço público da API quanto na lista
