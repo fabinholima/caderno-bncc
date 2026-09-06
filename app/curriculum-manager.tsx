@@ -4,8 +4,12 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   BookMarked,
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
+  EyeOff,
   Layers3,
+  Pencil,
   Plus,
   Sparkles,
   type LucideIcon,
@@ -49,6 +53,18 @@ type PedagogicalDiscipline = {
   skills: Array<{ id: string; code: string }>;
 };
 
+type PedagogicalTopic = {
+  id: string;
+  name: string;
+  discipline_id: string;
+  parent_id: string | null;
+  grade_range: string;
+  position: number;
+  depth: number;
+  path: string;
+  active: boolean;
+};
+
 type EducationStage = 'Ensino Fundamental' | 'Ensino Médio';
 
 type SaebMatrix = {
@@ -75,10 +91,12 @@ type SaebDescriptor = {
 export function CurriculumManager({
   items,
   apiUrl,
+  role,
   onChange,
 }: {
   items: CurriculumOption[];
   apiUrl: string;
+  role: 'admin' | 'coordinator' | 'teacher';
   onChange: (items: CurriculumOption[]) => void;
 }) {
   const [mode, setMode] = useState<Mode>('skill');
@@ -93,6 +111,14 @@ export function CurriculumManager({
   const [pedagogicalDisciplines, setPedagogicalDisciplines] = useState<
     PedagogicalDiscipline[]
   >([]);
+  const [pedagogicalTopics, setPedagogicalTopics] = useState<
+    PedagogicalTopic[]
+  >([]);
+  const [catalogDisciplineId, setCatalogDisciplineId] = useState('');
+  const [catalogGrade, setCatalogGrade] = useState('1ª série');
+  const [catalogParentId, setCatalogParentId] = useState('');
+  const [catalogName, setCatalogName] = useState('');
+  const [catalogSaving, setCatalogSaving] = useState(false);
   const [selectedChemistrySkills, setSelectedChemistrySkills] = useState<
     Set<string>
   >(new Set());
@@ -116,6 +142,23 @@ export function CurriculumManager({
     setSelectedChemistrySkills(
       new Set(saved?.skills.map((skill) => skill.id) || []),
     );
+    setCatalogDisciplineId(
+      (current) => current || saved?.id || body.data?.[0]?.id || '',
+    );
+  };
+
+  const refreshPedagogicalTopics = async () => {
+    if (!apiUrl) return;
+    const response = await apiFetch(
+      `${apiUrl}/api/curriculum/pedagogical-topics?includeInactive=true`,
+    );
+    const body = (await response.json()) as {
+      data?: PedagogicalTopic[];
+      error?: string;
+    };
+    if (!response.ok)
+      throw new Error(body.error || 'Não foi possível carregar o catálogo.');
+    setPedagogicalTopics(body.data || []);
   };
   useEffect(() => {
     if (!apiUrl) return;
@@ -151,7 +194,109 @@ export function CurriculumManager({
   }, [apiUrl, selectedSaebMatrix]);
   useEffect(() => {
     refreshPedagogicalDisciplines().catch(() => undefined);
+    refreshPedagogicalTopics().catch(() => undefined);
   }, [apiUrl]);
+
+  async function createCatalogTopic(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!catalogDisciplineId || !catalogName.trim()) return;
+    setCatalogSaving(true);
+    setMessage('');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/curriculum/pedagogical-topics`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            disciplineId: catalogDisciplineId,
+            parentId: catalogParentId,
+            name: catalogName,
+            gradeRange: catalogParentId ? undefined : catalogGrade,
+          }),
+        },
+      );
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok)
+        throw new Error(body.error || 'Não foi possível adicionar o item.');
+      setCatalogName('');
+      await refreshPedagogicalTopics();
+      setMessage('Item adicionado ao catálogo institucional.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro no cadastro.');
+    } finally {
+      setCatalogSaving(false);
+    }
+  }
+
+  async function patchCatalogTopic(
+    topicId: string,
+    changes: Record<string, unknown>,
+  ) {
+    const response = await apiFetch(
+      `${apiUrl}/api/curriculum/pedagogical-topics/${topicId}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(changes),
+      },
+    );
+    const body = (await response.json()) as { error?: string };
+    if (!response.ok)
+      throw new Error(body.error || 'Não foi possível atualizar o item.');
+  }
+
+  async function renameCatalogTopic(topic: PedagogicalTopic) {
+    const name = window.prompt('Novo nome:', topic.name)?.trim();
+    if (!name || name === topic.name) return;
+    setCatalogSaving(true);
+    try {
+      await patchCatalogTopic(topic.id, { name });
+      await refreshPedagogicalTopics();
+      setMessage('Nome atualizado.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro na edição.');
+    } finally {
+      setCatalogSaving(false);
+    }
+  }
+
+  async function toggleCatalogTopic(topic: PedagogicalTopic) {
+    setCatalogSaving(true);
+    try {
+      await patchCatalogTopic(topic.id, { active: !topic.active });
+      await refreshPedagogicalTopics();
+      setMessage(topic.active ? 'Item arquivado.' : 'Item reativado.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro na alteração.');
+    } finally {
+      setCatalogSaving(false);
+    }
+  }
+
+  async function moveCatalogTopic(topic: PedagogicalTopic, direction: -1 | 1) {
+    const siblings = pedagogicalTopics
+      .filter(
+        (item) =>
+          item.discipline_id === topic.discipline_id &&
+          item.parent_id === topic.parent_id &&
+          item.grade_range === topic.grade_range,
+      )
+      .sort((a, b) => a.position - b.position);
+    const index = siblings.findIndex((item) => item.id === topic.id);
+    const other = siblings[index + direction];
+    if (!other) return;
+    setCatalogSaving(true);
+    try {
+      await patchCatalogTopic(topic.id, { position: other.position });
+      await patchCatalogTopic(other.id, { position: topic.position });
+      await refreshPedagogicalTopics();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro na ordenação.');
+    } finally {
+      setCatalogSaving(false);
+    }
+  }
 
   async function activateChemistry() {
     setChemistrySaving(true);
@@ -226,9 +371,26 @@ export function CurriculumManager({
     [stageItems],
   );
   const skillCount = stageItems.filter((item) => item.skill_code).length;
+  const pedagogicalObjectCount = pedagogicalTopics.filter(
+    (item) => item.active && item.depth === 0,
+  ).length;
   const metrics: Array<{ value: number; label: string; icon: LucideIcon }> = [
-    { value: subjects.length, label: 'disciplinas', icon: BookMarked },
-    { value: objects.length, label: 'objetos de conhecimento', icon: Layers3 },
+    {
+      value:
+        educationStage === 'Ensino Médio'
+          ? pedagogicalDisciplines.length
+          : subjects.length,
+      label: 'disciplinas',
+      icon: BookMarked,
+    },
+    {
+      value:
+        educationStage === 'Ensino Médio'
+          ? pedagogicalObjectCount
+          : objects.length,
+      label: 'objetos de conhecimento',
+      icon: Layers3,
+    },
     { value: skillCount, label: 'habilidades cadastradas', icon: Sparkles },
   ];
 
@@ -386,6 +548,20 @@ export function CurriculumManager({
           </Button>
         ))}
       </div>
+      {educationStage === 'Ensino Médio' && (
+        <Button
+          type="button"
+          variant="outline"
+          className="ml-3"
+          onClick={() =>
+            document
+              .getElementById('catalogo-pedagogico')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        >
+          <Layers3 /> Gerenciar objetos e subtópicos
+        </Button>
+      )}
       <div className="mt-8 grid gap-5 sm:grid-cols-3">
         {metrics.map(({ value, label, icon: Icon }) => (
           <article
@@ -538,6 +714,202 @@ export function CurriculumManager({
           </div>
         </section>
       )}
+      {educationStage === 'Ensino Médio' &&
+        pedagogicalDisciplines.length > 0 && (
+          <section
+            id="catalogo-pedagogico"
+            className="mt-6 scroll-mt-4 rounded-2xl border border-blue-200 bg-white p-5"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+                  Objetos e subtópicos institucionais
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Organize por série sem alterar a estrutura oficial da BNCC.
+                  Itens usados por questões podem ser arquivados com segurança.
+                </p>
+              </div>
+              {role === 'teacher' && (
+                <Badge variant="outline">Consulta para professor</Badge>
+              )}
+            </div>
+            <div className="mt-5 grid gap-5 lg:grid-cols-[360px_1fr]">
+              <form
+                onSubmit={createCatalogTopic}
+                className="h-fit space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4"
+              >
+                <Field label="Disciplina">
+                  <select
+                    value={catalogDisciplineId}
+                    onChange={(event) => {
+                      setCatalogDisciplineId(event.target.value);
+                      setCatalogParentId('');
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    {pedagogicalDisciplines.map((discipline) => (
+                      <option key={discipline.id} value={discipline.id}>
+                        {discipline.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Série">
+                  <select
+                    value={catalogGrade}
+                    onChange={(event) => {
+                      setCatalogGrade(event.target.value);
+                      setCatalogParentId('');
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    <option>1ª série</option>
+                    <option>2ª série</option>
+                    <option>3ª série</option>
+                  </select>
+                </Field>
+                <Field label="Nível superior">
+                  <select
+                    value={catalogParentId}
+                    onChange={(event) => setCatalogParentId(event.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    <option value="">Nenhum — criar objeto</option>
+                    {pedagogicalTopics
+                      .filter(
+                        (topic) =>
+                          topic.active &&
+                          topic.discipline_id === catalogDisciplineId &&
+                          topic.grade_range === catalogGrade &&
+                          topic.depth < 2,
+                      )
+                      .map((topic) => (
+                        <option key={topic.id} value={topic.id}>
+                          {'— '.repeat(topic.depth)}
+                          {topic.path}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field
+                  label={
+                    catalogParentId
+                      ? 'Nome do subtópico/detalhamento'
+                      : 'Nome do objeto'
+                  }
+                >
+                  <Input
+                    value={catalogName}
+                    onChange={(event) => setCatalogName(event.target.value)}
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    placeholder="Digite o nome"
+                    disabled={role === 'teacher'}
+                  />
+                </Field>
+                <Button
+                  className="w-full"
+                  disabled={
+                    role === 'teacher' || catalogSaving || !catalogName.trim()
+                  }
+                >
+                  <Plus /> {catalogSaving ? 'Salvando...' : 'Adicionar item'}
+                </Button>
+              </form>
+              <div>
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {(['1ª série', '2ª série', '3ª série'] as const).map(
+                    (grade) => (
+                      <Button
+                        key={grade}
+                        type="button"
+                        size="sm"
+                        variant={catalogGrade === grade ? 'default' : 'outline'}
+                        onClick={() => {
+                          setCatalogGrade(grade);
+                          setCatalogParentId('');
+                        }}
+                      >
+                        {grade}
+                      </Button>
+                    ),
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {pedagogicalTopics
+                    .filter(
+                      (topic) =>
+                        topic.discipline_id === catalogDisciplineId &&
+                        topic.grade_range === catalogGrade,
+                    )
+                    .map((topic) => (
+                      <article
+                        key={topic.id}
+                        className={`flex items-center gap-2 rounded-lg border p-3 ${topic.active ? 'border-slate-200 bg-white' : 'border-dashed border-slate-300 bg-slate-50 opacity-60'}`}
+                        style={{ marginLeft: `${topic.depth * 24}px` }}
+                      >
+                        <ChevronRight className="size-4 shrink-0 text-blue-500" />
+                        <span className="min-w-0 flex-1 text-sm font-medium">
+                          {topic.name}
+                          {!topic.active && (
+                            <small className="ml-2 text-slate-500">
+                              Arquivado
+                            </small>
+                          )}
+                        </span>
+                        {role !== 'teacher' && (
+                          <div className="flex shrink-0 gap-1">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label={`Mover ${topic.name} para cima`}
+                              disabled={catalogSaving}
+                              onClick={() => moveCatalogTopic(topic, -1)}
+                            >
+                              <ChevronUp />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label={`Mover ${topic.name} para baixo`}
+                              disabled={catalogSaving}
+                              onClick={() => moveCatalogTopic(topic, 1)}
+                            >
+                              <ChevronDown />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label={`Editar ${topic.name}`}
+                              disabled={catalogSaving}
+                              onClick={() => renameCatalogTopic(topic)}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label={`${topic.active ? 'Arquivar' : 'Reativar'} ${topic.name}`}
+                              disabled={catalogSaving}
+                              onClick={() => toggleCatalogTopic(topic)}
+                            >
+                              <EyeOff />
+                            </Button>
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
       {educationStage === 'Ensino Fundamental' && (
         <section className="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">

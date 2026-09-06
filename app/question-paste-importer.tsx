@@ -21,6 +21,88 @@ export type ParsedQuestion = {
 
 const valuePattern = /-?\d+(?:[.,]\d+)?\s*(?:%|g)\b/gi;
 
+const chemicalTokenPattern =
+  /\b(?:H2O|CO2|NH3|HCl|NaOH|NaCl|LiOH|AgBr|NaBr|CaCl2|CaSO4|MgSO4|KNO3|CdS|SO2|SO3|NO2|NO|CO|O2|H2|Cl2|Br2|F2|N2|HI|KCl|CuO|[A-Z][A-Za-z0-9()]*\d+[A-Za-z0-9()]*)\b/g;
+
+function inlineChemicalCode(value: string) {
+  return value
+    .replace(/Cl/g, 'C\\ell')
+    .replace(/([A-Za-z})])(\d+)/g, '$1_{$2}');
+}
+
+function scientificInlineText(text: string, warnings: string[]) {
+  let units = 0;
+  let chemicals = 0;
+  let value = text
+    .replace(/(-?\d+(?:[.,]\d+)?)\s*mol\s*L[−-]1/gi, (_match, number) => {
+      units += 1;
+      return `\\unit{${number} mole inverse liter}`;
+    })
+    .replace(/(-?\d+(?:[.,]\d+)?)\s*kJ\s*mol[−-]1/gi, (_match, number) => {
+      units += 1;
+      return `\\unit{${number} kilo joule inverse mol}`;
+    })
+    .replace(/(-?\d+(?:[.,]\d+)?)\s*[°o0]\s*C\b/g, (_match, number) => {
+      units += 1;
+      return `\\unit{${number} degrees celsius}`;
+    })
+    .replace(
+      /(-?\d+(?:[.,]\d+)?)\s*(kg|mg|g|mL|L|kJ|J|atm|Torr|mA|V|cm[23]|m[23])\b/g,
+      (_match, number, unit) => {
+        const names: Record<string, string> = {
+          kg: 'kilogram',
+          mg: 'milligram',
+          g: 'gram',
+          mL: 'milliliter',
+          L: 'liter',
+          kJ: 'kilo joule',
+          J: 'joule',
+          atm: 'atmosphere',
+          Torr: 'torr',
+          mA: 'milli ampere',
+          V: 'volt',
+          cm2: 'square centimeter',
+          cm3: 'cubic centimeter',
+          m2: 'square meter',
+          m3: 'cubic meter',
+        };
+        units += 1;
+        return `\\unit{${number} ${names[unit] || unit}}`;
+      },
+    )
+    .replace(
+      /\b(\d+(?:[.,]\d+)?)\s*[x×]\s*10[−-](\d+)\b/gi,
+      (_match, coefficient, exponent) => {
+        units += 1;
+        return `\\unit{${coefficient}e-${exponent}}`;
+      },
+    )
+    .replace(/\b10[−-](\d+)\b/g, (_match, exponent) => {
+      units += 1;
+      return `\\unit{1e-${exponent}}`;
+    });
+  value = value.replace(chemicalTokenPattern, (token, offset, source) => {
+    if (source.slice(Math.max(0, offset - 12), offset).includes('\\'))
+      return token;
+    chemicals += 1;
+    return `\\chemical{${inlineChemicalCode(token)}}`;
+  });
+  if (units) warnings.push(`${units} unidade(s) convertida(s) para \\unit{}.`);
+  if (chemicals)
+    warnings.push(`${chemicals} fórmula(s) convertida(s) para \\chemical{}.`);
+  return value;
+}
+
+function romanItemsFromLine(line: string) {
+  const markers = [...line.matchAll(/(?:^|\s)(I|II|III|IV|V)\.\s+/g)];
+  if (markers.length < 2) return null;
+  return markers.map((marker, index) => {
+    const start = (marker.index || 0) + marker[0].length;
+    const end = markers[index + 1]?.index ?? line.length;
+    return line.slice(start, end).trim();
+  });
+}
+
 function chemicalCode(equation: string) {
   const normalized = equation
     .replace(/→/g, ' -> ')
@@ -35,7 +117,7 @@ function chemicalCode(equation: string) {
         ? '\\chemical{GIVES}'
         : part === '+'
           ? '\\chemical{PLUS}'
-          : `\\chemical{${part.replace(/([A-Za-z])([0-9]+)/g, '$1_$2')}}`,
+          : `\\chemical{${inlineChemicalCode(part)}}`,
     )
     .join(' ')}`;
 }
@@ -44,8 +126,11 @@ function unitPreview(value: string) {
   return value.replace(/\\unit\{\s*([^}]+?)\s*\}/g, '$1');
 }
 
-function inlineScientificBlocks(text: string): RichContentBlock[] {
-  return [{ type: 'paragraph', text }];
+function inlineScientificBlocks(
+  text: string,
+  warnings: string[],
+): RichContentBlock[] {
+  return [{ type: 'paragraph', text: scientificInlineText(text, warnings) }];
 }
 
 function FormulaPreview({ code }: { code: string }) {
@@ -167,6 +252,7 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
   const sourceInstitution = sourceMatch?.[1]?.trim() || '';
   const sourceYear = sourceMatch?.[2] || '';
   let body = sourceMatch ? normalized.slice(sourceMatch[0].length) : normalized;
+  body = body.replace(/^QUEST(?:ÃO|AO)\s*\d+\s*[.):-]?\s*/i, '');
   if (!sourceInstitution)
     warnings.push('Instituição de origem não identificada.');
   if (!sourceYear) warnings.push('Ano da prova não identificado.');
@@ -178,7 +264,8 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
   const statementBlocks: RichContentBlock[] = [];
   const paragraphs: string[] = [];
   let inferredIndex = 0;
-  for (const line of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex];
     const labeled = line.match(/^([a-e])[.)]\s*(.+)$/i);
     const numbered = line.match(/^\d+[.)]\s*(.+)$/);
     if (labeled || numbered) {
@@ -190,13 +277,55 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
           explicit && value === values[0]
             ? explicit
             : String.fromCharCode(65 + inferredIndex);
-        alternatives[label] = [{ type: 'paragraph', text: value.trim() }];
+        alternatives[label] = [
+          {
+            type: 'paragraph',
+            text: scientificInlineText(value.trim(), warnings),
+          },
+        ];
         inferredIndex = Math.max(inferredIndex, label.charCodeAt(0) - 64);
         if (!explicit || value !== values[0])
           warnings.push(
             `Alternativa ${label} reconstruída; confirme antes de salvar.`,
           );
       }
+      continue;
+    }
+    const inlineRomanItems = romanItemsFromLine(line);
+    if (inlineRomanItems) {
+      statementBlocks.push(
+        ...paragraphs
+          .splice(0)
+          .flatMap((paragraph) => inlineScientificBlocks(paragraph, warnings)),
+      );
+      statementBlocks.push({
+        type: 'romanList',
+        items: inlineRomanItems.map((item) =>
+          scientificInlineText(item, warnings),
+        ),
+      });
+      warnings.push('Lista romana estruturada; confira a separação dos itens.');
+      continue;
+    }
+    const firstRoman = line.match(/^(I|II|III|IV|V)\.\s+(.+)$/);
+    if (firstRoman) {
+      const items = [firstRoman[2]];
+      while (lineIndex + 1 < lines.length) {
+        const next = lines[lineIndex + 1].match(/^(I|II|III|IV|V)\.\s+(.+)$/);
+        if (!next) break;
+        items.push(next[2]);
+        lineIndex += 1;
+      }
+      statementBlocks.push(
+        ...paragraphs
+          .splice(0)
+          .flatMap((paragraph) => inlineScientificBlocks(paragraph, warnings)),
+      );
+      statementBlocks.push({
+        type: 'romanList',
+        items: items.map((item) => scientificInlineText(item, warnings)),
+      });
+      warnings.push('Lista romana estruturada; confira a separação dos itens.');
       continue;
     }
     if (line.includes('→') || /\s->\s/.test(line)) {
@@ -208,30 +337,43 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
         : '';
       if (before) paragraphs.push(before);
       statementBlocks.push(
-        ...paragraphs.splice(0).flatMap(inlineScientificBlocks),
+        ...paragraphs
+          .splice(0)
+          .flatMap((paragraph) => inlineScientificBlocks(paragraph, warnings)),
       );
-      if (equationMatch)
+      if (equationMatch) {
         statementBlocks.push({
           type: 'contextFormula',
           code: chemicalCode(equationMatch[1]),
         });
-      else paragraphs.push(line);
+        const after = line
+          .slice((equationMatch.index || 0) + equationMatch[0].length)
+          .trim();
+        if (after) paragraphs.push(after);
+        warnings.push(
+          'Equação química convertida para fórmula ConTeXt; confira coeficientes e estados físicos.',
+        );
+      } else paragraphs.push(line);
       continue;
     }
     paragraphs.push(line);
   }
-  statementBlocks.push(...paragraphs.flatMap(inlineScientificBlocks));
+  statementBlocks.push(
+    ...paragraphs.flatMap((paragraph) =>
+      inlineScientificBlocks(paragraph, warnings),
+    ),
+  );
   if (Object.keys(alternatives).length !== 5)
     warnings.push(
       `Foram encontradas ${Object.keys(alternatives).length} de 5 alternativas.`,
     );
-  warnings.push('Selecione manualmente a resposta correta.');
+  warnings.push('Confirme a resposta correta antes de salvar.');
   return {
     sourceInstitution,
     sourceYear,
     statementBlocks,
     alternatives,
-    warnings,
+    warnings: [...new Set(warnings)],
   };
 }
 

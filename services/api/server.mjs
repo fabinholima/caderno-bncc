@@ -2,12 +2,15 @@ import { createServer } from 'node:http';
 import { ZodError } from 'zod';
 import { pool } from './db.mjs';
 import {
+  clearQuestionDuplicate,
   createQuestion,
   createQuestionRevision,
   deleteQuestion,
   getQuestionFilterOptions,
   getQuestion,
   listQuestions,
+  listQuestionDuplicates,
+  markQuestionDuplicate,
   setQuestionStatus,
 } from './questions.mjs';
 import {
@@ -42,10 +45,12 @@ import {
   saveAssessmentPreset,
 } from './assessment-presets.mjs';
 import {
+  createPedagogicalTopic,
   createPedagogicalDiscipline,
   listPedagogicalDisciplines,
   listPedagogicalTopics,
   setPedagogicalDisciplineSkills,
+  updatePedagogicalTopic,
 } from './pedagogical-disciplines.mjs';
 import {
   cancelApplication,
@@ -92,6 +97,8 @@ import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
 import {
   createExamImport,
+  cropExamImportCandidateImage,
+  extractExamImportAnswerKey,
   extractExamImportQuestions,
   getExamImportDocument,
   getExamImportPagePreview,
@@ -298,6 +305,32 @@ const server = createServer(async (request, response) => {
       });
       return response.end(preview.contents);
     }
+    const examImportCropMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/exam-imports\/([0-9a-f-]{36})\/candidates\/([0-9a-f-]{36})\/crop$/i,
+      );
+    if (examImportCropMatch)
+      return json(response, 200, {
+        data: await cropExamImportCandidateImage({
+          institutionId,
+          examImportId: examImportCropMatch[1],
+          candidateId: examImportCropMatch[2],
+          input: await readJson(request),
+        }),
+      });
+    const examImportAnswerKeyMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/exam-imports\/([0-9a-f-]{36})\/answer-key\/extract$/i,
+      );
+    if (examImportAnswerKeyMatch)
+      return json(response, 200, {
+        data: await extractExamImportAnswerKey({
+          institutionId,
+          examImportId: examImportAnswerKeyMatch[1],
+        }),
+      });
     if (request.method === 'POST' && url.pathname === '/api/invitations')
       return json(response, 201, {
         data: await createInvitation(identity, await readJson(request)),
@@ -717,6 +750,37 @@ const server = createServer(async (request, response) => {
         return json(response, 404, { error: 'Questão não encontrada.' });
       return json(response, 200, { data: question });
     }
+    const questionDuplicateMatch =
+      request.method === 'PATCH' &&
+      url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/duplicate$/i);
+    if (questionDuplicateMatch) {
+      const question = await markQuestionDuplicate({
+        institutionId,
+        userId,
+        role,
+        questionId: questionDuplicateMatch[1],
+        input: await readJson(request),
+      });
+      if (!question)
+        return json(response, 404, { error: 'Questão não encontrada.' });
+      return json(response, 200, { data: question });
+    }
+    const clearQuestionDuplicateMatch =
+      request.method === 'DELETE' &&
+      url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/duplicate$/i);
+    if (clearQuestionDuplicateMatch) {
+      const question = await clearQuestionDuplicate({
+        institutionId,
+        userId,
+        role,
+        questionId: clearQuestionDuplicateMatch[1],
+      });
+      if (!question)
+        return json(response, 404, {
+          error: 'Marcação de duplicidade não encontrada.',
+        });
+      return json(response, 200, { data: question });
+    }
     if (request.method === 'GET' && url.pathname === '/api/curriculum')
       return json(response, 200, {
         data: await listCurriculum({
@@ -763,8 +827,48 @@ const server = createServer(async (request, response) => {
         data: await listPedagogicalTopics({
           institutionId,
           disciplineId: url.searchParams.get('disciplineId') || '',
+          includeInactive:
+            url.searchParams.get('includeInactive') === 'true' &&
+            role !== 'teacher',
         }),
       });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/curriculum/pedagogical-topics'
+    ) {
+      if (role === 'teacher')
+        return json(response, 403, {
+          error:
+            'Somente coordenação e administração podem alterar o catálogo.',
+        });
+      return json(response, 201, {
+        data: await createPedagogicalTopic({
+          institutionId,
+          userId,
+          input: await readJson(request),
+        }),
+      });
+    }
+    const pedagogicalTopicMatch =
+      request.method === 'PATCH' &&
+      url.pathname.match(
+        /^\/api\/curriculum\/pedagogical-topics\/([0-9a-f-]{36})$/i,
+      );
+    if (pedagogicalTopicMatch) {
+      if (role === 'teacher')
+        return json(response, 403, {
+          error:
+            'Somente coordenação e administração podem alterar o catálogo.',
+        });
+      return json(response, 200, {
+        data: await updatePedagogicalTopic({
+          institutionId,
+          userId,
+          topicId: pedagogicalTopicMatch[1],
+          input: await readJson(request),
+        }),
+      });
+    }
     if (
       request.method === 'POST' &&
       url.pathname === '/api/curriculum/subjects'
@@ -856,6 +960,13 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/api/questions/duplicates'
+    )
+      return json(response, 200, {
+        data: await listQuestionDuplicates({ institutionId }),
+      });
     if (request.method === 'GET' && url.pathname === '/api/assessments')
       return json(response, 200, {
         data: await listAssessments({ institutionId }),
@@ -925,7 +1036,15 @@ const server = createServer(async (request, response) => {
         issues: error.issues,
       });
     if (error?.statusCode)
-      return json(response, error.statusCode, { error: error.message });
+      return json(response, error.statusCode, {
+        error: error.message,
+        ...(error.duplicateQuestionId
+          ? {
+              duplicateQuestionId: error.duplicateQuestionId,
+              duplicateQuestionCode: error.duplicateQuestionCode,
+            }
+          : {}),
+      });
     console.error(error);
     return json(response, 500, { error: 'Erro interno.' });
   }

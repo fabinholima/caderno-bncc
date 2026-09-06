@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createHash } from 'node:crypto';
 import { pool, transaction } from './db.mjs';
 import { prepareChemicalStructureBlocks } from './chemical-structures.mjs';
 
@@ -296,6 +297,55 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
 const richContentSchema = z.array(richContentNodeSchema).min(1).max(50);
 
 const richParagraph = (text) => [{ type: 'paragraph', text }];
+
+function duplicateNodeText(node) {
+  if (!node || typeof node !== 'object') return String(node || '');
+  if (node.type === 'romanList') return (node.items || []).join(' ');
+  return (
+    node.text ||
+    node.code ||
+    node.tex ||
+    node.formula ||
+    node.equation ||
+    node.smiles ||
+    node.caption ||
+    node.alt ||
+    ''
+  );
+}
+
+export function normalizeQuestionContent(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\\chemical\{GIVES\}/gi, ' -> ')
+    .replace(/\\chemical\{PLUS\}/gi, ' + ')
+    .replace(/\\ell(?![A-Za-z])/g, 'l')
+    .replace(/\\Delta(?![A-Za-z])/g, 'delta')
+    .replace(/(?:\\(?:chemical|unit|m|bold|mathrm)|\\[A-Za-z]+)/g, '')
+    .replace(/[→⟶⇒]/g, '->')
+    .replace(/[←⟵]/g, '<-')
+    .replace(/\bquest(?:ao|ão)\s*\d+\b/gi, '')
+    .replace(/[^A-Za-z0-9+<>=-]+/g, '')
+    .toLowerCase();
+}
+
+export function questionContentFingerprint({ statementBlocks, alternatives }) {
+  const statement = (statementBlocks || []).map(duplicateNodeText).join(' ');
+  const answers = [...(alternatives || [])]
+    .sort((left, right) => (left.position || 0) - (right.position || 0))
+    .map((alternative) =>
+      Array.isArray(alternative.contentBlocks)
+        ? alternative.contentBlocks.map(duplicateNodeText).join(' ')
+        : alternative.content || '',
+    )
+    .join('|');
+  return createHash('sha256')
+    .update(
+      `${normalizeQuestionContent(statement)}|${normalizeQuestionContent(answers)}`,
+    )
+    .digest('hex');
+}
 const richStatement = (text, mathFormula, chemicalFormula, metapostCode) => [
   ...richParagraph(text),
   ...(mathFormula ? [{ type: 'math', tex: mathFormula }] : []),
@@ -392,6 +442,11 @@ export const createQuestionSchema = z
 
 export const questionStatusSchema = z.object({
   status: z.enum(['draft', 'review', 'approved', 'archived']),
+});
+
+export const questionDuplicateSchema = z.object({
+  duplicateOfQuestionId: z.uuid(),
+  reason: z.string().trim().min(3).max(500).optional(),
 });
 
 export const questionFiltersSchema = z.object({
@@ -572,6 +627,10 @@ export async function getQuestionFilterOptions({ institutionId }) {
 export async function getQuestion({ institutionId, questionId }) {
   const result = await pool.query({
     text: `SELECT q.id, q.public_code, q.current_revision, q.status, q.updated_at,
+                  q.duplicate_of_question_id, q.duplicate_detected_at,
+                  q.duplicate_reason,
+                  (SELECT duplicate.public_code FROM questions duplicate
+                   WHERE duplicate.id = q.duplicate_of_question_id) AS duplicate_of_code,
                   qr.type, qr.statement, qr.explanation, qr.difficulty,
                   qr.default_points, qr.subject, qr.grade,
                   qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
@@ -622,6 +681,10 @@ export async function getQuestion({ institutionId, questionId }) {
     code: row.public_code,
     revision: row.current_revision,
     status: row.status,
+    duplicateOfQuestionId: row.duplicate_of_question_id,
+    duplicateOfCode: row.duplicate_of_code,
+    duplicateDetectedAt: row.duplicate_detected_at,
+    duplicateReason: row.duplicate_reason,
     type: row.type,
     statement: row.statement,
     explanation: row.explanation || [],
@@ -665,12 +728,20 @@ async function insertRevision({
   let pedagogicalTopicId = null;
   if (value.pedagogicalTopicId) {
     const topic = await client.query(
-      `SELECT topic.id, topic.name, parent.name AS parent_name
-       FROM pedagogical_topics topic
-       JOIN pedagogical_disciplines pd ON pd.id = topic.discipline_id
-       LEFT JOIN pedagogical_topics parent ON parent.id = topic.parent_id
-       WHERE topic.id = $1 AND topic.institution_id = $2
-         AND ($3::uuid IS NULL OR pd.id = $3::uuid)`,
+      `WITH RECURSIVE ancestry AS (
+         SELECT topic.id, topic.parent_id, topic.name, 1 AS depth
+         FROM pedagogical_topics topic
+         JOIN pedagogical_disciplines pd ON pd.id = topic.discipline_id
+         WHERE topic.id = $1 AND topic.institution_id = $2
+           AND ($3::uuid IS NULL OR pd.id = $3::uuid)
+         UNION ALL
+         SELECT ancestry.id, parent.parent_id, parent.name, ancestry.depth + 1
+         FROM ancestry
+         JOIN pedagogical_topics parent ON parent.id = ancestry.parent_id
+       )
+       SELECT id, string_agg(name, ' > ' ORDER BY depth DESC) AS path
+       FROM ancestry
+       GROUP BY id`,
       [
         value.pedagogicalTopicId,
         institutionId,
@@ -683,9 +754,7 @@ async function insertRevision({
         { statusCode: 422 },
       );
     pedagogicalTopicId = topic.rows[0].id;
-    value.knowledgeTopic = [topic.rows[0].parent_name, topic.rows[0].name]
-      .filter(Boolean)
-      .join(' > ');
+    value.knowledgeTopic = topic.rows[0].path;
   }
   await client.query(
     `INSERT INTO question_revisions
@@ -804,6 +873,58 @@ export async function createQuestion({ institutionId, userId, input }) {
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
       institutionId,
     ]);
+    const candidateFingerprint = questionContentFingerprint({
+      statementBlocks:
+        value.statementBlocks ||
+        richStatement(
+          value.statement,
+          value.mathFormula,
+          value.chemicalFormula,
+          value.metapostCode,
+        ),
+      alternatives: value.alternatives.map((alternative) => ({
+        ...alternative,
+        contentBlocks:
+          alternative.contentBlocks || richParagraph(alternative.content),
+      })),
+    });
+    const currentQuestions = await client.query(
+      `SELECT q.id, q.public_code, qr.statement,
+              COALESCE((
+                SELECT jsonb_agg(
+                  jsonb_build_object(
+                    'position', alternative.position,
+                    'contentBlocks', alternative.content
+                  ) ORDER BY alternative.position
+                )
+                FROM alternatives alternative
+                WHERE alternative.question_id = q.id
+                  AND alternative.revision = q.current_revision
+              ), '[]'::jsonb) AS alternatives
+       FROM questions q
+       JOIN question_revisions qr
+         ON qr.question_id = q.id AND qr.revision = q.current_revision
+       WHERE q.institution_id = $1 AND q.status <> 'archived'`,
+      [institutionId],
+    );
+    const duplicate = currentQuestions.rows.find(
+      (question) =>
+        questionContentFingerprint({
+          statementBlocks: question.statement,
+          alternatives: question.alternatives,
+        }) === candidateFingerprint,
+    );
+    if (duplicate)
+      throw Object.assign(
+        new Error(
+          `Questão duplicada. O mesmo conteúdo já está cadastrado como ${duplicate.public_code}.`,
+        ),
+        {
+          statusCode: 409,
+          duplicateQuestionId: duplicate.id,
+          duplicateQuestionCode: duplicate.public_code,
+        },
+      );
     const sequence = await client.query(
       'SELECT COUNT(*)::int + 1 AS next FROM questions WHERE institution_id = $1',
       [institutionId],
@@ -953,6 +1074,166 @@ export async function setQuestionStatus({
       revision: result.rows[0].current_revision,
       status: result.rows[0].status,
       updatedAt: result.rows[0].updated_at,
+    };
+  });
+}
+
+export async function markQuestionDuplicate({
+  institutionId,
+  userId,
+  role = 'teacher',
+  questionId,
+  input,
+}) {
+  if (!['admin', 'coordinator'].includes(role))
+    throw Object.assign(
+      new Error(
+        'Somente coordenação ou administração pode marcar questões duplicadas.',
+      ),
+      { statusCode: 403 },
+    );
+  const value = questionDuplicateSchema.parse(input);
+  if (questionId === value.duplicateOfQuestionId)
+    throw Object.assign(
+      new Error('Uma questão não pode ser marcada como duplicada dela mesma.'),
+      { statusCode: 422 },
+    );
+  return transaction(async (client) => {
+    const canonical = await client.query(
+      `SELECT id, public_code FROM questions
+       WHERE id = $1 AND institution_id = $2
+         AND duplicate_of_question_id IS NULL`,
+      [value.duplicateOfQuestionId, institutionId],
+    );
+    if (!canonical.rowCount)
+      throw Object.assign(
+        new Error(
+          'A questão principal não foi encontrada ou também é duplicada.',
+        ),
+        { statusCode: 422 },
+      );
+    const duplicate = await client.query(
+      `UPDATE questions
+       SET duplicate_of_question_id = $3,
+           duplicate_detected_at = now(),
+           duplicate_reason = $4,
+           status = 'archived',
+           updated_at = now()
+       WHERE id = $1 AND institution_id = $2
+       RETURNING id, public_code, status, duplicate_detected_at,
+                 duplicate_reason`,
+      [
+        questionId,
+        institutionId,
+        value.duplicateOfQuestionId,
+        value.reason ||
+          'Conteúdo equivalente detectado após normalização do enunciado e das alternativas.',
+      ],
+    );
+    if (!duplicate.rowCount) return null;
+    await client.query(
+      `INSERT INTO audit_log
+         (institution_id,user_id,action,entity_type,entity_id,metadata)
+       VALUES($1,$2,'question.duplicate_marked','question',$3,$4::jsonb)`,
+      [
+        institutionId,
+        userId,
+        questionId,
+        JSON.stringify({
+          duplicateOfQuestionId: value.duplicateOfQuestionId,
+          duplicateOfCode: canonical.rows[0].public_code,
+        }),
+      ],
+    );
+    return {
+      id: duplicate.rows[0].id,
+      code: duplicate.rows[0].public_code,
+      status: duplicate.rows[0].status,
+      duplicateOfQuestionId: value.duplicateOfQuestionId,
+      duplicateOfCode: canonical.rows[0].public_code,
+      duplicateDetectedAt: duplicate.rows[0].duplicate_detected_at,
+      duplicateReason: duplicate.rows[0].duplicate_reason,
+    };
+  });
+}
+
+export async function listQuestionDuplicates({ institutionId }) {
+  const result = await pool.query(
+    `SELECT duplicate.id, duplicate.public_code, duplicate.status,
+            duplicate.duplicate_detected_at, duplicate.duplicate_reason,
+            canonical.id AS canonical_id,
+            canonical.public_code AS canonical_code,
+            revision.subject, revision.grade, revision.source_institution,
+            revision.source_year, revision.statement
+     FROM questions duplicate
+     JOIN questions canonical
+       ON canonical.id = duplicate.duplicate_of_question_id
+     JOIN question_revisions revision
+       ON revision.question_id = duplicate.id
+      AND revision.revision = duplicate.current_revision
+     WHERE duplicate.institution_id = $1
+     ORDER BY duplicate.duplicate_detected_at DESC, duplicate.public_code`,
+    [institutionId],
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    code: row.public_code,
+    status: row.status,
+    duplicateOfQuestionId: row.canonical_id,
+    duplicateOfCode: row.canonical_code,
+    duplicateDetectedAt: row.duplicate_detected_at,
+    duplicateReason: row.duplicate_reason,
+    subject: row.subject,
+    grade: row.grade,
+    sourceInstitution: row.source_institution,
+    sourceYear: row.source_year,
+    statement:
+      row.statement?.find((node) => node.type === 'paragraph')?.text || '',
+  }));
+}
+
+export async function clearQuestionDuplicate({
+  institutionId,
+  userId,
+  role = 'teacher',
+  questionId,
+}) {
+  if (!['admin', 'coordinator'].includes(role))
+    throw Object.assign(
+      new Error(
+        'Somente coordenação ou administração pode desfazer uma duplicidade.',
+      ),
+      { statusCode: 403 },
+    );
+  return transaction(async (client) => {
+    const result = await client.query(
+      `UPDATE questions
+       SET duplicate_of_question_id = NULL,
+           duplicate_detected_at = NULL,
+           duplicate_reason = NULL,
+           status = 'draft',
+           updated_at = now()
+       WHERE id = $1 AND institution_id = $2
+         AND duplicate_of_question_id IS NOT NULL
+       RETURNING id, public_code, status`,
+      [questionId, institutionId],
+    );
+    if (!result.rowCount) return null;
+    await client.query(
+      `INSERT INTO audit_log
+         (institution_id,user_id,action,entity_type,entity_id,metadata)
+       VALUES($1,$2,'question.duplicate_cleared','question',$3,$4::jsonb)`,
+      [
+        institutionId,
+        userId,
+        questionId,
+        JSON.stringify({ publicCode: result.rows[0].public_code }),
+      ],
+    );
+    return {
+      id: result.rows[0].id,
+      code: result.rows[0].public_code,
+      status: result.rows[0].status,
     };
   });
 }

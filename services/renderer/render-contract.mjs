@@ -284,7 +284,7 @@ function paragraphWithScientificInline(text) {
     );
     const valid =
       command === 'chemical'
-        ? /^[A-Za-z0-9_{}()+\-.=\\\s]+$/.test(argument) &&
+        ? /^[A-Za-z0-9_{}^()+\-.=\\\s]+$/.test(argument) &&
           [...argument.matchAll(/\\([A-Za-z]+)/g)].every(
             (item) => item[1] === 'ell',
           )
@@ -310,7 +310,7 @@ function richText(nodes = []) {
       if (!items.length || items.length > 30)
         throw new Error('Lista romana inválida ou vazia.');
       return {
-        content: `\\startitemize[I,packed]\n${items.map((item) => `  \\item ${escapeContext(item)}`).join('\n')}\n\\stopitemize`,
+        content: `\\startitemize[I,packed]\n${items.map((item) => `  \\item ${paragraphWithScientificInline(item)}`).join('\n')}\n\\stopitemize`,
         inline: false,
       };
     }

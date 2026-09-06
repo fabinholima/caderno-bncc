@@ -266,7 +266,13 @@ test('renderiza lista romana e equação destacada como ambientes ConTeXt', asyn
   );
   snapshot.questions[0].statement = [
     { type: 'paragraph', text: 'Considere as afirmações:' },
-    { type: 'romanList', items: ['Primeira afirmação.', 'Segunda afirmação.'] },
+    {
+      type: 'romanList',
+      items: [
+        'Primeira afirmação com \\chemical{H_{2}O}.',
+        'Segunda afirmação.',
+      ],
+    },
     {
       type: 'math',
       tex: '2\\,\\mathrm{HI}(g) \\rightarrow \\mathrm{H}_2(g) + \\mathrm{I}_2(g)',
@@ -275,7 +281,7 @@ test('renderiza lista romana e equação destacada como ambientes ConTeXt', asyn
   ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\startitemize\[I,packed\]/);
-  assert.match(tex, /\\item Primeira afirmação\./);
+  assert.match(tex, /\\item Primeira afirmação com \\chemical\{H_\{2\}O\}\./);
   assert.match(tex, /\\stopitemize/);
   assert.match(tex, /\\startformula/);
   assert.match(tex, /2\\,\\mathrm\{HI\}/);
@@ -439,6 +445,22 @@ test('permite ell dentro de chemical sem forçar itálico matemático', async ()
     /Considere \\chemical\{HC\\ell\} e \\chemical\{C\\ell_\{2\}\}\./,
   );
   assert.doesNotMatch(tex, /\\m\{/);
+});
+
+test('preserva expoente dentro de chemical no texto corrido', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    {
+      type: 'paragraph',
+      text: 'Considere a espécie \\chemical{2P^2} no equilíbrio.',
+    },
+  ];
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /Considere a espécie \\chemical\{2P\^2\} no equilíbrio\./);
 });
 
 test('usa bold na fonte da questão e permite exibir a habilidade BNCC', async () => {

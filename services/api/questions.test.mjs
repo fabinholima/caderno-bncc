@@ -2,9 +2,57 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createQuestionSchema,
+  normalizeQuestionContent,
+  questionContentFingerprint,
+  questionDuplicateSchema,
   questionFiltersSchema,
   questionStatusSchema,
 } from './questions.mjs';
+
+test('valida a marcação explícita de uma questão duplicada', () => {
+  const parsed = questionDuplicateSchema.parse({
+    duplicateOfQuestionId: '49de6dd7-2236-4fab-b260-5daa54e2bc09',
+    reason: 'Mesmo enunciado e alternativas.',
+  });
+  assert.equal(
+    parsed.duplicateOfQuestionId,
+    '49de6dd7-2236-4fab-b260-5daa54e2bc09',
+  );
+});
+
+test('normaliza variações equivalentes da notação química', () => {
+  assert.equal(
+    normalizeQuestionContent('HNO_3 + C\\ell_{2} → H_2O'),
+    normalizeQuestionContent(
+      '\\chemical{HNO_{3}} \\chemical{PLUS} \\chemical{Cl_2} \\chemical{GIVES} \\chemical{H2O}',
+    ),
+  );
+});
+
+test('gera a mesma impressão digital para blocos equivalentes', () => {
+  const first = questionContentFingerprint({
+    statementBlocks: [
+      { type: 'paragraph', text: 'Considere HNO_3.' },
+      { type: 'contextInline', code: '\\chemical{Cl_2}' },
+    ],
+    alternatives: [
+      { position: 1, contentBlocks: [{ type: 'paragraph', text: 'SO_2' }] },
+    ],
+  });
+  const second = questionContentFingerprint({
+    statementBlocks: [
+      { type: 'paragraph', text: 'Considere \\chemical{HNO_{3}}.' },
+      { type: 'paragraph', text: '\\chemical{C\\ell_{2}}' },
+    ],
+    alternatives: [
+      {
+        position: 1,
+        contentBlocks: [{ type: 'contextInline', code: '\\chemical{SO_{2}}' }],
+      },
+    ],
+  });
+  assert.equal(first, second);
+});
 
 const baseQuestion = {
   type: 'single_choice',
@@ -66,10 +114,12 @@ test('aceita conteúdo científico em enunciado, alternativa e resolução', () 
 test('aceita fórmula ConTeXt segura com chemical e unit', () => {
   const parsed = createQuestionSchema.parse({
     ...baseQuestion,
-    statementBlocks: [{
-      type: 'contextFormula',
-      code: '\\chemical{} \\chemical{2HI(g)} \\qquad m=\\unit{18,4 g}',
-    }],
+    statementBlocks: [
+      {
+        type: 'contextFormula',
+        code: '\\chemical{} \\chemical{2HI(g)} \\qquad m=\\unit{18,4 g}',
+      },
+    ],
   });
   assert.equal(parsed.statementBlocks[0].type, 'contextFormula');
 });
@@ -90,14 +140,20 @@ test('aceita química e unidades ConTeXt dentro do texto corrido', () => {
 });
 
 test('rejeita comandos perigosos na fórmula ConTeXt', () => {
-  assert.throws(() => createQuestionSchema.parse({
-    ...baseQuestion,
-    statementBlocks: [{ type: 'contextFormula', code: '\\input{segredo}' }],
-  }));
-  assert.throws(() => createQuestionSchema.parse({
-    ...baseQuestion,
-    statementBlocks: [{ type: 'contextFormula', code: '\\directlua{os.execute("x")}' }],
-  }));
+  assert.throws(() =>
+    createQuestionSchema.parse({
+      ...baseQuestion,
+      statementBlocks: [{ type: 'contextFormula', code: '\\input{segredo}' }],
+    }),
+  );
+  assert.throws(() =>
+    createQuestionSchema.parse({
+      ...baseQuestion,
+      statementBlocks: [
+        { type: 'contextFormula', code: '\\directlua{os.execute("x")}' },
+      ],
+    }),
+  );
 });
 
 test('rejeita comandos arbitrários dentro das fórmulas', () => {

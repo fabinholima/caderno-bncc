@@ -40,6 +40,18 @@ Em outro terminal, inicie o portal com `NEXT_PUBLIC_API_URL=http://localhost:878
 A importação de provas usa `pdftotext` e `pdftoppm` (Poppler). Para PDFs
 escaneados, instale também Tesseract com os idiomas português e inglês. No Arch
 Linux: `sudo pacman -S tesseract tesseract-data-por tesseract-data-eng`.
+O recorte de figuras usa ImageMagick (`magick`) e sempre exige confirmação na
+tela de revisão antes de anexar a imagem ao cadastro da questão.
+
+O fluxo editorial de importação inclui prévia dos documentos, extração por
+texto ou OCR, captura de figuras, leitura assistida do gabarito, classificação
+individual ou em lote, filtros por situação/tipo/instituição/série/conteúdo,
+ações em lote, validação de alternativas e comandos ConTeXt, detecção de
+duplicidades e prévia real em PDF antes do cadastro. Cada candidata termina
+como cadastrada, duplicada ou ignorada; quando todas possuem um destino, o
+trabalho de importação passa para `completed`. Duplicatas são arquivadas com
+uma referência explícita para a questão principal e podem ser revisadas pela
+coordenação na própria tela de importação.
 
 ### Acesso pelo celular na rede local
 

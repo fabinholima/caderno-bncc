@@ -93,6 +93,9 @@ type PedagogicalTopic = {
   discipline: string;
   parent_id: string | null;
   parent_name: string | null;
+  grade_range: string;
+  depth: number;
+  path: string;
 };
 type SaebMatrix = {
   id: string;
@@ -142,11 +145,6 @@ const curriculumDemo: CurriculumOption[] = [
     skill_description: 'Resolver e elaborar problemas com números inteiros.',
   },
 ];
-
-const chemistryKnowledgeTopics = {
-  Termoquímica: ['Lei de Hess', 'Entalpia de Formação', 'Entalpia de Ligação'],
-  Eletroquímica: ['NOX', 'Lei de Faraday'],
-} as const;
 
 const initialQuestions: Question[] = [
   {
@@ -251,8 +249,10 @@ export default function Home() {
   const [subject, setSubject] = useState('Todas');
   const [knowledgeObjectFilter, setKnowledgeObjectFilter] = useState('');
   const [competencyFilter, setCompetencyFilter] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('');
   const [topicGroupFilter, setTopicGroupFilter] = useState('');
   const [subtopicFilter, setSubtopicFilter] = useState('');
+  const [topicDetailFilter, setTopicDetailFilter] = useState('');
   const [sourceInstitutionFilter, setSourceInstitutionFilter] = useState('');
   const [sourceYearFilter, setSourceYearFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
@@ -312,12 +312,15 @@ export default function Home() {
   const [selectedSaebMatrix, setSelectedSaebMatrix] = useState('');
   const [selectedSaebDescriptor, setSelectedSaebDescriptor] = useState('');
   const [saebInfoOpen, setSaebInfoOpen] = useState(false);
-  const [knowledgeTopicGroup, setKnowledgeTopicGroup] =
-    useState<keyof typeof chemistryKnowledgeTopics>('Termoquímica');
-  const [knowledgeSubtopic, setKnowledgeSubtopic] =
-    useState<string>('Lei de Hess');
+  const [pedagogicalGrade, setPedagogicalGrade] = useState('1ª série');
+  const [pedagogicalObjectId, setPedagogicalObjectId] = useState('');
+  const [pedagogicalSubtopicId, setPedagogicalSubtopicId] = useState('');
+  const [pedagogicalDetailId, setPedagogicalDetailId] = useState('');
   const pedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === discipline,
+  );
+  const chemistryPedagogicalDiscipline = pedagogicalDisciplines.find(
+    (item) => item.name === 'Química',
   );
   const availableCompetencies = [
     ...new Map(
@@ -355,6 +358,20 @@ export default function Home() {
   const selectedSaebInfo = saebDescriptors.find(
     (item) => item.id === selectedSaebDescriptor,
   );
+  const chemistryObjects = pedagogicalTopics.filter(
+    (item) =>
+      item.discipline_id === pedagogicalDiscipline?.id &&
+      !item.parent_id &&
+      item.grade_range === pedagogicalGrade,
+  );
+  const chemistrySubtopics = pedagogicalTopics.filter(
+    (item) => item.parent_id === pedagogicalObjectId,
+  );
+  const chemistryDetails = pedagogicalTopics.filter(
+    (item) => item.parent_id === pedagogicalSubtopicId,
+  );
+  const selectedPedagogicalTopicId =
+    pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId;
 
   useEffect(() => {
     if (
@@ -371,6 +388,7 @@ export default function Home() {
             .toLowerCase()
             .includes(query.toLowerCase()) &&
           q.stage === educationStage &&
+          (!gradeFilter || q.grade === gradeFilter) &&
           (subject === 'Todas' || q.subject === subject) &&
           (!knowledgeObjectFilter ||
             q.knowledgeObjectId === knowledgeObjectFilter) &&
@@ -378,7 +396,12 @@ export default function Home() {
           (!topicGroupFilter ||
             q.knowledgeTopic?.startsWith(topicGroupFilter)) &&
           (!subtopicFilter ||
-            q.knowledgeTopic === `${topicGroupFilter} > ${subtopicFilter}`) &&
+            q.knowledgeTopic?.startsWith(
+              `${topicGroupFilter} > ${subtopicFilter}`,
+            )) &&
+          (!topicDetailFilter ||
+            q.knowledgeTopic ===
+              `${topicGroupFilter} > ${subtopicFilter} > ${topicDetailFilter}`) &&
           (!sourceInstitutionFilter ||
             q.sourceInstitution === sourceInstitutionFilter) &&
           (!sourceYearFilter || q.sourceYear === Number(sourceYearFilter)) &&
@@ -388,16 +411,27 @@ export default function Home() {
       questions,
       query,
       educationStage,
+      gradeFilter,
       subject,
       knowledgeObjectFilter,
       competencyFilter,
       topicGroupFilter,
       subtopicFilter,
+      topicDetailFilter,
       sourceInstitutionFilter,
       sourceYearFilter,
       difficultyFilter,
     ],
   );
+
+  useEffect(() => {
+    if (discipline !== 'Química' || !chemistryObjects.length) return;
+    if (!chemistryObjects.some((item) => item.id === pedagogicalObjectId)) {
+      setPedagogicalObjectId(chemistryObjects[0].id);
+      setPedagogicalSubtopicId('');
+      setPedagogicalDetailId('');
+    }
+  }, [discipline, chemistryObjects, pedagogicalObjectId, pedagogicalGrade]);
 
   useEffect(() => {
     const fallback = `${window.location.protocol}//${window.location.hostname}:8788`;
@@ -551,8 +585,29 @@ export default function Home() {
           data: Question;
           error?: string;
           issues?: Array<{ path?: Array<string | number>; message: string }>;
+          duplicateQuestionId?: string;
+          duplicateQuestionCode?: string;
         };
         if (!response.ok) {
+          if (
+            response.status === 409 &&
+            importCandidateSource &&
+            body.duplicateQuestionId
+          ) {
+            await apiFetch(
+              `${apiUrl}/api/exam-imports/${importCandidateSource.importId}/candidates/${importCandidateSource.candidateId}`,
+              {
+                method: 'PATCH',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  status: 'duplicate',
+                  selected: false,
+                  duplicateQuestionId: body.duplicateQuestionId,
+                  duplicateQuestionCode: body.duplicateQuestionCode,
+                }),
+              },
+            );
+          }
           const details = body.issues
             ?.map((issue) => {
               const field = issue.path?.length
@@ -716,9 +771,7 @@ export default function Home() {
         throw new Error(body.error || 'Questão não encontrada.');
       const question = body.data;
       const skillCode = question.skills?.[0]?.code || '';
-      const [topicGroup, subtopic] = String(
-        question.knowledgeTopic || '',
-      ).split(/\s*>\s*/, 2);
+      const topicPath = String(question.knowledgeTopic || '').split(/\s*>\s*/);
       const competency = highSchoolCurriculum.find(
         (item) => item.skill_code === skillCode,
       );
@@ -734,16 +787,18 @@ export default function Home() {
       setSelectedSaebMatrix(saebDescriptor?.matrixId || '');
       setSelectedSaebDescriptor(saebDescriptor?.id || '');
       setSaebInfoOpen(false);
-      if (topicGroup in chemistryKnowledgeTopics) {
-        setKnowledgeTopicGroup(
-          topicGroup as keyof typeof chemistryKnowledgeTopics,
+      if (question.subject === 'Química') {
+        setPedagogicalGrade(question.grade || '1ª série');
+        const pathTopics = topicPath.map((name: string) =>
+          pedagogicalTopics.find(
+            (topic) =>
+              topic.discipline_id === pedagogicalDiscipline?.id &&
+              topic.name === name,
+          ),
         );
-        setKnowledgeSubtopic(
-          subtopic ||
-            chemistryKnowledgeTopics[
-              topicGroup as keyof typeof chemistryKnowledgeTopics
-            ][0],
-        );
+        setPedagogicalObjectId(pathTopics[0]?.id || '');
+        setPedagogicalSubtopicId(pathTopics[1]?.id || '');
+        setPedagogicalDetailId(pathTopics[2]?.id || '');
       }
       setImportedCorrect(
         question.alternatives
@@ -831,8 +886,10 @@ export default function Home() {
     setSaebInfoOpen(false);
     setSkillInfoOpen(false);
     setCompetencyInfoOpen(false);
-    setKnowledgeTopicGroup('Termoquímica');
-    setKnowledgeSubtopic('Lei de Hess');
+    setPedagogicalGrade('1ª série');
+    setPedagogicalObjectId('');
+    setPedagogicalSubtopicId('');
+    setPedagogicalDetailId('');
     setImportRevision((value) => value + 1);
     setOpen(true);
   }
@@ -990,6 +1047,19 @@ export default function Home() {
                 ...parsed,
                 sourceInstitution: candidate.sourceInstitution,
                 sourceYear: String(candidate.sourceYear),
+                statementBlocks: candidate.imageDataUrl
+                  ? [
+                      ...parsed.statementBlocks,
+                      {
+                        type: 'image',
+                        dataUrl: candidate.imageDataUrl,
+                        alt:
+                          candidate.imageAlt ||
+                          'Figura extraída da prova original',
+                        caption: '',
+                      },
+                    ]
+                  : parsed.statementBlocks,
               });
               setEditingQuestionId('');
               setImportCandidateSource({
@@ -997,14 +1067,51 @@ export default function Home() {
                 candidateId: candidate.candidateId,
               });
               setQuestionType(candidate.questionType);
-              setImportedCorrect([]);
+              setImportedCorrect(candidate.correctAnswers || []);
               setImportedAnswerBlocks([]);
+              const importedTopic = pedagogicalTopics.find(
+                (topic) => topic.id === candidate.pedagogicalTopicId,
+              );
+              const importedDetail =
+                importedTopic?.depth === 2 ? importedTopic : undefined;
+              const importedSubtopic =
+                importedTopic?.depth === 1
+                  ? importedTopic
+                  : importedDetail
+                    ? pedagogicalTopics.find(
+                        (topic) => topic.id === importedDetail.parent_id,
+                      )
+                    : undefined;
+              const importedObject =
+                importedTopic?.depth === 0
+                  ? importedTopic
+                  : pedagogicalTopics.find(
+                      (topic) =>
+                        topic.id ===
+                        (importedSubtopic?.parent_id ||
+                          importedTopic?.parent_id),
+                    );
+              setPedagogicalGrade(candidate.grade || '1ª série');
+              setPedagogicalObjectId(importedObject?.id || '');
+              setPedagogicalSubtopicId(importedSubtopic?.id || '');
+              setPedagogicalDetailId(importedDetail?.id || '');
+              setSelectedSkillCode(candidate.skill || '');
+              setImportedDetails({
+                grade: candidate.grade || '',
+                skill: candidate.skill || '',
+                knowledgeTopic: '',
+                difficulty: candidate.difficulty || 'Média',
+              });
               setImportRevision((value) => value + 1);
               setActive('Questões');
               setOpen(true);
               setNotice(
                 'Questão importada para revisão. Confira conteúdo, classificação e gabarito antes de salvar.',
               );
+            }}
+            onOpenQuestion={(questionId) => {
+              setActive('Questões');
+              void editQuestion(questionId);
             }}
           />
         ) : active === 'Configurações' ? (
@@ -1013,6 +1120,7 @@ export default function Home() {
           <CurriculumManager
             items={curriculum}
             apiUrl={apiUrl}
+            role={identity.role}
             onChange={setCurriculum}
           />
         ) : (
@@ -1061,6 +1169,8 @@ export default function Home() {
                       setCompetencyFilter('');
                       setTopicGroupFilter('');
                       setSubtopicFilter('');
+                      setTopicDetailFilter('');
+                      setGradeFilter('');
                     }}
                     className={
                       educationStage === stage
@@ -1132,6 +1242,7 @@ export default function Home() {
                       setCompetencyFilter('');
                       setTopicGroupFilter('');
                       setSubtopicFilter('');
+                      setTopicDetailFilter('');
                     }}
                     className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-200"
                   >
@@ -1150,6 +1261,22 @@ export default function Home() {
                   </select>
                   {subject === 'Química' ? (
                     <>
+                      <select
+                        aria-label="Série de Química"
+                        value={gradeFilter}
+                        onChange={(event) => {
+                          setGradeFilter(event.target.value);
+                          setTopicGroupFilter('');
+                          setSubtopicFilter('');
+                          setTopicDetailFilter('');
+                        }}
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                      >
+                        <option value="">Todas as séries</option>
+                        <option value="1ª série">1ª série</option>
+                        <option value="2ª série">2ª série</option>
+                        <option value="3ª série">3ª série</option>
+                      </select>
                       <select
                         aria-label="Competência específica"
                         value={competencyFilter}
@@ -1181,31 +1308,90 @@ export default function Home() {
                         onChange={(event) => {
                           setTopicGroupFilter(event.target.value);
                           setSubtopicFilter('');
+                          setTopicDetailFilter('');
                         }}
                         className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
                       >
                         <option value="">Todos os objetos</option>
-                        {Object.keys(chemistryKnowledgeTopics).map((topic) => (
-                          <option key={topic}>{topic}</option>
-                        ))}
+                        {pedagogicalTopics
+                          .filter(
+                            (topic) =>
+                              topic.discipline_id ===
+                                chemistryPedagogicalDiscipline?.id &&
+                              !topic.parent_id &&
+                              (!gradeFilter ||
+                                topic.grade_range === gradeFilter),
+                          )
+                          .map((topic) => (
+                            <option key={topic.id} value={topic.name}>
+                              {topic.name}
+                            </option>
+                          ))}
                       </select>
                       <select
                         aria-label="Subtópico de Química"
                         value={subtopicFilter}
                         disabled={!topicGroupFilter}
-                        onChange={(event) =>
-                          setSubtopicFilter(event.target.value)
-                        }
+                        onChange={(event) => {
+                          setSubtopicFilter(event.target.value);
+                          setTopicDetailFilter('');
+                        }}
                         className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-400"
                       >
                         <option value="">Todos os subtópicos</option>
-                        {topicGroupFilter &&
-                          chemistryKnowledgeTopics[
-                            topicGroupFilter as keyof typeof chemistryKnowledgeTopics
-                          ].map((topic) => (
-                            <option key={topic}>{topic}</option>
+                        {pedagogicalTopics
+                          .filter(
+                            (topic) =>
+                              topic.parent_id ===
+                              pedagogicalTopics.find(
+                                (root) =>
+                                  !root.parent_id &&
+                                  root.discipline_id ===
+                                    chemistryPedagogicalDiscipline?.id &&
+                                  root.name === topicGroupFilter,
+                              )?.id,
+                          )
+                          .map((topic) => (
+                            <option key={topic.id} value={topic.name}>
+                              {topic.name}
+                            </option>
                           ))}
                       </select>
+                      {pedagogicalTopics.some(
+                        (topic) =>
+                          topic.parent_id ===
+                          pedagogicalTopics.find(
+                            (parent) =>
+                              parent.name === subtopicFilter &&
+                              parent.parent_name === topicGroupFilter,
+                          )?.id,
+                      ) && (
+                        <select
+                          aria-label="Detalhamento de Química"
+                          value={topicDetailFilter}
+                          onChange={(event) =>
+                            setTopicDetailFilter(event.target.value)
+                          }
+                          className="h-10 max-w-64 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                        >
+                          <option value="">Todos os detalhamentos</option>
+                          {pedagogicalTopics
+                            .filter(
+                              (topic) =>
+                                topic.parent_id ===
+                                pedagogicalTopics.find(
+                                  (parent) =>
+                                    parent.name === subtopicFilter &&
+                                    parent.parent_name === topicGroupFilter,
+                                )?.id,
+                            )
+                            .map((topic) => (
+                              <option key={topic.id} value={topic.name}>
+                                {topic.name}
+                              </option>
+                            ))}
+                        </select>
+                      )}
                     </>
                   ) : (
                     <select
@@ -1314,6 +1500,7 @@ export default function Home() {
                         setKnowledgeObjectFilter('');
                         setTopicGroupFilter('');
                         setSubtopicFilter('');
+                        setTopicDetailFilter('');
                         setSourceInstitutionFilter('');
                         setSourceYearFilter('');
                         setDifficultyFilter('');
@@ -1570,8 +1757,10 @@ export default function Home() {
                         setSelectedSaebDescriptor('');
                         setSaebInfoOpen(false);
                         if (next === 'Química') {
-                          setKnowledgeTopicGroup('Termoquímica');
-                          setKnowledgeSubtopic('Lei de Hess');
+                          setPedagogicalGrade('1ª série');
+                          setPedagogicalObjectId('');
+                          setPedagogicalSubtopicId('');
+                          setPedagogicalDetailId('');
                         }
                       }}
                       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
@@ -1680,12 +1869,25 @@ export default function Home() {
                     </span>
                     <select
                       name="grade"
-                      key={`grade-${importRevision}`}
-                      defaultValue={importedDetails.grade || undefined}
+                      value={
+                        pedagogicalDiscipline
+                          ? pedagogicalGrade
+                          : importedDetails.grade || undefined
+                      }
+                      onChange={
+                        pedagogicalDiscipline
+                          ? (event) => {
+                              setPedagogicalGrade(event.target.value);
+                              setPedagogicalObjectId('');
+                              setPedagogicalSubtopicId('');
+                              setPedagogicalDetailId('');
+                            }
+                          : undefined
+                      }
                       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                     >
                       {(pedagogicalDiscipline
-                        ? ['Ensino Médio (sem seriação)']
+                        ? ['1ª série', '2ª série', '3ª série']
                         : [
                             ...new Set(
                               curriculum
@@ -1767,28 +1969,27 @@ export default function Home() {
                         )}
                       </label>
                       {discipline === 'Química' ? (
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid gap-3 sm:grid-cols-3">
                           <label className="block">
                             <span className="mb-2 block text-sm font-semibold">
                               Objeto de conhecimento
                             </span>
                             <select
-                              value={knowledgeTopicGroup}
+                              required
+                              value={pedagogicalObjectId}
                               onChange={(event) => {
-                                const group = event.target
-                                  .value as keyof typeof chemistryKnowledgeTopics;
-                                setKnowledgeTopicGroup(group);
-                                setKnowledgeSubtopic(
-                                  chemistryKnowledgeTopics[group][0],
-                                );
+                                setPedagogicalObjectId(event.target.value);
+                                setPedagogicalSubtopicId('');
+                                setPedagogicalDetailId('');
                               }}
                               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                             >
-                              {Object.keys(chemistryKnowledgeTopics).map(
-                                (topic) => (
-                                  <option key={topic}>{topic}</option>
-                                ),
-                              )}
+                              <option value="">Selecione o objeto</option>
+                              {chemistryObjects.map((topic) => (
+                                <option key={topic.id} value={topic.id}>
+                                  {topic.name}
+                                </option>
+                              ))}
                             </select>
                           </label>
                           <label className="block">
@@ -1796,40 +1997,50 @@ export default function Home() {
                               Subtópico
                             </span>
                             <select
-                              value={knowledgeSubtopic}
-                              onChange={(event) =>
-                                setKnowledgeSubtopic(event.target.value)
-                              }
+                              value={pedagogicalSubtopicId}
+                              onChange={(event) => {
+                                setPedagogicalSubtopicId(event.target.value);
+                                setPedagogicalDetailId('');
+                              }}
                               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                             >
-                              {chemistryKnowledgeTopics[
-                                knowledgeTopicGroup
-                              ].map((topic) => (
-                                <option key={topic}>{topic}</option>
+                              <option value="">Todos/nenhum</option>
+                              {chemistrySubtopics.map((topic) => (
+                                <option key={topic.id} value={topic.id}>
+                                  {topic.name}
+                                </option>
                               ))}
                             </select>
                           </label>
-                          <input
-                            type="hidden"
-                            name="knowledgeTopic"
-                            value={`${knowledgeTopicGroup} > ${knowledgeSubtopic}`}
-                          />
+                          {chemistryDetails.length > 0 && (
+                            <label className="block">
+                              <span className="mb-2 block text-sm font-semibold">
+                                Detalhamento
+                              </span>
+                              <select
+                                value={pedagogicalDetailId}
+                                onChange={(event) =>
+                                  setPedagogicalDetailId(event.target.value)
+                                }
+                                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                              >
+                                <option value="">Selecione</option>
+                                {chemistryDetails.map((topic) => (
+                                  <option key={topic.id} value={topic.id}>
+                                    {topic.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
                           <input
                             type="hidden"
                             name="pedagogicalTopicId"
-                            value={
-                              pedagogicalTopics.find(
-                                (topic) =>
-                                  topic.discipline_id ===
-                                    pedagogicalDiscipline.id &&
-                                  topic.parent_name === knowledgeTopicGroup &&
-                                  topic.name === knowledgeSubtopic,
-                              )?.id || ''
-                            }
+                            value={selectedPedagogicalTopicId}
                           />
-                          <span className="text-xs text-slate-400 sm:col-span-2">
+                          <span className="text-xs text-slate-400 sm:col-span-3">
                             Classificação pedagógica: objeto de conhecimento →
-                            subtópico.
+                            subtópico → detalhamento.
                           </span>
                         </div>
                       ) : (

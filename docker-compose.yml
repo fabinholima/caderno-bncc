@@ -35,6 +35,12 @@ services:
       - ./database/024_individual_report_snapshots.sql:/docker-entrypoint-initdb.d/024_individual_report_snapshots.sql:ro
       - ./database/025_exam_imports.sql:/docker-entrypoint-initdb.d/025_exam_imports.sql:ro
       - ./database/026_exam_import_candidates.sql:/docker-entrypoint-initdb.d/026_exam_import_candidates.sql:ro
+      - ./database/027_chemistry_high_school_topics.sql:/docker-entrypoint-initdb.d/027_chemistry_high_school_topics.sql:ro
+      - ./database/028_chemistry_biochemistry_topics.sql:/docker-entrypoint-initdb.d/028_chemistry_biochemistry_topics.sql:ro
+      - ./database/029_pedagogical_topic_management.sql:/docker-entrypoint-initdb.d/029_pedagogical_topic_management.sql:ro
+      - ./database/030_classify_legacy_chemistry_questions.sql:/docker-entrypoint-initdb.d/030_classify_legacy_chemistry_questions.sql:ro
+      - ./database/031_question_duplicates.sql:/docker-entrypoint-initdb.d/031_question_duplicates.sql:ro
+      - ./database/032_exam_import_completion.sql:/docker-entrypoint-initdb.d/032_exam_import_completion.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U caderno -d caderno']
       interval: 5s

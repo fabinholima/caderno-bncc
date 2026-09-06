@@ -15,6 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
+import { parsePastedQuestion } from './question-paste-importer';
+import type { RichContentBlock } from './rich-content-editor';
 
 type ExamImport = {
   id: string;
@@ -46,9 +48,23 @@ type ExamImportCandidate = {
   rawText: string;
   selected: boolean;
   questionType: 'single_choice' | 'multiple_choice' | 'essay';
-  status: 'complete' | 'review' | 'completed';
+  status: 'complete' | 'review' | 'completed' | 'duplicate' | 'ignored';
   pageNumber?: number;
   extractionMethod?: 'text' | 'ocr';
+  imageDataUrl?: string;
+  imageAlt?: string;
+  imageExtractionMethod?: 'automatic_page_region';
+  visualCaptureWarning?: string;
+  correctAnswers?: string[];
+  answerStatus?: 'missing' | 'suggested' | 'confirmed';
+  answerConfidence?: number;
+  grade?: string;
+  difficulty?: BulkSettings['difficulty'];
+  skill?: string;
+  pedagogicalDisciplineId?: string;
+  pedagogicalTopicId?: string;
+  duplicateQuestionId?: string;
+  duplicateQuestionCode?: string;
 };
 
 type PdfPreview = {
@@ -65,12 +81,190 @@ type StoredPdfPreview = {
   size: number;
 };
 
+type BulkSettings = {
+  grade: string;
+  difficulty: 'Fácil' | 'Média' | 'Difícil';
+  skill: string;
+  pedagogicalDisciplineId: string;
+  objectId: string;
+  topicId: string;
+  detailId: string;
+};
+
+type ReviewFilters = {
+  query: string;
+  status: string;
+  questionType: string;
+  institution: string;
+  grade: string;
+  topicId: string;
+};
+
+type PedagogicalDiscipline = {
+  id: string;
+  name: string;
+  stage: string;
+};
+
+type PedagogicalTopic = {
+  id: string;
+  name: string;
+  discipline_id: string;
+  parent_id: string | null;
+  grade_range: string;
+  depth: number;
+  path: string;
+};
+
+type DuplicateQuestion = {
+  id: string;
+  code: string;
+  duplicateOfQuestionId: string;
+  duplicateOfCode: string;
+  duplicateDetectedAt: string;
+  duplicateReason: string;
+  subject: string;
+  grade: string;
+  sourceInstitution: string;
+  sourceYear: number;
+  statement: string;
+};
+
+const defaultBulkSettings: BulkSettings = {
+  grade: '',
+  difficulty: 'Média',
+  skill: '',
+  pedagogicalDisciplineId: '',
+  objectId: '',
+  topicId: '',
+  detailId: '',
+};
+
+function candidateReadiness(candidate: ExamImportCandidate) {
+  const reasons: string[] = [];
+  if (!candidate.selected) reasons.push('não selecionada');
+  if (candidate.status === 'completed') reasons.push('já cadastrada');
+  if (candidate.status === 'duplicate') reasons.push('questão duplicada');
+  if (candidate.status === 'ignored') reasons.push('questão ignorada');
+  if (candidate.questionType === 'essay')
+    reasons.push('discursiva exige revisão individual');
+  const labels = Object.keys(
+    parsePastedQuestion(candidate.rawText).alternatives,
+  )
+    .sort()
+    .join('');
+  if (candidate.questionType !== 'essay' && labels !== 'ABCDE')
+    reasons.push('alternativas A–E incompletas');
+  if (
+    candidate.questionType !== 'essay' &&
+    candidate.answerStatus !== 'confirmed'
+  )
+    reasons.push('gabarito não confirmado');
+  const answerCount = candidate.correctAnswers?.length || 0;
+  if (candidate.questionType === 'single_choice' && answerCount !== 1)
+    reasons.push('selecione uma resposta correta');
+  if (candidate.questionType === 'multiple_choice' && answerCount < 2)
+    reasons.push('selecione pelo menos duas respostas corretas');
+  return { ready: reasons.length === 0, reasons };
+}
+
+function candidateEditorialChecks(candidate: ExamImportCandidate) {
+  const parsed = parsePastedQuestion(candidate.rawText);
+  const labels = Object.keys(parsed.alternatives).sort().join('');
+  const bracesBalanced =
+    (candidate.rawText.match(/\{/g)?.length || 0) ===
+    (candidate.rawText.match(/\}/g)?.length || 0);
+  return [
+    {
+      label:
+        candidate.questionType === 'essay' ? 'Discursiva' : 'Alternativas A–E',
+      ok: candidate.questionType === 'essay' || labels === 'ABCDE',
+    },
+    {
+      label:
+        candidate.questionType === 'essay' ? 'Correção individual' : 'Gabarito',
+      ok:
+        candidate.questionType === 'essay' ||
+        (candidate.answerStatus === 'confirmed' &&
+          Boolean(candidate.correctAnswers?.length)),
+    },
+    {
+      label: 'Classificação',
+      ok: Boolean(candidate.grade && candidate.pedagogicalTopicId),
+    },
+    {
+      label: 'ConTeXt',
+      ok: bracesBalanced,
+    },
+    ...(candidate.imageDataUrl ? [{ label: 'Imagem anexada', ok: true }] : []),
+  ];
+}
+
+function candidateMatchesReviewFilters(
+  candidate: ExamImportCandidate,
+  item: ExamImport,
+  filters: ReviewFilters,
+  topics: PedagogicalTopic[],
+) {
+  if (
+    filters.query &&
+    !`${candidate.sourceNumber} ${candidate.rawText}`
+      .toLocaleLowerCase('pt-BR')
+      .includes(filters.query.toLocaleLowerCase('pt-BR'))
+  )
+    return false;
+  if (filters.institution && item.sourceInstitution !== filters.institution)
+    return false;
+  if (filters.questionType && candidate.questionType !== filters.questionType)
+    return false;
+  if (filters.grade && candidate.grade !== filters.grade) return false;
+  if (filters.status) {
+    const pending =
+      !['completed', 'duplicate'].includes(candidate.status) &&
+      !candidateReadiness({ ...candidate, selected: true }).ready;
+    if (
+      filters.status === 'pending'
+        ? !pending
+        : candidate.status !== filters.status
+    )
+      return false;
+  }
+  if (filters.topicId) {
+    const filterTopic = topics.find((topic) => topic.id === filters.topicId);
+    const candidateTopic = topics.find(
+      (topic) => topic.id === candidate.pedagogicalTopicId,
+    );
+    if (
+      !filterTopic ||
+      !candidateTopic ||
+      (candidateTopic.id !== filterTopic.id &&
+        !candidateTopic.path.startsWith(`${filterTopic.path} > `))
+    )
+      return false;
+  }
+  return true;
+}
+
+function blockPlainText(block: RichContentBlock) {
+  if (block.type === 'paragraph') return block.text;
+  if (block.type === 'romanList') return block.items.join(' ');
+  if (block.type === 'contextFormula' || block.type === 'contextInline')
+    return block.code;
+  if (block.type === 'math') return block.tex;
+  if (block.type === 'chemical') return block.formula;
+  if (block.type === 'thermochemicalEquation') return block.equation;
+  if (block.type === 'chemicalStructure')
+    return block.caption || block.smiles || 'Estrutura química';
+  return block.alt || block.caption || 'Imagem da questão';
+}
+
 const statusLabels: Record<string, string> = {
   uploaded: 'Documentos recebidos',
   queued: 'Na fila',
   extracting: 'Extraindo',
   extracted: 'Extração concluída',
   needs_review: 'Aguardando revisão',
+  completed: 'Importação concluída',
   failed: 'Falhou',
   cancelled: 'Cancelada',
 };
@@ -99,6 +293,7 @@ export function ExamImportManager({
   apiUrl,
   role,
   onRegisterQuestion,
+  onOpenQuestion,
 }: {
   apiUrl: string;
   role: 'admin' | 'coordinator' | 'teacher';
@@ -109,7 +304,16 @@ export function ExamImportManager({
     sourceInstitution: string;
     sourceYear: number;
     questionType: ExamImportCandidate['questionType'];
+    imageDataUrl?: string;
+    imageAlt?: string;
+    correctAnswers?: string[];
+    grade?: string;
+    difficulty?: BulkSettings['difficulty'];
+    skill?: string;
+    pedagogicalDisciplineId?: string;
+    pedagogicalTopicId?: string;
   }) => void;
+  onOpenQuestion: (questionId: string) => void;
 }) {
   const [imports, setImports] = useState<ExamImport[]>([]);
   const [subjectMode, setSubjectMode] = useState('single');
@@ -124,6 +328,34 @@ export function ExamImportManager({
   );
   const [extractingId, setExtractingId] = useState('');
   const [pagePreviewCandidateId, setPagePreviewCandidateId] = useState('');
+  const [croppingId, setCroppingId] = useState('');
+  const [readingAnswerKeyId, setReadingAnswerKeyId] = useState('');
+  const [bulkRegisteringId, setBulkRegisteringId] = useState('');
+  const [bulkSettings, setBulkSettings] = useState<
+    Record<string, BulkSettings>
+  >({});
+  const [pedagogicalDisciplines, setPedagogicalDisciplines] = useState<
+    PedagogicalDiscipline[]
+  >([]);
+  const [pedagogicalTopics, setPedagogicalTopics] = useState<
+    PedagogicalTopic[]
+  >([]);
+  const [duplicates, setDuplicates] = useState<DuplicateQuestion[]>([]);
+  const [reviewFilters, setReviewFilters] = useState<ReviewFilters>({
+    query: '',
+    status: '',
+    questionType: '',
+    institution: '',
+    grade: '',
+    topicId: '',
+  });
+  const [batchActionBusy, setBatchActionBusy] = useState(false);
+  const [cropDraft, setCropDraft] = useState({
+    x: 10,
+    y: 20,
+    width: 80,
+    height: 50,
+  });
 
   useEffect(
     () => () => {
@@ -161,8 +393,132 @@ export function ExamImportManager({
     setImports(body.data || []);
   };
 
+  const refreshDuplicates = async () => {
+    const response = await apiFetch(`${apiUrl}/api/questions/duplicates`);
+    const body = (await response.json()) as {
+      data?: DuplicateQuestion[];
+      error?: string;
+    };
+    if (!response.ok)
+      throw new Error(body.error || 'Falha ao listar duplicidades.');
+    setDuplicates(body.data || []);
+  };
+
   useEffect(() => {
     refresh().catch((error) => setMessage(error.message));
+    refreshDuplicates().catch((error) => setMessage(error.message));
+  }, [apiUrl]);
+
+  const clearDuplicate = async (duplicate: DuplicateQuestion) => {
+    if (
+      !window.confirm(
+        `Desfazer a duplicidade de ${duplicate.code}? A questão voltará como rascunho independente.`,
+      )
+    )
+      return;
+    const response = await apiFetch(
+      `${apiUrl}/api/questions/${duplicate.id}/duplicate`,
+      { method: 'DELETE' },
+    );
+    const body = (await response.json()) as { error?: string };
+    if (!response.ok)
+      throw new Error(body.error || 'Não foi possível desfazer a duplicidade.');
+    await refreshDuplicates();
+    setMessage(`${duplicate.code} voltou ao acervo como rascunho.`);
+  };
+
+  const visibleCandidates = (item: ExamImport) =>
+    item.candidates.filter((candidate) =>
+      candidateMatchesReviewFilters(
+        candidate,
+        item,
+        reviewFilters,
+        pedagogicalTopics,
+      ),
+    );
+
+  const applyVisibleAction = async (
+    action: 'select' | 'unselect' | 'confirm' | 'ignore' | 'restore',
+  ) => {
+    const targets = imports.flatMap((item) =>
+      visibleCandidates(item).map((candidate) => ({ item, candidate })),
+    );
+    const actionable = targets.filter(({ candidate }) => {
+      if (action === 'confirm')
+        return (
+          candidate.answerStatus === 'suggested' &&
+          Boolean(candidate.correctAnswers?.length)
+        );
+      if (action === 'restore') return candidate.status === 'ignored';
+      if (action === 'ignore')
+        return !['completed', 'duplicate'].includes(candidate.status);
+      return !['completed', 'duplicate', 'ignored'].includes(candidate.status);
+    });
+    if (!actionable.length) {
+      setMessage('Nenhuma questão visível aceita esta ação.');
+      return;
+    }
+    setBatchActionBusy(true);
+    try {
+      await Promise.all(
+        actionable.map(({ item, candidate }) => {
+          const changes: Partial<ExamImportCandidate> =
+            action === 'select'
+              ? { selected: true }
+              : action === 'unselect'
+                ? { selected: false }
+                : action === 'confirm'
+                  ? { answerStatus: 'confirmed', status: 'review' }
+                  : action === 'ignore'
+                    ? { selected: false, status: 'ignored' }
+                    : { selected: true, status: 'review' };
+          return updateCandidate(item.id, candidate.id, changes);
+        }),
+      );
+      setMessage(
+        `${actionable.length} questão(ões) atualizada(s) na fila editorial.`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Falha na ação em lote.',
+      );
+      await refresh().catch(() => undefined);
+    } finally {
+      setBatchActionBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    apiFetch(`${apiUrl}/api/curriculum/pedagogical-disciplines`)
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          data?: PedagogicalDiscipline[];
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(body.error || 'Falha ao carregar as disciplinas.');
+        const disciplines = body.data || [];
+        setPedagogicalDisciplines(disciplines);
+        const chemistry = disciplines.find(
+          (discipline) =>
+            discipline.name === 'Química' &&
+            discipline.stage === 'Ensino Médio',
+        );
+        if (!chemistry) return;
+        const topicsResponse = await apiFetch(
+          `${apiUrl}/api/curriculum/pedagogical-topics?disciplineId=${chemistry.id}`,
+        );
+        const topicsBody = (await topicsResponse.json()) as {
+          data?: PedagogicalTopic[];
+          error?: string;
+        };
+        if (!topicsResponse.ok)
+          throw new Error(
+            topicsBody.error || 'Falha ao carregar os conteúdos de Química.',
+          );
+        setPedagogicalTopics(topicsBody.data || []);
+      })
+      .catch((error) => setMessage(error.message));
   }, [apiUrl]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -284,6 +640,205 @@ export function ExamImportManager({
       throw new Error(body.error || 'Não foi possível atualizar a questão.');
   };
 
+  const createCrop = async (
+    item: ExamImport,
+    candidate: ExamImportCandidate,
+  ) => {
+    setCroppingId(candidate.id);
+    setMessage('Criando o recorte da página original...');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/exam-imports/${item.id}/candidates/${candidate.id}/crop`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(cropDraft),
+        },
+      );
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok)
+        throw new Error(body.error || 'Não foi possível criar o recorte.');
+      await refresh();
+      setMessage(
+        `Recorte da questão ${candidate.sourceNumber} anexado para revisão.`,
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha no recorte.');
+    } finally {
+      setCroppingId('');
+    }
+  };
+
+  const readAnswerKey = async (item: ExamImport) => {
+    setReadingAnswerKeyId(item.id);
+    setMessage('Lendo o gabarito e associando as respostas...');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/exam-imports/${item.id}/answer-key/extract`,
+        { method: 'POST' },
+      );
+      const body = (await response.json()) as {
+        data?: { detected: number; coverage: number };
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(body.error || 'Não foi possível ler o gabarito.');
+      await refresh();
+      setMessage(
+        `${body.data?.detected || 0} respostas sugeridas (${Math.round((body.data?.coverage || 0) * 100)}% das questões). Confirme antes de salvar.`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Falha ao ler o gabarito.',
+      );
+    } finally {
+      setReadingAnswerKeyId('');
+    }
+  };
+
+  const updateBulkSetting = <K extends keyof BulkSettings>(
+    importId: string,
+    field: K,
+    value: BulkSettings[K],
+  ) =>
+    setBulkSettings((current) => ({
+      ...current,
+      [importId]: {
+        ...(current[importId] || defaultBulkSettings),
+        [field]: value,
+      },
+    }));
+
+  const registerSelectedCandidates = async (item: ExamImport) => {
+    const settings = bulkSettings[item.id] || defaultBulkSettings;
+    if (!item.primarySubject?.trim()) {
+      setMessage(
+        'Defina uma disciplina para a prova antes do cadastro em lote.',
+      );
+      return;
+    }
+    const readyCandidates = item.candidates.filter(
+      (candidate) => candidateReadiness(candidate).ready,
+    );
+    if (!readyCandidates.length) {
+      setMessage(
+        'Nenhuma questão está pronta. Selecione-a, confira A–E e confirme o gabarito.',
+      );
+      return;
+    }
+    const defaultTopicId =
+      settings.detailId || settings.topicId || settings.objectId;
+    const unclassified = readyCandidates.filter(
+      (candidate) =>
+        !(candidate.grade || settings.grade).trim() ||
+        !(candidate.pedagogicalTopicId || defaultTopicId),
+    );
+    if (unclassified.length) {
+      setMessage(
+        `Classifique a série e o objeto de conhecimento da(s) questão(ões) ${unclassified.map((candidate) => candidate.sourceNumber).join(', ')} ou informe os padrões do lote.`,
+      );
+      return;
+    }
+    const invalidSkill = readyCandidates.find((candidate) => {
+      const skill = candidate.skill ?? settings.skill;
+      return skill && !/^[A-Z]{2}[0-9A-Z]{4,12}$/.test(skill);
+    });
+    if (invalidSkill) {
+      setMessage(
+        `O código da habilidade BNCC da questão ${invalidSkill.sourceNumber} não é válido.`,
+      );
+      return;
+    }
+    setBulkRegisteringId(item.id);
+    let registered = 0;
+    const failures: string[] = [];
+    for (const candidate of readyCandidates) {
+      try {
+        const parsed = parsePastedQuestion(candidate.rawText);
+        const statementBlocks: RichContentBlock[] = [
+          ...parsed.statementBlocks,
+          ...(candidate.imageDataUrl
+            ? [
+                {
+                  type: 'image' as const,
+                  dataUrl: candidate.imageDataUrl,
+                  alt:
+                    candidate.imageAlt ||
+                    `Imagem da questão ${candidate.sourceNumber}`,
+                  caption: '',
+                },
+              ]
+            : []),
+        ];
+        const response = await apiFetch(`${apiUrl}/api/questions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            type: candidate.questionType,
+            statement: statementBlocks.map(blockPlainText).join(' ').trim(),
+            statementBlocks,
+            metapostCode: '',
+            answerGuide: '',
+            subject: item.primarySubject,
+            grade: (candidate.grade || settings.grade).trim(),
+            sourceInstitution: item.sourceInstitution,
+            sourceYear: item.sourceYear,
+            skill: (candidate.skill ?? settings.skill).trim(),
+            pedagogicalDisciplineId:
+              candidate.pedagogicalDisciplineId ||
+              settings.pedagogicalDisciplineId,
+            pedagogicalTopicId: candidate.pedagogicalTopicId || defaultTopicId,
+            difficulty: candidate.difficulty || settings.difficulty,
+            alternatives: ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
+              const contentBlocks = parsed.alternatives[letter];
+              return {
+                stableKey: `alt-${letter.toLowerCase()}`,
+                content: contentBlocks.map(blockPlainText).join(' ').trim(),
+                contentBlocks,
+                isCorrect: (candidate.correctAnswers || []).includes(letter),
+                position: index + 1,
+              };
+            }),
+          }),
+        });
+        const body = (await response.json()) as {
+          error?: string;
+          issues?: Array<{ message: string }>;
+          duplicateQuestionId?: string;
+          duplicateQuestionCode?: string;
+        };
+        if (!response.ok) {
+          if (response.status === 409 && body.duplicateQuestionId) {
+            await updateCandidate(item.id, candidate.id, {
+              status: 'duplicate',
+              selected: false,
+              duplicateQuestionId: body.duplicateQuestionId,
+              duplicateQuestionCode: body.duplicateQuestionCode,
+            });
+          }
+          throw new Error(
+            body.issues?.map((issue) => issue.message).join(' ') ||
+              body.error ||
+              'falha no cadastro',
+          );
+        }
+        await updateCandidate(item.id, candidate.id, { status: 'completed' });
+        registered += 1;
+      } catch (error) {
+        failures.push(
+          `Questão ${candidate.sourceNumber}: ${error instanceof Error ? error.message : 'erro inesperado'}`,
+        );
+      }
+    }
+    await refresh().catch(() => undefined);
+    setBulkRegisteringId('');
+    setMessage(
+      failures.length
+        ? `${registered} questão(ões) cadastrada(s). ${failures.length} falharam: ${failures.join(' ')}`
+        : `${registered} questão(ões) cadastrada(s) e marcadas como concluídas.`,
+    );
+  };
+
   return (
     <main className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-violet-700">
@@ -300,6 +855,74 @@ export function ExamImportManager({
         <output className="mt-4 block rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-950">
           {message}
         </output>
+      )}
+
+      {duplicates.length > 0 && (
+        <section className="mt-6 rounded-2xl border border-rose-200 bg-white p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+                Duplicidades detectadas
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Registros arquivados e vinculados à questão mantida no acervo.
+              </p>
+            </div>
+            <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800">
+              {duplicates.length} duplicada(s)
+            </span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {duplicates.map((duplicate) => (
+              <article
+                key={duplicate.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900">
+                      {duplicate.code}{' '}
+                      <span className="font-normal text-slate-500">→</span>{' '}
+                      <button
+                        type="button"
+                        className="text-violet-700 underline"
+                        onClick={() =>
+                          onOpenQuestion(duplicate.duplicateOfQuestionId)
+                        }
+                      >
+                        {duplicate.duplicateOfCode}
+                      </button>
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {duplicate.subject} · {duplicate.grade} ·{' '}
+                      {duplicate.sourceInstitution} {duplicate.sourceYear}
+                    </p>
+                    <p className="mt-2 line-clamp-2 text-sm text-slate-700">
+                      {duplicate.statement}
+                    </p>
+                    <p className="mt-2 text-xs text-rose-800">
+                      {duplicate.duplicateReason}
+                    </p>
+                  </div>
+                  {role !== 'teacher' && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        clearDuplicate(duplicate).catch((error) =>
+                          setMessage(error.message),
+                        )
+                      }
+                    >
+                      Não é duplicada
+                    </Button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
@@ -451,219 +1074,628 @@ export function ExamImportManager({
             <RefreshCw /> Atualizar
           </Button>
         </div>
+        <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
+            <Input
+              aria-label="Buscar na fila de revisão"
+              value={reviewFilters.query}
+              onChange={(event) =>
+                setReviewFilters((current) => ({
+                  ...current,
+                  query: event.target.value,
+                }))
+              }
+              placeholder="Questão ou trecho..."
+            />
+            <SelectField
+              name="review-status"
+              label="Situação editorial"
+              value={reviewFilters.status}
+              onChange={(status) =>
+                setReviewFilters((current) => ({ ...current, status }))
+              }
+              options={[
+                ['', 'Todas as situações'],
+                ['complete', 'Completa'],
+                ['pending', 'Pendente'],
+                ['review', 'Em revisão'],
+                ['duplicate', 'Duplicada'],
+                ['ignored', 'Ignorada'],
+                ['completed', 'Concluída'],
+              ]}
+            />
+            <SelectField
+              name="review-type"
+              label="Tipo de questão"
+              value={reviewFilters.questionType}
+              onChange={(questionType) =>
+                setReviewFilters((current) => ({
+                  ...current,
+                  questionType,
+                }))
+              }
+              options={[
+                ['', 'Todos os tipos'],
+                ['single_choice', 'Objetiva · uma resposta'],
+                ['multiple_choice', 'Objetiva · várias respostas'],
+                ['essay', 'Discursiva'],
+              ]}
+            />
+            <SelectField
+              name="review-institution"
+              label="Instituição"
+              value={reviewFilters.institution}
+              onChange={(institution) =>
+                setReviewFilters((current) => ({ ...current, institution }))
+              }
+              options={[
+                ['', 'Todas as instituições'],
+                ...[...new Set(imports.map((item) => item.sourceInstitution))]
+                  .sort()
+                  .map(
+                    (institution) =>
+                      [institution, institution] as [string, string],
+                  ),
+              ]}
+            />
+            <SelectField
+              name="review-grade"
+              label="Série"
+              value={reviewFilters.grade}
+              onChange={(grade) =>
+                setReviewFilters((current) => ({
+                  ...current,
+                  grade,
+                  topicId: '',
+                }))
+              }
+              options={[
+                ['', 'Todas as séries'],
+                ['1ª série', '1ª série'],
+                ['2ª série', '2ª série'],
+                ['3ª série', '3ª série'],
+              ]}
+            />
+            <SelectField
+              name="review-topic"
+              label="Conteúdo"
+              value={reviewFilters.topicId}
+              onChange={(topicId) =>
+                setReviewFilters((current) => ({ ...current, topicId }))
+              }
+              options={[
+                ['', 'Todos os conteúdos'],
+                ...pedagogicalTopics
+                  .filter(
+                    (topic) =>
+                      !topic.parent_id &&
+                      (!reviewFilters.grade ||
+                        topic.grade_range === reviewFilters.grade),
+                  )
+                  .map(
+                    (topic) =>
+                      [topic.id, `${topic.grade_range} · ${topic.name}`] as [
+                        string,
+                        string,
+                      ],
+                  ),
+              ]}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-slate-600">
+              {imports.flatMap((item) => visibleCandidates(item)).length}{' '}
+              questão(ões) visível(is). As ações afetam somente este resultado.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={batchActionBusy}
+                onClick={() => applyVisibleAction('select')}
+              >
+                Selecionar visíveis
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={batchActionBusy}
+                onClick={() => applyVisibleAction('unselect')}
+              >
+                Desmarcar visíveis
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={batchActionBusy}
+                onClick={() => applyVisibleAction('confirm')}
+              >
+                Confirmar gabaritos sugeridos
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={batchActionBusy}
+                onClick={() => applyVisibleAction('ignore')}
+              >
+                Ignorar visíveis
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={batchActionBusy}
+                onClick={() => applyVisibleAction('restore')}
+              >
+                Restaurar ignoradas
+              </Button>
+            </div>
+          </div>
+        </section>
         <div className="mt-4 space-y-3">
           {!imports.length && (
             <p className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
               Nenhuma prova foi enviada ainda.
             </p>
           )}
-          {imports.map((item) => (
-            <article
-              key={item.id}
-              className="rounded-xl border border-slate-200 p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold text-[var(--navy)]">
-                    {item.sourceInstitution} {item.sourceYear}
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {item.primarySubject || 'Prova multidisciplinar'} ·{' '}
-                    {statusLabels[item.status] || item.status}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${item.rightsStatus === 'authorized' || item.rightsStatus === 'public_license' ? 'bg-emerald-50 text-emerald-800' : item.rightsStatus === 'blocked' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800'}`}
-                >
-                  {rightsLabels[item.rightsStatus] || item.rightsStatus}
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {item.documents.map((document) => (
-                  <button
-                    type="button"
-                    key={document.id}
-                    onClick={() =>
-                      setStoredPreview({
-                        importId: item.id,
-                        documentId: document.id,
-                        title: document.kind === 'exam' ? 'Prova' : 'Gabarito',
-                        name: document.fileName,
-                        size: document.sizeBytes,
-                      })
-                    }
-                    className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs transition hover:bg-violet-50 hover:text-violet-900"
-                  >
-                    <FileText className="size-4 text-violet-700" />
-                    {document.kind === 'exam' ? 'Prova' : 'Gabarito'}:{' '}
-                    {document.fileName} ·{' '}
-                    {(document.sizeBytes / 1_000_000).toFixed(1)} MB
-                    <Eye className="ml-1 size-4" />
-                    <span className="font-semibold">Visualizar</span>
-                  </button>
-                ))}
-              </div>
-              {storedPreview?.importId === item.id && (
-                <StoredPdfPreviewCard
-                  apiUrl={apiUrl}
-                  preview={storedPreview}
-                  onClose={() => setStoredPreview(null)}
-                />
-              )}
-              <section className="mt-4 border-t border-slate-100 pt-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+          {imports
+            .filter(
+              (item) =>
+                visibleCandidates(item).length > 0 || !item.candidates.length,
+            )
+            .map((item) => (
+              <article
+                key={item.id}
+                className="rounded-xl border border-slate-200 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h4 className="font-semibold text-[var(--navy)]">
-                      Questões extraídas
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Selecione, classifique e revise cada questão antes do
-                      cadastro.
+                    <h3 className="font-semibold text-[var(--navy)]">
+                      {item.sourceInstitution} {item.sourceYear}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {item.primarySubject || 'Prova multidisciplinar'} ·{' '}
+                      {statusLabels[item.status] || item.status}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={extractingId === item.id}
-                    onClick={() => extractQuestions(item)}
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${item.rightsStatus === 'authorized' || item.rightsStatus === 'public_license' ? 'bg-emerald-50 text-emerald-800' : item.rightsStatus === 'blocked' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800'}`}
                   >
-                    <ScanText />
-                    {extractingId === item.id
-                      ? 'Extraindo...'
-                      : item.candidates?.length
-                        ? 'Extrair novamente'
-                        : 'Extrair questões'}
-                  </Button>
+                    {rightsLabels[item.rightsStatus] || item.rightsStatus}
+                  </span>
                 </div>
-                {item.error && (
-                  <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800">
-                    {item.error}
-                  </p>
-                )}
-                <div className="mt-3 space-y-3">
-                  {(item.candidates || []).map((candidate) => (
-                    <article
-                      key={candidate.id}
-                      className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {item.documents.map((document) => (
+                    <button
+                      type="button"
+                      key={document.id}
+                      onClick={() =>
+                        setStoredPreview({
+                          importId: item.id,
+                          documentId: document.id,
+                          title:
+                            document.kind === 'exam' ? 'Prova' : 'Gabarito',
+                          name: document.fileName,
+                          size: document.sizeBytes,
+                        })
+                      }
+                      className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs transition hover:bg-violet-50 hover:text-violet-900"
                     >
-                      <div className="flex flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-2 text-sm font-semibold">
-                          <input
-                            type="checkbox"
-                            checked={candidate.selected}
-                            onChange={(event) =>
-                              updateCandidate(item.id, candidate.id, {
-                                selected: event.target.checked,
-                              }).catch((error) => setMessage(error.message))
-                            }
-                            className="size-4 accent-violet-700"
-                          />
-                          Questão {candidate.sourceNumber}
-                        </label>
-                        <select
-                          aria-label={`Tipo da questão ${candidate.sourceNumber}`}
-                          value={candidate.questionType}
-                          onChange={(event) =>
-                            updateCandidate(item.id, candidate.id, {
-                              questionType: event.target
-                                .value as ExamImportCandidate['questionType'],
-                            }).catch((error) => setMessage(error.message))
-                          }
-                          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs"
-                        >
-                          <option value="single_choice">
-                            Múltipla escolha · uma resposta
-                          </option>
-                          <option value="multiple_choice">
-                            Múltipla escolha · várias respostas
-                          </option>
-                          <option value="essay">Discursiva</option>
-                        </select>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-violet-100 text-violet-800'}`}
-                        >
-                          {candidate.status === 'completed'
-                            ? 'Concluída'
-                            : candidate.status === 'review'
-                              ? 'Em revisão'
-                              : 'Completa'}
-                        </span>
-                        {candidate.pageNumber && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              setPagePreviewCandidateId((current) =>
-                                current === candidate.id ? '' : candidate.id,
-                              )
-                            }
-                          >
-                            <Eye /> Página {candidate.pageNumber}
-                          </Button>
-                        )}
-                        {candidate.extractionMethod === 'ocr' && (
-                          <span className="text-xs font-semibold text-sky-700">
-                            Texto obtido por OCR
-                          </span>
-                        )}
-                      </div>
-                      {pagePreviewCandidateId === candidate.id &&
-                        candidate.pageNumber && (
-                          <iframe
-                            title={`Página original da questão ${candidate.sourceNumber}`}
-                            src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
-                            className="mt-3 h-[620px] w-full rounded-lg border border-slate-200 bg-white"
-                          />
-                        )}
-                      <textarea
-                        aria-label={`Texto extraído da questão ${candidate.sourceNumber}`}
-                        defaultValue={candidate.rawText}
-                        rows={9}
-                        onBlur={(event) => {
-                          if (event.target.value.trim() !== candidate.rawText)
-                            updateCandidate(item.id, candidate.id, {
-                              rawText: event.target.value,
-                              status: 'review',
-                            }).catch((error) => setMessage(error.message));
-                        }}
-                        className="mt-3 w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs leading-5"
-                      />
-                      <div className="mt-3 flex justify-end">
-                        <Button
-                          type="button"
-                          disabled={
-                            !candidate.selected ||
-                            candidate.status === 'completed'
-                          }
-                          onClick={() => {
-                            updateCandidate(item.id, candidate.id, {
-                              status: 'review',
-                            }).catch((error) => setMessage(error.message));
-                            onRegisterQuestion({
-                              importId: item.id,
-                              candidateId: candidate.id,
-                              rawText: candidate.rawText,
-                              sourceInstitution: item.sourceInstitution,
-                              sourceYear: item.sourceYear,
-                              questionType: candidate.questionType,
-                            });
-                          }}
-                        >
-                          Revisar e cadastrar <ArrowRight />
-                        </Button>
-                      </div>
-                    </article>
+                      <FileText className="size-4 text-violet-700" />
+                      {document.kind === 'exam' ? 'Prova' : 'Gabarito'}:{' '}
+                      {document.fileName} ·{' '}
+                      {(document.sizeBytes / 1_000_000).toFixed(1)} MB
+                      <Eye className="ml-1 size-4" />
+                      <span className="font-semibold">Visualizar</span>
+                    </button>
                   ))}
                 </div>
-              </section>
-              <p className="mt-3 text-xs text-slate-400">
-                Criada em {new Date(item.createdAt).toLocaleString('pt-BR')} ·{' '}
-                {item.detectedQuestions} detectadas · {item.reviewedQuestions}{' '}
-                revisadas
-              </p>
-            </article>
-          ))}
+                {storedPreview?.importId === item.id && (
+                  <StoredPdfPreviewCard
+                    apiUrl={apiUrl}
+                    preview={storedPreview}
+                    onClose={() => setStoredPreview(null)}
+                  />
+                )}
+                <section className="mt-4 border-t border-slate-100 pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-semibold text-[var(--navy)]">
+                        Questões extraídas
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Selecione, classifique e revise cada questão antes do
+                        cadastro.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={extractingId === item.id}
+                        onClick={() => extractQuestions(item)}
+                      >
+                        <ScanText />
+                        {extractingId === item.id
+                          ? 'Extraindo...'
+                          : item.candidates?.length
+                            ? 'Extrair novamente'
+                            : 'Extrair questões'}
+                      </Button>
+                      {item.documents.some(
+                        (document) => document.kind === 'answer_key',
+                      ) &&
+                        Boolean(item.candidates?.length) && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={readingAnswerKeyId === item.id}
+                            onClick={() => readAnswerKey(item)}
+                          >
+                            {readingAnswerKeyId === item.id
+                              ? 'Lendo gabarito...'
+                              : 'Ler gabarito'}
+                          </Button>
+                        )}
+                    </div>
+                  </div>
+                  {item.error && (
+                    <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800">
+                      {item.error}
+                    </p>
+                  )}
+                  {Boolean(item.candidates?.length) && (
+                    <BulkRegistrationPanel
+                      item={item}
+                      settings={bulkSettings[item.id] || defaultBulkSettings}
+                      disciplines={pedagogicalDisciplines}
+                      topics={pedagogicalTopics}
+                      registering={bulkRegisteringId === item.id}
+                      onSettingChange={(field, value) =>
+                        updateBulkSetting(item.id, field, value)
+                      }
+                      onRegister={() => registerSelectedCandidates(item)}
+                    />
+                  )}
+                  <div className="mt-3 space-y-3">
+                    {visibleCandidates(item).map((candidate) => (
+                      <article
+                        key={candidate.id}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="flex items-center gap-2 text-sm font-semibold">
+                            <input
+                              type="checkbox"
+                              checked={candidate.selected}
+                              disabled={[
+                                'completed',
+                                'duplicate',
+                                'ignored',
+                              ].includes(candidate.status)}
+                              onChange={(event) =>
+                                updateCandidate(item.id, candidate.id, {
+                                  selected: event.target.checked,
+                                }).catch((error) => setMessage(error.message))
+                              }
+                              className="size-4 accent-violet-700"
+                            />
+                            Questão {candidate.sourceNumber}
+                          </label>
+                          <select
+                            aria-label={`Tipo da questão ${candidate.sourceNumber}`}
+                            value={candidate.questionType}
+                            onChange={(event) =>
+                              updateCandidate(item.id, candidate.id, {
+                                questionType: event.target
+                                  .value as ExamImportCandidate['questionType'],
+                              }).catch((error) => setMessage(error.message))
+                            }
+                            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs"
+                          >
+                            <option value="single_choice">
+                              Múltipla escolha · uma resposta
+                            </option>
+                            <option value="multiple_choice">
+                              Múltipla escolha · várias respostas
+                            </option>
+                            <option value="essay">Discursiva</option>
+                          </select>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-violet-100 text-violet-800'}`}
+                          >
+                            {candidate.status === 'completed'
+                              ? 'Concluída'
+                              : candidate.status === 'duplicate'
+                                ? `Duplicada${candidate.duplicateQuestionCode ? ` de ${candidate.duplicateQuestionCode}` : ''}`
+                                : candidate.status === 'ignored'
+                                  ? 'Ignorada'
+                                  : candidate.status === 'review'
+                                    ? 'Em revisão'
+                                    : 'Completa'}
+                          </span>
+                          {candidate.pageNumber && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setPagePreviewCandidateId((current) =>
+                                  current === candidate.id ? '' : candidate.id,
+                                )
+                              }
+                            >
+                              <Eye /> Página {candidate.pageNumber}
+                            </Button>
+                          )}
+                          {candidate.extractionMethod === 'ocr' && (
+                            <span className="text-xs font-semibold text-sky-700">
+                              Texto obtido por OCR
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {candidateEditorialChecks(candidate).map((check) => (
+                            <span
+                              key={check.label}
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${check.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
+                            >
+                              {check.ok ? '✓' : '!'} {check.label}
+                            </span>
+                          ))}
+                        </div>
+                        {pagePreviewCandidateId === candidate.id &&
+                          candidate.pageNumber && (
+                            <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                              <iframe
+                                title={`Página original da questão ${candidate.sourceNumber}`}
+                                src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
+                                className="h-[620px] w-full rounded-lg border border-slate-200 bg-white"
+                              />
+                              <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                                {[
+                                  ['x', 'Esquerda %'],
+                                  ['y', 'Topo %'],
+                                  ['width', 'Largura %'],
+                                  ['height', 'Altura %'],
+                                ].map(([field, label]) => (
+                                  <label
+                                    key={field}
+                                    className="text-xs font-semibold text-slate-600"
+                                  >
+                                    {label}
+                                    <input
+                                      type="number"
+                                      min={
+                                        field === 'x' || field === 'y' ? 0 : 1
+                                      }
+                                      max="100"
+                                      value={
+                                        cropDraft[
+                                          field as keyof typeof cropDraft
+                                        ]
+                                      }
+                                      onChange={(event) =>
+                                        setCropDraft((current) => ({
+                                          ...current,
+                                          [field]: Number(event.target.value),
+                                        }))
+                                      }
+                                      className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2"
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                              <div className="mt-3 flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={croppingId === candidate.id}
+                                  onClick={() => createCrop(item, candidate)}
+                                >
+                                  {croppingId === candidate.id
+                                    ? 'Recortando...'
+                                    : 'Criar recorte para a questão'}
+                                </Button>
+                              </div>
+                            </section>
+                          )}
+                        {candidate.imageDataUrl && (
+                          <figure className="mt-3 rounded-lg border border-emerald-200 bg-white p-3">
+                            <img
+                              src={candidate.imageDataUrl}
+                              alt={candidate.imageAlt || 'Recorte da questão'}
+                              className="mx-auto max-h-80 w-auto object-contain"
+                            />
+                            <figcaption className="mt-2 text-center text-xs font-semibold text-emerald-800">
+                              {candidate.imageExtractionMethod ===
+                              'automatic_page_region'
+                                ? 'Conteúdo visual detectado e recortado automaticamente — confira antes do cadastro'
+                                : 'Imagem pronta para acompanhar a questão no cadastro'}
+                            </figcaption>
+                          </figure>
+                        )}
+                        {candidate.visualCaptureWarning && (
+                          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                            {candidate.visualCaptureWarning}
+                          </p>
+                        )}
+                        {candidate.status === 'duplicate' &&
+                          candidate.duplicateQuestionId && (
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                              <p className="text-xs font-semibold text-rose-900">
+                                Esta questão já existe como{' '}
+                                {candidate.duplicateQuestionCode ||
+                                  'questão cadastrada'}
+                                .
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  onOpenQuestion(candidate.duplicateQuestionId!)
+                                }
+                              >
+                                Abrir questão principal
+                              </Button>
+                            </div>
+                          )}
+                        <CandidateClassificationFields
+                          candidate={candidate}
+                          disciplines={pedagogicalDisciplines}
+                          topics={pedagogicalTopics}
+                          onChange={(changes) =>
+                            updateCandidate(
+                              item.id,
+                              candidate.id,
+                              changes,
+                            ).catch((error) => setMessage(error.message))
+                          }
+                        />
+                        <textarea
+                          aria-label={`Texto extraído da questão ${candidate.sourceNumber}`}
+                          defaultValue={candidate.rawText}
+                          rows={9}
+                          onBlur={(event) => {
+                            if (event.target.value.trim() !== candidate.rawText)
+                              updateCandidate(item.id, candidate.id, {
+                                rawText: event.target.value,
+                                status: 'review',
+                              }).catch((error) => setMessage(error.message));
+                          }}
+                          className="mt-3 w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs leading-5"
+                        />
+                        {candidate.questionType !== 'essay' && (
+                          <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-semibold text-slate-700">
+                                Gabarito da questão
+                              </p>
+                              {candidate.answerStatus === 'suggested' && (
+                                <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
+                                  Sugestão automática ·{' '}
+                                  {Math.round(
+                                    (candidate.answerConfidence || 0) * 100,
+                                  )}
+                                  % de confiança
+                                </span>
+                              )}
+                              {candidate.answerStatus === 'confirmed' && (
+                                <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                                  Confirmado pelo professor
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {['A', 'B', 'C', 'D', 'E'].map((letter) => {
+                                const checked = (
+                                  candidate.correctAnswers || []
+                                ).includes(letter);
+                                return (
+                                  <button
+                                    key={letter}
+                                    type="button"
+                                    aria-pressed={checked}
+                                    onClick={() => {
+                                      const correctAnswers =
+                                        candidate.questionType ===
+                                        'single_choice'
+                                          ? [letter]
+                                          : checked
+                                            ? (
+                                                candidate.correctAnswers || []
+                                              ).filter(
+                                                (answer) => answer !== letter,
+                                              )
+                                            : [
+                                                ...(candidate.correctAnswers ||
+                                                  []),
+                                                letter,
+                                              ];
+                                      updateCandidate(item.id, candidate.id, {
+                                        correctAnswers,
+                                        answerStatus: 'confirmed',
+                                        answerConfidence: 1,
+                                        status: 'review',
+                                      }).catch((error) =>
+                                        setMessage(error.message),
+                                      );
+                                    }}
+                                    className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-violet-700 bg-violet-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
+                                  >
+                                    {letter}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </section>
+                        )}
+                        {candidate.selected &&
+                          candidate.status !== 'completed' &&
+                          !candidateReadiness(candidate).ready && (
+                            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                              Pendente para o lote:{' '}
+                              {candidateReadiness(candidate)
+                                .reasons.filter(
+                                  (reason) => reason !== 'não selecionada',
+                                )
+                                .join(' · ')}
+                            </p>
+                          )}
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            type="button"
+                            disabled={
+                              !candidate.selected ||
+                              ['completed', 'duplicate'].includes(
+                                candidate.status,
+                              ) ||
+                              candidate.status === 'ignored'
+                            }
+                            onClick={() => {
+                              updateCandidate(item.id, candidate.id, {
+                                status: 'review',
+                              }).catch((error) => setMessage(error.message));
+                              onRegisterQuestion({
+                                importId: item.id,
+                                candidateId: candidate.id,
+                                rawText: candidate.rawText,
+                                sourceInstitution: item.sourceInstitution,
+                                sourceYear: item.sourceYear,
+                                questionType: candidate.questionType,
+                                imageDataUrl: candidate.imageDataUrl,
+                                imageAlt: candidate.imageAlt,
+                                correctAnswers: candidate.correctAnswers,
+                                grade: candidate.grade,
+                                difficulty: candidate.difficulty,
+                                skill: candidate.skill,
+                                pedagogicalDisciplineId:
+                                  candidate.pedagogicalDisciplineId,
+                                pedagogicalTopicId:
+                                  candidate.pedagogicalTopicId,
+                              });
+                            }}
+                          >
+                            Editar, gerar prévia e cadastrar <ArrowRight />
+                          </Button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <p className="mt-3 text-xs text-slate-400">
+                  Criada em {new Date(item.createdAt).toLocaleString('pt-BR')} ·{' '}
+                  {item.detectedQuestions} detectadas · {item.reviewedQuestions}{' '}
+                  revisadas
+                </p>
+              </article>
+            ))}
         </div>
       </section>
     </main>
@@ -702,6 +1734,325 @@ function SelectField({
         ))}
       </select>
     </label>
+  );
+}
+
+function CandidateClassificationFields({
+  candidate,
+  disciplines,
+  topics,
+  onChange,
+}: {
+  candidate: ExamImportCandidate;
+  disciplines: PedagogicalDiscipline[];
+  topics: PedagogicalTopic[];
+  onChange: (changes: Partial<ExamImportCandidate>) => void;
+}) {
+  const chemistry = disciplines.find(
+    (discipline) =>
+      discipline.name === 'Química' && discipline.stage === 'Ensino Médio',
+  );
+  const selected = topics.find(
+    (topic) => topic.id === candidate.pedagogicalTopicId,
+  );
+  const selectedDetail = selected?.depth === 2 ? selected : undefined;
+  const selectedSubtopic =
+    selected?.depth === 1
+      ? selected
+      : selectedDetail
+        ? topics.find((topic) => topic.id === selectedDetail.parent_id)
+        : undefined;
+  const selectedObject =
+    selected?.depth === 0
+      ? selected
+      : topics.find(
+          (topic) =>
+            topic.id === (selectedSubtopic?.parent_id || selected?.parent_id),
+        );
+  const objects = topics.filter(
+    (topic) => !topic.parent_id && topic.grade_range === candidate.grade,
+  );
+  const subtopics = topics.filter(
+    (topic) => topic.parent_id === selectedObject?.id,
+  );
+  const details = topics.filter(
+    (topic) => topic.parent_id === selectedSubtopic?.id,
+  );
+
+  return (
+    <section className="mt-3 rounded-lg border border-violet-200 bg-violet-50/60 p-3">
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-violet-900">
+        Classificação desta questão
+      </p>
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <SelectField
+          name={`candidate-grade-${candidate.id}`}
+          label={`Série da questão ${candidate.sourceNumber}`}
+          value={candidate.grade || ''}
+          onChange={(grade) =>
+            onChange({
+              grade,
+              pedagogicalDisciplineId: chemistry?.id || '',
+              pedagogicalTopicId: '',
+            })
+          }
+          options={[
+            ['', 'Série: usar padrão do lote'],
+            ['1ª série', '1ª série do Ensino Médio'],
+            ['2ª série', '2ª série do Ensino Médio'],
+            ['3ª série', '3ª série do Ensino Médio'],
+          ]}
+        />
+        <SelectField
+          name={`candidate-object-${candidate.id}`}
+          label={`Objeto da questão ${candidate.sourceNumber}`}
+          value={selectedObject?.id || ''}
+          onChange={(pedagogicalTopicId) =>
+            onChange({
+              pedagogicalDisciplineId: chemistry?.id || '',
+              pedagogicalTopicId,
+            })
+          }
+          options={[
+            ['', 'Objeto: usar padrão do lote'],
+            ...objects.map(
+              (topic) => [topic.id, topic.name] as [string, string],
+            ),
+          ]}
+        />
+        {selectedObject && subtopics.length > 0 && (
+          <SelectField
+            name={`candidate-subtopic-${candidate.id}`}
+            label={`Subtópico da questão ${candidate.sourceNumber}`}
+            value={selectedSubtopic?.id || ''}
+            onChange={(value) =>
+              onChange({ pedagogicalTopicId: value || selectedObject.id })
+            }
+            options={[
+              ['', 'Sem subtópico específico'],
+              ...subtopics.map(
+                (topic) => [topic.id, topic.name] as [string, string],
+              ),
+            ]}
+          />
+        )}
+        {selectedSubtopic && details.length > 0 && (
+          <SelectField
+            name={`candidate-detail-${candidate.id}`}
+            label={`Detalhamento da questão ${candidate.sourceNumber}`}
+            value={selectedDetail?.id || ''}
+            onChange={(value) =>
+              onChange({ pedagogicalTopicId: value || selectedSubtopic.id })
+            }
+            options={[
+              ['', 'Sem detalhamento específico'],
+              ...details.map(
+                (topic) => [topic.id, topic.name] as [string, string],
+              ),
+            ]}
+          />
+        )}
+        <SelectField
+          name={`candidate-difficulty-${candidate.id}`}
+          label={`Dificuldade da questão ${candidate.sourceNumber}`}
+          value={candidate.difficulty || ''}
+          onChange={(difficulty) =>
+            onChange({
+              difficulty:
+                (difficulty as BulkSettings['difficulty']) || undefined,
+            })
+          }
+          options={[
+            ['', 'Dificuldade: usar padrão do lote'],
+            ['Fácil', 'Fácil'],
+            ['Média', 'Média'],
+            ['Difícil', 'Difícil'],
+          ]}
+        />
+        <Input
+          aria-label={`Habilidade BNCC da questão ${candidate.sourceNumber}`}
+          value={candidate.skill || ''}
+          onChange={(event) =>
+            onChange({ skill: event.target.value.toUpperCase() })
+          }
+          placeholder="BNCC própria: EM13CNT101"
+        />
+      </div>
+    </section>
+  );
+}
+
+function BulkRegistrationPanel({
+  item,
+  settings,
+  disciplines,
+  topics,
+  registering,
+  onSettingChange,
+  onRegister,
+}: {
+  item: ExamImport;
+  settings: BulkSettings;
+  disciplines: PedagogicalDiscipline[];
+  topics: PedagogicalTopic[];
+  registering: boolean;
+  onSettingChange: <K extends keyof BulkSettings>(
+    field: K,
+    value: BulkSettings[K],
+  ) => void;
+  onRegister: () => void;
+}) {
+  const selected = item.candidates.filter(
+    (candidate) => candidate.selected && candidate.status !== 'completed',
+  );
+  const ready = selected.filter(
+    (candidate) => candidateReadiness(candidate).ready,
+  );
+  const chemistry = disciplines.find(
+    (discipline) =>
+      discipline.name === 'Química' && discipline.stage === 'Ensino Médio',
+  );
+  const objects = topics.filter(
+    (topic) => !topic.parent_id && topic.grade_range === settings.grade,
+  );
+  const subtopics = topics.filter(
+    (topic) => topic.parent_id === settings.objectId,
+  );
+  const details = topics.filter(
+    (topic) => topic.parent_id === settings.topicId,
+  );
+  const defaultTopicId =
+    settings.detailId || settings.topicId || settings.objectId;
+  const classifiable = ready.every(
+    (candidate) =>
+      Boolean((candidate.grade || settings.grade).trim()) &&
+      Boolean(candidate.pedagogicalTopicId || defaultTopicId),
+  );
+  return (
+    <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h5 className="font-semibold text-violet-950">Cadastro em lote</h5>
+          <p className="mt-1 text-xs text-slate-600">
+            Estes dados são padrões. A classificação preenchida diretamente em
+            uma questão tem prioridade.
+          </p>
+        </div>
+        <div className="flex gap-2 text-xs font-semibold">
+          <span className="rounded-full bg-white px-3 py-1 text-slate-700">
+            {selected.length} selecionada(s)
+          </span>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
+            {ready.length} pronta(s)
+          </span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
+            {selected.length - ready.length} pendente(s)
+          </span>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <SelectField
+          name={`bulk-grade-${item.id}`}
+          label="Série do Ensino Médio"
+          value={settings.grade}
+          onChange={(value) => {
+            onSettingChange('grade', value);
+            onSettingChange('pedagogicalDisciplineId', chemistry?.id || '');
+            onSettingChange('objectId', '');
+            onSettingChange('topicId', '');
+            onSettingChange('detailId', '');
+          }}
+          options={[
+            ['', 'Selecione a série'],
+            ['1ª série', '1ª série do Ensino Médio'],
+            ['2ª série', '2ª série do Ensino Médio'],
+            ['3ª série', '3ª série do Ensino Médio'],
+          ]}
+        />
+        <SelectField
+          name={`bulk-object-${item.id}`}
+          label="Objeto de conhecimento"
+          value={settings.objectId}
+          onChange={(value) => {
+            onSettingChange('objectId', value);
+            onSettingChange('pedagogicalDisciplineId', chemistry?.id || '');
+            onSettingChange('topicId', '');
+            onSettingChange('detailId', '');
+          }}
+          options={[
+            ['', 'Selecione o objeto de conhecimento'],
+            ...objects.map(
+              (topic) => [topic.id, topic.name] as [string, string],
+            ),
+          ]}
+        />
+        <SelectField
+          name={`bulk-topic-${item.id}`}
+          label="Subtópico"
+          value={settings.topicId}
+          onChange={(value) => {
+            onSettingChange('topicId', value);
+            onSettingChange('detailId', '');
+          }}
+          options={[
+            ['', subtopics.length ? 'Selecione o subtópico' : 'Sem subtópicos'],
+            ...subtopics.map(
+              (topic) => [topic.id, topic.name] as [string, string],
+            ),
+          ]}
+        />
+        {details.length > 0 && (
+          <SelectField
+            name={`bulk-detail-${item.id}`}
+            label="Detalhamento"
+            value={settings.detailId}
+            onChange={(value) => onSettingChange('detailId', value)}
+            options={[
+              ['', 'Selecione o detalhamento'],
+              ...details.map(
+                (topic) => [topic.id, topic.name] as [string, string],
+              ),
+            ]}
+          />
+        )}
+        <SelectField
+          name={`bulk-difficulty-${item.id}`}
+          label="Dificuldade do lote"
+          value={settings.difficulty}
+          onChange={(value) =>
+            onSettingChange('difficulty', value as BulkSettings['difficulty'])
+          }
+          options={[
+            ['Fácil', 'Fácil'],
+            ['Média', 'Média'],
+            ['Difícil', 'Difícil'],
+          ]}
+        />
+        <Input
+          aria-label="Habilidade BNCC do lote"
+          value={settings.skill}
+          onChange={(event) =>
+            onSettingChange('skill', event.target.value.toUpperCase())
+          }
+          placeholder="BNCC opcional: EM13CNT101"
+        />
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-3xl text-xs text-slate-600">
+          Para entrar no lote, a questão objetiva precisa ter A–E e gabarito
+          confirmado. Discursivas continuam no botão “Revisar e cadastrar”.
+        </p>
+        <Button
+          type="button"
+          disabled={registering || !ready.length || !classifiable}
+          onClick={onRegister}
+        >
+          {registering
+            ? 'Cadastrando...'
+            : `Cadastrar ${ready.length} pronta(s)`}
+        </Button>
+      </div>
+    </section>
   );
 }
 
