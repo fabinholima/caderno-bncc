@@ -149,6 +149,7 @@ export function AssessmentBuilder({
   const [font, setFont] = useState('plex');
   const [fontSize, setFontSize] = useState(11);
   const [showBnccSkills, setShowBnccSkills] = useState(false);
+  const [showSaebDescriptors, setShowSaebDescriptors] = useState(false);
   const [title, setTitle] = useState('Simulado multidisciplinar');
   const [grade, setGrade] = useState('Ensino Médio');
   const [institutionName, setInstitutionName] = useState(
@@ -568,6 +569,7 @@ export function AssessmentBuilder({
             font,
             fontSize,
             showBnccSkills,
+            showSaebDescriptors,
             instructions,
           }),
         });
@@ -1239,7 +1241,28 @@ export function AssessmentBuilder({
                   Exibir habilidade BNCC nas questões
                 </span>
                 <span className="mt-1 block text-xs text-slate-500">
-                  Mostra a habilidade antes do enunciado. A instituição e o ano da fonte são sempre exibidos em negrito.
+                  Mostra a habilidade antes do enunciado. A instituição e o ano
+                  da fonte são sempre exibidos em negrito.
+                </span>
+              </span>
+            </label>
+            <label className="mt-3 flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+              <input
+                type="checkbox"
+                checked={showSaebDescriptors}
+                onChange={(event) => {
+                  setShowSaebDescriptors(event.target.checked);
+                  setGenerated(false);
+                }}
+                className="mt-0.5 size-4 accent-cyan-700"
+              />
+              <span>
+                <span className="block text-sm font-semibold">
+                  Exibir descritor SAEB nas questões
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  Mostra o código do descritor antes do enunciado somente nas
+                  questões que possuem vínculo SAEB.
                 </span>
               </span>
             </label>
@@ -1282,7 +1305,8 @@ export function AssessmentBuilder({
                     className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-5 outline-none focus:border-blue-500"
                   />
                   <span className="mt-1 block text-xs text-slate-500">
-                    Uma instrução por linha, no máximo 10. A instrução 9 orienta o preenchimento correto.
+                    Uma instrução por linha, no máximo 10. A instrução 9 orienta
+                    o preenchimento correto.
                   </span>
                 </label>
               </div>

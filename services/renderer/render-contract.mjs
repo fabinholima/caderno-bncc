@@ -30,11 +30,46 @@ const forbiddenContextFormula =
   /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;
 
 const allowedMathCommands = new Set([
-  'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta',
-  'theta', 'vartheta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'omicron',
-  'pi', 'varpi', 'rho', 'varrho', 'sigma', 'varsigma', 'tau', 'upsilon', 'phi',
-  'varphi', 'chi', 'psi', 'omega', 'Gamma', 'Theta', 'Lambda', 'Xi', 'Pi',
-  'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
+  'alpha',
+  'beta',
+  'gamma',
+  'delta',
+  'epsilon',
+  'varepsilon',
+  'zeta',
+  'eta',
+  'theta',
+  'vartheta',
+  'iota',
+  'kappa',
+  'lambda',
+  'mu',
+  'nu',
+  'xi',
+  'omicron',
+  'pi',
+  'varpi',
+  'rho',
+  'varrho',
+  'sigma',
+  'varsigma',
+  'tau',
+  'upsilon',
+  'phi',
+  'varphi',
+  'chi',
+  'psi',
+  'omega',
+  'Gamma',
+  'Theta',
+  'Lambda',
+  'Xi',
+  'Pi',
+  'Sigma',
+  'Upsilon',
+  'Phi',
+  'Psi',
+  'Omega',
   'Delta',
   'approx',
   'cdot',
@@ -53,14 +88,63 @@ const allowedMathCommands = new Set([
   'text',
   'times',
   'rightarrow',
-  'leftarrow', 'leftrightarrow', 'Rightarrow', 'Leftarrow', 'Leftrightarrow',
-  'infty', 'ell', 'partial', 'nabla', 'sum', 'prod', 'int', 'oint', 'lim',
-  'sin', 'cos', 'tan', 'log', 'ln', 'exp', 'min', 'max',
-  'equiv', 'sim', 'simeq', 'cong', 'propto', 'll', 'gg', 'in', 'notin',
-  'subset', 'subseteq', 'supset', 'supseteq', 'cup', 'cap', 'emptyset',
-  'forall', 'exists', 'neg', 'land', 'lor', 'oplus', 'otimes',
-  'overline', 'underline', 'vec', 'hat', 'bar', 'overrightarrow',
-  'langle', 'rangle', 'cdots', 'ldots', 'vdots', 'ddots',
+  'leftarrow',
+  'leftrightarrow',
+  'Rightarrow',
+  'Leftarrow',
+  'Leftrightarrow',
+  'infty',
+  'ell',
+  'partial',
+  'nabla',
+  'sum',
+  'prod',
+  'int',
+  'oint',
+  'lim',
+  'sin',
+  'cos',
+  'tan',
+  'log',
+  'ln',
+  'exp',
+  'min',
+  'max',
+  'equiv',
+  'sim',
+  'simeq',
+  'cong',
+  'propto',
+  'll',
+  'gg',
+  'in',
+  'notin',
+  'subset',
+  'subseteq',
+  'supset',
+  'supseteq',
+  'cup',
+  'cap',
+  'emptyset',
+  'forall',
+  'exists',
+  'neg',
+  'land',
+  'lor',
+  'oplus',
+  'otimes',
+  'overline',
+  'underline',
+  'vec',
+  'hat',
+  'bar',
+  'overrightarrow',
+  'langle',
+  'rangle',
+  'cdots',
+  'ldots',
+  'vdots',
+  'ddots',
 ]);
 
 function safeMath(formula) {
@@ -106,6 +190,15 @@ function chemicalFormula(node) {
 }
 
 function chemicalStructure(node) {
+  if (node.smiles) {
+    const fileName = String(node.fileName ?? '');
+    if (!/^chemical-structure-[0-9]+\.(?:pdf|png|jpg)$/.test(fileName))
+      throw new Error('Estrutura química não aprovada ou não materializada.');
+    const caption = node.caption
+      ? `\n\\midaligned{${escapeContext(node.caption)}}`
+      : '';
+    return `\\startalignment[middle]\n\\externalfigure[${fileName}][maxwidth=.72\\textwidth,maxheight=.28\\textheight]\n${caption}\n\\stopalignment`;
+  }
   const structures = {
     benzene: 'SIX,SB246,DB135',
     cyclohexane: 'SIX,SB123456',
@@ -186,17 +279,24 @@ function paragraphWithScientificInline(text) {
     output += escapeContext(value.slice(cursor, index));
     const command = match[1];
     const argument = value.slice(index + match[0].length, end - 1);
-    const mathCommandsAllowed = [...argument.matchAll(/\\([A-Za-z]+)/g)]
-      .every((item) => allowedMathCommands.has(item[1]));
-    const valid = command === 'chemical'
-      ? /^[A-Za-z0-9_{}()+\-.=\\\s]+$/.test(argument) &&
-        [...argument.matchAll(/\\([A-Za-z]+)/g)].every((item) => item[1] === 'ell')
-      : command === 'unit'
-        ? /^[A-Za-z0-9À-ÿ°,+\-\s./]+$/.test(argument)
-        : mathCommandsAllowed && /^[A-Za-z0-9\\{}_^+\-*/=<>()[\],.;:\s]+$/.test(argument);
+    const mathCommandsAllowed = [...argument.matchAll(/\\([A-Za-z]+)/g)].every(
+      (item) => allowedMathCommands.has(item[1]),
+    );
+    const valid =
+      command === 'chemical'
+        ? /^[A-Za-z0-9_{}()+\-.=\\\s]+$/.test(argument) &&
+          [...argument.matchAll(/\\([A-Za-z]+)/g)].every(
+            (item) => item[1] === 'ell',
+          )
+        : command === 'unit'
+          ? /^[A-Za-z0-9À-ÿ°,+\-\s./]+$/.test(argument)
+          : mathCommandsAllowed &&
+            /^[A-Za-z0-9\\{}_^+\-*/=<>()[\],.;:\s]+$/.test(argument);
     const original = value.slice(index, end);
     output += valid
-      ? command === 'unit' ? normalizeContextUnits(original) : original
+      ? command === 'unit'
+        ? normalizeContextUnits(original)
+        : original
       : escapeContext(original);
     cursor = end;
   }
@@ -234,22 +334,59 @@ function richText(nodes = []) {
     if (node.type === 'contextFormula') {
       const code = String(node.code ?? '').trim();
       const allowed = new Set([
-        'chemical', 'unit', 'Delta', 'ell', 'qquad', 'quad', 'frac', 'sqrt',
-        'cdot', 'times', 'pm', 'approx', 'mathrm',
+        'chemical',
+        'unit',
+        'Delta',
+        'ell',
+        'qquad',
+        'quad',
+        'frac',
+        'sqrt',
+        'cdot',
+        'times',
+        'pm',
+        'approx',
+        'mathrm',
       ]);
-      if (!code || code.length > 4_000 || forbiddenContextFormula.test(code) ||
-        ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) => allowed.has(match[1])))
+      if (
+        !code ||
+        code.length > 4_000 ||
+        forbiddenContextFormula.test(code) ||
+        ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
+          allowed.has(match[1]),
+        )
+      )
         throw new Error('Fórmula ConTeXt inválida ou não permitida.');
-      return { content: `\\startformula\n${normalizeContextUnits(code)}\n\\stopformula`, inline: false };
+      return {
+        content: `\\startformula\n${normalizeContextUnits(code)}\n\\stopformula`,
+        inline: false,
+      };
     }
     if (node.type === 'contextInline') {
       const code = String(node.code ?? '').trim();
       const allowed = new Set([
-        'chemical', 'unit', 'Delta', 'ell', 'quad', 'frac', 'sqrt', 'cdot',
-        'times', 'pm', 'approx', 'mathrm', 'bold',
+        'chemical',
+        'unit',
+        'Delta',
+        'ell',
+        'quad',
+        'frac',
+        'sqrt',
+        'cdot',
+        'times',
+        'pm',
+        'approx',
+        'mathrm',
+        'bold',
       ]);
-      if (!code || code.length > 1_000 || forbiddenContextFormula.test(code) ||
-        ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) => allowed.has(match[1])))
+      if (
+        !code ||
+        code.length > 1_000 ||
+        forbiddenContextFormula.test(code) ||
+        ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
+          allowed.has(match[1]),
+        )
+      )
         throw new Error('Trecho ConTeXt em linha inválido ou não permitido.');
       return { content: normalizeContextUnits(code), inline: true };
     }
@@ -298,6 +435,13 @@ export function renderAssessment(snapshot) {
       snapshot.render?.showBnccSkills && skillCodes.length
         ? `\\HabilidadeBNCC{${skillCodes.map(escapeContext).join(', ')}}\\quad `
         : '';
+    const descriptorCodes = (question.saebDescriptors ?? [])
+      .map((descriptor) => descriptor.code)
+      .filter(Boolean);
+    const descriptorLine =
+      snapshot.render?.showSaebDescriptors && descriptorCodes.length
+        ? `\\DescritorSAEB{${descriptorCodes.map(escapeContext).join(', ')}}\\quad `
+        : '';
     const correct = new Set(question.answer?.correctStableKeys ?? []);
     const choices = (question.alternatives ?? [])
       .map(
@@ -310,7 +454,7 @@ export function renderAssessment(snapshot) {
       : mode === 'student'
         ? '\\blank[4*big]'
         : '';
-    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${sourceLine}${richText(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion`;
+    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion`;
   };
   const sections =
     Array.isArray(snapshot.sections) && snapshot.sections.length

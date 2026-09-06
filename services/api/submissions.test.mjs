@@ -14,6 +14,9 @@ const snapshot = {
       ],
       answer: { correctStableKeys: ['alt-b'] },
       skills: [{ code: 'EM13CNT101', primary: true }],
+      saebDescriptors: [
+        { code: 'D20', topic: 'Relação entre Textos', primary: true },
+      ],
     },
     {
       number: 2,
@@ -51,6 +54,9 @@ test('corrige respostas objetivas pela letra da versão congelada', () => {
   assert.equal(graded.result.items[0].status, 'correct');
   assert.deepEqual(graded.result.items[0].skills, [
     { code: 'EM13CNT101', primary: true },
+  ]);
+  assert.deepEqual(graded.result.items[0].saebDescriptors, [
+    { code: 'D20', topic: 'Relação entre Textos', primary: true },
   ]);
   assert.equal(graded.result.items[2].status, 'pending_manual_review');
 });

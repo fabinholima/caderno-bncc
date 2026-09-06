@@ -128,7 +128,9 @@ export function CurriculumManager({
   }, [apiUrl]);
   useEffect(() => {
     if (!apiUrl) return;
-    apiFetch(`${apiUrl}/api/curriculum/saeb/matrices`)
+    apiFetch(
+      `${apiUrl}/api/curriculum/saeb/matrices?stage=${encodeURIComponent('Ensino Fundamental')}`,
+    )
       .then((response) => response.json() as Promise<{ data: SaebMatrix[] }>)
       .then((body) => {
         setSaebMatrices(body.data || []);

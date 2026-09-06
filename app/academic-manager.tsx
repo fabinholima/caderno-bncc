@@ -120,6 +120,8 @@ type ApplicationReport = {
     review: number;
     awaiting: number;
     averagePercentage: number;
+    medianPercentage: number;
+    standardDeviation: number;
   };
   students: Array<{
     id: string;
@@ -146,6 +148,92 @@ type ApplicationReport = {
     total: number;
     percentage: number;
   }>;
+  saebDescriptors: Array<{
+    code: string;
+    topic: string;
+    correct: number;
+    validAnswers: number;
+    total: number;
+    percentage: number;
+    classification: string;
+  }>;
+};
+type StudentApplicationReport = {
+  application: ApplicationReport['application'];
+  student: {
+    id: string;
+    name: string;
+    registration: string;
+    number?: number;
+    versionCode: string;
+  };
+  summary: {
+    score: number;
+    maxScore: number;
+    percentage: number;
+    classAveragePercentage: number;
+    differenceFromClass: number;
+    correct: number;
+    incorrect: number;
+    unanswered: number;
+  };
+  skills: ApplicationReport['skills'];
+  competencies: ApplicationReport['competencies'];
+  saebDescriptors: ApplicationReport['saebDescriptors'];
+  questions: Array<{
+    questionNumber: number;
+    status: 'correct' | 'incorrect' | 'unanswered';
+    selectedLabels: string[];
+    correctLabels: string[];
+    skills: Array<{ code: string }>;
+    saebDescriptors: Array<{ code: string }>;
+  }>;
+};
+type StudentProgress = {
+  student: Student;
+  summary: {
+    assessments: number;
+    averagePercentage: number;
+    bestPercentage: number;
+    currentPercentage: number;
+    trend: number;
+  };
+  timeline: Array<{
+    applicationId: string;
+    title: string;
+    className: string;
+    scheduledAt: string;
+    score: number;
+    maxScore: number;
+    percentage: number;
+    change: number | null;
+  }>;
+  skills: Array<{
+    code: string;
+    correct: number;
+    total: number;
+    assessments: number;
+    percentage: number;
+    classification: string;
+  }>;
+  competencies: Array<{
+    sourceKey: string;
+    code: string;
+    number: number;
+    description: string;
+    area: string;
+    percentage: number;
+    assessments: number;
+  }>;
+  saebDescriptors: Array<{
+    code: string;
+    topic: string;
+    correct: number;
+    validAnswers: number;
+    assessments: number;
+    percentage: number;
+    classification: string;
+  }>;
 };
 
 export function AcademicManager({ apiUrl }: { apiUrl: string }) {
@@ -163,6 +251,14 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
     {},
   );
   const [report, setReport] = useState<ApplicationReport | null>(null);
+  const [reportPdf, setReportPdf] = useState('');
+  const [reportPdfLoading, setReportPdfLoading] = useState(false);
+  const [studentReport, setStudentReport] =
+    useState<StudentApplicationReport | null>(null);
+  const [studentReportPdf, setStudentReportPdf] = useState('');
+  const [studentReportPdfLoading, setStudentReportPdfLoading] = useState(false);
+  const [studentProgress, setStudentProgress] =
+    useState<StudentProgress | null>(null);
   const [message, setMessage] = useState('');
   const refresh = async () => {
     if (!apiUrl) return;
@@ -219,6 +315,122 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
     if (!response.ok || !body.data)
       throw new Error(body.error || 'Não foi possível gerar o relatório.');
     setReport(body.data);
+    setReportPdf('');
+  };
+  const generateReportPdf = async () => {
+    if (!report) return;
+    setReportPdfLoading(true);
+    setMessage('Compondo relatório estatístico em ConTeXt...');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/assessment-applications/${report.application.id}/report-renders`,
+        { method: 'POST' },
+      );
+      const body = (await response.json()) as ApiBody<{ id: string }>;
+      if (!response.ok || !body.data)
+        throw new Error(body.error || 'Não foi possível iniciar o relatório.');
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const statusResponse = await apiFetch(
+          `${apiUrl}/api/report-render-jobs/${body.data.id}`,
+        );
+        const statusBody = (await statusResponse.json()) as ApiBody<{
+          status: string;
+          error?: string;
+          download?: string;
+        }>;
+        if (
+          statusBody.data?.status === 'completed' &&
+          statusBody.data.download
+        ) {
+          setReportPdf(`${apiUrl}${statusBody.data.download}`);
+          setMessage('Relatório PDF pronto para download.');
+          return;
+        }
+        if (statusBody.data?.status === 'failed')
+          throw new Error(
+            statusBody.data.error || 'A composição do PDF falhou.',
+          );
+      }
+      throw new Error(
+        'O relatório continua na fila. Tente novamente em instantes.',
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Erro ao gerar relatório.',
+      );
+    } finally {
+      setReportPdfLoading(false);
+    }
+  };
+  const loadStudentReport = async (studentId: string) => {
+    if (!report) return;
+    const response = await apiFetch(
+      `${apiUrl}/api/assessment-applications/${report.application.id}/students/${studentId}/report`,
+    );
+    const body = (await response.json()) as ApiBody<StudentApplicationReport>;
+    if (!response.ok || !body.data)
+      throw new Error(
+        body.error || 'Não foi possível abrir o relatório do aluno.',
+      );
+    setStudentReport(body.data);
+    setStudentReportPdf('');
+  };
+  const loadStudentProgress = async (studentId: string) => {
+    if (!studentId) throw new Error('Selecione um aluno.');
+    const response = await apiFetch(
+      `${apiUrl}/api/students/${studentId}/progress`,
+    );
+    const body = (await response.json()) as ApiBody<StudentProgress>;
+    if (!response.ok || !body.data)
+      throw new Error(body.error || 'Não foi possível calcular a evolução.');
+    setStudentProgress(body.data);
+  };
+  const generateStudentReportPdf = async () => {
+    if (!studentReport) return;
+    setStudentReportPdfLoading(true);
+    setMessage('Compondo relatório individual em ConTeXt...');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/assessment-applications/${studentReport.application.id}/students/${studentReport.student.id}/report-renders`,
+        { method: 'POST' },
+      );
+      const body = (await response.json()) as ApiBody<{ id: string }>;
+      if (!response.ok || !body.data)
+        throw new Error(body.error || 'Não foi possível iniciar o relatório.');
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const statusResponse = await apiFetch(
+          `${apiUrl}/api/report-render-jobs/${body.data.id}`,
+        );
+        const statusBody = (await statusResponse.json()) as ApiBody<{
+          status: string;
+          error?: string;
+          download?: string;
+        }>;
+        if (
+          statusBody.data?.status === 'completed' &&
+          statusBody.data.download
+        ) {
+          setStudentReportPdf(`${apiUrl}${statusBody.data.download}`);
+          setMessage('Relatório individual pronto para download.');
+          return;
+        }
+        if (statusBody.data?.status === 'failed')
+          throw new Error(
+            statusBody.data.error || 'A composição do PDF falhou.',
+          );
+      }
+      throw new Error(
+        'O relatório continua na fila. Tente novamente em instantes.',
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Erro ao gerar relatório.',
+      );
+    } finally {
+      setStudentReportPdfLoading(false);
+    }
   };
   const loadApplication = async (applicationId: string) => {
     const response = await apiFetch(
@@ -426,6 +638,149 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
           </form>
         </Panel>
       </div>
+      <section className="mt-5 rounded-2xl border border-violet-200 bg-white p-5">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="size-5 text-violet-700" />
+          <div>
+            <h2 className="font-display text-xl font-bold">
+              Evolução longitudinal
+            </h2>
+            <p className="text-sm text-slate-500">
+              Acompanhe o aluno entre provas, habilidades BNCC e descritores
+              SAEB.
+            </p>
+          </div>
+        </div>
+        <form
+          className="mt-4 flex flex-col gap-3 sm:flex-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            loadStudentProgress(String(data.get('progressStudentId'))).catch(
+              (error) => setMessage(error.message),
+            );
+          }}
+        >
+          <div className="min-w-0 flex-1">
+            <Select
+              name="progressStudentId"
+              label="Selecione o aluno"
+              items={students.map((student) => [
+                student.id,
+                `${student.name} · ${student.registration}`,
+              ])}
+            />
+          </div>
+          <Button type="submit" className="sm:self-end">
+            <BarChart3 /> Ver evolução
+          </Button>
+        </form>
+        {studentProgress && (
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <h3 className="font-display text-lg font-bold">
+              {studentProgress.student.name}
+            </h3>
+            <p className="text-sm text-slate-500">
+              Matrícula {studentProgress.student.registration}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {[
+                ['Avaliações', studentProgress.summary.assessments],
+                ['Média', `${studentProgress.summary.averagePercentage}%`],
+                [
+                  'Melhor resultado',
+                  `${studentProgress.summary.bestPercentage}%`,
+                ],
+                [
+                  'Resultado atual',
+                  `${studentProgress.summary.currentPercentage}%`,
+                ],
+                [
+                  'Evolução',
+                  `${studentProgress.summary.trend > 0 ? '+' : ''}${studentProgress.summary.trend} p.p.`,
+                ],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl bg-violet-50 p-3">
+                  <p className="text-xs font-semibold uppercase text-violet-700">
+                    {label}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {studentProgress.timeline.length ? (
+              <div className="mt-5 rounded-xl border border-slate-200 p-4">
+                <h4 className="font-semibold">Histórico de resultados</h4>
+                <div className="mt-4 space-y-4">
+                  {studentProgress.timeline.map((item) => (
+                    <div key={item.applicationId}>
+                      <div className="flex flex-wrap justify-between gap-2 text-sm">
+                        <span>
+                          <b>{item.title}</b> · {item.className} ·{' '}
+                          {new Date(item.scheduledAt).toLocaleDateString(
+                            'pt-BR',
+                          )}
+                        </span>
+                        <span className="font-semibold">
+                          {item.percentage}%
+                          {item.change != null &&
+                            ` · ${item.change > 0 ? '+' : ''}${item.change} p.p.`}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-violet-600"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, item.percentage))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+                Ainda não há avaliações corrigidas para este aluno.
+              </p>
+            )}
+            <div className="mt-5 grid gap-5 xl:grid-cols-3">
+              <ReportPerformance
+                title="Habilidades acumuladas"
+                empty="Nenhuma habilidade consolidada."
+                items={studentProgress.skills.map((item) => ({
+                  key: item.code,
+                  label: item.code,
+                  detail: `${item.correct}/${item.total} acertos em ${item.assessments} avaliação(ões) · ${item.classification}`,
+                  percentage: item.percentage,
+                }))}
+              />
+              <ReportPerformance
+                title="Descritores acumulados"
+                empty="Nenhum descritor SAEB consolidado."
+                items={studentProgress.saebDescriptors.map((item) => ({
+                  key: item.code,
+                  label: `${item.code} · ${item.topic}`,
+                  detail: `${item.correct}/${item.validAnswers} respostas válidas em ${item.assessments} avaliação(ões)`,
+                  percentage: item.percentage,
+                }))}
+              />
+              <ReportPerformance
+                title="Competências acumuladas"
+                empty="Nenhuma competência consolidada."
+                items={studentProgress.competencies.map((item) => ({
+                  key: item.sourceKey,
+                  label: `${item.code} · ${item.area}`,
+                  detail: `${item.description} · ${item.assessments} avaliação(ões)`,
+                  percentage: item.percentage,
+                }))}
+              />
+            </div>
+          </div>
+        )}
+      </section>
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2">
           <CalendarCheck className="size-5 text-blue-600" />
@@ -659,7 +1014,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
       )}
       {report && (
         <section className="mt-5 rounded-2xl border border-blue-200 bg-white p-5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <BarChart3 className="size-5 text-blue-600" />
             <div>
               <h2 className="font-display text-xl font-bold">
@@ -669,14 +1024,33 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                 {report.application.title} · {report.application.className}
               </p>
             </div>
+            <div className="ml-auto flex gap-2">
+              {reportPdf && (
+                <a href={reportPdf} download>
+                  <Button type="button" variant="outline">
+                    <Download /> Baixar PDF
+                  </Button>
+                </a>
+              )}
+              <Button
+                type="button"
+                onClick={generateReportPdf}
+                disabled={reportPdfLoading}
+              >
+                <Download />{' '}
+                {reportPdfLoading ? 'Compondo...' : 'Gerar relatório PDF'}
+              </Button>
+            </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
             {[
               ['Alunos', report.summary.students],
               ['Corrigidos', report.summary.corrected],
               ['Para revisar', report.summary.review],
               ['Aguardando', report.summary.awaiting],
               ['Média', `${report.summary.averagePercentage}%`],
+              ['Mediana', `${report.summary.medianPercentage}%`],
+              ['Desvio-padrão', report.summary.standardDeviation],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-slate-50 p-3">
                 <p className="text-xs font-semibold uppercase text-slate-500">
@@ -688,7 +1062,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
               </div>
             ))}
           </div>
-          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <div className="mt-5 grid gap-5 xl:grid-cols-3">
             <ReportPerformance
               title="Desempenho por habilidade BNCC"
               empty="As correções ainda não possuem habilidades consolidadas."
@@ -696,6 +1070,16 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                 key: item.code,
                 label: item.code,
                 detail: `${item.correct}/${item.total} acertos`,
+                percentage: item.percentage,
+              }))}
+            />
+            <ReportPerformance
+              title="Desempenho por descritor SAEB"
+              empty="Esta aplicação ainda não possui descritores SAEB vinculados."
+              items={report.saebDescriptors.map((item) => ({
+                key: item.code,
+                label: `${item.code} · ${item.topic}`,
+                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
                 percentage: item.percentage,
               }))}
             />
@@ -718,6 +1102,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                   <th>Versão</th>
                   <th>Situação</th>
                   <th>Resultado</th>
+                  <th>Relatório</th>
                 </tr>
               </thead>
               <tbody>
@@ -741,6 +1126,161 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                       {student.score == null
                         ? '—'
                         : `${student.score}/${student.maxScore} · ${student.percentage}%`}
+                    </td>
+                    <td>
+                      {student.status === 'corrected' ||
+                      student.status === 'manual_review' ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            loadStudentReport(student.id).catch((error) =>
+                              setMessage(error.message),
+                            )
+                          }
+                        >
+                          <Eye /> Detalhes
+                        </Button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {studentReport && (
+        <section className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <GraduationCap className="size-5 text-emerald-700" />
+            <div>
+              <h2 className="font-display text-xl font-bold">
+                Relatório individual · {studentReport.student.name}
+              </h2>
+              <p className="text-sm text-slate-500">
+                Matrícula {studentReport.student.registration} · versão{' '}
+                {studentReport.student.versionCode}
+              </p>
+            </div>
+            <div className="ml-auto flex gap-2">
+              {studentReportPdf && (
+                <a href={studentReportPdf} download>
+                  <Button type="button" variant="outline">
+                    <Download /> Baixar PDF
+                  </Button>
+                </a>
+              )}
+              <Button
+                type="button"
+                onClick={generateStudentReportPdf}
+                disabled={studentReportPdfLoading}
+              >
+                <Download />{' '}
+                {studentReportPdfLoading
+                  ? 'Compondo...'
+                  : 'Gerar PDF individual'}
+              </Button>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            {[
+              ['Resultado', `${studentReport.summary.percentage}%`],
+              [
+                'Média da turma',
+                `${studentReport.summary.classAveragePercentage}%`,
+              ],
+              [
+                'Diferença',
+                `${studentReport.summary.differenceFromClass > 0 ? '+' : ''}${studentReport.summary.differenceFromClass} p.p.`,
+              ],
+              ['Acertos', studentReport.summary.correct],
+              ['Erros', studentReport.summary.incorrect],
+              ['Em branco', studentReport.summary.unanswered],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  {label}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid gap-5 xl:grid-cols-3">
+            <ReportPerformance
+              title="Habilidades BNCC do aluno"
+              empty="Não há habilidades consolidadas nesta correção."
+              items={studentReport.skills.map((item) => ({
+                key: item.code,
+                label: item.code,
+                detail: `${item.correct}/${item.total} acertos`,
+                percentage: item.percentage,
+              }))}
+            />
+            <ReportPerformance
+              title="Descritores SAEB do aluno"
+              empty="Não há descritores SAEB nesta correção."
+              items={studentReport.saebDescriptors.map((item) => ({
+                key: item.code,
+                label: `${item.code} · ${item.topic}`,
+                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
+                percentage: item.percentage,
+              }))}
+            />
+            <ReportPerformance
+              title="Competências do aluno"
+              empty="Não há competências consolidadas nesta correção."
+              items={studentReport.competencies.map((item) => ({
+                key: item.sourceKey,
+                label: `Competência ${item.number} · ${item.area}`,
+                detail: item.description,
+                percentage: item.percentage,
+              }))}
+            />
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="py-2">Questão</th>
+                  <th>Situação</th>
+                  <th>Marcada</th>
+                  <th>Correta</th>
+                  <th>BNCC</th>
+                  <th>SAEB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {studentReport.questions.map((question) => (
+                  <tr
+                    key={question.questionNumber}
+                    className="border-b last:border-0"
+                  >
+                    <td className="py-2 font-semibold">
+                      {question.questionNumber}
+                    </td>
+                    <td>
+                      {question.status === 'correct'
+                        ? 'Acerto'
+                        : question.status === 'incorrect'
+                          ? 'Erro'
+                          : 'Em branco'}
+                    </td>
+                    <td>{question.selectedLabels.join(', ') || '—'}</td>
+                    <td>{question.correctLabels.join(', ') || '—'}</td>
+                    <td>
+                      {question.skills.map((item) => item.code).join(', ') ||
+                        '—'}
+                    </td>
+                    <td>
+                      {question.saebDescriptors
+                        .map((item) => item.code)
+                        .join(', ') || '—'}
                     </td>
                   </tr>
                 ))}

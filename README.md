@@ -29,7 +29,17 @@ pnpm install
 pnpm --filter @caderno/api start
 ```
 
-Em outro terminal, inicie o portal com `NEXT_PUBLIC_API_URL=http://localhost:8788 pnpm dev`. Para consumir a fila de PDFs, execute `pnpm --filter @caderno/renderer start` em um ambiente com ConTeXt/LuaMetaTeX e `t-basicexam` instalados.
+Durante o desenvolvimento, `DEV_AUTH_BYPASS=true` abre o sistema sem mostrar a
+tela de login. O perfil é escolhido por `DEV_AUTH_BYPASS_ROLE` (`admin`,
+`coordinator` ou `teacher`; o padrão é `admin`). O atalho é ignorado quando
+`NODE_ENV=production`; antes da publicação, altere a variável para `false` e
+valide novamente cadastro, login, recuperação de senha e permissões.
+
+Em outro terminal, inicie o portal com `NEXT_PUBLIC_API_URL=http://localhost:8788 pnpm dev`. Para consumir a fila de PDFs, execute `pnpm --filter @caderno/renderer start` em um ambiente com ConTeXt/LuaMetaTeX, `t-basicexam`, `zint` e `rsvg-convert` instalados. O último converte os desenhos químicos SVG produzidos pelo RDKit em PDF vetorial antes da inclusão pelo ConTeXt.
+
+A importação de provas usa `pdftotext` e `pdftoppm` (Poppler). Para PDFs
+escaneados, instale também Tesseract com os idiomas português e inglês. No Arch
+Linux: `sudo pacman -S tesseract tesseract-data-por tesseract-data-eng`.
 
 ### Acesso pelo celular na rede local
 

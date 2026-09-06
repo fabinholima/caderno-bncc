@@ -95,3 +95,43 @@ test('materializa imagens dos enunciados somente na pasta do trabalho', async ()
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('materializa SVG aprovado de estrutura química', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'caderno-structure-'));
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="160"><path d="M0 0"/></svg>';
+  try {
+    const snapshot = await materializeQuestionImages(
+      {
+        sections: [
+          {
+            questions: [
+              {
+                statement: [
+                  {
+                    type: 'chemicalStructure',
+                    smiles: 'CCO',
+                    approved: true,
+                    svgDataUrl: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+                  },
+                ],
+                alternatives: [],
+                answer: {},
+              },
+            ],
+          },
+        ],
+      },
+      directory,
+    );
+    const block = snapshot.sections[0].questions[0].statement[0];
+    assert.equal(block.fileName, 'chemical-structure-1.pdf');
+    assert.equal(block.svgDataUrl, undefined);
+    assert.match(
+      await readFile(path.join(directory, 'chemical-structure-1.pdf'), 'utf8'),
+      /^%PDF-/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

@@ -153,6 +153,24 @@ test('renderiza estrutura orgânica por preset seguro', async () => {
   assert.match(tex, /\\midaligned\{Benzeno\}/);
 });
 
+test('incorpora estrutura SMILES aprovada como arquivo vetorial', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement.push({
+    type: 'chemicalStructure',
+    smiles: 'CCO',
+    approved: true,
+    fileName: 'chemical-structure-1.pdf',
+    caption: 'Etanol',
+  });
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /\\externalfigure\[chemical-structure-1\.pdf\]/);
+  assert.match(tex, /\\midaligned\{Etanol\}/);
+});
+
 test('organiza disciplinas em seções com uma ou duas colunas', async () => {
   const snapshot = JSON.parse(
     await readFile(
@@ -285,7 +303,10 @@ test('renderiza equação termoquímica com chemical e módulo units', async () 
     tex,
     /\\define\[1\]\\HabilidadeBNCC\{\{\\switchtobodyfont\[cursor\]#1\}\}/,
   );
-  assert.match(tex, /\\setupquestion\[question\]\[option=\{Cr:num,packed,joinedup,continue\}\]/);
+  assert.match(
+    tex,
+    /\\setupquestion\[question\]\[option=\{Cr:num,packed,joinedup,continue\}\]/,
+  );
   assert.match(tex, /\\chemical\{\} \\chemical\{2HI\(g\)\}/);
   assert.match(tex, /\\chemical\{2HI\(g\)\} \\chemical\{GIVES\}/);
   assert.match(tex, /\\chemical\{PLUS\} \\chemical\{I_2\(g\)\}/);
@@ -299,10 +320,12 @@ test('aceita código ConTeXt seguro e normaliza abreviações do módulo units',
       new URL('../../samples/assessment-snapshot.json', import.meta.url),
     ),
   );
-  snapshot.questions[0].statement = [{
-    type: 'contextFormula',
-    code: '\\chemical{} \\chemical{NO_2(g)} \\qquad m=\\unit{18,4 g} \\quad E=\\unit{51,9 kJ} \\quad T=\\unit{25 °C}',
-  }];
+  snapshot.questions[0].statement = [
+    {
+      type: 'contextFormula',
+      code: '\\chemical{} \\chemical{NO_2(g)} \\qquad m=\\unit{18,4 g} \\quad E=\\unit{51,9 kJ} \\quad T=\\unit{25 °C}',
+    },
+  ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\unit\{18,4 gram\}/);
   assert.match(tex, /\\unit\{51,9 kilo joule\}/);
@@ -310,7 +333,11 @@ test('aceita código ConTeXt seguro e normaliza abreviações do módulo units',
 });
 
 test('renderiza chemical e unit em linha no texto corrido', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
   snapshot.questions[0].statement = [
     { type: 'paragraph', text: 'As energias de ligação do' },
     { type: 'contextInline', code: '\\chemical{H_2}' },
@@ -320,55 +347,97 @@ test('renderiza chemical e unit em linha no texto corrido', async () => {
     { type: 'contextInline', code: '\\unit{kilo joule inverse mol}' },
   ];
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /ligação do \\chemical\{H_2\} e do \\chemical\{Cl_2\} em \\unit\{kilo joule inverse mol\}/);
+  assert.match(
+    tex,
+    /ligação do \\chemical\{H_2\} e do \\chemical\{Cl_2\} em \\unit\{kilo joule inverse mol\}/,
+  );
 });
 
 test('preserva chemical e unit exatamente no meio de um único parágrafo', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  snapshot.questions[0].statement = [{
-    type: 'paragraph',
-    text: 'As energias de ligação do \\chemical{H_2}, do \\chemical{Cl_2} e do \\chemical{HCl}, em \\unit{kilo joule inverse mol}.',
-  }];
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    {
+      type: 'paragraph',
+      text: 'As energias de ligação do \\chemical{H_2}, do \\chemical{Cl_2} e do \\chemical{HCl}, em \\unit{kilo joule inverse mol}.',
+    },
+  ];
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /ligação do \\chemical\{H_2\}, do \\chemical\{Cl_2\} e do \\chemical\{HCl\}, em \\unit\{kilo joule inverse mol\}\./);
+  assert.match(
+    tex,
+    /ligação do \\chemical\{H_2\}, do \\chemical\{Cl_2\} e do \\chemical\{HCl\}, em \\unit\{kilo joule inverse mol\}\./,
+  );
 });
 
 test('escapa comandos não permitidos digitados no parágrafo', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  snapshot.questions[0].statement = [{ type: 'paragraph', text: 'Não executar \\input{arquivo}.' }];
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    { type: 'paragraph', text: 'Não executar \\input{arquivo}.' },
+  ];
   const tex = renderAssessment(snapshot);
   assert.doesNotMatch(tex, /Não executar \\input\{arquivo\}/);
   assert.match(tex, /letterbackslash/);
 });
 
 test('renderiza matemática ampla com m no meio do parágrafo', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  snapshot.questions[0].statement = [{
-    type: 'paragraph',
-    text: 'Considere \\m{\\frac{a_1}{b^2} + \\sqrt{x} \\le \\Delta H \\rightarrow \\infty} no cálculo.',
-  }];
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    {
+      type: 'paragraph',
+      text: 'Considere \\m{\\frac{a_1}{b^2} + \\sqrt{x} \\le \\Delta H \\rightarrow \\infty} no cálculo.',
+    },
+  ];
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /Considere \\m\{\\frac\{a_1\}\{b\^2\} \+ \\sqrt\{x\} \\le \\Delta H \\rightarrow \\infty\} no cálculo\./);
+  assert.match(
+    tex,
+    /Considere \\m\{\\frac\{a_1\}\{b\^2\} \+ \\sqrt\{x\} \\le \\Delta H \\rightarrow \\infty\} no cálculo\./,
+  );
 });
 
 test('permite ell em fórmulas matemáticas inseridas no texto', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  snapshot.questions[0].statement = [{
-    type: 'paragraph',
-    text: 'Considere \\m{HC\\ell} e \\m{C\\ell_2}.',
-  }];
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    {
+      type: 'paragraph',
+      text: 'Considere \\m{HC\\ell} e \\m{C\\ell_2}.',
+    },
+  ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /Considere \\m\{HC\\ell\} e \\m\{C\\ell_2\}\./);
 });
 
 test('permite ell dentro de chemical sem forçar itálico matemático', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  snapshot.questions[0].statement = [{
-    type: 'paragraph',
-    text: 'Considere \\chemical{HC\\ell} e \\chemical{C\\ell_{2}}.',
-  }];
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    {
+      type: 'paragraph',
+      text: 'Considere \\chemical{HC\\ell} e \\chemical{C\\ell_{2}}.',
+    },
+  ];
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /Considere \\chemical\{HC\\ell\} e \\chemical\{C\\ell_\{2\}\}\./);
+  assert.match(
+    tex,
+    /Considere \\chemical\{HC\\ell\} e \\chemical\{C\\ell_\{2\}\}\./,
+  );
   assert.doesNotMatch(tex, /\\m\{/);
 });
 
@@ -388,4 +457,23 @@ test('usa bold na fonte da questão e permite exibir a habilidade BNCC', async (
   );
   assert.doesNotMatch(tex, /Habilidade BNCC:/);
   assert.match(tex, /\\bold\{\(ITA-1997\)\}/);
+});
+
+test('permite exibir o descritor SAEB antes do enunciado', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.render.showSaebDescriptors = true;
+  snapshot.questions[0].saebDescriptors = [
+    {
+      code: 'D20',
+      description: 'Reconhecer diferentes formas de tratar uma informação.',
+      topic: 'Relação entre Textos',
+      primary: true,
+    },
+  ];
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /\\DescritorSAEB\{D20\}\\quad/);
 });

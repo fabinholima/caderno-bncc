@@ -17,6 +17,15 @@ export type RichTextNode =
       caption?: string;
     }
   | {
+      type: 'chemicalStructure';
+      smiles: string;
+      caption?: string;
+      approved: boolean;
+      originalDataUrl?: string;
+      svgDataUrl?: string;
+      fileName?: string;
+    }
+  | {
       type: 'image';
       dataUrl?: string;
       fileName?: string;
@@ -42,6 +51,12 @@ export type AssessmentQuestionSnapshot = {
   answer: { correctStableKeys: string[]; explanation?: RichTextNode[] };
   points: number;
   skills: Array<{ code: string; primary: boolean }>;
+  saebDescriptors?: Array<{
+    code: string;
+    description: string;
+    topic: string;
+    primary: boolean;
+  }>;
 };
 
 export type AssessmentRenderContract = {
@@ -88,5 +103,6 @@ export type AssessmentRenderContract = {
     font: 'plex' | 'heros' | 'bonum' | 'schola' | 'libertinus';
     fontSize: number;
     showBnccSkills?: boolean;
+    showSaebDescriptors?: boolean;
   };
 };

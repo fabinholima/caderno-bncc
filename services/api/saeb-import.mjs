@@ -53,18 +53,20 @@ export function parseSaebReference(text, source) {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     if (!line) continue;
-    if (/3ª\s*S[eé]rie do Ensino M[eé]dio/i.test(line)) {
-      flushMatrix();
-      break;
-    }
-    const grade = line.match(/^(5º|9º)\s*(?:ANO|ano) do Ensino Fundamental$/i);
+    const grade = line.match(
+      /^(?:(5º|9º)\s*ano do Ensino Fundamental|3ª\s*S[eé]rie do Ensino M[eé]dio)$/i,
+    );
     if (grade) {
       flushMatrix();
+      const highSchool = !grade[1];
       matrix = {
-        sourceKey: `${source.key}-${grade[1].replace('º', '')}`,
+        sourceKey: highSchool
+          ? `${source.key}-em-3`
+          : `${source.key}-${grade[1].replace('º', '')}`,
         name: `Matriz de Referência de ${source.subject} do Saeb`,
         subject: source.subject,
-        gradeRange: `${grade[1]} ano`,
+        stage: highSchool ? 'Ensino Médio' : 'Ensino Fundamental',
+        gradeRange: highSchool ? '3ª série' : `${grade[1]} ano`,
         topics: [],
         descriptors: [],
       };
@@ -84,6 +86,20 @@ export function parseSaebReference(text, source) {
     }
     const descriptorMatch = line.match(/^(D\d+)\s*[–—-]\s*(.*)$/);
     if (descriptorMatch) {
+      if (
+        matrix.stage === 'Ensino Médio' &&
+        matrix.subject === 'Língua Portuguesa' &&
+        descriptorMatch[1] === 'D20' &&
+        topic?.code === 'II'
+      ) {
+        flushDescriptor();
+        topic = {
+          code: 'III',
+          name: 'Relação entre Textos',
+          position: matrix.topics.length + 1,
+        };
+        matrix.topics.push(topic);
+      }
       flushDescriptor();
       descriptor = {
         code: descriptorMatch[1],
@@ -122,15 +138,16 @@ export async function importSaebSources(sources = OFFICIAL_SAEB_SOURCES) {
         const matrixResult = await client.query(
           `INSERT INTO saeb_matrices
              (source_key, name, stage, subject, grade_range, version, source_url, source_metadata)
-           VALUES ($1, $2, 'Ensino Fundamental', $3, $4, 'SAEB-2001-2023', $5, $6)
+           VALUES ($1, $2, $3, $4, $5, 'SAEB-2001-2023', $6, $7)
            ON CONFLICT (source_key) DO UPDATE SET
-             name = EXCLUDED.name, subject = EXCLUDED.subject,
+             name = EXCLUDED.name, stage = EXCLUDED.stage, subject = EXCLUDED.subject,
              grade_range = EXCLUDED.grade_range, version = EXCLUDED.version,
              source_url = EXCLUDED.source_url, source_metadata = EXCLUDED.source_metadata
            RETURNING id`,
           [
             matrix.sourceKey,
             matrix.name,
+            matrix.stage,
             matrix.subject,
             matrix.gradeRange,
             matrix.source.url,

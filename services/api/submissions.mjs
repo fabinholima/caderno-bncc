@@ -81,6 +81,11 @@ export function gradeSubmission(snapshot, input) {
           code: skill.code,
           primary: Boolean(skill.primary),
         })),
+        saebDescriptors: (question.saebDescriptors ?? []).map((descriptor) => ({
+          code: descriptor.code,
+          topic: descriptor.topic,
+          primary: Boolean(descriptor.primary),
+        })),
       };
     }
     const correctKeys = question.answer?.correctStableKeys ?? [];
@@ -105,6 +110,11 @@ export function gradeSubmission(snapshot, input) {
       skills: (question.skills ?? []).map((skill) => ({
         code: skill.code,
         primary: Boolean(skill.primary),
+      })),
+      saebDescriptors: (question.saebDescriptors ?? []).map((descriptor) => ({
+        code: descriptor.code,
+        topic: descriptor.topic,
+        primary: Boolean(descriptor.primary),
       })),
     };
   });

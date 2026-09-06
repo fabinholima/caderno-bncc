@@ -30,6 +30,11 @@ services:
       - ./database/019_auth_subscriptions_audit.sql:/docker-entrypoint-initdb.d/019_auth_subscriptions_audit.sql:ro
       - ./database/020_pedagogical_topics.sql:/docker-entrypoint-initdb.d/020_pedagogical_topics.sql:ro
       - ./database/021_saeb_reference.sql:/docker-entrypoint-initdb.d/021_saeb_reference.sql:ro
+      - ./database/022_saeb_high_school.sql:/docker-entrypoint-initdb.d/022_saeb_high_school.sql:ro
+      - ./database/023_class_report_snapshots.sql:/docker-entrypoint-initdb.d/023_class_report_snapshots.sql:ro
+      - ./database/024_individual_report_snapshots.sql:/docker-entrypoint-initdb.d/024_individual_report_snapshots.sql:ro
+      - ./database/025_exam_imports.sql:/docker-entrypoint-initdb.d/025_exam_imports.sql:ro
+      - ./database/026_exam_import_candidates.sql:/docker-entrypoint-initdb.d/026_exam_import_candidates.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U caderno -d caderno']
       interval: 5s

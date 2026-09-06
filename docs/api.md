@@ -17,8 +17,65 @@ Respostas de sucesso usam `{ "data": ... }`. Erros usam `{ "error": "..." }`; fa
 
 Os descritores do SAEB são armazenados em catálogo próprio e não são tratados
 como habilidades curriculares da BNCC. A carga oficial de Língua Portuguesa e
-Matemática (5º e 9º anos) pode ser refeita com `pnpm --filter @caderno/api
+Matemática (5º e 9º anos do Ensino Fundamental e 3ª série do Ensino Médio) pode
+ser refeita com `pnpm --filter @caderno/api
 import:saeb` após disponibilizar os PDFs do Inep em `work/saeb`.
+
+## Relatório estatístico da turma
+
+- `GET /api/assessment-applications/:id/report`
+  - devolve estatísticas atualizadas por aluno, questão, habilidade BNCC,
+    competência e descritor SAEB.
+- `POST /api/assessment-applications/:id/report-renders`
+  - congela um snapshot JSON versionado e enfileira o PDF ConTeXt.
+- `GET /api/report-render-jobs/:id`
+  - consulta o andamento da composição.
+- `GET /api/report-render-jobs/:id/pdf`
+  - baixa o relatório concluído com tabelas e gráficos MetaPost.
+
+## Relatório individual do aluno
+
+- `GET /api/assessment-applications/:applicationId/students/:studentId/report`
+  - devolve nota, acertos, erros, respostas em branco, comparação com a média
+    da turma e desempenho por habilidade BNCC e descritor SAEB.
+- `POST /api/assessment-applications/:applicationId/students/:studentId/report-renders`
+  - congela o resultado individual em um snapshot JSON versionado e enfileira
+    o PDF ConTeXt. O andamento e o download usam as mesmas rotas de trabalhos
+    de relatório listadas acima.
+- `GET /api/students/:studentId/progress`
+  - consolida todas as aplicações corrigidas do aluno em ordem cronológica,
+    calcula média, melhor resultado, resultado atual e evolução em pontos
+    percentuais, além do desempenho acumulado por habilidade, competência e
+    descritor.
+
+## Estruturas químicas vetoriais
+
+- `POST /api/chemistry/structures/preview`
+  - recebe `{ "smiles": "CCO" }`, valida a molécula com RDKit e devolve o
+    SMILES canônico e uma prévia SVG monocromática.
+
+O editor mantém lado a lado o recorte PNG/JPEG original e o SVG redesenhado.
+O SVG só substitui o original após confirmação explícita do professor. Ao
+salvar uma revisão, a API ignora qualquer SVG enviado pelo cliente e o regenera
+a partir do SMILES validado. O snapshot da questão conserva o original, o
+SMILES canônico, o SVG e o estado de aprovação; o worker materializa somente o
+arquivo aprovado dentro da pasta isolada do trabalho ConTeXt. Estruturas ainda
+não aprovadas continuam usando a imagem original.
+
+## Importação editorial de provas
+
+- `GET /api/exam-imports`
+  - lista os trabalhos de importação e os metadados dos PDFs, sem devolver o
+    conteúdo binário.
+- `POST /api/exam-imports`
+  - cadastra instituição, ano, tipo, organização por disciplina, URL de origem,
+    situação dos direitos e os documentos `exam` e `answer_key`.
+
+Cada PDF pode ter até 15 MB. A API valida o MIME, a assinatura `%PDF-`, calcula
+SHA-256, registra o consumo de armazenamento e conserva os documentos na área
+editorial. O estado inicial é `uploaded`; nenhuma questão é criada ou publicada
+nesta etapa. Professores só podem marcar direitos como pendentes ou uso interno;
+coordenação e administração controlam as decisões de autorização.
 
 - `GET /api/curriculum?subject=Matemática`: árvore de disciplinas, objetos de conhecimento e habilidades. Uma habilidade pode aparecer sob mais de um objeto, conforme a relação oficial da BNCC.
 - `GET /api/curriculum/high-school?area=em-area-cnt`: área, competências específicas e habilidades do Ensino Médio. Ciências da Natureza possui 3 competências e 26 habilidades oficiais, sem seriação e sem objetos de conhecimento artificiais.

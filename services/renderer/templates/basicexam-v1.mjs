@@ -75,6 +75,7 @@ ${answerRows}
    style=\\italicface,
    stopper=)\\removeunwantedspaces\\space]
 \\define[1]\\HabilidadeBNCC{{\\switchtobodyfont[cursor]#1}}
+\\define[1]\\DescritorSAEB{{\\switchtobodyfont[cursor]#1}}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
 \\setuplayout[topspace=16mm,backspace=18mm,width=middle,height=middle]

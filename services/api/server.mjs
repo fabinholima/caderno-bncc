@@ -67,7 +67,15 @@ import {
   listScans,
   retryScan,
 } from './scans.mjs';
-import { getApplicationReport } from './reports.mjs';
+import {
+  createApplicationReportRender,
+  createStudentReportRender,
+  getApplicationReport,
+  getApplicationReportFile,
+  getApplicationReportRender,
+  getStudentApplicationReport,
+  getStudentProgress,
+} from './reports.mjs';
 import {
   acceptInvitation,
   authenticate,
@@ -81,6 +89,15 @@ import {
 } from './auth.mjs';
 import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
+import { renderChemicalStructure } from './chemical-structures.mjs';
+import {
+  createExamImport,
+  extractExamImportQuestions,
+  getExamImportDocument,
+  getExamImportPagePreview,
+  listExamImports,
+  updateExamImportCandidate,
+} from './exam-imports.mjs';
 
 const port = Number(process.env.PORT || 8788);
 const maxConcurrentPreviews = Number(process.env.PREVIEW_CONCURRENCY || 2);
@@ -113,12 +130,12 @@ function json(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
-async function readJson(request) {
+async function readJson(request, maxBytes = 8_500_000) {
   const chunks = [];
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 8_500_000) throw new Error('Payload muito grande');
+    if (size > maxBytes) throw new Error('Payload muito grande');
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -199,6 +216,88 @@ const server = createServer(async (request, response) => {
           role: identity.role,
         },
       });
+    if (request.method === 'GET' && url.pathname === '/api/exam-imports')
+      return json(response, 200, {
+        data: await listExamImports({ institutionId }),
+      });
+    if (request.method === 'POST' && url.pathname === '/api/exam-imports')
+      return json(response, 201, {
+        data: await createExamImport({
+          institutionId,
+          userId,
+          role,
+          input: await readJson(request, 42_000_000),
+        }),
+      });
+    const examImportDocumentMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/exam-imports\/([0-9a-f-]{36})\/documents\/([0-9a-f-]{36})\/pdf$/i,
+      );
+    if (examImportDocumentMatch) {
+      const document = await getExamImportDocument({
+        institutionId,
+        examImportId: examImportDocumentMatch[1],
+        documentId: examImportDocumentMatch[2],
+      });
+      if (document.error)
+        return json(response, document.status, { error: document.error });
+      response.writeHead(200, {
+        'content-type': 'application/pdf',
+        'content-length': document.size,
+        'content-disposition': 'inline; filename="documento-importado.pdf"',
+        'cache-control': 'private, max-age=300',
+        'x-content-type-options': 'nosniff',
+        ...corsHeaders(response),
+      });
+      return response.end(document.contents);
+    }
+    const examImportExtractMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/exam-imports\/([0-9a-f-]{36})\/extract$/i);
+    if (examImportExtractMatch)
+      return json(response, 200, {
+        data: await extractExamImportQuestions({
+          institutionId,
+          examImportId: examImportExtractMatch[1],
+        }),
+      });
+    const examImportCandidateMatch =
+      request.method === 'PATCH' &&
+      url.pathname.match(
+        /^\/api\/exam-imports\/([0-9a-f-]{36})\/candidates\/([0-9a-f-]{36})$/i,
+      );
+    if (examImportCandidateMatch)
+      return json(response, 200, {
+        data: await updateExamImportCandidate({
+          institutionId,
+          examImportId: examImportCandidateMatch[1],
+          candidateId: examImportCandidateMatch[2],
+          input: await readJson(request),
+        }),
+      });
+    const examImportPageMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/exam-imports\/([0-9a-f-]{36})\/pages\/(\d+)\.jpg$/i,
+      );
+    if (examImportPageMatch) {
+      const preview = await getExamImportPagePreview({
+        institutionId,
+        examImportId: examImportPageMatch[1],
+        pageNumber: Number(examImportPageMatch[2]),
+      });
+      if (preview.error)
+        return json(response, preview.status, { error: preview.error });
+      response.writeHead(200, {
+        'content-type': 'image/jpeg',
+        'content-length': preview.size,
+        'cache-control': 'private, max-age=300',
+        'x-content-type-options': 'nosniff',
+        ...corsHeaders(response),
+      });
+      return response.end(preview.contents);
+    }
     if (request.method === 'POST' && url.pathname === '/api/invitations')
       return json(response, 201, {
         data: await createInvitation(identity, await readJson(request)),
@@ -328,6 +427,101 @@ const server = createServer(async (request, response) => {
       if (!report)
         return json(response, 404, { error: 'Aplicação não encontrada.' });
       return json(response, 200, { data: report });
+    }
+    const createApplicationReportRenderMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/assessment-applications\/([0-9a-f-]{36})\/report-renders$/i,
+      );
+    if (createApplicationReportRenderMatch) {
+      const job = await createApplicationReportRender({
+        institutionId,
+        userId,
+        applicationId: createApplicationReportRenderMatch[1],
+      });
+      if (!job)
+        return json(response, 404, { error: 'Aplicação não encontrada.' });
+      return json(response, 202, { data: job });
+    }
+    const studentReportMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/assessment-applications\/([0-9a-f-]{36})\/students\/([0-9a-f-]{36})\/report$/i,
+      );
+    if (studentReportMatch) {
+      const report = await getStudentApplicationReport({
+        institutionId,
+        applicationId: studentReportMatch[1],
+        studentId: studentReportMatch[2],
+      });
+      if (!report)
+        return json(response, 404, {
+          error: 'Aluno ou aplicação não encontrado.',
+        });
+      return json(response, 200, { data: report });
+    }
+    const createStudentReportRenderMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/assessment-applications\/([0-9a-f-]{36})\/students\/([0-9a-f-]{36})\/report-renders$/i,
+      );
+    if (createStudentReportRenderMatch) {
+      const job = await createStudentReportRender({
+        institutionId,
+        userId,
+        applicationId: createStudentReportRenderMatch[1],
+        studentId: createStudentReportRenderMatch[2],
+      });
+      if (!job)
+        return json(response, 404, {
+          error: 'Aluno ou aplicação não encontrado.',
+        });
+      return json(response, 202, { data: job });
+    }
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/chemistry/structures/preview'
+    )
+      return json(response, 200, {
+        data: await renderChemicalStructure(await readJson(request)),
+      });
+    const studentProgressMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/progress$/i);
+    if (studentProgressMatch) {
+      const progress = await getStudentProgress({
+        institutionId,
+        studentId: studentProgressMatch[1],
+      });
+      if (!progress)
+        return json(response, 404, { error: 'Aluno não encontrado.' });
+      return json(response, 200, { data: progress });
+    }
+    const reportRenderMatch = url.pathname.match(
+      /^\/api\/report-render-jobs\/([0-9a-f-]{36})(?:\/(pdf))?$/i,
+    );
+    if (request.method === 'GET' && reportRenderMatch?.[2] === 'pdf') {
+      const file = await getApplicationReportFile({
+        institutionId,
+        jobId: reportRenderMatch[1],
+      });
+      if (file.error) return json(response, file.status, { error: file.error });
+      response.writeHead(200, {
+        'content-type': 'application/pdf',
+        'content-length': file.size,
+        'content-disposition': `attachment; filename="relatorio-turma-${reportRenderMatch[1]}.pdf"`,
+        ...corsHeaders(response),
+      });
+      return file.stream.pipe(response);
+    }
+    if (request.method === 'GET' && reportRenderMatch) {
+      const job = await getApplicationReportRender({
+        institutionId,
+        jobId: reportRenderMatch[1],
+      });
+      if (!job)
+        return json(response, 404, { error: 'Relatório não encontrado.' });
+      return json(response, 200, { data: job });
     }
     if (request.method === 'POST' && url.pathname === '/api/card-scans')
       return json(response, 202, {
@@ -544,6 +738,7 @@ const server = createServer(async (request, response) => {
     )
       return json(response, 200, {
         data: await listSaebMatrices({
+          stage: url.searchParams.get('stage') || '',
           subject: url.searchParams.get('subject') || '',
           gradeRange: url.searchParams.get('gradeRange') || '',
         }),
@@ -554,6 +749,7 @@ const server = createServer(async (request, response) => {
     )
       return json(response, 200, {
         data: await listSaebDescriptors({
+          stage: url.searchParams.get('stage') || '',
           matrixId: url.searchParams.get('matrixId') || '',
           subject: url.searchParams.get('subject') || '',
           gradeRange: url.searchParams.get('gradeRange') || '',

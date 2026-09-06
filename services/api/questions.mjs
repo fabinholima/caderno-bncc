@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { prepareChemicalStructureBlocks } from './chemical-structures.mjs';
 
 const forbiddenMetaPost =
   /(?:\\|runscript|scantokens|readfrom|write\s|closefrom|closeout|input\s|loadmodule|verbatimtex|btex|etex)/i;
@@ -256,11 +257,27 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
       .trim()
       .regex(/^-?[0-9]+(?:[.,][0-9]+)? kilo joule$/i),
   }),
-  z.object({
-    type: z.literal('chemicalStructure'),
-    preset: z.enum(['benzene', 'cyclohexane']),
-    caption: z.string().trim().max(120).default(''),
-  }),
+  z
+    .object({
+      type: z.literal('chemicalStructure'),
+      preset: z.enum(['benzene', 'cyclohexane']).optional(),
+      smiles: z.string().trim().min(1).max(500).optional(),
+      caption: z.string().trim().max(120).default(''),
+      approved: z.boolean().default(false),
+      originalDataUrl: z
+        .string()
+        .max(550_000)
+        .regex(/^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/)
+        .optional(),
+      svgDataUrl: z
+        .string()
+        .max(550_000)
+        .regex(/^data:image\/svg\+xml;base64,[A-Za-z0-9+/]+={0,2}$/)
+        .optional(),
+    })
+    .refine((value) => Boolean(value.preset) !== Boolean(value.smiles), {
+      message: 'Escolha um preset ou informe uma estrutura SMILES.',
+    }),
   z.object({
     type: z.literal('image'),
     dataUrl: z
@@ -308,6 +325,7 @@ export const createQuestionSchema = z
       .or(z.literal('')),
     knowledgeObjectId: z.uuid().optional().or(z.literal('')),
     competencyId: z.uuid().optional().or(z.literal('')),
+    saebDescriptorId: z.uuid().optional().or(z.literal('')),
     pedagogicalDisciplineId: z.uuid().optional().or(z.literal('')),
     pedagogicalTopicId: z.uuid().optional().or(z.literal('')),
     knowledgeTopic: z
@@ -436,6 +454,9 @@ export async function listQuestions({
              COALESCE(ko.name, 'Não vinculado') AS knowledge_object,
              cc.id AS competency_id,
              cc.number AS competency_number,
+             sd.id AS saeb_descriptor_id,
+             sd.code AS saeb_descriptor_code,
+             sd.description AS saeb_descriptor_description,
              COUNT(a.id)::int AS alternatives
       FROM questions q
       JOIN question_revisions qr ON qr.question_id = q.id AND qr.revision = q.current_revision
@@ -444,6 +465,9 @@ export async function listQuestions({
       LEFT JOIN knowledge_objects ko ON ko.id = cs.knowledge_object_id
       LEFT JOIN skill_competencies sc ON sc.skill_id = cs.id
       LEFT JOIN curriculum_competencies cc ON cc.id = sc.competency_id
+      LEFT JOIN question_saeb_descriptors qsd
+        ON qsd.question_id = qr.question_id AND qsd.revision = qr.revision AND qsd.is_primary
+      LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
       LEFT JOIN alternatives a ON a.question_id = qr.question_id AND a.revision = qr.revision
       WHERE q.institution_id = $1
         AND q.status <> 'archived'
@@ -466,7 +490,7 @@ export async function listQuestions({
           CASE WHEN qr.grade ILIKE '%médio%' OR qr.grade ILIKE '%série%'
             THEN 'Ensino Médio' ELSE 'Ensino Fundamental' END) = $10)
       GROUP BY q.id, qr.question_id, qr.revision, cs.code, cs.stage, ko.id, ko.name,
-               cc.id, cc.number
+               cc.id, cc.number, sd.id, sd.code, sd.description
       ORDER BY q.updated_at DESC
       LIMIT 100`,
     values: [
@@ -500,6 +524,9 @@ export async function listQuestions({
     pedagogicalTopicId: row.pedagogical_topic_id,
     competencyId: row.competency_id,
     competencyNumber: row.competency_number,
+    saebDescriptorId: row.saeb_descriptor_id,
+    saebDescriptorCode: row.saeb_descriptor_code,
+    saebDescriptorDescription: row.saeb_descriptor_description,
     difficulty: difficultyFromDb[row.difficulty],
     status: statusFromDb[row.status],
     alternatives: row.alternatives,
@@ -561,6 +588,16 @@ export async function getQuestion({ institutionId, questionId }) {
                     'isPrimary', qs.is_primary,
                     'knowledgeObjectId', cs.knowledge_object_id
                   )) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills
+                  , COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
+                    'id', sd.id,
+                    'code', sd.code,
+                    'description', sd.description,
+                    'topic', st.name,
+                    'matrixId', sm.id,
+                    'stage', sm.stage,
+                    'subject', sm.subject,
+                    'gradeRange', sm.grade_range
+                  )) FILTER (WHERE sd.id IS NOT NULL), '[]') AS saeb_descriptors
            FROM questions q
            JOIN question_revisions qr
              ON qr.question_id = q.id AND qr.revision = q.current_revision
@@ -569,6 +606,11 @@ export async function getQuestion({ institutionId, questionId }) {
            LEFT JOIN question_skills qs
              ON qs.question_id = qr.question_id AND qs.revision = qr.revision
            LEFT JOIN curriculum_skills cs ON cs.id = qs.skill_id
+           LEFT JOIN question_saeb_descriptors qsd
+             ON qsd.question_id = qr.question_id AND qsd.revision = qr.revision
+           LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
+           LEFT JOIN saeb_topics st ON st.id = sd.topic_id
+           LEFT JOIN saeb_matrices sm ON sm.id = sd.matrix_id
            WHERE q.id = $1 AND q.institution_id = $2
            GROUP BY q.id, qr.question_id, qr.revision`,
     values: [questionId, institutionId],
@@ -593,6 +635,7 @@ export async function getQuestion({ institutionId, questionId }) {
     pedagogicalTopicId: row.pedagogical_topic_id,
     alternatives: [...row.alternatives].sort((a, b) => a.position - b.position),
     skills: row.skills,
+    saebDescriptors: row.saeb_descriptors,
     updatedAt: row.updated_at,
   };
 }
@@ -605,6 +648,20 @@ async function insertRevision({
   userId,
   value,
 }) {
+  const statementBlocks = await prepareChemicalStructureBlocks(
+    value.statementBlocks ||
+      richStatement(
+        value.statement,
+        value.mathFormula,
+        value.chemicalFormula,
+        value.metapostCode,
+      ),
+  );
+  const answerBlocks = value.answerBlocks
+    ? await prepareChemicalStructureBlocks(value.answerBlocks)
+    : value.answerGuide
+      ? [{ type: 'paragraph', text: value.answerGuide }]
+      : null;
   let pedagogicalTopicId = null;
   if (value.pedagogicalTopicId) {
     const topic = await client.query(
@@ -638,20 +695,8 @@ async function insertRevision({
       questionId,
       revision,
       value.type,
-      JSON.stringify(
-        value.statementBlocks ||
-          richStatement(
-            value.statement,
-            value.mathFormula,
-            value.chemicalFormula,
-            value.metapostCode,
-          ),
-      ),
-      value.answerBlocks
-        ? JSON.stringify(value.answerBlocks)
-        : value.answerGuide
-          ? JSON.stringify([{ type: 'paragraph', text: value.answerGuide }])
-          : '',
+      JSON.stringify(statementBlocks),
+      answerBlocks ? JSON.stringify(answerBlocks) : '',
       difficultyToDb[value.difficulty],
       value.subject,
       value.grade,
@@ -663,6 +708,9 @@ async function insertRevision({
     ],
   );
   for (const alternative of value.alternatives) {
+    const contentBlocks = await prepareChemicalStructureBlocks(
+      alternative.contentBlocks || richParagraph(alternative.content),
+    );
     await client.query(
       `INSERT INTO alternatives (question_id, revision, stable_key, content, is_correct, position)
        VALUES ($1, $2, $3, $4::jsonb, $5, $6)`,
@@ -670,9 +718,7 @@ async function insertRevision({
         questionId,
         revision,
         alternative.stableKey,
-        JSON.stringify(
-          alternative.contentBlocks || richParagraph(alternative.content),
-        ),
+        JSON.stringify(contentBlocks),
         alternative.isCorrect,
         alternative.position,
       ],
@@ -721,6 +767,33 @@ async function insertRevision({
          (question_id, revision, skill_id, is_primary)
        VALUES ($1, $2, $3, true)`,
       [questionId, revision, skill.rows[0].id],
+    );
+  }
+  if (value.saebDescriptorId) {
+    const descriptor = await client.query(
+      `SELECT d.id
+       FROM saeb_descriptors d
+       JOIN saeb_matrices m ON m.id = d.matrix_id
+       WHERE d.id = $1 AND m.subject = $2
+         AND m.stage = CASE
+           WHEN $3 ILIKE '%médio%' OR $3 ILIKE '%série%' THEN 'Ensino Médio'
+           ELSE 'Ensino Fundamental'
+         END
+         AND (m.stage = 'Ensino Médio' OR m.grade_range = $3)`,
+      [value.saebDescriptorId, value.subject, value.grade],
+    );
+    if (!descriptor.rowCount)
+      throw Object.assign(
+        new Error(
+          'O descritor SAEB não pertence à etapa e disciplina selecionadas.',
+        ),
+        { statusCode: 422 },
+      );
+    await client.query(
+      `INSERT INTO question_saeb_descriptors
+         (question_id, revision, descriptor_id, is_primary)
+       VALUES ($1, $2, $3, true)`,
+      [questionId, revision, descriptor.rows[0].id],
     );
   }
 }

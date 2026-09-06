@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { renderAssessment } from './render-contract.mjs';
+import { renderClassReport, renderStudentReport } from './report-contract.mjs';
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -44,6 +45,35 @@ async function claimJob() {
     }
     await client.query(
       "UPDATE render_jobs SET status = 'running', error_message = NULL WHERE id = $1",
+      [result.rows[0].id],
+    );
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function claimReportJob() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(`
+      SELECT job.id, snapshot.snapshot
+      FROM application_report_render_jobs job
+      JOIN application_report_snapshots snapshot ON snapshot.id = job.report_snapshot_id
+      WHERE job.status = 'queued' AND job.renderer = 'context-lmtx'
+      ORDER BY job.created_at
+      FOR UPDATE OF job SKIP LOCKED LIMIT 1`);
+    if (!result.rowCount) {
+      await client.query('COMMIT');
+      return null;
+    }
+    await client.query(
+      "UPDATE application_report_render_jobs SET status = 'running', error_message = NULL WHERE id = $1",
       [result.rows[0].id],
     );
     await client.query('COMMIT');
@@ -158,11 +188,67 @@ export async function materializeInstitutionLogo(snapshot, directory) {
 
 export async function materializeQuestionImages(snapshot, directory) {
   let imageNumber = 0;
+  const convertSvgToPdf = (svgFile, pdfFile) =>
+    new Promise((resolve, reject) => {
+      const child = spawn('rsvg-convert', [
+        '--format=pdf',
+        `--output=${pdfFile}`,
+        svgFile,
+      ]);
+      let error = '';
+      child.stderr.on('data', (chunk) => (error += chunk));
+      child.on('error', reject);
+      child.on('close', (code) =>
+        code === 0
+          ? resolve()
+          : reject(
+              new Error(error || `rsvg-convert terminou com código ${code}.`),
+            ),
+      );
+    });
   const materializeNodes = async (nodes = []) =>
     Promise.all(
       nodes.map(async (node) => {
-        if (node.type !== 'image') return node;
-        const match = String(node.dataUrl ?? '').match(
+        if (node.type === 'chemicalStructure' && node.smiles) {
+          const source = node.approved ? node.svgDataUrl : node.originalDataUrl;
+          const svgMatch = String(source ?? '').match(
+            /^data:image\/svg\+xml;base64,([A-Za-z0-9+/]+={0,2})$/,
+          );
+          if (node.approved && svgMatch) {
+            const contents = Buffer.from(svgMatch[1], 'base64');
+            const svg = contents.toString('utf8');
+            if (
+              !contents.length ||
+              contents.length > 400_000 ||
+              !/^<svg\b/i.test(svg) ||
+              /<(?:script|foreignObject|iframe|image)\b|\bon\w+\s*=/i.test(svg)
+            )
+              throw new Error('SVG da estrutura química inválido.');
+            imageNumber += 1;
+            const baseName = `chemical-structure-${imageNumber}`;
+            const svgFile = path.join(directory, `${baseName}.svg`);
+            const fileName = `${baseName}.pdf`;
+            await writeFile(svgFile, contents);
+            await convertSvgToPdf(svgFile, path.join(directory, fileName));
+            return {
+              ...node,
+              svgDataUrl: undefined,
+              originalDataUrl: undefined,
+              fileName,
+            };
+          }
+          if (!node.approved && !node.originalDataUrl)
+            throw new Error(
+              'A estrutura química precisa ser aprovada ou manter a imagem original.',
+            );
+        }
+        if (node.type !== 'image' && node.type !== 'chemicalStructure')
+          return node;
+        const dataUrl =
+          node.type === 'chemicalStructure'
+            ? node.originalDataUrl
+            : node.dataUrl;
+        const match = String(dataUrl ?? '').match(
           /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/,
         );
         if (!match) throw new Error('Imagem de questão inválida.');
@@ -185,9 +271,15 @@ export async function materializeQuestionImages(snapshot, directory) {
             'O conteúdo da imagem não corresponde a PNG ou JPEG.',
           );
         imageNumber += 1;
-        const fileName = `question-image-${imageNumber}.${isPng ? 'png' : 'jpg'}`;
+        const fileName = `${node.type === 'chemicalStructure' ? 'chemical-structure' : 'question-image'}-${imageNumber}.${isPng ? 'png' : 'jpg'}`;
         await writeFile(path.join(directory, fileName), contents);
-        return { ...node, dataUrl: undefined, fileName };
+        return {
+          ...node,
+          dataUrl: undefined,
+          originalDataUrl: undefined,
+          svgDataUrl: undefined,
+          fileName,
+        };
       }),
     );
   const sections = [];
@@ -327,7 +419,37 @@ export async function render(job) {
 
 export async function tick() {
   const job = await claimJob();
-  if (!job) return;
+  if (!job) {
+    const reportJob = await claimReportJob();
+    if (!reportJob) return;
+    try {
+      const directory = path.join(outputRoot, 'reports', reportJob.id);
+      await mkdir(directory, { recursive: true });
+      const source = path.join(directory, 'relatorio.tex');
+      const renderReport =
+        reportJob.snapshot?.scope?.type === 'student'
+          ? renderStudentReport
+          : renderClassReport;
+      await writeFile(source, renderReport(reportJob.snapshot), 'utf8');
+      await compileAndValidate(source, directory, 'relatorio');
+      await pool.query(
+        "UPDATE application_report_render_jobs SET status = 'completed', completed_at = now(), output_manifest = $2::jsonb WHERE id = $1",
+        [
+          reportJob.id,
+          JSON.stringify({
+            pdf: path.join('reports', reportJob.id, 'relatorio.pdf'),
+            source: path.join('reports', reportJob.id, 'relatorio.tex'),
+          }),
+        ],
+      );
+    } catch (error) {
+      await pool.query(
+        "UPDATE application_report_render_jobs SET status = 'failed', completed_at = now(), error_message = $2 WHERE id = $1",
+        [reportJob.id, String(error.message).slice(0, 4000)],
+      );
+    }
+    return;
+  }
   try {
     await render(job);
   } catch (error) {

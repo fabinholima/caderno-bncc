@@ -54,6 +54,7 @@ export const createAssessmentSchema = z
     font: z.enum(renderFontIds).default(DEFAULT_RENDER_FONT),
     fontSize: z.number().int().min(10).max(16).default(11),
     showBnccSkills: z.boolean().default(false),
+    showSaebDescriptors: z.boolean().default(false),
     instructions: z
       .array(z.string().trim().min(1).max(500))
       .max(10)
@@ -111,12 +112,16 @@ export async function createAssessment({ institutionId, userId, input }) {
                     qr.subject, qr.grade,
                     qr.source_institution, qr.source_year, qr.difficulty, qr.knowledge_topic,
                     COALESCE(jsonb_agg(jsonb_build_object('stableKey', a.stable_key, 'content', a.content, 'isCorrect', a.is_correct) ORDER BY a.position) FILTER (WHERE a.id IS NOT NULL), '[]') AS alternatives,
-                    COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', cs.code, 'primary', qs.is_primary)) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills
+                    COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', cs.code, 'primary', qs.is_primary)) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills,
+                    COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', sd.code, 'description', sd.description, 'topic', st.name, 'primary', qsd.is_primary)) FILTER (WHERE sd.id IS NOT NULL), '[]') AS saeb_descriptors
              FROM questions q
              JOIN question_revisions qr ON qr.question_id = q.id AND qr.revision = q.current_revision
              LEFT JOIN alternatives a ON a.question_id = q.id AND a.revision = qr.revision
              LEFT JOIN question_skills qs ON qs.question_id = q.id AND qs.revision = qr.revision
              LEFT JOIN curriculum_skills cs ON cs.id = qs.skill_id
+             LEFT JOIN question_saeb_descriptors qsd ON qsd.question_id = q.id AND qsd.revision = qr.revision
+             LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
+             LEFT JOIN saeb_topics st ON st.id = sd.topic_id
              WHERE q.institution_id = $1 AND q.status <> 'archived'
                AND q.id = ANY($2::uuid[])
              GROUP BY q.id, qr.question_id, qr.revision`,
@@ -202,6 +207,7 @@ export async function createAssessment({ institutionId, userId, input }) {
             },
             points: Number(question.default_points),
             skills: question.skills,
+            saebDescriptors: question.saeb_descriptors,
           };
         });
         return {
@@ -271,6 +277,7 @@ export async function createAssessment({ institutionId, userId, input }) {
           font: value.font,
           fontSize: value.fontSize,
           showBnccSkills: value.showBnccSkills,
+          showSaebDescriptors: value.showSaebDescriptors,
         },
       };
       const answerKey = snapshotQuestions.map((question) => ({

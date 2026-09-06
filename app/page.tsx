@@ -6,6 +6,7 @@ import {
   BookOpenCheck,
   CircleHelp,
   FileOutput,
+  FileInput,
   Eye,
   GraduationCap,
   Info,
@@ -31,7 +32,9 @@ import { AcademicManager } from './academic-manager';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
 import { SettingsManager } from './settings-manager';
+import { ExamImportManager } from './exam-import-manager';
 import {
+  parsePastedQuestion,
   QuestionPasteImporter,
   type ParsedQuestion,
 } from './question-paste-importer';
@@ -52,6 +55,9 @@ type Question = {
   knowledgeTopic?: string;
   competencyId?: string;
   competencyNumber?: number;
+  saebDescriptorId?: string;
+  saebDescriptorCode?: string;
+  saebDescriptorDescription?: string;
   difficulty: 'Fácil' | 'Média' | 'Difícil';
   status: 'Aprovada' | 'Em revisão' | 'Rascunho' | 'Arquivada';
   alternatives: number;
@@ -87,6 +93,20 @@ type PedagogicalTopic = {
   discipline: string;
   parent_id: string | null;
   parent_name: string | null;
+};
+type SaebMatrix = {
+  id: string;
+  stage: 'Ensino Fundamental' | 'Ensino Médio';
+  subject: string;
+  grade_range: string;
+  version: string;
+};
+type SaebDescriptor = {
+  id: string;
+  code: string;
+  description: string;
+  topic: string;
+  matrix_id: string;
 };
 const curriculumDemo: CurriculumOption[] = [
   {
@@ -204,6 +224,7 @@ const initialQuestions: Question[] = [
 const nav = [
   ['Visão geral', LayoutDashboard],
   ['Questões', LibraryBig],
+  ['Importar provas', FileInput],
   ['Planejamento', BookOpenCheck],
   ['Avaliações', FileOutput],
   ['Turmas e alunos', Users],
@@ -248,6 +269,10 @@ export default function Home() {
   const [importedQuestion, setImportedQuestion] =
     useState<ParsedQuestion | null>(null);
   const [importRevision, setImportRevision] = useState(0);
+  const [importCandidateSource, setImportCandidateSource] = useState<{
+    importId: string;
+    candidateId: string;
+  } | null>(null);
   const [editingQuestionId, setEditingQuestionId] = useState('');
   const [importedCorrect, setImportedCorrect] = useState<string[]>([]);
   const [importedAnswerBlocks, setImportedAnswerBlocks] = useState<any[]>([]);
@@ -282,6 +307,11 @@ export default function Home() {
   const [competencyInfoOpen, setCompetencyInfoOpen] = useState(false);
   const [selectedSkillCode, setSelectedSkillCode] = useState('');
   const [skillInfoOpen, setSkillInfoOpen] = useState(false);
+  const [saebMatrices, setSaebMatrices] = useState<SaebMatrix[]>([]);
+  const [saebDescriptors, setSaebDescriptors] = useState<SaebDescriptor[]>([]);
+  const [selectedSaebMatrix, setSelectedSaebMatrix] = useState('');
+  const [selectedSaebDescriptor, setSelectedSaebDescriptor] = useState('');
+  const [saebInfoOpen, setSaebInfoOpen] = useState(false);
   const [knowledgeTopicGroup, setKnowledgeTopicGroup] =
     useState<keyof typeof chemistryKnowledgeTopics>('Termoquímica');
   const [knowledgeSubtopic, setKnowledgeSubtopic] =
@@ -319,6 +349,12 @@ export default function Home() {
   const selectedSkillInfo =
     availableSkills.find((item) => item.skill_code === selectedSkillCode) ||
     availableSkills[0];
+  const compatibleSaebMatrices = saebMatrices.filter(
+    (item) => item.stage === educationStage && item.subject === discipline,
+  );
+  const selectedSaebInfo = saebDescriptors.find(
+    (item) => item.id === selectedSaebDescriptor,
+  );
 
   useEffect(() => {
     if (
@@ -399,6 +435,39 @@ export default function Home() {
         setNotice('API local indisponível; exibindo dados de demonstração.'),
       );
   }, [apiUrl, identity]);
+
+  useEffect(() => {
+    if (!apiUrl || !identity) return;
+    apiFetch(`${apiUrl}/api/curriculum/saeb/matrices`)
+      .then((response) => response.json() as Promise<{ data: SaebMatrix[] }>)
+      .then((body) => setSaebMatrices(body.data || []))
+      .catch(() => undefined);
+  }, [apiUrl, identity]);
+
+  useEffect(() => {
+    const matrix = compatibleSaebMatrices.find(
+      (item) => item.id === selectedSaebMatrix,
+    );
+    if (!matrix) {
+      setSelectedSaebMatrix(compatibleSaebMatrices[0]?.id || '');
+      setSelectedSaebDescriptor('');
+    }
+  }, [educationStage, discipline, saebMatrices, selectedSaebMatrix]);
+
+  useEffect(() => {
+    if (!apiUrl || !selectedSaebMatrix) {
+      setSaebDescriptors([]);
+      return;
+    }
+    apiFetch(
+      `${apiUrl}/api/curriculum/saeb/descriptors?matrixId=${encodeURIComponent(selectedSaebMatrix)}`,
+    )
+      .then(
+        (response) => response.json() as Promise<{ data: SaebDescriptor[] }>,
+      )
+      .then((body) => setSaebDescriptors(body.data || []))
+      .catch(() => undefined);
+  }, [apiUrl, selectedSaebMatrix]);
 
   useEffect(() => {
     if (!apiUrl || !identity) return;
@@ -499,6 +568,21 @@ export default function Home() {
         const refreshed = await apiFetch(`${apiUrl}/api/questions`);
         if (refreshed.ok)
           setQuestions(((await refreshed.json()) as { data: Question[] }).data);
+        if (!editingQuestionId && importCandidateSource) {
+          const candidateResponse = await apiFetch(
+            `${apiUrl}/api/exam-imports/${importCandidateSource.importId}/candidates/${importCandidateSource.candidateId}`,
+            {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ status: 'completed' }),
+            },
+          );
+          if (!candidateResponse.ok)
+            setNotice(
+              'A questão foi salva, mas o status da importação não foi atualizado.',
+            );
+          else setImportCandidateSource(null);
+        }
         setNotice(
           editingQuestionId
             ? 'Nova revisão da questão salva.'
@@ -571,6 +655,7 @@ export default function Home() {
       sourceYear: Number(data.get('sourceYear')),
       knowledgeObjectId: formString('knowledgeObjectId'),
       competencyId: formString('competencyId'),
+      saebDescriptorId: formString('saebDescriptorId'),
       pedagogicalDisciplineId: formString('pedagogicalDisciplineId'),
       pedagogicalTopicId: formString('pedagogicalTopicId'),
       knowledgeTopic: formString('knowledgeTopic'),
@@ -638,12 +723,17 @@ export default function Home() {
         (item) => item.skill_code === skillCode,
       );
       setEditingQuestionId(question.id);
+      setImportCandidateSource(null);
       setQuestionType(question.type);
       setDiscipline(question.subject);
       setKnowledgeObjectId(question.skills?.[0]?.knowledgeObjectId || '');
       setCompetencyId(competency?.competency_id || '');
       setCompetencyInfoOpen(false);
       setSelectedSkillCode(skillCode);
+      const saebDescriptor = question.saebDescriptors?.[0];
+      setSelectedSaebMatrix(saebDescriptor?.matrixId || '');
+      setSelectedSaebDescriptor(saebDescriptor?.id || '');
+      setSaebInfoOpen(false);
       if (topicGroup in chemistryKnowledgeTopics) {
         setKnowledgeTopicGroup(
           topicGroup as keyof typeof chemistryKnowledgeTopics,
@@ -724,6 +814,7 @@ export default function Home() {
 
   function openNewQuestion() {
     setEditingQuestionId('');
+    setImportCandidateSource(null);
     setImportedQuestion(null);
     setImportedCorrect([]);
     setImportedAnswerBlocks([]);
@@ -736,6 +827,8 @@ export default function Home() {
     setQuestionType('single_choice');
     setQuestionPreviewUrl('');
     setSelectedSkillCode('');
+    setSelectedSaebDescriptor('');
+    setSaebInfoOpen(false);
     setSkillInfoOpen(false);
     setCompetencyInfoOpen(false);
     setKnowledgeTopicGroup('Termoquímica');
@@ -777,6 +870,7 @@ export default function Home() {
               key={label}
               onClick={() =>
                 (label === 'Questões' ||
+                  label === 'Importar provas' ||
                   label === 'Planejamento' ||
                   label === 'Avaliações' ||
                   label === 'Turmas e alunos') &&
@@ -858,6 +952,25 @@ export default function Home() {
             </div>
           </div>
         </header>
+        <nav
+          aria-label="Navegação principal móvel"
+          className="sticky top-[76px] z-20 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3 lg:hidden"
+        >
+          {[
+            ...nav.filter(([label]) => label !== 'Visão geral'),
+            ['Configurações', Settings] as const,
+          ].map(([label, Icon]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setActive(label)}
+              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${active === label ? 'bg-[var(--navy)] text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
+            >
+              <Icon className="size-4" />
+              {label}
+            </button>
+          ))}
+        </nav>
         {active === 'Avaliações' ? (
           <AssessmentBuilder
             questions={questions.filter(
@@ -867,6 +980,33 @@ export default function Home() {
           />
         ) : active === 'Turmas e alunos' ? (
           <AcademicManager apiUrl={apiUrl} />
+        ) : active === 'Importar provas' ? (
+          <ExamImportManager
+            apiUrl={apiUrl}
+            role={identity.role}
+            onRegisterQuestion={(candidate) => {
+              const parsed = parsePastedQuestion(candidate.rawText);
+              setImportedQuestion({
+                ...parsed,
+                sourceInstitution: candidate.sourceInstitution,
+                sourceYear: String(candidate.sourceYear),
+              });
+              setEditingQuestionId('');
+              setImportCandidateSource({
+                importId: candidate.importId,
+                candidateId: candidate.candidateId,
+              });
+              setQuestionType(candidate.questionType);
+              setImportedCorrect([]);
+              setImportedAnswerBlocks([]);
+              setImportRevision((value) => value + 1);
+              setActive('Questões');
+              setOpen(true);
+              setNotice(
+                'Questão importada para revisão. Confira conteúdo, classificação e gabarito antes de salvar.',
+              );
+            }}
+          />
         ) : active === 'Configurações' ? (
           <SettingsManager apiUrl={apiUrl} role={identity.role} />
         ) : active === 'Planejamento' ? (
@@ -1427,6 +1567,8 @@ export default function Home() {
                         );
                         setCompetencyInfoOpen(false);
                         setSelectedSkillCode('');
+                        setSelectedSaebDescriptor('');
+                        setSaebInfoOpen(false);
                         if (next === 'Química') {
                           setKnowledgeTopicGroup('Termoquímica');
                           setKnowledgeSubtopic('Lei de Hess');
@@ -1444,6 +1586,94 @@ export default function Home() {
                       ))}
                     </select>
                   </label>
+                  {compatibleSaebMatrices.length > 0 && (
+                    <div className="space-y-3 rounded-xl border border-cyan-200 bg-cyan-50/40 p-4 sm:col-span-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          Descritor SAEB{' '}
+                          <span className="font-normal text-slate-500">
+                            (opcional)
+                          </span>
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Vincule um descritor oficial sem substituir a
+                          habilidade BNCC.
+                        </p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold text-slate-600">
+                            Matriz
+                          </span>
+                          <select
+                            value={selectedSaebMatrix}
+                            onChange={(event) => {
+                              setSelectedSaebMatrix(event.target.value);
+                              setSelectedSaebDescriptor('');
+                              setSaebInfoOpen(false);
+                            }}
+                            className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                          >
+                            {compatibleSaebMatrices.map((matrix) => (
+                              <option key={matrix.id} value={matrix.id}>
+                                {matrix.subject} · {matrix.grade_range}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold text-slate-600">
+                            Indicador/descritor
+                          </span>
+                          <select
+                            name="saebDescriptorId"
+                            value={selectedSaebDescriptor}
+                            onChange={(event) => {
+                              setSelectedSaebDescriptor(event.target.value);
+                              setSaebInfoOpen(false);
+                            }}
+                            className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                          >
+                            <option value="">Não vincular descritor</option>
+                            {saebDescriptors.map((descriptor) => (
+                              <option key={descriptor.id} value={descriptor.id}>
+                                {descriptor.code} · {descriptor.topic}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      {selectedSaebInfo && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setSaebInfoOpen((open) => !open)}
+                            aria-expanded={saebInfoOpen}
+                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-100"
+                          >
+                            <Info className="size-3.5" /> Informação do
+                            descritor
+                          </button>
+                          {saebInfoOpen && (
+                            <div
+                              role="note"
+                              className="mt-1 rounded-lg border border-cyan-200 bg-white p-3 text-xs leading-5 text-slate-700"
+                            >
+                              <strong className="font-mono text-cyan-900">
+                                {selectedSaebInfo.code}
+                              </strong>
+                              <p className="mt-1 font-semibold">
+                                {selectedSaebInfo.topic}
+                              </p>
+                              <p className="mt-1">
+                                {selectedSaebInfo.description}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <label className="block">
                     <span className="mb-2 block text-sm font-semibold">
                       Ano/Série
@@ -1778,6 +2008,7 @@ export default function Home() {
                 </div>
               </section>
               <RichContentEditor
+                apiUrl={apiUrl}
                 name="statementBlocks"
                 label="Enunciado"
                 required
@@ -1840,6 +2071,7 @@ export default function Home() {
                       </span>
                       <div className="flex-1">
                         <RichContentEditor
+                          apiUrl={apiUrl}
                           name={`alternative_${letter}`}
                           compact
                           required
@@ -1852,6 +2084,7 @@ export default function Home() {
                 </div>
               )}
               <RichContentEditor
+                apiUrl={apiUrl}
                 name="answerBlocks"
                 label={
                   questionType === 'essay'

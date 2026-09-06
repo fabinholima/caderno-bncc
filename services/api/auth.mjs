@@ -133,6 +133,40 @@ export async function login(input) {
 }
 
 export async function authenticate(request) {
+  if (
+    process.env.DEV_AUTH_BYPASS === 'true' &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    const requestedRole = ['admin', 'coordinator', 'teacher'].includes(
+      process.env.DEV_AUTH_BYPASS_ROLE,
+    )
+      ? process.env.DEV_AUTH_BYPASS_ROLE
+      : 'admin';
+    const developmentUser = await pool.query(
+      `SELECT u.id user_id,u.email,u.display_name,m.institution_id,m.role,
+              i.name institution_name
+       FROM users u
+       JOIN memberships m ON m.user_id=u.id
+       JOIN institutions i ON i.id=m.institution_id
+       WHERE u.active
+       ORDER BY (m.role=$1) DESC,(m.role='admin') DESC,u.created_at
+       LIMIT 1`,
+      [requestedRole],
+    );
+    if (developmentUser.rowCount) {
+      const row = developmentUser.rows[0];
+      return {
+        sessionId: null,
+        userId: row.user_id,
+        email: row.email,
+        displayName: row.display_name,
+        institutionId: row.institution_id,
+        institutionName: row.institution_name,
+        role: row.role,
+        developmentBypass: true,
+      };
+    }
+  }
   const cookie = request.headers.cookie || '';
   const token = /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
   if (!token) return null;
