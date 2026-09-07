@@ -507,6 +507,11 @@ export async function listExamImports({ institutionId }) {
                   latest_job.stage AS job_stage,latest_job.progress AS job_progress,
                   latest_job.attempts AS job_attempts,
                   latest_job.error_message AS job_error,
+                  ai_job.id AS ai_job_id,ai_job.status AS ai_job_status,
+                  ai_job.stage AS ai_job_stage,ai_job.progress AS ai_job_progress,
+                  ai_job.attempts AS ai_job_attempts,ai_job.error_message AS ai_job_error,
+                  ai_job.provider AS ai_job_provider,ai_job.model AS ai_job_model,
+                  ai_job.metrics AS ai_job_metrics,ai_job.prompt_version AS ai_prompt_version,
                   COALESCE(jsonb_agg(jsonb_build_object(
                     'id',d.id,'kind',d.kind,'fileName',d.file_name,
                     'sizeBytes',d.size_bytes,'sha256',d.sha256
@@ -515,13 +520,21 @@ export async function listExamImports({ institutionId }) {
            LEFT JOIN LATERAL (
              SELECT job.id,job.status,job.stage,job.progress,job.attempts,
                     job.error_message
-             FROM exam_import_jobs job WHERE job.exam_import_id=i.id
+             FROM exam_import_jobs job WHERE job.exam_import_id=i.id AND job.job_type='extract'
              ORDER BY job.created_at DESC LIMIT 1
            ) latest_job ON true
+           LEFT JOIN LATERAL (
+             SELECT job.id,job.status,job.stage,job.progress,job.attempts,
+                    job.error_message,job.provider,job.model,job.metrics,job.prompt_version
+             FROM exam_import_jobs job WHERE job.exam_import_id=i.id AND job.job_type='ai_analysis'
+             ORDER BY job.created_at DESC LIMIT 1
+           ) ai_job ON true
            LEFT JOIN exam_import_documents d ON d.exam_import_id=i.id
            WHERE i.institution_id=$1
            GROUP BY i.id,latest_job.id,latest_job.status,latest_job.stage,
-                    latest_job.progress,latest_job.attempts,latest_job.error_message
+                    latest_job.progress,latest_job.attempts,latest_job.error_message,
+                    ai_job.id,ai_job.status,ai_job.stage,ai_job.progress,ai_job.attempts,
+                    ai_job.error_message,ai_job.provider,ai_job.model,ai_job.metrics,ai_job.prompt_version
            ORDER BY i.created_at DESC`,
     values: [institutionId],
   });
@@ -547,6 +560,20 @@ export async function listExamImports({ institutionId }) {
           progress: row.job_progress,
           attempts: row.job_attempts,
           error: row.job_error,
+        }
+      : null,
+    aiJob: row.ai_job_id
+      ? {
+          id: row.ai_job_id,
+          status: row.ai_job_status,
+          stage: row.ai_job_stage,
+          progress: row.ai_job_progress,
+          attempts: row.ai_job_attempts,
+          error: row.ai_job_error,
+          provider: row.ai_job_provider,
+          model: row.ai_job_model,
+          metrics: row.ai_job_metrics,
+          promptVersion: row.ai_prompt_version,
         }
       : null,
     documents: row.documents,

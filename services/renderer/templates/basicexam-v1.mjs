@@ -68,6 +68,9 @@ ${answerRows}
     return `% Gerado automaticamente pelo layout basicexam-v1. Não editar.
 \\usemodule[basicexam][mode=student]
 \\usemodule[units]
+\\def\\lqd{\\m{\\char"1D4C1}}
+\\def\\halfr{\\frac[vfactor=500, method=horizontal]{1}{2}}
+\\setupunittext[liter=L]
 \\setupformulas[align=flushleft]
 \\setupquestion[question][option={Cr:num,packed,joinedup,continue}]
 \\setupchoice

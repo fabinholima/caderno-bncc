@@ -95,6 +95,8 @@ const allowedMathCommands = new Set([
   'Leftrightarrow',
   'infty',
   'ell',
+  'lqd',
+  'halfr',
   'partial',
   'nabla',
   'sum',
@@ -285,8 +287,8 @@ function paragraphWithScientificInline(text) {
     const valid =
       command === 'chemical'
         ? /^[A-Za-z0-9_{}^()+\-.=\\\s]+$/.test(argument) &&
-          [...argument.matchAll(/\\([A-Za-z]+)/g)].every(
-            (item) => item[1] === 'ell',
+          [...argument.matchAll(/\\([A-Za-z]+)/g)].every((item) =>
+            ['ell', 'lqd', 'halfr'].includes(item[1]),
           )
         : command === 'unit'
           ? /^[A-Za-z0-9À-ÿ°,+\-\s./]+$/.test(argument)
@@ -338,6 +340,8 @@ function richText(nodes = []) {
         'unit',
         'Delta',
         'ell',
+        'lqd',
+        'halfr',
         'qquad',
         'quad',
         'frac',
@@ -369,6 +373,8 @@ function richText(nodes = []) {
         'unit',
         'Delta',
         'ell',
+        'lqd',
+        'halfr',
         'quad',
         'frac',
         'sqrt',

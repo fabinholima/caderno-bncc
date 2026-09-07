@@ -304,6 +304,13 @@ test('renderiza equação termoquímica com chemical e módulo units', async () 
   ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\usemodule\[units\]/);
+  assert.match(tex, /\\def\\lqd\{\\m\{\\char"1D4C1\}\}/);
+  assert.match(
+    tex,
+    /\\def\\halfr\{\\frac\[vfactor=500, method=horizontal\]\{1\}\{2\}\}/,
+  );
+  assert.doesNotMatch(tex, /\\def\\halfr\{\\utfchar/);
+  assert.match(tex, /\\setupunittext\[liter=L\]/);
   assert.match(tex, /\\setupformulas\[align=flushleft\]/);
   assert.match(
     tex,
@@ -444,7 +451,7 @@ test('permite ell dentro de chemical sem forçar itálico matemático', async ()
     tex,
     /Considere \\chemical\{HC\\ell\} e \\chemical\{C\\ell_\{2\}\}\./,
   );
-  assert.doesNotMatch(tex, /\\m\{/);
+  assert.doesNotMatch(tex, /Considere \\m\{/);
 });
 
 test('preserva expoente dentro de chemical no texto corrido', async () => {

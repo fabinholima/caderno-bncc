@@ -96,6 +96,7 @@ type PedagogicalTopic = {
   grade_range: string;
   depth: number;
   path: string;
+  skills?: Array<{ id: string; code: string; description: string }>;
 };
 type SaebMatrix = {
   id: string;
@@ -336,13 +337,20 @@ export default function Home() {
   const selectedCompetencyInfo = availableCompetencies.find(
     (item) => item.competency_id === competencyId,
   );
+  const selectedTopicSkills = pedagogicalTopics.find(
+    (item) =>
+      item.id ===
+      (pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId),
+  )?.skills;
   const availableSkills = pedagogicalDiscipline
     ? highSchoolCurriculum.filter(
         (item) =>
           item.competency_id === competencyId &&
           pedagogicalDiscipline.skills.some(
             (skill) => skill.id === item.skill_id,
-          ),
+          ) &&
+          (!selectedTopicSkills?.length ||
+            selectedTopicSkills.some((skill) => skill.id === item.skill_id)),
       )
     : curriculum.filter(
         (item) =>

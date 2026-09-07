@@ -1,11 +1,37 @@
 import { pool, transaction } from './db.mjs';
 import { extractExamImportQuestions } from './exam-imports.mjs';
+import {
+  analyzeExamImport,
+  EXAM_AI_PROMPT_VERSION,
+} from './exam-import-ai.mjs';
 
 export async function enqueueExamImportExtraction({
   institutionId,
   userId,
   examImportId,
 }) {
+  return enqueueJob({
+    institutionId,
+    userId,
+    examImportId,
+    jobType: 'extract',
+  });
+}
+
+export async function enqueueExamImportAnalysis({
+  institutionId,
+  userId,
+  examImportId,
+}) {
+  return enqueueJob({
+    institutionId,
+    userId,
+    examImportId,
+    jobType: 'ai_analysis',
+  });
+}
+
+async function enqueueJob({ institutionId, userId, examImportId, jobType }) {
   return transaction(async (client) => {
     const source = await client.query(
       `SELECT id FROM exam_imports WHERE id=$1 AND institution_id=$2`,
@@ -36,29 +62,53 @@ export async function enqueueExamImportExtraction({
       );
     const created = await client.query(
       `INSERT INTO exam_import_jobs
-         (institution_id,exam_import_id,requested_by)
-       VALUES($1,$2,$3)
+         (institution_id,exam_import_id,requested_by,job_type,prompt_version)
+       VALUES($1,$2,$3,$4,$5)
        ON CONFLICT (exam_import_id,job_type)
          WHERE status IN ('queued','running')
        DO UPDATE SET updated_at=now()
        RETURNING id,status,stage,progress,created_at`,
-      [institutionId, examImportId, userId],
+      [
+        institutionId,
+        examImportId,
+        userId,
+        jobType,
+        jobType === 'ai_analysis' ? EXAM_AI_PROMPT_VERSION : null,
+      ],
     );
-    await client.query(
-      `UPDATE exam_imports SET status='queued',error_message=NULL,updated_at=now()
+    if (jobType === 'extract')
+      await client.query(
+        `UPDATE exam_imports SET status='queued',error_message=NULL,updated_at=now()
        WHERE id=$1`,
-      [examImportId],
-    );
+        [examImportId],
+      );
     return created.rows[0];
   });
 }
 
 export async function cancelExamImportJob({ institutionId, examImportId }) {
   const result = await pool.query(
-    `UPDATE exam_import_jobs SET cancellation_requested=true,updated_at=now()
+    `UPDATE exam_import_jobs
+     SET cancellation_requested=true,
+         status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END,
+         stage=CASE WHEN status='queued' THEN 'cancelled' ELSE stage END,
+         finished_at=CASE WHEN status='queued' THEN now() ELSE finished_at END,
+         updated_at=now()
      WHERE institution_id=$1 AND exam_import_id=$2
+       AND job_type='extract'
        AND status IN ('queued','running')
      RETURNING id,status`,
+    [institutionId, examImportId],
+  );
+  return result.rows[0] || null;
+}
+
+export async function cancelExamImportAnalysis({
+  institutionId,
+  examImportId,
+}) {
+  const result = await pool.query(
+    `UPDATE exam_import_jobs SET cancellation_requested=true,status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END,stage=CASE WHEN status='queued' THEN 'cancelled' ELSE stage END,finished_at=CASE WHEN status='queued' THEN now() ELSE finished_at END,updated_at=now() WHERE institution_id=$1 AND exam_import_id=$2 AND job_type='ai_analysis' AND status IN ('queued','running') RETURNING id,status`,
     [institutionId, examImportId],
   );
   return result.rows[0] || null;
@@ -72,10 +122,23 @@ export async function retryExamImportJob({
   await pool.query(
     `UPDATE exam_import_jobs SET status='cancelled',finished_at=now(),updated_at=now()
      WHERE institution_id=$1 AND exam_import_id=$2
+       AND job_type='extract'
        AND status IN ('queued','running')`,
     [institutionId, examImportId],
   );
   return enqueueExamImportExtraction({ institutionId, userId, examImportId });
+}
+
+export async function retryExamImportAnalysis({
+  institutionId,
+  userId,
+  examImportId,
+}) {
+  await pool.query(
+    `UPDATE exam_import_jobs SET status='cancelled',finished_at=now(),updated_at=now() WHERE institution_id=$1 AND exam_import_id=$2 AND job_type='ai_analysis' AND status IN ('queued','running')`,
+    [institutionId, examImportId],
+  );
+  return enqueueExamImportAnalysis({ institutionId, userId, examImportId });
 }
 
 export async function claimExamImportJob() {
@@ -123,7 +186,11 @@ async function updateJob(jobId, values) {
 export async function processExamImportJob(job) {
   const started = Date.now();
   try {
-    const candidates = await extractExamImportQuestions({
+    const operation =
+      job.job_type === 'ai_analysis'
+        ? analyzeExamImport
+        : extractExamImportQuestions;
+    const result = await operation({
       institutionId: job.institution_id,
       examImportId: job.exam_import_id,
       onProgress: (stage, progress) => updateJob(job.id, { stage, progress }),
@@ -142,10 +209,26 @@ export async function processExamImportJob(job) {
            finished_at=now(),updated_at=now() WHERE id=$1`,
       [
         job.id,
-        JSON.stringify({ detectedQuestions: candidates.length }),
-        JSON.stringify({ durationMs: Date.now() - started }),
+        JSON.stringify(
+          job.job_type === 'ai_analysis'
+            ? {
+                analyzedQuestions: result.questions.length,
+                remainingQuestions: result.remainingQuestions,
+                responseId: result.responseId,
+              }
+            : { detectedQuestions: result.length },
+        ),
+        JSON.stringify({
+          durationMs: Date.now() - started,
+          ...(job.job_type === 'ai_analysis' ? result.usage : {}),
+        }),
       ],
     );
+    if (job.job_type === 'ai_analysis')
+      await pool.query(
+        'UPDATE exam_import_jobs SET provider=$2,model=$3 WHERE id=$1',
+        [job.id, result.provider, result.model],
+      );
   } catch (error) {
     const cancelled = error?.code === 'IMPORT_CANCELLED';
     await pool.query(

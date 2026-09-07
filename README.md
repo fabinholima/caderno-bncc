@@ -58,9 +58,16 @@ extração fica em uma fila persistente no PostgreSQL, com progresso, tentativas
 cancelamento, retomada e concorrência definida pelo plano da instituição. Use
 `EXAM_STORAGE_DIR` para guardar os PDFs fora do PostgreSQL em um volume
 persistente compartilhado entre API e worker; sem essa variável, o modo de
-desenvolvimento mantém os bytes no banco. A tabela `exam_import_jobs` também
-reserva trabalhos `ai_analysis`, provedor, modelo, métricas e resultado JSON
-para a futura integração com um serviço de IA sem acoplá-lo à API HTTP.
+desenvolvimento mantém os bytes no banco. A análise assistida também usa essa
+fila. Configure `OPENAI_API_KEY` somente no ambiente do worker e,
+opcionalmente, `OPENAI_EXAM_MODEL` (padrão `gpt-5-mini`). Ela usa saída JSON
+estruturada, registra provedor, modelo, versão do prompt e tokens, e grava
+sugestões separadas: nenhuma questão é alterada ou cadastrada até o professor
+clicar em **Aplicar para revisar**. O piloto processa até cinco questões por
+execução; `OPENAI_EXAM_BATCH_SIZE` permite configurar de uma a dez.
+Para testar a interface sem consumo externo, inicie somente o worker com
+`EXAM_AI_PROVIDER=local_demo`; esse modo preserva o texto e o gabarito e produz
+classificações heurísticas claramente identificadas como demonstração.
 
 ### Acesso pelo celular na rede local
 

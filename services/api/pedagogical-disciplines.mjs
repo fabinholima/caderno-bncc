@@ -85,7 +85,16 @@ export async function listPedagogicalTopics({
             tree.parent_id, parent.name AS parent_name, tree.grade_range,
             tree.active, tree.depth,
             array_to_string(tree.name_path, ' > ') AS path,
-            pd.name AS discipline
+            pd.name AS discipline,
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', skill.id, 'code', skill.code,
+                'description', skill.description
+              ) ORDER BY skill.code)
+              FROM pedagogical_topic_skills relation
+              JOIN curriculum_skills skill ON skill.id = relation.skill_id
+              WHERE relation.topic_id = tree.id
+            ), '[]'::jsonb) AS skills
      FROM topic_tree tree
      JOIN pedagogical_disciplines pd ON pd.id = tree.discipline_id
      LEFT JOIN pedagogical_topics parent ON parent.id = tree.parent_id

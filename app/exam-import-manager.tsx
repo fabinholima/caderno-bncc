@@ -9,6 +9,7 @@ import {
   FileUp,
   RefreshCw,
   ScanText,
+  Sparkles,
   ShieldCheck,
   X,
 } from 'lucide-react';
@@ -39,6 +40,22 @@ type ExamImport = {
     progress: number;
     attempts: number;
     error?: string;
+  } | null;
+  aiJob?: {
+    id: string;
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+    stage: string;
+    progress: number;
+    attempts: number;
+    error?: string;
+    provider?: string;
+    model?: string;
+    promptVersion?: string;
+    metrics?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+    };
   } | null;
   documents: Array<{
     id: string;
@@ -73,6 +90,21 @@ type ExamImportCandidate = {
   pedagogicalTopicId?: string;
   duplicateQuestionId?: string;
   duplicateQuestionCode?: string;
+  aiSuggestion?: {
+    normalizedText: string;
+    questionType: ExamImportCandidate['questionType'];
+    subject?: string | null;
+    grade?: string | null;
+    difficulty?: BulkSettings['difficulty'] | null;
+    correctAnswers: string[];
+    skillCode?: string | null;
+    topicId?: string | null;
+    confidence: number;
+    warnings: string[];
+    model: string;
+    promptVersion: string;
+    provider?: string;
+  };
 };
 
 type PdfPreview = {
@@ -122,6 +154,7 @@ type PedagogicalTopic = {
   grade_range: string;
   depth: number;
   path: string;
+  skills?: Array<{ id: string; code: string; description: string }>;
 };
 
 type DuplicateQuestion = {
@@ -419,8 +452,10 @@ export function ExamImportManager({
 
   useEffect(() => {
     if (
-      !imports.some((item) =>
-        ['queued', 'running'].includes(item.processingJob?.status || ''),
+      !imports.some(
+        (item) =>
+          ['queued', 'running'].includes(item.processingJob?.status || '') ||
+          ['queued', 'running'].includes(item.aiJob?.status || ''),
       )
     )
       return;
@@ -646,6 +681,63 @@ export function ExamImportManager({
       action === 'cancel'
         ? 'Cancelamento solicitado.'
         : 'Nova tentativa adicionada à fila.',
+    );
+  };
+
+  const controlAiAnalysis = async (
+    item: ExamImport,
+    action: 'start' | 'cancel' | 'retry',
+  ) => {
+    const suffix = action === 'start' ? 'analyze' : `analyze/${action}`;
+    const response = await apiFetch(
+      `${apiUrl}/api/exam-imports/${item.id}/${suffix}`,
+      { method: 'POST' },
+    );
+    const body = (await response.json()) as { error?: string };
+    if (!response.ok)
+      throw new Error(
+        body.error || 'Não foi possível atualizar a análise por IA.',
+      );
+    await refresh();
+    setMessage(
+      action === 'start'
+        ? 'Análise assistida adicionada à fila. As sugestões exigirão confirmação.'
+        : action === 'cancel'
+          ? 'Cancelamento da análise solicitado.'
+          : 'Nova análise adicionada à fila.',
+    );
+  };
+
+  const applyAiSuggestion = async (
+    item: ExamImport,
+    candidate: ExamImportCandidate,
+  ) => {
+    const suggestion = candidate.aiSuggestion;
+    if (!suggestion) return;
+    const discipline = pedagogicalDisciplines.find(
+      (entry) =>
+        entry.name.toLocaleLowerCase('pt-BR') ===
+        suggestion.subject?.toLocaleLowerCase('pt-BR'),
+    );
+    await updateCandidate(item.id, candidate.id, {
+      rawText: suggestion.normalizedText,
+      questionType: suggestion.questionType,
+      grade: suggestion.grade || candidate.grade || '',
+      difficulty: suggestion.difficulty || candidate.difficulty,
+      correctAnswers: suggestion.correctAnswers,
+      answerStatus: suggestion.correctAnswers.length
+        ? 'suggested'
+        : candidate.answerStatus,
+      answerConfidence: suggestion.confidence,
+      skill: suggestion.skillCode || candidate.skill || '',
+      pedagogicalTopicId:
+        suggestion.topicId || candidate.pedagogicalTopicId || '',
+      pedagogicalDisciplineId:
+        discipline?.id || candidate.pedagogicalDisciplineId || '',
+      status: 'review',
+    });
+    setMessage(
+      `Sugestões aplicadas à questão ${candidate.sourceNumber}; revise e confirme antes de cadastrar.`,
     );
   };
 
@@ -1403,6 +1495,72 @@ export function ExamImportManager({
                     )}
                   </section>
                 )}
+                {item.aiJob && (
+                  <section className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
+                          Análise assistida ·{' '}
+                          {item.aiJob.stage.replaceAll('_', ' ')}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          Tentativa {item.aiJob.attempts} ·{' '}
+                          {item.aiJob.progress}% ·{' '}
+                          {item.aiJob.model ||
+                            item.aiJob.promptVersion ||
+                            'aguardando modelo'}
+                        </p>
+                      </div>
+                      {['queued', 'running'].includes(item.aiJob.status) ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            controlAiAnalysis(item, 'cancel').catch((error) =>
+                              setMessage(error.message),
+                            )
+                          }
+                        >
+                          Cancelar IA
+                        </Button>
+                      ) : ['failed', 'cancelled'].includes(
+                          item.aiJob.status,
+                        ) ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            controlAiAnalysis(item, 'retry').catch((error) =>
+                              setMessage(error.message),
+                            )
+                          }
+                        >
+                          Repetir análise
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-violet-100">
+                      <div
+                        className="h-full rounded-full bg-violet-600"
+                        style={{ width: `${item.aiJob.progress}%` }}
+                      />
+                    </div>
+                    {item.aiJob.metrics?.total_tokens && (
+                      <p className="mt-2 text-xs text-slate-600">
+                        Uso: {item.aiJob.metrics.total_tokens} tokens (
+                        {item.aiJob.metrics.input_tokens || 0} entrada /{' '}
+                        {item.aiJob.metrics.output_tokens || 0} saída).
+                      </p>
+                    )}
+                    {item.aiJob.error && (
+                      <p className="mt-2 text-xs text-rose-800">
+                        {item.aiJob.error}
+                      </p>
+                    )}
+                  </section>
+                )}
                 <section className="mt-4 border-t border-slate-100 pt-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1411,7 +1569,8 @@ export function ExamImportManager({
                       </h4>
                       <p className="text-xs text-slate-500">
                         Selecione, classifique e revise cada questão antes do
-                        cadastro.
+                        cadastro. A IA analisa até cinco selecionadas por vez e
+                        apenas sugere alterações.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1433,6 +1592,22 @@ export function ExamImportManager({
                             ? 'Extrair novamente'
                             : 'Extrair questões'}
                       </Button>
+                      {Boolean(item.candidates?.length) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={['queued', 'running'].includes(
+                            item.aiJob?.status || '',
+                          )}
+                          onClick={() =>
+                            controlAiAnalysis(item, 'start').catch((error) =>
+                              setMessage(error.message),
+                            )
+                          }
+                        >
+                          <Sparkles /> Analisar próximo lote com IA
+                        </Button>
+                      )}
                       {item.documents.some(
                         (document) => document.kind === 'answer_key',
                       ) &&
@@ -1555,6 +1730,71 @@ export function ExamImportManager({
                             </span>
                           ))}
                         </div>
+                        {candidate.aiSuggestion && (
+                          <section className="mt-3 rounded-lg border border-violet-200 bg-white p-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
+                                  {candidate.aiSuggestion.provider ===
+                                  'local_demo'
+                                    ? 'Sugestão local de demonstração'
+                                    : 'Sugestão da IA'}{' '}
+                                  — revisão obrigatória
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600">
+                                  Confiança{' '}
+                                  {Math.round(
+                                    candidate.aiSuggestion.confidence * 100,
+                                  )}
+                                  % ·{' '}
+                                  {candidate.aiSuggestion.subject ||
+                                    'disciplina incerta'}{' '}
+                                  ·{' '}
+                                  {candidate.aiSuggestion.grade ||
+                                    'série incerta'}{' '}
+                                  ·{' '}
+                                  {candidate.aiSuggestion.difficulty ||
+                                    'dificuldade incerta'}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600">
+                                  Habilidade{' '}
+                                  {candidate.aiSuggestion.skillCode ||
+                                    'não sugerida'}{' '}
+                                  · tópico{' '}
+                                  {candidate.aiSuggestion.topicId
+                                    ? 'identificado no catálogo'
+                                    : 'não sugerido'}{' '}
+                                  · {candidate.aiSuggestion.model}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() =>
+                                  applyAiSuggestion(item, candidate).catch(
+                                    (error) => setMessage(error.message),
+                                  )
+                                }
+                              >
+                                Aplicar para revisar
+                              </Button>
+                            </div>
+                            {candidate.aiSuggestion.warnings.length > 0 && (
+                              <p className="mt-2 text-xs text-amber-800">
+                                Atenção:{' '}
+                                {candidate.aiSuggestion.warnings.join(' · ')}
+                              </p>
+                            )}
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-xs font-semibold text-violet-800">
+                                Ver texto formatado sugerido
+                              </summary>
+                              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs">
+                                {candidate.aiSuggestion.normalizedText}
+                              </pre>
+                            </details>
+                          </section>
+                        )}
                         {pagePreviewCandidateId === candidate.id &&
                           candidate.pageNumber && (
                             <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">

@@ -105,8 +105,11 @@ import {
   updateExamImportCandidate,
 } from './exam-imports.mjs';
 import {
+  cancelExamImportAnalysis,
   cancelExamImportJob,
+  enqueueExamImportAnalysis,
   enqueueExamImportExtraction,
+  retryExamImportAnalysis,
   retryExamImportJob,
 } from './exam-import-jobs.mjs';
 
@@ -272,6 +275,44 @@ const server = createServer(async (request, response) => {
           institutionId,
           userId,
           examImportId: examImportExtractMatch[1],
+        }),
+      });
+    const examImportAnalyzeMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/exam-imports\/([0-9a-f-]{36})\/analyze$/i);
+    if (examImportAnalyzeMatch)
+      return json(response, 202, {
+        data: await enqueueExamImportAnalysis({
+          institutionId,
+          userId,
+          examImportId: examImportAnalyzeMatch[1],
+        }),
+      });
+    const examImportAnalyzeCancelMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/exam-imports\/([0-9a-f-]{36})\/analyze\/cancel$/i,
+      );
+    if (examImportAnalyzeCancelMatch) {
+      const job = await cancelExamImportAnalysis({
+        institutionId,
+        examImportId: examImportAnalyzeCancelMatch[1],
+      });
+      if (!job)
+        return json(response, 404, { error: 'Análise ativa não encontrada.' });
+      return json(response, 202, { data: job });
+    }
+    const examImportAnalyzeRetryMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/exam-imports\/([0-9a-f-]{36})\/analyze\/retry$/i,
+      );
+    if (examImportAnalyzeRetryMatch)
+      return json(response, 202, {
+        data: await retryExamImportAnalysis({
+          institutionId,
+          userId,
+          examImportId: examImportAnalyzeRetryMatch[1],
         }),
       });
     const examImportCancelMatch =

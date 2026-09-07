@@ -63,6 +63,7 @@ type PedagogicalTopic = {
   depth: number;
   path: string;
   active: boolean;
+  skills?: Array<{ id: string; code: string; description: string }>;
 };
 
 type EducationStage = 'Ensino Fundamental' | 'Ensino Médio';
