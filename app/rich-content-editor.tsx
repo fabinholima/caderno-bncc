@@ -236,6 +236,8 @@ export function RichContentEditor({
           {block.type === 'paragraph' && (
             <p className="mt-1 text-xs text-slate-500">
               No próprio texto: <code>\\chemical{'{C\\ell_{2}}'}</code>,{' '}
+              <code>\\chemical{'{C\\ell^{-}(aq)}'}</code>,{' '}
+              <code>\\chemical{'{H^{+}(aq)}'}</code>,{' '}
               <code>\\unit{'{kilo joule inverse mol}'}</code> e{' '}
               <code>\\m{'{\\frac{a}{b} + \\Delta H}'}</code>.
             </p>

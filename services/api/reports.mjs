@@ -37,6 +37,7 @@ export function aggregateApplicationReport(application, rows, competencies) {
   const skillStats = new Map();
   const descriptorStats = new Map();
   const competencyStats = new Map();
+  const topicStats = new Map();
   const questionStats = new Map();
   const add = (map, key, metadata, status) => {
     const value = map.get(key) ?? {
@@ -54,6 +55,18 @@ export function aggregateApplicationReport(application, rows, competencies) {
   };
   for (const row of rows) {
     for (const item of row.result?.items ?? []) {
+      const snapshotQuestion = (row.version_snapshot?.questions ?? []).find(
+        (question) => question.number === item.questionNumber,
+      );
+      const knowledgeTopic =
+        item.knowledgeTopic || snapshotQuestion?.knowledgeTopic || '';
+      if (knowledgeTopic)
+        add(
+          topicStats,
+          knowledgeTopic,
+          { code: knowledgeTopic, topic: knowledgeTopic },
+          item.status,
+        );
       for (const skill of item.skills ?? []) {
         add(
           skillStats,
@@ -151,6 +164,39 @@ export function aggregateApplicationReport(application, rows, competencies) {
         ),
       }))
       .sort((left, right) => left.percentage - right.percentage);
+  const skills = withPercentage(skillStats.values());
+  const saebDescriptors = withPercentage(descriptorStats.values());
+  const topics = withPercentage(topicStats.values());
+  const competencyPerformance = withPercentage(competencyStats.values());
+  const priorities = [
+    ...topics.map((item) => ({
+      dimension: 'Tópico',
+      code: item.code,
+      label: item.topic,
+      ...item,
+    })),
+    ...skills.map((item) => ({
+      dimension: 'Habilidade BNCC',
+      label: item.code,
+      ...item,
+    })),
+    ...saebDescriptors.map((item) => ({
+      dimension: 'Descritor SAEB',
+      label: `${item.code} · ${item.topic}`,
+      ...item,
+    })),
+  ]
+    .filter((item) => item.validAnswers > 0 && item.percentage < 60)
+    .sort(
+      (left, right) =>
+        left.percentage - right.percentage ||
+        right.validAnswers - left.validAnswers,
+    )
+    .slice(0, 12)
+    .map((item) => ({
+      ...item,
+      priority: item.percentage < 40 ? 'Alta' : 'Atenção',
+    }));
   return {
     application,
     summary: {
@@ -181,9 +227,11 @@ export function aggregateApplicationReport(application, rows, competencies) {
           ? null
           : Math.round((Number(row.score) / Number(row.max_score)) * 1000) / 10,
     })),
-    skills: withPercentage(skillStats.values()),
-    saebDescriptors: withPercentage(descriptorStats.values()),
-    competencies: withPercentage(competencyStats.values()),
+    skills,
+    saebDescriptors,
+    topics,
+    competencies: competencyPerformance,
+    priorities,
     questions: withPercentage(questionStats.values()).sort(
       (left, right) => left.questionNumber - right.questionNumber,
     ),
@@ -204,7 +252,7 @@ export async function getApplicationReport({ institutionId, applicationId }) {
     text: `SELECT s.id AS student_id,s.name AS student_name,ce.number,
                   av.code AS version_code,scan.status AS scan_status,
                   sub.id AS submission_id,sub.score,sub.max_score,
-                  sub.requires_manual_review,sub.result
+                  sub.requires_manual_review,sub.result,av.snapshot AS version_snapshot
            FROM application_students aps
            JOIN students s ON s.id=aps.student_id
            JOIN assessment_versions av ON av.id=aps.assessment_version_id
@@ -322,7 +370,7 @@ export async function getStudentApplicationReport({
     text: `SELECT s.id AS student_id,s.name AS student_name,s.registration,ce.number,
                   av.code AS version_code,scan.status AS scan_status,
                   sub.id AS submission_id,sub.score,sub.max_score,
-                  sub.requires_manual_review,sub.result
+                  sub.requires_manual_review,sub.result,av.snapshot AS version_snapshot
            FROM application_students aps
            JOIN assessment_applications aa ON aa.id=aps.application_id
            JOIN students s ON s.id=aps.student_id
@@ -396,11 +444,19 @@ export async function getStudentApplicationReport({
     skills: individual.skills,
     competencies: individual.competencies,
     saebDescriptors: individual.saebDescriptors,
+    topics: individual.topics,
+    priorities: individual.priorities,
     questions: items.map((item) => ({
       questionNumber: item.questionNumber,
       status: item.status,
       selectedLabels: item.selectedLabels ?? [],
       correctLabels: item.correctLabels ?? [],
+      knowledgeTopic:
+        item.knowledgeTopic ||
+        (row.version_snapshot?.questions ?? []).find(
+          (question) => question.number === item.questionNumber,
+        )?.knowledgeTopic ||
+        '',
       skills: item.skills ?? [],
       saebDescriptors: item.saebDescriptors ?? [],
     })),
@@ -473,6 +529,7 @@ export function aggregateStudentProgress(student, rows, competencies) {
     skills: new Map(),
     competencies: new Map(),
     saebDescriptors: new Map(),
+    topics: new Map(),
   };
   const add = (map, key, metadata, status) => {
     const item = map.get(key) ?? {
@@ -493,6 +550,22 @@ export function aggregateStudentProgress(student, rows, competencies) {
   let previousPercentage = null;
   const timeline = rows.map((row) => {
     for (const item of row.result?.items ?? []) {
+      const snapshotQuestion = (row.version_snapshot?.questions ?? []).find(
+        (question) => question.number === item.questionNumber,
+      );
+      const knowledgeTopic =
+        item.knowledgeTopic || snapshotQuestion?.knowledgeTopic || '';
+      if (knowledgeTopic)
+        add(
+          dimensions.topics,
+          knowledgeTopic,
+          {
+            code: knowledgeTopic,
+            topic: knowledgeTopic,
+            applicationId: row.application_id,
+          },
+          item.status,
+        );
       for (const skill of item.skills ?? []) {
         add(
           dimensions.skills,
@@ -578,6 +651,7 @@ export function aggregateStudentProgress(student, rows, competencies) {
     skills: summarize(dimensions.skills),
     competencies: summarize(dimensions.competencies),
     saebDescriptors: summarize(dimensions.saebDescriptors),
+    topics: summarize(dimensions.topics),
   };
 }
 
@@ -590,11 +664,13 @@ export async function getStudentProgress({ institutionId, studentId }) {
   if (!studentResult.rowCount) return null;
   const result = await pool.query({
     text: `SELECT aa.id AS application_id,a.title AS assessment_title,c.name AS class_name,
-                  aa.scheduled_at,sub.submitted_at,sub.score,sub.max_score,sub.result
+                  aa.scheduled_at,sub.submitted_at,sub.score,sub.max_score,sub.result,
+                  av.snapshot AS version_snapshot
            FROM application_students aps
            JOIN assessment_applications aa ON aa.id=aps.application_id
            JOIN assessments a ON a.id=aa.assessment_id
            JOIN classes c ON c.id=aa.class_id
+           JOIN assessment_versions av ON av.id=aps.assessment_version_id
            JOIN LATERAL (
              SELECT submission.id AS submission_id
              FROM card_scans scan

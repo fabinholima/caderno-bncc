@@ -25,7 +25,8 @@ import:saeb` após disponibilizar os PDFs do Inep em `work/saeb`.
 
 - `GET /api/assessment-applications/:id/report`
   - devolve estatísticas atualizadas por aluno, questão, habilidade BNCC,
-    competência e descritor SAEB.
+    competência, descritor SAEB e tópico pedagógico, além de uma lista
+    determinística de prioridades abaixo de 60% com quantidade de evidências.
 - `POST /api/assessment-applications/:id/report-renders`
   - congela um snapshot JSON versionado e enfileira o PDF ConTeXt.
 - `GET /api/report-render-jobs/:id`
@@ -45,8 +46,9 @@ import:saeb` após disponibilizar os PDFs do Inep em `work/saeb`.
 - `GET /api/students/:studentId/progress`
   - consolida todas as aplicações corrigidas do aluno em ordem cronológica,
     calcula média, melhor resultado, resultado atual e evolução em pontos
-    percentuais, além do desempenho acumulado por habilidade, competência e
-    descritor.
+    percentuais, além do desempenho acumulado por habilidade, competência,
+    descritor SAEB e tópico/subtópico pedagógico. Os conteúdos com menor
+    percentual aparecem primeiro para orientar a intervenção do professor.
 
 ## Estruturas químicas vetoriais
 

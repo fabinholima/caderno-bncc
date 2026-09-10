@@ -139,6 +139,19 @@ test('aceita química e unidades ConTeXt dentro do texto corrido', () => {
   assert.equal(parsed.statementBlocks[1].type, 'contextInline');
 });
 
+test('aceita íons com carga e estado físico em chemical', () => {
+  const parsed = createQuestionSchema.parse({
+    ...baseQuestion,
+    statementBlocks: [
+      {
+        type: 'paragraph',
+        text: 'Íons \\chemical{C\\ell^-{(aq)}} e \\chemical{H^+{(aq)}}.',
+      },
+    ],
+  });
+  assert.equal(parsed.statementBlocks[0].type, 'paragraph');
+});
+
 test('rejeita comandos perigosos na fórmula ConTeXt', () => {
   assert.throws(() =>
     createQuestionSchema.parse({

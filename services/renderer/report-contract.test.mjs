@@ -38,10 +38,33 @@ test('gera relatório ConTeXt com tabelas e gráficos MetaPost', () => {
         classification: 'Adequado',
       },
     ],
+    topics: [
+      {
+        code: 'Termoquímica > Lei de Hess',
+        topic: 'Termoquímica > Lei de Hess',
+        correct: 16,
+        validAnswers: 28,
+        percentage: 57.1,
+        classification: 'Em desenvolvimento',
+      },
+    ],
+    priorities: [
+      {
+        dimension: 'Tópico',
+        code: 'Termoquímica > Lei de Hess',
+        label: 'Termoquímica > Lei de Hess',
+        correct: 16,
+        validAnswers: 28,
+        percentage: 57.1,
+        priority: 'Atenção',
+      },
+    ],
   });
   assert.match(tex, /\\startMPcode/);
   assert.match(tex, /EM13CNT101/);
   assert.match(tex, /D20/);
+  assert.match(tex, /Termoquímica > Lei de Hess/);
+  assert.match(tex, /Prioridades para intervenção/);
   assert.match(tex, /Simulado \\& revisão/);
 });
 
@@ -62,6 +85,13 @@ test('gera relatório individual com comparação e respostas', () => {
     },
     skills: [],
     saebDescriptors: [],
+    topics: [
+      {
+        code: 'Cinética Química',
+        topic: 'Cinética Química',
+        percentage: 75,
+      },
+    ],
     questions: [
       {
         questionNumber: 1,
@@ -70,10 +100,12 @@ test('gera relatório individual com comparação e respostas', () => {
         correctLabels: ['C'],
         skills: [{ code: 'EM13CNT101' }],
         saebDescriptors: [],
+        knowledgeTopic: 'Cinética Química',
       },
     ],
   });
   assert.match(tex, /Ana Souza/);
   assert.match(tex, /acima da média da turma em 10 pontos/);
   assert.match(tex, /EM13CNT101/);
+  assert.match(tex, /Cinética Química/);
 });

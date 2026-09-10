@@ -77,6 +77,7 @@ export function gradeSubmission(snapshot, input) {
         status: response?.text ? 'pending_manual_review' : 'unanswered',
         awardedPoints: null,
         maxPoints: points,
+        knowledgeTopic: question.knowledgeTopic || '',
         skills: (question.skills ?? []).map((skill) => ({
           code: skill.code,
           primary: Boolean(skill.primary),
@@ -107,6 +108,7 @@ export function gradeSubmission(snapshot, input) {
       correctLabels,
       awardedPoints: correct ? points : 0,
       maxPoints: points,
+      knowledgeTopic: question.knowledgeTopic || '',
       skills: (question.skills ?? []).map((skill) => ({
         code: skill.code,
         primary: Boolean(skill.primary),

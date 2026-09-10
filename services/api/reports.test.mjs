@@ -24,6 +24,7 @@ test('consolida turma, habilidades e competências BNCC', () => {
             {
               questionNumber: 1,
               status: 'correct',
+              knowledgeTopic: 'Termoquímica > Lei de Hess',
               skills: [{ code: 'EM13CNT101', primary: true }],
               saebDescriptors: [
                 { code: 'D20', topic: 'Relação entre Textos', primary: true },
@@ -32,6 +33,7 @@ test('consolida turma, habilidades e competências BNCC', () => {
             {
               questionNumber: 2,
               status: 'incorrect',
+              knowledgeTopic: 'Termoquímica > Lei de Hess',
               skills: [{ code: 'EM13CNT101', primary: true }],
               saebDescriptors: [
                 { code: 'D20', topic: 'Relação entre Textos', primary: true },
@@ -77,6 +79,10 @@ test('consolida turma, habilidades e competências BNCC', () => {
   assert.equal(report.saebDescriptors[0].percentage, 50);
   assert.equal(report.questions.length, 2);
   assert.equal(report.competencies[0].percentage, 50);
+  assert.equal(report.topics[0].code, 'Termoquímica > Lei de Hess');
+  assert.equal(report.topics[0].percentage, 50);
+  assert.equal(report.priorities[0].priority, 'Atenção');
+  assert.equal(report.priorities[0].percentage, 50);
   assert.equal(report.students[1].status, 'review');
 });
 
@@ -94,12 +100,16 @@ test('calcula evolução longitudinal do aluno por avaliação e habilidade', ()
         result: {
           items: [
             {
+              questionNumber: 1,
               status: 'correct',
+              knowledgeTopic: 'Termoquímica > Lei de Hess',
               skills: [{ code: 'EM13CNT101' }],
               saebDescriptors: [{ code: 'D1', topic: 'Procedimentos' }],
             },
             {
+              questionNumber: 2,
               status: 'incorrect',
+              knowledgeTopic: 'Termoquímica > Lei de Hess',
               skills: [{ code: 'EM13CNT101' }],
             },
           ],
@@ -115,11 +125,18 @@ test('calcula evolução longitudinal do aluno por avaliação e habilidade', ()
         result: {
           items: [
             {
+              questionNumber: 1,
               status: 'correct',
+              knowledgeTopic: 'Termoquímica > Lei de Hess',
               skills: [{ code: 'EM13CNT101' }],
               saebDescriptors: [{ code: 'D1', topic: 'Procedimentos' }],
             },
-            { status: 'correct', skills: [{ code: 'EM13CNT101' }] },
+            {
+              questionNumber: 2,
+              status: 'correct',
+              knowledgeTopic: 'Termoquímica > Lei de Hess',
+              skills: [{ code: 'EM13CNT101' }],
+            },
           ],
         },
       },
@@ -146,4 +163,6 @@ test('calcula evolução longitudinal do aluno por avaliação e habilidade', ()
   assert.equal(progress.skills[0].assessments, 2);
   assert.equal(progress.competencies[0].percentage, 75);
   assert.equal(progress.saebDescriptors[0].percentage, 100);
+  assert.equal(progress.topics[0].percentage, 75);
+  assert.equal(progress.topics[0].assessments, 2);
 });

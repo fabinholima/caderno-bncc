@@ -157,6 +157,25 @@ type ApplicationReport = {
     percentage: number;
     classification: string;
   }>;
+  topics: Array<{
+    code: string;
+    topic: string;
+    correct: number;
+    validAnswers: number;
+    total: number;
+    percentage: number;
+    classification: string;
+  }>;
+  priorities: Array<{
+    dimension: string;
+    code: string;
+    label: string;
+    correct: number;
+    validAnswers: number;
+    percentage: number;
+    classification: string;
+    priority: 'Alta' | 'Atenção';
+  }>;
 };
 type StudentApplicationReport = {
   application: ApplicationReport['application'];
@@ -180,6 +199,8 @@ type StudentApplicationReport = {
   skills: ApplicationReport['skills'];
   competencies: ApplicationReport['competencies'];
   saebDescriptors: ApplicationReport['saebDescriptors'];
+  topics: ApplicationReport['topics'];
+  priorities: ApplicationReport['priorities'];
   questions: Array<{
     questionNumber: number;
     status: 'correct' | 'incorrect' | 'unanswered';
@@ -187,6 +208,7 @@ type StudentApplicationReport = {
     correctLabels: string[];
     skills: Array<{ code: string }>;
     saebDescriptors: Array<{ code: string }>;
+    knowledgeTopic: string;
   }>;
 };
 type StudentProgress = {
@@ -226,6 +248,15 @@ type StudentProgress = {
     assessments: number;
   }>;
   saebDescriptors: Array<{
+    code: string;
+    topic: string;
+    correct: number;
+    validAnswers: number;
+    assessments: number;
+    percentage: number;
+    classification: string;
+  }>;
+  topics: Array<{
     code: string;
     topic: string;
     correct: number;
@@ -746,7 +777,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                 Ainda não há avaliações corrigidas para este aluno.
               </p>
             )}
-            <div className="mt-5 grid gap-5 xl:grid-cols-3">
+            <div className="mt-5 grid gap-5 xl:grid-cols-2">
               <ReportPerformance
                 title="Habilidades acumuladas"
                 empty="Nenhuma habilidade consolidada."
@@ -774,6 +805,16 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                   key: item.sourceKey,
                   label: `${item.code} · ${item.area}`,
                   detail: `${item.description} · ${item.assessments} avaliação(ões)`,
+                  percentage: item.percentage,
+                }))}
+              />
+              <ReportPerformance
+                title="Tópicos prioritários acumulados"
+                empty="Nenhum tópico pedagógico consolidado."
+                items={studentProgress.topics.map((item) => ({
+                  key: item.code,
+                  label: item.topic,
+                  detail: `${item.correct}/${item.validAnswers} respostas válidas em ${item.assessments} avaliação(ões) · ${item.classification}`,
                   percentage: item.percentage,
                 }))}
               />
@@ -1062,7 +1103,46 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
               </div>
             ))}
           </div>
-          <div className="mt-5 grid gap-5 xl:grid-cols-3">
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h3 className="font-semibold text-amber-950">
+              Prioridades para intervenção
+            </h3>
+            <p className="mt-1 text-xs text-amber-800">
+              Itens abaixo de 60%, ordenados pelo menor desempenho. A decisão
+              pedagógica deve considerar também a quantidade de respostas.
+            </p>
+            {report.priorities.length ? (
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {report.priorities.map((item) => (
+                  <div
+                    key={`${item.dimension}-${item.code}`}
+                    className="rounded-lg border border-amber-200 bg-white p-3 text-sm"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-amber-700">
+                          {item.dimension} · prioridade {item.priority}
+                        </p>
+                        <p className="mt-1 font-semibold text-slate-900">
+                          {item.label}
+                        </p>
+                      </div>
+                      <b className="text-amber-900">{item.percentage}%</b>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {item.correct}/{item.validAnswers} respostas válidas ·{' '}
+                      {item.classification}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-amber-900">
+                Nenhuma prioridade calculada com os resultados disponíveis.
+              </p>
+            )}
+          </div>
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
             <ReportPerformance
               title="Desempenho por habilidade BNCC"
               empty="As correções ainda não possuem habilidades consolidadas."
@@ -1090,6 +1170,16 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                 key: item.sourceKey,
                 label: `Competência ${item.number} · ${item.area}`,
                 detail: item.description,
+                percentage: item.percentage,
+              }))}
+            />
+            <ReportPerformance
+              title="Desempenho por tópico e subtópico"
+              empty="Esta aplicação ainda não possui tópicos pedagógicos vinculados."
+              items={report.topics.map((item) => ({
+                key: item.code,
+                label: item.topic,
+                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
                 percentage: item.percentage,
               }))}
             />
@@ -1211,7 +1301,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
               </div>
             ))}
           </div>
-          <div className="mt-5 grid gap-5 xl:grid-cols-3">
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
             <ReportPerformance
               title="Habilidades BNCC do aluno"
               empty="Não há habilidades consolidadas nesta correção."
@@ -1242,6 +1332,16 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                 percentage: item.percentage,
               }))}
             />
+            <ReportPerformance
+              title="Tópicos e subtópicos do aluno"
+              empty="Não há tópicos pedagógicos nesta correção."
+              items={studentReport.topics.map((item) => ({
+                key: item.code,
+                label: item.topic,
+                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
+                percentage: item.percentage,
+              }))}
+            />
           </div>
           <div className="mt-5 overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -1253,6 +1353,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                   <th>Correta</th>
                   <th>BNCC</th>
                   <th>SAEB</th>
+                  <th>Tópico</th>
                 </tr>
               </thead>
               <tbody>
@@ -1282,6 +1383,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                         .map((item) => item.code)
                         .join(', ') || '—'}
                     </td>
+                    <td>{question.knowledgeTopic || '—'}</td>
                   </tr>
                 ))}
               </tbody>

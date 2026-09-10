@@ -1244,6 +1244,50 @@ export async function clearQuestionDuplicate({
   });
 }
 
+export async function permanentlyDeleteQuestionDuplicate({
+  institutionId,
+  userId,
+  role = 'teacher',
+  questionId,
+}) {
+  if (!['admin', 'coordinator'].includes(role))
+    throw Object.assign(
+      new Error(
+        'Somente coordenação ou administração pode excluir uma questão duplicada.',
+      ),
+      { statusCode: 403 },
+    );
+  return transaction(async (client) => {
+    const result = await client.query(
+      `DELETE FROM questions
+       WHERE id = $1 AND institution_id = $2
+         AND duplicate_of_question_id IS NOT NULL
+       RETURNING id, public_code, duplicate_of_question_id`,
+      [questionId, institutionId],
+    );
+    if (!result.rowCount) return null;
+    await client.query(
+      `INSERT INTO audit_log
+         (institution_id,user_id,action,entity_type,entity_id,metadata)
+       VALUES($1,$2,'question.duplicate_deleted','question',$3,$4::jsonb)`,
+      [
+        institutionId,
+        userId,
+        questionId,
+        JSON.stringify({
+          publicCode: result.rows[0].public_code,
+          duplicateOfQuestionId: result.rows[0].duplicate_of_question_id,
+        }),
+      ],
+    );
+    return {
+      id: result.rows[0].id,
+      code: result.rows[0].public_code,
+      deleted: true,
+    };
+  });
+}
+
 export async function deleteQuestion({
   institutionId,
   userId,

@@ -262,6 +262,14 @@ function normalizeContextUnits(code) {
   });
 }
 
+function normalizeInlineChemicalNotation(code) {
+  return String(code ?? '').replace(
+    /\\chemical\{((?:[^{}]|\{[^{}]*\})*)\}/g,
+    (_whole, formula) =>
+      `\\chemical{${formula.replace(/\^([+-])\{(\([^{}]+\))\}/g, '^{$1}$2')}}`,
+  );
+}
+
 function paragraphWithScientificInline(text) {
   const value = String(text ?? '');
   const pattern = /\\(chemical|unit|m)\{/g;
@@ -295,10 +303,14 @@ function paragraphWithScientificInline(text) {
           : mathCommandsAllowed &&
             /^[A-Za-z0-9\\{}_^+\-*/=<>()[\],.;:\s]+$/.test(argument);
     const original = value.slice(index, end);
+    const normalized =
+      command === 'chemical'
+        ? normalizeInlineChemicalNotation(original)
+        : original;
     output += valid
       ? command === 'unit'
         ? `\\allowbreak{}${normalizeContextUnits(original)}`
-        : `\\allowbreak{}${original}`
+        : `\\allowbreak{}${normalized}`
       : escapeContext(original);
     cursor = end;
   }
@@ -362,7 +374,7 @@ function richText(nodes = []) {
       )
         throw new Error('Fórmula ConTeXt inválida ou não permitida.');
       return {
-        content: `\\startformula\n${normalizeContextUnits(code)}\n\\stopformula`,
+        content: `\\startformula\n${normalizeInlineChemicalNotation(normalizeContextUnits(code))}\n\\stopformula`,
         inline: false,
       };
     }
@@ -395,7 +407,7 @@ function richText(nodes = []) {
       )
         throw new Error('Trecho ConTeXt em linha inválido ou não permitido.');
       return {
-        content: `\\allowbreak{}${normalizeContextUnits(code)}`,
+        content: `\\allowbreak{}${normalizeInlineChemicalNotation(normalizeContextUnits(code))}`,
         inline: true,
       };
     }
@@ -577,7 +589,9 @@ export function renderAssessment(snapshot) {
     candidateName: escapeContext(candidateData?.name || ''),
     candidateNumber: escapeContext(candidateData?.number || ''),
     subjects: escapeContext(
-      [...new Set(sections.map((section) => section.subject).filter(Boolean))].join(', '),
+      [
+        ...new Set(sections.map((section) => section.subject).filter(Boolean)),
+      ].join(', '),
     ),
     content,
   });

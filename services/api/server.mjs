@@ -11,6 +11,7 @@ import {
   listQuestions,
   listQuestionDuplicates,
   markQuestionDuplicate,
+  permanentlyDeleteQuestionDuplicate,
   setQuestionStatus,
 } from './questions.mjs';
 import {
@@ -848,6 +849,24 @@ const server = createServer(async (request, response) => {
       if (!question)
         return json(response, 404, {
           error: 'Marcação de duplicidade não encontrada.',
+        });
+      return json(response, 200, { data: question });
+    }
+    const deleteQuestionDuplicateMatch =
+      request.method === 'DELETE' &&
+      url.pathname.match(
+        /^\/api\/questions\/([0-9a-f-]{36})\/duplicate\/permanent$/i,
+      );
+    if (deleteQuestionDuplicateMatch) {
+      const question = await permanentlyDeleteQuestionDuplicate({
+        institutionId,
+        userId,
+        role,
+        questionId: deleteQuestionDuplicateMatch[1],
+      });
+      if (!question)
+        return json(response, 404, {
+          error: 'Questão duplicada não encontrada.',
         });
       return json(response, 200, { data: question });
     }

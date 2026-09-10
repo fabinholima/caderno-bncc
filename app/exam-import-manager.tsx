@@ -11,6 +11,7 @@ import {
   ScanText,
   Sparkles,
   ShieldCheck,
+  Trash2,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -759,6 +760,26 @@ export function ExamImportManager({
     setMessage(`${duplicate.code} voltou ao acervo como rascunho.`);
   };
 
+  const deleteDuplicate = async (duplicate: DuplicateQuestion) => {
+    if (
+      !window.confirm(
+        `Excluir definitivamente ${duplicate.code}? Esta ação não pode ser desfeita. A questão original ${duplicate.duplicateOfCode} será mantida.`,
+      )
+    )
+      return;
+    const response = await apiFetch(
+      `${apiUrl}/api/questions/${duplicate.id}/duplicate/permanent`,
+      { method: 'DELETE' },
+    );
+    const body = (await response.json()) as { error?: string };
+    if (!response.ok)
+      throw new Error(body.error || 'Não foi possível excluir a duplicata.');
+    await refreshDuplicates();
+    setMessage(
+      `${duplicate.code} foi excluída. ${duplicate.duplicateOfCode} permanece no acervo.`,
+    );
+  };
+
   const visibleCandidates = (item: ExamImport) =>
     item.candidates.filter((candidate) =>
       candidateMatchesReviewFilters(
@@ -1360,18 +1381,33 @@ export function ExamImportManager({
                     </p>
                   </div>
                   {role !== 'teacher' && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        clearDuplicate(duplicate).catch((error) =>
-                          setMessage(error.message),
-                        )
-                      }
-                    >
-                      Não é duplicada
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          clearDuplicate(duplicate).catch((error) =>
+                            setMessage(error.message),
+                          )
+                        }
+                      >
+                        Não é duplicada
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() =>
+                          deleteDuplicate(duplicate).catch((error) =>
+                            setMessage(error.message),
+                          )
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                        Excluir
+                      </Button>
+                    </div>
                   )}
                 </div>
               </article>

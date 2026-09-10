@@ -64,12 +64,38 @@ ${rows || '\\bTR\\bTD[nc=5,align=middle] Sem dados suficientes. \\eTD\\eTR'}
 \\eTABLE`;
 }
 
+function interventionTable(items) {
+  const rows = items
+    .map(
+      (item) => `\\bTR
+\\bTD ${escapeContext(item.dimension)} \\eTD
+\\bTD ${escapeContext(item.label)} \\eTD
+\\bTD[align=middle] ${item.correct}/${item.validAnswers} \\eTD
+\\bTD[align=middle] ${number(item.percentage)}\\% \\eTD
+\\bTD ${escapeContext(item.priority)} \\eTD
+\\eTR`,
+    )
+    .join('\n');
+  return `\\subject{Prioridades para intervenção}
+\\bTABLE[split=yes,option=stretch]
+\\bTABLEhead
+\\bTR[background=color,backgroundcolor=lightgray]
+\\bTH Dimensão \\eTH \\bTH Conteúdo \\eTH \\bTH Acertos \\eTH \\bTH Resultado \\eTH \\bTH Prioridade \\eTH
+\\eTR
+\\eTABLEhead
+\\bTABLEbody
+${rows || '\\bTR\\bTD[nc=5,align=middle] Nenhuma prioridade calculada. \\eTD\\eTR'}
+\\eTABLEbody
+\\eTABLE`;
+}
+
 export function renderClassReport(snapshot) {
   if (snapshot?.schemaVersion !== '1.0' || !snapshot.application)
     throw new Error('Snapshot de relatório inválido.');
   const summary = snapshot.summary ?? {};
   const skills = snapshot.skills ?? [];
   const descriptors = snapshot.saebDescriptors ?? [];
+  const topics = snapshot.topics ?? [];
   return `% Relatório estatístico imutável — class-report-v1
 \\setuppapersize[A4]
 \\setupbodyfont[plex,10pt]
@@ -93,8 +119,11 @@ export function renderClassReport(snapshot) {
 
 ${barChart('Desempenho por habilidade BNCC', skills)}
 ${barChart('Desempenho por descritor SAEB', descriptors)}
+${barChart('Desempenho por tópico e subtópico', topics)}
 ${performanceTable('Habilidades BNCC', skills)}
 ${performanceTable('Descritores SAEB', descriptors)}
+${performanceTable('Tópicos e subtópicos', topics)}
+${interventionTable(snapshot.priorities ?? [])}
 
 \\subject{Critério de leitura}
 As faixas usadas pela instituição são: Consolidado (80--100\\%), Adequado (60--79,9\\%), Em desenvolvimento (40--59,9\\%) e Requer intervenção (abaixo de 40\\%). O número de respostas válidas deve ser considerado junto do percentual.
@@ -130,6 +159,7 @@ export function renderStudentReport(snapshot) {
 \\bTD ${escapeContext((item.correctLabels ?? []).join(', ') || '—')} \\eTD
 \\bTD ${escapeContext((item.skills ?? []).map((value) => value.code).join(', ') || '—')} \\eTD
 \\bTD ${escapeContext((item.saebDescriptors ?? []).map((value) => value.code).join(', ') || '—')} \\eTD
+\\bTD ${escapeContext(item.knowledgeTopic || '—')} \\eTD
 \\eTR`,
     )
     .join('\n');
@@ -155,6 +185,7 @@ export function renderStudentReport(snapshot) {
 
 ${barChart('Habilidades BNCC', snapshot.skills ?? [])}
 ${barChart('Descritores SAEB', snapshot.saebDescriptors ?? [])}
+${barChart('Tópicos e subtópicos', snapshot.topics ?? [])}
 ${barChart(
   'Competências BNCC',
   (snapshot.competencies ?? []).map((item) => ({
@@ -162,12 +193,13 @@ ${barChart(
     code: `Competência ${item.number}`,
   })),
 )}
+${interventionTable(snapshot.priorities ?? [])}
 
 \\subject{Resultado por questão}
 \\bTABLE[split=yes,option=stretch]
 \\bTABLEhead
 \\bTR[background=color,backgroundcolor=lightgray]
-\\bTH Questão \\eTH \\bTH Situação \\eTH \\bTH Marcada \\eTH \\bTH Gabarito \\eTH \\bTH BNCC \\eTH \\bTH SAEB \\eTH
+\\bTH Questão \\eTH \\bTH Situação \\eTH \\bTH Marcada \\eTH \\bTH Gabarito \\eTH \\bTH BNCC \\eTH \\bTH SAEB \\eTH \\bTH Tópico \\eTH
 \\eTR
 \\eTABLEhead
 \\bTABLEbody

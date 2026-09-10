@@ -47,10 +47,7 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\bold\{Nome completo do aluno\}/);
   assert.match(tex, /AnswerCardNameGridOverlay/);
   assert.match(tex, /\\externalfigure\[qr\.png\]/);
-  assert.equal(
-    tex.match(/\\startframedtext\[width=\\textwidth/g)?.length,
-    2,
-  );
+  assert.equal(tex.match(/\\startframedtext\[width=\\textwidth/g)?.length, 2);
 });
 
 test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simplificado', async () => {
@@ -508,6 +505,25 @@ test('permite ell dentro de chemical sem forçar itálico matemático', async ()
     /Considere \\allowbreak\{\}\\chemical\{HC\\ell\} e \\allowbreak\{\}\\chemical\{C\\ell_\{2\}\}\./,
   );
   assert.doesNotMatch(tex, /Considere \\m\{/);
+});
+
+test('normaliza carga iônica e estado físico dentro de chemical', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    {
+      type: 'paragraph',
+      text: 'Íons \\chemical{C\\ell^-{(aq)}} e \\chemical{H^+{(aq)}}.',
+    },
+  ];
+  const tex = renderAssessment(snapshot);
+  assert.match(
+    tex,
+    /Íons \\allowbreak\{\}\\chemical\{C\\ell\^\{-\}\(aq\)\} e \\allowbreak\{\}\\chemical\{H\^\{\+\}\(aq\)\}\./,
+  );
 });
 
 test('preserva expoente dentro de chemical no texto corrido', async () => {
