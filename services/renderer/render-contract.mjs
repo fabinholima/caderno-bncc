@@ -297,8 +297,8 @@ function paragraphWithScientificInline(text) {
     const original = value.slice(index, end);
     output += valid
       ? command === 'unit'
-        ? normalizeContextUnits(original)
-        : original
+        ? `\\allowbreak{}${normalizeContextUnits(original)}`
+        : `\\allowbreak{}${original}`
       : escapeContext(original);
     cursor = end;
   }
@@ -328,7 +328,7 @@ function richText(nodes = []) {
       return {
         content:
           node.display === false
-            ? `\\mathematics{${formula}}`
+            ? `\\allowbreak{}\\mathematics{${formula}}`
             : `\\startformula\n${formula}\n\\stopformula`,
         inline: node.display === false,
       };
@@ -394,10 +394,16 @@ function richText(nodes = []) {
         )
       )
         throw new Error('Trecho ConTeXt em linha inválido ou não permitido.');
-      return { content: normalizeContextUnits(code), inline: true };
+      return {
+        content: `\\allowbreak{}${normalizeContextUnits(code)}`,
+        inline: true,
+      };
     }
     if (node.type === 'chemical')
-      return { content: chemicalFormula(node), inline: node.display === false };
+      return {
+        content: `${node.display === false ? '\\allowbreak{}' : ''}${chemicalFormula(node)}`,
+        inline: node.display === false,
+      };
     if (node.type === 'thermochemicalEquation')
       return { content: thermochemicalEquation(node), inline: false };
     if (node.type === 'chemicalStructure')
@@ -485,7 +491,9 @@ export function renderAssessment(snapshot) {
         : '';
       const columns =
         Number(section.columns) === 2
-          ? `\\startcolumns[n=2,balance=no]\n${content}\n\\stopcolumns`
+          ? snapshot.render?.template === 'simulado-v1'
+            ? `\\startcolumns[n=2,balance=yes,distance=8mm]\n${content}\n\\stopcolumns`
+            : `\\startmixedcolumns[n=2,balance=yes,distance=10mm,separator=rule,rulethickness=.5pt,rulecolor=middlegray]\n${content}\n\\stopmixedcolumns`
           : content;
       return `${pageBreak}${heading}${columns}`;
     })
@@ -568,6 +576,9 @@ export function renderAssessment(snapshot) {
     candidate,
     candidateName: escapeContext(candidateData?.name || ''),
     candidateNumber: escapeContext(candidateData?.number || ''),
+    subjects: escapeContext(
+      [...new Set(sections.map((section) => section.subject).filter(Boolean))].join(', '),
+    ),
     content,
   });
 }

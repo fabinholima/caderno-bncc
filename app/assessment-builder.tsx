@@ -30,6 +30,8 @@ export type BuilderQuestion = {
   skill: string;
   knowledgeObjectId?: string;
   knowledgeObject?: string;
+  knowledgeTopic?: string;
+  pedagogicalTopicId?: string;
   competencyId?: string;
   competencyNumber?: number;
   sourceInstitution: string;
@@ -50,7 +52,12 @@ type GeneratedVersion = {
   renderJobId?: string;
   status?: 'queued' | 'running' | 'completed' | 'failed';
   error?: string | null;
-  downloads?: { prova: string; gabarito: string } | null;
+  downloads?: {
+    prova: string;
+    gabarito: string;
+    provaTex: string;
+    gabaritoTex: string;
+  } | null;
 };
 
 type RenderTemplate = {
@@ -127,7 +134,7 @@ export function AssessmentBuilder({
         id: `section-${index + 1}`,
         subject,
         columns: index === 0 ? 2 : 1,
-        startOnNewPage: index > 0,
+        startOnNewPage: false,
         selected: new Set(
           questions
             .filter((question) => question.subject === subject)
@@ -184,8 +191,8 @@ export function AssessmentBuilder({
   const [generatedVersions, setGeneratedVersions] = useState<
     GeneratedVersion[]
   >([]);
-  const [questionKnowledgeObject, setQuestionKnowledgeObject] = useState('');
-  const [questionCompetency, setQuestionCompetency] = useState('');
+  const [questionTopic, setQuestionTopic] = useState('');
+  const [questionSubtopic, setQuestionSubtopic] = useState('');
   const [questionSourceInstitution, setQuestionSourceInstitution] =
     useState('');
   const [questionSourceYear, setQuestionSourceYear] = useState('');
@@ -196,11 +203,39 @@ export function AssessmentBuilder({
   const questionsInActiveSubject = questions.filter(
     (question) => question.subject === activeSection?.subject,
   );
+  const topicParts = (question: BuilderQuestion) => {
+    const path = (question.knowledgeTopic || '')
+      .split(/\s*>\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return {
+      topic: path[0] || question.knowledgeObject || '',
+      subtopic: path[1] || '',
+    };
+  };
+  const availableTopics = Array.from(
+    new Set(
+      questionsInActiveSubject
+        .map((question) => topicParts(question).topic)
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const availableSubtopics = Array.from(
+    new Set(
+      questionsInActiveSubject
+        .filter(
+          (question) =>
+            !questionTopic || topicParts(question).topic === questionTopic,
+        )
+        .map((question) => topicParts(question).subtopic)
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const visibleQuestions = questionsInActiveSubject.filter(
     (question) =>
-      (!questionKnowledgeObject ||
-        question.knowledgeObjectId === questionKnowledgeObject) &&
-      (!questionCompetency || question.competencyId === questionCompetency) &&
+      (!questionTopic || topicParts(question).topic === questionTopic) &&
+      (!questionSubtopic ||
+        topicParts(question).subtopic === questionSubtopic) &&
       (!questionSourceInstitution ||
         question.sourceInstitution === questionSourceInstitution) &&
       (!questionSourceYear ||
@@ -294,7 +329,8 @@ export function AssessmentBuilder({
   }, [activeSectionId, sections]);
 
   useEffect(() => {
-    setQuestionKnowledgeObject('');
+    setQuestionTopic('');
+    setQuestionSubtopic('');
     setQuestionSourceInstitution('');
     setQuestionSourceYear('');
     setQuestionDifficulty('');
@@ -390,12 +426,33 @@ export function AssessmentBuilder({
         id,
         subject,
         columns: 1,
-        startOnNewPage: current.length > 0,
+        startOnNewPage: false,
         selected: new Set<string>(),
       },
     ]);
     setActiveSectionId(id);
     setSubjectToAdd('');
+    setGenerated(false);
+  }
+
+  function selectQuestionSubject(subject: string) {
+    const existing = sections.find((section) => section.subject === subject);
+    if (existing) {
+      setActiveSectionId(existing.id);
+      return;
+    }
+    const id = `section-${Date.now()}`;
+    setSections((current) => [
+      ...current,
+      {
+        id,
+        subject,
+        columns: 1,
+        startOnNewPage: false,
+        selected: new Set<string>(),
+      },
+    ]);
+    setActiveSectionId(id);
     setGenerated(false);
   }
 
@@ -783,57 +840,46 @@ export function AssessmentBuilder({
                 remover da seção ativa
               </p>
             </header>
-            <div className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2 xl:grid-cols-3">
               <select
-                aria-label="Filtrar por objeto de conhecimento"
-                value={
-                  activeSection?.subject === 'Química'
-                    ? questionCompetency
-                    : questionKnowledgeObject
-                }
-                onChange={(event) =>
-                  activeSection?.subject === 'Química'
-                    ? setQuestionCompetency(event.target.value)
-                    : setQuestionKnowledgeObject(event.target.value)
-                }
+                aria-label="Filtrar por disciplina"
+                value={activeSection?.subject || ''}
+                onChange={(event) => selectQuestionSubject(event.target.value)}
                 className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
               >
-                <option value="">
-                  {activeSection?.subject === 'Química'
-                    ? 'Todas as competências'
-                    : 'Todos os objetos'}
-                </option>
-                {Array.from(
-                  new Map(
-                    questionsInActiveSubject
-                      .filter((question) =>
-                        activeSection?.subject === 'Química'
-                          ? question.competencyId
-                          : question.knowledgeObjectId,
-                      )
-                      .map((question) => [
-                        activeSection?.subject === 'Química'
-                          ? question.competencyId
-                          : question.knowledgeObjectId,
-                        question,
-                      ]),
-                  ).values(),
-                ).map((question) => (
-                  <option
-                    key={
-                      activeSection?.subject === 'Química'
-                        ? question.competencyId
-                        : question.knowledgeObjectId
-                    }
-                    value={
-                      activeSection?.subject === 'Química'
-                        ? question.competencyId
-                        : question.knowledgeObjectId
-                    }
-                  >
-                    {activeSection?.subject === 'Química'
-                      ? `Competência ${question.competencyNumber}`
-                      : question.knowledgeObject}
+                {subjects.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Filtrar por tópico ou objeto de conhecimento"
+                value={questionTopic}
+                onChange={(event) => {
+                  setQuestionTopic(event.target.value);
+                  setQuestionSubtopic('');
+                }}
+                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+              >
+                <option value="">Todos os tópicos/objetos</option>
+                {availableTopics.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Filtrar por subtópico"
+                value={questionSubtopic}
+                disabled={!availableSubtopics.length}
+                onChange={(event) => setQuestionSubtopic(event.target.value)}
+                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                <option value="">Todos os subtópicos</option>
+                {availableSubtopics.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
                   </option>
                 ))}
               </select>
@@ -892,19 +938,21 @@ export function AssessmentBuilder({
                 <option value="Média">Média</option>
                 <option value="Difícil">Difícil</option>
               </select>
-              {(questionKnowledgeObject ||
+              {(questionTopic ||
+                questionSubtopic ||
                 questionSourceInstitution ||
                 questionSourceYear ||
                 questionDifficulty) && (
                 <button
                   type="button"
                   onClick={() => {
-                    setQuestionKnowledgeObject('');
+                    setQuestionTopic('');
+                    setQuestionSubtopic('');
                     setQuestionSourceInstitution('');
                     setQuestionSourceYear('');
                     setQuestionDifficulty('');
                   }}
-                  className="text-left text-xs font-semibold text-blue-600 xl:col-span-4"
+                  className="text-left text-xs font-semibold text-blue-600 xl:col-span-3"
                 >
                   Limpar filtros · {visibleQuestions.length} encontradas
                 </button>
@@ -946,6 +994,17 @@ export function AssessmentBuilder({
                       <span className="text-xs text-slate-400">
                         {question.grade} · {question.difficulty}
                       </span>
+                      <span className="text-xs text-slate-400">
+                        {question.sourceInstitution} {question.sourceYear}
+                      </span>
+                      {topicParts(question).topic && (
+                        <span className="text-xs font-medium text-slate-500">
+                          {topicParts(question).topic}
+                          {topicParts(question).subtopic
+                            ? ` › ${topicParts(question).subtopic}`
+                            : ''}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm font-medium leading-5 text-slate-800">
                       {question.statement}
@@ -1494,6 +1553,27 @@ export function AssessmentBuilder({
                             <FileOutput className="size-3.5" />
                             Gabarito
                           </a>
+                          {version.renderJobId && (
+                            <>
+                              <a
+                                href={`${apiUrl}${version.downloads?.provaTex || `/api/render-jobs/${version.renderJobId}/prova.tex`}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2 text-xs font-semibold text-violet-800 hover:bg-violet-100"
+                              >
+                                <BookOpen className="size-3.5" />
+                                Ver ConTeXt
+                              </a>
+                              <a
+                                href={`${apiUrl}${version.downloads?.provaTex || `/api/render-jobs/${version.renderJobId}/prova.tex`}?download=1`}
+                                download={`prova-${version.code}.tex`}
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-white px-2 text-xs font-semibold text-violet-800 hover:bg-violet-50"
+                              >
+                                <FileOutput className="size-3.5" />
+                                Baixar .tex
+                              </a>
+                            </>
+                          )}
                         </>
                       ) : (
                         <span className="col-span-2 inline-flex h-9 items-center justify-center rounded-lg bg-slate-50 text-xs font-medium text-slate-400">

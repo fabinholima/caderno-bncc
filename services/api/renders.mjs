@@ -30,6 +30,8 @@ export function formatRenderJob(row) {
       ? {
           prova: `/api/render-jobs/${row.id}/prova`,
           gabarito: `/api/render-jobs/${row.id}/gabarito`,
+          provaTex: `/api/render-jobs/${row.id}/prova.tex`,
+          gabaritoTex: `/api/render-jobs/${row.id}/gabarito.tex`,
         }
       : null,
   };
@@ -49,7 +51,12 @@ export async function getRenderJobStatus({ institutionId, jobId }) {
   return formatRenderJob(result.rows[0]);
 }
 
-export async function getRenderFile({ institutionId, jobId, kind }) {
+export async function getRenderFile({
+  institutionId,
+  jobId,
+  kind,
+  format = 'pdf',
+}) {
   const result = await pool.query({
     text: `SELECT rj.status, rj.output_manifest
            FROM render_jobs rj
@@ -64,7 +71,14 @@ export async function getRenderFile({ institutionId, jobId, kind }) {
     return { status: 422, error: 'A composição do PDF falhou.' };
   if (result.rows[0].status !== 'completed')
     return { status: 409, error: 'O PDF ainda está sendo composto.' };
-  const key = kind === 'gabarito' ? 'answerKeyPdf' : 'studentPdf';
+  const key =
+    format === 'tex'
+      ? kind === 'gabarito'
+        ? 'answerKeySource'
+        : 'studentSource'
+      : kind === 'gabarito'
+        ? 'answerKeyPdf'
+        : 'studentPdf';
   const relative = result.rows[0].output_manifest?.[key];
   const file = path.resolve(outputRoot, relative || '');
   if (!relative || !file.startsWith(`${outputRoot}${path.sep}`))
@@ -80,7 +94,7 @@ export async function getRenderFile({ institutionId, jobId, kind }) {
   } catch {
     return {
       status: 410,
-      error: 'O PDF foi processado, mas não está mais disponível.',
+      error: 'O arquivo foi processado, mas não está mais disponível.',
     };
   }
 }

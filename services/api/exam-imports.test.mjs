@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  candidateUpdateSchema,
   decodePdf,
   examImportProgress,
   examImportSchema,
@@ -10,6 +11,27 @@ import {
   questionNeedsVisualCapture,
   splitExamQuestions,
 } from './exam-imports.mjs';
+
+test('valida decisões humanas granulares sobre sugestões da IA', () => {
+  const value = candidateUpdateSchema.parse({
+    status: 'review',
+    aiReview: {
+      acceptedFields: ['rawText', 'skill'],
+      rejectedFields: ['difficulty'],
+    },
+  });
+  assert.deepEqual(value.aiReview.acceptedFields, ['rawText', 'skill']);
+  assert.throws(
+    () =>
+      candidateUpdateSchema.parse({
+        aiReview: {
+          acceptedFields: ['grade'],
+          rejectedFields: ['grade'],
+        },
+      }),
+    /não pode ser aceito e rejeitado ao mesmo tempo/,
+  );
+});
 
 test('conclui a importação quando todas as questões têm destino editorial', () => {
   assert.deepEqual(

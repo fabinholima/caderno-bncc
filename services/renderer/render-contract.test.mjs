@@ -12,11 +12,20 @@ test('converte o contrato imutável para t-basicexam e escapa conteúdo', async 
   snapshot.assessment.title = 'Prova 100% segura & versionada';
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\usemodule\[basicexam\]\[mode=student\]/);
+  assert.match(tex, /\\mainlanguage\[pt\]/);
+  assert.match(
+    tex,
+    /\\setupalign\[nothyphenated,hz,hanging,tolerant,stretch\]/,
+  );
   assert.match(tex, /layout basicexam-v1/);
   assert.match(tex, /Prova 100\\% segura \\& versionada/);
   assert.match(tex, /\\startcitem\[\*\] 30 \\stopcitem/);
   assert.match(tex, /\\stoptext/);
   assert.match(tex, /\\setupbodyfont\[plex,11pt\]/);
+  assert.match(
+    tex,
+    /\\setuppagenumbering\[location=\{footer,right\},style=\\tfx\]/,
+  );
 });
 
 test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async () => {
@@ -33,6 +42,41 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\blackrule\[width=8mm,height=8mm\]/);
   assert.match(tex, /\\NC 01 \\NC \\framed\[width=6mm,height=6mm/);
   assert.match(tex, /offset=overlay\]\{E\}/);
+  assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
+  assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
+  assert.match(tex, /\\bold\{Nome completo do aluno\}/);
+  assert.match(tex, /AnswerCardNameGridOverlay/);
+  assert.match(tex, /\\externalfigure\[qr\.png\]/);
+  assert.equal(
+    tex.match(/\\startframedtext\[width=\\textwidth/g)?.length,
+    2,
+  );
+});
+
+test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simplificado', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.render.template = 'simulado-v1';
+  snapshot.institution.logoFileName = 'institution-logo.png';
+  snapshot.version.qrPayload =
+    'CBS1:c07a8f8f-7d5e-4b34-9cc0-2d7dc36eee95:759d74e761c57f8cf0d0';
+  snapshot.version.qrFileName = 'assessment-qr.png';
+  const tex = renderAssessment(snapshot);
+  assert.match(
+    tex,
+    /\\vbox to 20mm\{\\hsize=30mm\\vfil\\leftaligned\{\\externalfigure\[institution-logo\.png\]/,
+  );
+  assert.match(
+    tex,
+    /\\vbox to 20mm\{\\hsize=24mm\\vfil\\rightaligned\{\\externalfigure\[assessment-qr\.png\]/,
+  );
+  assert.match(tex, /Assinatura do Aluno:/);
+  assert.match(tex, /Turma:/);
+  assert.doesNotMatch(tex, /Nº\/Matrícula:/);
+  assert.doesNotMatch(tex, /Data de nascimento:/);
 });
 
 test('aplica somente família e tamanho de fonte permitidos', async () => {
@@ -134,7 +178,10 @@ test('renderiza conteúdo científico inline e condições de reação', async (
   ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\chemical\{EQUILIBRIUM\}\{450 °C\}\{Fe\}/);
-  assert.match(tex, /e na concentração \\mathematics\{\\frac\{n\}\{V\}\}/);
+  assert.match(
+    tex,
+    /e na concentração \\allowbreak\{\}\\mathematics\{\\frac\{n\}\{V\}\}/,
+  );
 });
 
 test('renderiza estrutura orgânica por preset seguro', async () => {
@@ -195,8 +242,11 @@ test('organiza disciplinas em seções com uma ou duas colunas', async () => {
   ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\subject\{Matemática\}/);
-  assert.match(tex, /\\startcolumns\[n=2,balance=no\]/);
-  assert.match(tex, /\\stopcolumns/);
+  assert.match(
+    tex,
+    /\\startmixedcolumns\[n=2,balance=yes,distance=10mm,separator=rule,rulethickness=\.5pt,rulecolor=middlegray\]/,
+  );
+  assert.match(tex, /\\stopmixedcolumns/);
   assert.match(tex, /\\page\n\\subject\{Química\}/);
 });
 
@@ -232,10 +282,10 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   snapshot.institution.logoFileName = 'institution-logo.png';
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\externalfigure\[institution-logo\.png\]/);
-  assert.match(tex, /Professor\(a\): Prof\. Ana \\& Silva/);
-  assert.match(tex, /Turma: 7º A/);
-  assert.match(tex, /Período: 2º bimestre/);
-  assert.match(tex, /Data: 15\/09\/2026/);
+  assert.match(tex, /Professor\(a\):\} Prof\. Ana \\& Silva/);
+  assert.match(tex, /Turma:\} 7º A/);
+  assert.match(tex, /Período:\} 2º bimestre/);
+  assert.match(tex, /Data:\} 15\/09\/2026/);
 });
 
 test('renderiza imagem materializada no enunciado com limite de página', async () => {
@@ -281,7 +331,10 @@ test('renderiza lista romana e equação destacada como ambientes ConTeXt', asyn
   ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\startitemize\[I,packed\]/);
-  assert.match(tex, /\\item Primeira afirmação com \\chemical\{H_\{2\}O\}\./);
+  assert.match(
+    tex,
+    /\\item Primeira afirmação com \\allowbreak\{\}\\chemical\{H_\{2\}O\}\./,
+  );
   assert.match(tex, /\\stopitemize/);
   assert.match(tex, /\\startformula/);
   assert.match(tex, /2\\,\\mathrm\{HI\}/);
@@ -362,7 +415,7 @@ test('renderiza chemical e unit em linha no texto corrido', async () => {
   const tex = renderAssessment(snapshot);
   assert.match(
     tex,
-    /ligação do \\chemical\{H_2\} e do \\chemical\{Cl_2\} em \\unit\{kilo joule inverse mol\}/,
+    /ligação do \\allowbreak\{\}\\chemical\{H_2\} e do \\allowbreak\{\}\\chemical\{Cl_2\} em \\allowbreak\{\}\\unit\{kilo joule inverse mol\}/,
   );
 });
 
@@ -381,7 +434,7 @@ test('preserva chemical e unit exatamente no meio de um único parágrafo', asyn
   const tex = renderAssessment(snapshot);
   assert.match(
     tex,
-    /ligação do \\chemical\{H_2\}, do \\chemical\{Cl_2\} e do \\chemical\{HCl\}, em \\unit\{kilo joule inverse mol\}\./,
+    /ligação do \\allowbreak\{\}\\chemical\{H_2\}, do \\allowbreak\{\}\\chemical\{Cl_2\} e do \\allowbreak\{\}\\chemical\{HCl\}, em \\allowbreak\{\}\\unit\{kilo joule inverse mol\}\./,
   );
 });
 
@@ -414,7 +467,7 @@ test('renderiza matemática ampla com m no meio do parágrafo', async () => {
   const tex = renderAssessment(snapshot);
   assert.match(
     tex,
-    /Considere \\m\{\\frac\{a_1\}\{b\^2\} \+ \\sqrt\{x\} \\le \\Delta H \\rightarrow \\infty\} no cálculo\./,
+    /Considere \\allowbreak\{\}\\m\{\\frac\{a_1\}\{b\^2\} \+ \\sqrt\{x\} \\le \\Delta H \\rightarrow \\infty\} no cálculo\./,
   );
 });
 
@@ -431,7 +484,10 @@ test('permite ell em fórmulas matemáticas inseridas no texto', async () => {
     },
   ];
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /Considere \\m\{HC\\ell\} e \\m\{C\\ell_2\}\./);
+  assert.match(
+    tex,
+    /Considere \\allowbreak\{\}\\m\{HC\\ell\} e \\allowbreak\{\}\\m\{C\\ell_2\}\./,
+  );
 });
 
 test('permite ell dentro de chemical sem forçar itálico matemático', async () => {
@@ -449,7 +505,7 @@ test('permite ell dentro de chemical sem forçar itálico matemático', async ()
   const tex = renderAssessment(snapshot);
   assert.match(
     tex,
-    /Considere \\chemical\{HC\\ell\} e \\chemical\{C\\ell_\{2\}\}\./,
+    /Considere \\allowbreak\{\}\\chemical\{HC\\ell\} e \\allowbreak\{\}\\chemical\{C\\ell_\{2\}\}\./,
   );
   assert.doesNotMatch(tex, /Considere \\m\{/);
 });
@@ -467,7 +523,10 @@ test('preserva expoente dentro de chemical no texto corrido', async () => {
     },
   ];
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /Considere a espécie \\chemical\{2P\^2\} no equilíbrio\./);
+  assert.match(
+    tex,
+    /Considere a espécie \\allowbreak\{\}\\chemical\{2P\^2\} no equilíbrio\./,
+  );
 });
 
 test('usa bold na fonte da questão e permite exibir a habilidade BNCC', async () => {

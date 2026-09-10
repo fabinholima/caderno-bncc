@@ -67,6 +67,16 @@ type ExamImport = {
   createdAt: string;
 };
 
+type AiReviewField =
+  | 'rawText'
+  | 'questionType'
+  | 'pedagogicalDisciplineId'
+  | 'grade'
+  | 'difficulty'
+  | 'correctAnswers'
+  | 'skill'
+  | 'pedagogicalTopicId';
+
 type ExamImportCandidate = {
   id: string;
   sourceNumber: number;
@@ -104,6 +114,18 @@ type ExamImportCandidate = {
     model: string;
     promptVersion: string;
     provider?: string;
+  };
+  aiReview?: {
+    acceptedFields: AiReviewField[];
+    rejectedFields: AiReviewField[];
+    reviewedAt?: string;
+    reviewedBy?: string | null;
+    history?: Array<{
+      acceptedFields: AiReviewField[];
+      rejectedFields: AiReviewField[];
+      reviewedAt: string;
+      reviewedBy?: string | null;
+    }>;
   };
 };
 
@@ -318,6 +340,259 @@ const rightsLabels: Record<string, string> = {
   restricted: 'Uso interno',
   blocked: 'Uso bloqueado',
 };
+
+const questionTypeLabels: Record<ExamImportCandidate['questionType'], string> =
+  {
+    single_choice: 'Múltipla escolha · uma resposta',
+    multiple_choice: 'Múltipla escolha · várias respostas',
+    essay: 'Discursiva',
+  };
+
+function summarizeAiText(value?: string | null) {
+  if (!value) return 'Não informado';
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > 220
+    ? `${normalized.slice(0, 217)}...`
+    : normalized;
+}
+
+function AiSuggestionReview({
+  candidate,
+  disciplines,
+  topics,
+  onAccept,
+  onReject,
+}: {
+  candidate: ExamImportCandidate;
+  disciplines: PedagogicalDiscipline[];
+  topics: PedagogicalTopic[];
+  onAccept: (fields: AiReviewField[]) => Promise<void>;
+  onReject: (fields: AiReviewField[]) => Promise<void>;
+}) {
+  const suggestion = candidate.aiSuggestion;
+  const [selectedFields, setSelectedFields] = useState<AiReviewField[]>([]);
+  const [busy, setBusy] = useState(false);
+  if (!suggestion) return null;
+
+  const currentDiscipline = disciplines.find(
+    (entry) => entry.id === candidate.pedagogicalDisciplineId,
+  );
+  const suggestedDiscipline = disciplines.find(
+    (entry) =>
+      entry.name.toLocaleLowerCase('pt-BR') ===
+      suggestion.subject?.toLocaleLowerCase('pt-BR'),
+  );
+  const currentTopic = topics.find(
+    (entry) => entry.id === candidate.pedagogicalTopicId,
+  );
+  const suggestedTopic = topics.find(
+    (entry) => entry.id === suggestion.topicId,
+  );
+  const rows: Array<{
+    field: AiReviewField;
+    label: string;
+    current: string;
+    suggested: string;
+    available: boolean;
+  }> = [
+    {
+      field: 'rawText',
+      label: 'Texto',
+      current: summarizeAiText(candidate.rawText),
+      suggested: summarizeAiText(suggestion.normalizedText),
+      available: Boolean(suggestion.normalizedText.trim()),
+    },
+    {
+      field: 'questionType',
+      label: 'Tipo',
+      current: questionTypeLabels[candidate.questionType],
+      suggested: questionTypeLabels[suggestion.questionType],
+      available: true,
+    },
+    {
+      field: 'pedagogicalDisciplineId',
+      label: 'Disciplina',
+      current: currentDiscipline?.name || 'Não definida',
+      suggested:
+        suggestedDiscipline?.name || suggestion.subject || 'Não sugerida',
+      available: Boolean(suggestedDiscipline),
+    },
+    {
+      field: 'grade',
+      label: 'Série',
+      current: candidate.grade || 'Não definida',
+      suggested: suggestion.grade || 'Não sugerida',
+      available: Boolean(suggestion.grade),
+    },
+    {
+      field: 'pedagogicalTopicId',
+      label: 'Objeto / subtópico',
+      current: currentTopic?.path || 'Não definido',
+      suggested:
+        suggestedTopic?.path ||
+        (suggestion.topicId ? 'Código fora do catálogo atual' : 'Não sugerido'),
+      available: Boolean(suggestedTopic),
+    },
+    {
+      field: 'skill',
+      label: 'Habilidade BNCC',
+      current: candidate.skill || 'Não definida',
+      suggested: suggestion.skillCode || 'Não sugerida',
+      available: Boolean(suggestion.skillCode),
+    },
+    {
+      field: 'difficulty',
+      label: 'Dificuldade',
+      current: candidate.difficulty || 'Não definida',
+      suggested: suggestion.difficulty || 'Não sugerida',
+      available: Boolean(suggestion.difficulty),
+    },
+    {
+      field: 'correctAnswers',
+      label: 'Gabarito',
+      current: candidate.correctAnswers?.join(', ') || 'Não definido',
+      suggested: suggestion.correctAnswers.join(', ') || 'Não sugerido',
+      available: suggestion.correctAnswers.length > 0,
+    },
+  ];
+  const changedFields = rows
+    .filter((row) => row.available && row.current !== row.suggested)
+    .map((row) => row.field);
+  const accepted = new Set(candidate.aiReview?.acceptedFields || []);
+  const rejected = new Set(candidate.aiReview?.rejectedFields || []);
+
+  const decide = async (decision: 'accept' | 'reject') => {
+    if (!selectedFields.length) return;
+    setBusy(true);
+    try {
+      await (decision === 'accept'
+        ? onAccept(selectedFields)
+        : onReject(selectedFields));
+      setSelectedFields([]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-3 rounded-lg border border-violet-200 bg-white p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
+            {suggestion.provider === 'local_demo'
+              ? 'Sugestão local de demonstração'
+              : 'Sugestão da IA'}{' '}
+            — decisão humana por campo
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            Confiança {Math.round(suggestion.confidence * 100)}% ·{' '}
+            {suggestion.model}. Nenhuma sugestão é cadastrada automaticamente.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setSelectedFields(changedFields)}
+          >
+            Marcar mudanças
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setSelectedFields([])}
+          >
+            Limpar
+          </Button>
+        </div>
+      </div>
+      {suggestion.warnings.length > 0 && (
+        <p className="mt-2 text-xs text-amber-800">
+          Atenção: {suggestion.warnings.join(' · ')}
+        </p>
+      )}
+      <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
+        <div className="grid min-w-[720px] grid-cols-[42px_150px_1fr_1fr_96px] bg-slate-100 px-2 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+          <span />
+          <span>Campo</span>
+          <span>Atual</span>
+          <span>Sugestão</span>
+          <span>Decisão</span>
+        </div>
+        {rows.map((row) => {
+          const isAccepted = accepted.has(row.field);
+          const isRejected = rejected.has(row.field);
+          return (
+            <label
+              key={row.field}
+              className="grid min-w-[720px] grid-cols-[42px_150px_1fr_1fr_96px] items-start border-t border-slate-100 px-2 py-2 text-xs"
+            >
+              <input
+                type="checkbox"
+                checked={selectedFields.includes(row.field)}
+                disabled={!row.available || busy}
+                onChange={(event) =>
+                  setSelectedFields((current) =>
+                    event.target.checked
+                      ? [...new Set([...current, row.field])]
+                      : current.filter((field) => field !== row.field),
+                  )
+                }
+                className="mt-0.5 size-4 accent-violet-700"
+              />
+              <span className="font-semibold text-slate-700">{row.label}</span>
+              <span className="pr-3 text-slate-600">{row.current}</span>
+              <span className="pr-3 text-violet-900">{row.suggested}</span>
+              <span
+                className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${isAccepted ? 'bg-emerald-100 text-emerald-800' : isRejected ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'}`}
+              >
+                {isAccepted ? 'Aceito' : isRejected ? 'Rejeitado' : 'Pendente'}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={!selectedFields.length || busy}
+          onClick={() => decide('accept')}
+        >
+          Aceitar selecionados
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={!selectedFields.length || busy}
+          onClick={() => decide('reject')}
+        >
+          Rejeitar selecionados
+        </Button>
+        {candidate.aiReview?.reviewedAt && (
+          <span className="text-[11px] text-slate-500">
+            Última decisão:{' '}
+            {new Date(candidate.aiReview.reviewedAt).toLocaleString('pt-BR')}
+            {candidate.aiReview.history?.length
+              ? ` · ${candidate.aiReview.history.length} registro(s) no histórico`
+              : ''}
+          </span>
+        )}
+      </div>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-xs font-semibold text-violet-800">
+          Ver texto completo sugerido
+        </summary>
+        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs">
+          {suggestion.normalizedText}
+        </pre>
+      </details>
+    </section>
+  );
+}
 
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -708,36 +983,64 @@ export function ExamImportManager({
     );
   };
 
-  const applyAiSuggestion = async (
+  const decideAiSuggestionFields = async (
     item: ExamImport,
     candidate: ExamImportCandidate,
+    fields: AiReviewField[],
+    decision: 'accept' | 'reject',
   ) => {
     const suggestion = candidate.aiSuggestion;
     if (!suggestion) return;
+    const previousAccepted = candidate.aiReview?.acceptedFields || [];
+    const previousRejected = candidate.aiReview?.rejectedFields || [];
+    const acceptedFields =
+      decision === 'accept'
+        ? [...new Set([...previousAccepted, ...fields])]
+        : previousAccepted.filter((field) => !fields.includes(field));
+    const rejectedFields =
+      decision === 'reject'
+        ? [...new Set([...previousRejected, ...fields])]
+        : previousRejected.filter((field) => !fields.includes(field));
+    const changes: Partial<ExamImportCandidate> = {
+      status: 'review',
+      aiReview: { acceptedFields, rejectedFields },
+    };
+
+    if (decision === 'reject') {
+      await updateCandidate(item.id, candidate.id, changes);
+      setMessage(
+        `${fields.length} sugestão(ões) rejeitada(s) na questão ${candidate.sourceNumber}.`,
+      );
+      return;
+    }
+
     const discipline = pedagogicalDisciplines.find(
       (entry) =>
         entry.name.toLocaleLowerCase('pt-BR') ===
         suggestion.subject?.toLocaleLowerCase('pt-BR'),
     );
-    await updateCandidate(item.id, candidate.id, {
-      rawText: suggestion.normalizedText,
-      questionType: suggestion.questionType,
-      grade: suggestion.grade || candidate.grade || '',
-      difficulty: suggestion.difficulty || candidate.difficulty,
-      correctAnswers: suggestion.correctAnswers,
-      answerStatus: suggestion.correctAnswers.length
-        ? 'suggested'
-        : candidate.answerStatus,
-      answerConfidence: suggestion.confidence,
-      skill: suggestion.skillCode || candidate.skill || '',
-      pedagogicalTopicId:
-        suggestion.topicId || candidate.pedagogicalTopicId || '',
-      pedagogicalDisciplineId:
-        discipline?.id || candidate.pedagogicalDisciplineId || '',
-      status: 'review',
-    });
+    if (fields.includes('rawText')) changes.rawText = suggestion.normalizedText;
+    if (fields.includes('questionType'))
+      changes.questionType = suggestion.questionType;
+    if (fields.includes('pedagogicalDisciplineId') && discipline)
+      changes.pedagogicalDisciplineId = discipline.id;
+    if (fields.includes('grade') && suggestion.grade)
+      changes.grade = suggestion.grade;
+    if (fields.includes('difficulty') && suggestion.difficulty)
+      changes.difficulty = suggestion.difficulty;
+    if (fields.includes('correctAnswers') && suggestion.correctAnswers.length) {
+      changes.correctAnswers = suggestion.correctAnswers;
+      changes.answerStatus = 'suggested';
+      changes.answerConfidence = suggestion.confidence;
+    }
+    if (fields.includes('skill') && suggestion.skillCode)
+      changes.skill = suggestion.skillCode;
+    if (fields.includes('pedagogicalTopicId') && suggestion.topicId)
+      changes.pedagogicalTopicId = suggestion.topicId;
+
+    await updateCandidate(item.id, candidate.id, changes);
     setMessage(
-      `Sugestões aplicadas à questão ${candidate.sourceNumber}; revise e confirme antes de cadastrar.`,
+      `${fields.length} sugestão(ões) aceita(s) na questão ${candidate.sourceNumber}; o gabarito ainda exige confirmação.`,
     );
   };
 
@@ -768,9 +1071,28 @@ export function ExamImportManager({
         body: JSON.stringify(changes),
       },
     );
-    const body = (await response.json()) as { error?: string };
+    const body = (await response.json()) as {
+      data?: ExamImportCandidate;
+      error?: string;
+    };
     if (!response.ok)
       throw new Error(body.error || 'Não foi possível atualizar a questão.');
+    if (body.data) {
+      setImports((current) =>
+        current.map((item) =>
+          item.id === importId
+            ? {
+                ...item,
+                candidates: item.candidates.map((candidate) =>
+                  candidate.id === candidateId
+                    ? { ...candidate, ...body.data }
+                    : candidate,
+                ),
+              }
+            : item,
+        ),
+      );
+    }
   };
 
   const createCrop = async (
@@ -1731,69 +2053,31 @@ export function ExamImportManager({
                           ))}
                         </div>
                         {candidate.aiSuggestion && (
-                          <section className="mt-3 rounded-lg border border-violet-200 bg-white p-3">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
-                                  {candidate.aiSuggestion.provider ===
-                                  'local_demo'
-                                    ? 'Sugestão local de demonstração'
-                                    : 'Sugestão da IA'}{' '}
-                                  — revisão obrigatória
-                                </p>
-                                <p className="mt-1 text-xs text-slate-600">
-                                  Confiança{' '}
-                                  {Math.round(
-                                    candidate.aiSuggestion.confidence * 100,
-                                  )}
-                                  % ·{' '}
-                                  {candidate.aiSuggestion.subject ||
-                                    'disciplina incerta'}{' '}
-                                  ·{' '}
-                                  {candidate.aiSuggestion.grade ||
-                                    'série incerta'}{' '}
-                                  ·{' '}
-                                  {candidate.aiSuggestion.difficulty ||
-                                    'dificuldade incerta'}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-600">
-                                  Habilidade{' '}
-                                  {candidate.aiSuggestion.skillCode ||
-                                    'não sugerida'}{' '}
-                                  · tópico{' '}
-                                  {candidate.aiSuggestion.topicId
-                                    ? 'identificado no catálogo'
-                                    : 'não sugerido'}{' '}
-                                  · {candidate.aiSuggestion.model}
-                                </p>
-                              </div>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() =>
-                                  applyAiSuggestion(item, candidate).catch(
-                                    (error) => setMessage(error.message),
-                                  )
-                                }
-                              >
-                                Aplicar para revisar
-                              </Button>
-                            </div>
-                            {candidate.aiSuggestion.warnings.length > 0 && (
-                              <p className="mt-2 text-xs text-amber-800">
-                                Atenção:{' '}
-                                {candidate.aiSuggestion.warnings.join(' · ')}
-                              </p>
-                            )}
-                            <details className="mt-2">
-                              <summary className="cursor-pointer text-xs font-semibold text-violet-800">
-                                Ver texto formatado sugerido
-                              </summary>
-                              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs">
-                                {candidate.aiSuggestion.normalizedText}
-                              </pre>
-                            </details>
-                          </section>
+                          <AiSuggestionReview
+                            candidate={candidate}
+                            disciplines={pedagogicalDisciplines}
+                            topics={pedagogicalTopics}
+                            onAccept={(fields) =>
+                              decideAiSuggestionFields(
+                                item,
+                                candidate,
+                                fields,
+                                'accept',
+                              ).catch((error) => {
+                                setMessage(error.message);
+                              })
+                            }
+                            onReject={(fields) =>
+                              decideAiSuggestionFields(
+                                item,
+                                candidate,
+                                fields,
+                                'reject',
+                              ).catch((error) => {
+                                setMessage(error.message);
+                              })
+                            }
+                          />
                         )}
                         {pagePreviewCandidateId === candidate.id &&
                           candidate.pageNumber && (

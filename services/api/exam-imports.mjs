@@ -314,7 +314,36 @@ async function createAutomaticVisualCapture({
   };
 }
 
-const candidateUpdateSchema = z.object({
+const aiReviewFieldSchema = z.enum([
+  'rawText',
+  'questionType',
+  'pedagogicalDisciplineId',
+  'grade',
+  'difficulty',
+  'correctAnswers',
+  'skill',
+  'pedagogicalTopicId',
+]);
+
+const aiReviewSchema = z
+  .object({
+    acceptedFields: z.array(aiReviewFieldSchema).max(8),
+    rejectedFields: z.array(aiReviewFieldSchema).max(8),
+  })
+  .superRefine((value, context) => {
+    const accepted = new Set(value.acceptedFields);
+    for (const field of value.rejectedFields) {
+      if (accepted.has(field)) {
+        context.addIssue({
+          code: 'custom',
+          message: `O campo ${field} não pode ser aceito e rejeitado ao mesmo tempo.`,
+          path: ['rejectedFields'],
+        });
+      }
+    }
+  });
+
+export const candidateUpdateSchema = z.object({
   rawText: z.string().trim().min(20).max(30_000).optional(),
   selected: z.boolean().optional(),
   questionType: z
@@ -353,6 +382,7 @@ const candidateUpdateSchema = z.object({
     .or(z.literal('')),
   pedagogicalDisciplineId: z.uuid().optional().or(z.literal('')),
   pedagogicalTopicId: z.uuid().optional().or(z.literal('')),
+  aiReview: aiReviewSchema.optional(),
 });
 
 const cropSchema = z
@@ -370,6 +400,7 @@ export async function updateExamImportCandidate({
   examImportId,
   candidateId,
   input,
+  userId,
 }) {
   const value = candidateUpdateSchema.parse(input);
   return transaction(async (client) => {
@@ -388,7 +419,29 @@ export async function updateExamImportCandidate({
       throw Object.assign(new Error('Questão extraída não encontrada.'), {
         statusCode: 404,
       });
-    candidates[index] = { ...candidates[index], ...value };
+    const reviewedAt = value.aiReview ? new Date().toISOString() : null;
+    const reviewHistory = candidates[index].aiReview?.history || [];
+    candidates[index] = {
+      ...candidates[index],
+      ...value,
+      ...(value.aiReview
+        ? {
+            aiReview: {
+              ...value.aiReview,
+              reviewedAt,
+              reviewedBy: userId || null,
+              history: [
+                ...reviewHistory.slice(-49),
+                {
+                  ...value.aiReview,
+                  reviewedAt,
+                  reviewedBy: userId || null,
+                },
+              ],
+            },
+          }
+        : {}),
+    };
     const progress = examImportProgress(candidates);
     await client.query(
       `UPDATE exam_imports
@@ -741,7 +794,7 @@ export async function extractExamImportQuestions({
       ],
     );
     return candidates;
-  } catch (error) {
+  } catch {
     await pool.query(
       `UPDATE exam_imports SET status=$3,error_message=$4,updated_at=now()
         WHERE institution_id=$1 AND id=$2`,

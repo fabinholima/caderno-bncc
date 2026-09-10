@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node worker.mjs",
+    "start": "node --env-file-if-exists=../../.env worker.mjs",
     "test": "node --test"
   },
   "dependencies": {

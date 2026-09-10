@@ -42,7 +42,7 @@ export const createAssessmentSchema = z
           subject: z.string().trim().min(2).max(120),
           title: z.string().trim().min(2).max(180).optional(),
           columns: z.union([z.literal(1), z.literal(2)]).default(1),
-          startOnNewPage: z.boolean().default(true),
+          startOnNewPage: z.boolean().default(false),
           questionIds: z.array(z.string().uuid()).min(1).max(100),
         }),
       )

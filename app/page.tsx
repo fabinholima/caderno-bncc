@@ -53,6 +53,7 @@ type Question = {
   knowledgeObjectId?: string;
   knowledgeObject?: string;
   knowledgeTopic?: string;
+  pedagogicalTopicId?: string;
   competencyId?: string;
   competencyNumber?: number;
   saebDescriptorId?: string;
@@ -288,6 +289,7 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [questionPreviewUrl, setQuestionPreviewUrl] = useState('');
+  const [questionPreviewVerified, setQuestionPreviewVerified] = useState(false);
   const [notice, setNotice] = useState('');
   const [active, setActive] = useState('Questões');
   const [curriculum, setCurriculum] = useState(curriculumDemo);
@@ -573,6 +575,12 @@ export default function Home() {
 
   async function createQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (importCandidateSource && !questionPreviewVerified) {
+      setNotice(
+        'Gere e confira a prévia real em PDF antes de cadastrar esta questão importada.',
+      );
+      return;
+    }
     const data = new FormData(event.currentTarget);
     const input = questionInputFromForm(data);
     setSaving(true);
@@ -761,6 +769,10 @@ export default function Home() {
         if (current) URL.revokeObjectURL(current);
         return nextUrl;
       });
+      setQuestionPreviewVerified(true);
+      setNotice(
+        'Prévia gerada. Confira o PDF; se estiver correto, o cadastro da questão está liberado.',
+      );
     } catch (error) {
       setNotice(
         error instanceof Error ? error.message : 'Erro ao gerar a prévia.',
@@ -839,7 +851,11 @@ export default function Home() {
         warnings: [],
       });
       setImportRevision((value) => value + 1);
-      setQuestionPreviewUrl('');
+      setQuestionPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return '';
+      });
+      setQuestionPreviewVerified(false);
       setOpen(true);
       setNotice('');
     } catch (error) {
@@ -888,7 +904,11 @@ export default function Home() {
       difficulty: 'Média',
     });
     setQuestionType('single_choice');
-    setQuestionPreviewUrl('');
+    setQuestionPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return '';
+    });
+    setQuestionPreviewVerified(false);
     setSelectedSkillCode('');
     setSelectedSaebDescriptor('');
     setSaebInfoOpen(false);
@@ -1110,6 +1130,11 @@ export default function Home() {
                 knowledgeTopic: '',
                 difficulty: candidate.difficulty || 'Média',
               });
+              setQuestionPreviewUrl((current) => {
+                if (current) URL.revokeObjectURL(current);
+                return '';
+              });
+              setQuestionPreviewVerified(false);
               setImportRevision((value) => value + 1);
               setActive('Questões');
               setOpen(true);
@@ -1666,7 +1691,11 @@ export default function Home() {
                   id="dialog-title"
                   className="font-display mt-1 text-2xl font-bold text-[var(--navy)]"
                 >
-                  {editingQuestionId ? 'Editar questão' : 'Nova questão'}
+                  {editingQuestionId
+                    ? 'Editar questão'
+                    : importCandidateSource
+                      ? 'Revisar questão importada'
+                      : 'Nova questão'}
                 </h2>
               </div>
               <Button
@@ -1678,7 +1707,29 @@ export default function Home() {
                 <X />
               </Button>
             </header>
-            <form onSubmit={createQuestion} className="space-y-6 p-6">
+            <form
+              onSubmit={createQuestion}
+              onInput={() => {
+                if (!questionPreviewVerified) return;
+                setQuestionPreviewUrl((current) => {
+                  if (current) URL.revokeObjectURL(current);
+                  return '';
+                });
+                setQuestionPreviewVerified(false);
+                setNotice(
+                  'A questão foi alterada. Gere uma nova prévia para validar a versão atual.',
+                );
+              }}
+              className="space-y-6 p-6"
+            >
+              {importCandidateSource && (
+                <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-950">
+                  <strong>Revisão final da questão importada.</strong> Edite o
+                  conteúdo abaixo e gere a prévia real em PDF. O botão de
+                  cadastro será liberado somente depois dessa conferência; a
+                  questão original continuará vinculada à importação.
+                </div>
+              )}
               <QuestionPasteImporter
                 onConfirm={(parsed) => {
                   setImportedQuestion(parsed);
@@ -2334,11 +2385,20 @@ export default function Home() {
                   {previewing ? 'Compilando...' : 'Prévia real em PDF'}
                 </Button>
                 <Button
-                  disabled={saving}
+                  disabled={
+                    saving ||
+                    Boolean(importCandidateSource && !questionPreviewVerified)
+                  }
                   type="submit"
                   className="bg-[var(--blue)] text-white hover:bg-blue-700"
                 >
-                  {saving ? 'Salvando...' : 'Salvar rascunho'}
+                  {saving
+                    ? 'Salvando...'
+                    : importCandidateSource && !questionPreviewVerified
+                      ? 'Gere a prévia para cadastrar'
+                      : importCandidateSource
+                        ? 'Cadastrar questão revisada'
+                        : 'Salvar rascunho'}
                 </Button>
               </footer>
               {questionPreviewUrl && (

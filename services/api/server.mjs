@@ -183,13 +183,13 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname === '/api/auth/register') {
       const result = await register(await readJson(request));
       setSessionCookie(response, result.token);
-      const { token, ...data } = result;
+      const { token: _token, ...data } = result;
       return json(response, 201, { data });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/login') {
       const result = await login(await readJson(request));
       setSessionCookie(response, result.token);
-      const { token, ...data } = result;
+      const { token: _token, ...data } = result;
       return json(response, 200, { data });
     }
     if (
@@ -347,6 +347,7 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await updateExamImportCandidate({
           institutionId,
+          userId,
           examImportId: examImportCandidateMatch[1],
           candidateId: examImportCandidateMatch[2],
           input: await readJson(request),
@@ -956,6 +957,29 @@ const server = createServer(async (request, response) => {
       return json(response, 201, {
         data: await createSkill(await readJson(request)),
       });
+    const renderSourceMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/render-jobs\/([0-9a-f-]{36})\/(prova|gabarito)\.tex$/i,
+      );
+    if (renderSourceMatch) {
+      const file = await getRenderFile({
+        institutionId,
+        jobId: renderSourceMatch[1],
+        kind: renderSourceMatch[2],
+        format: 'tex',
+      });
+      if (file.error) return json(response, file.status, { error: file.error });
+      const disposition =
+        url.searchParams.get('download') === '1' ? 'attachment' : 'inline';
+      response.writeHead(200, {
+        'content-type': 'text/plain; charset=utf-8',
+        'content-length': file.size,
+        'content-disposition': `${disposition}; filename="${renderSourceMatch[2]}.tex"`,
+        ...corsHeaders(response),
+      });
+      return file.stream.pipe(response);
+    }
     const renderMatch =
       request.method === 'GET' &&
       url.pathname.match(

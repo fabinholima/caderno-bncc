@@ -1,3 +1,8 @@
+import {
+  answerCardHeaderPreamble,
+  renderAnswerCardHeader,
+} from './answer-card-header.mjs';
+
 const bubble = (label) =>
   `\\framed[width=3.8mm,height=3.8mm,corner=round,radius=1.9mm,offset=overlay,framecolor=simuladoaccent]{\\switchtobodyfont[6pt]${label}}`;
 
@@ -34,8 +39,6 @@ export const simulatedExamV1 = Object.freeze({
       questionCount,
       points,
       candidate,
-      candidateName,
-      candidateNumber,
       content,
       transcriptionPhrase,
       instructions,
@@ -50,6 +53,19 @@ export const simulatedExamV1 = Object.freeze({
     const qr = qrFileName
       ? `\\externalfigure[${qrFileName}][width=19mm,height=19mm]`
       : '';
+    const examHeader = `\\dontleavehmode\\hbox to \\hsize{
+\\vbox to 20mm{\\hsize=30mm\\vfil\\leftaligned{${logo}}\\vfil}
+\\hfill
+\\vbox to 20mm{\\hsize=\\dimexpr\\hsize-60mm\\relax\\vfil\\midaligned{\\tfd\\bf ${institution}}\\vfil}
+\\hfill
+\\vbox to 20mm{\\hsize=24mm\\vfil\\rightaligned{${qr}}\\vfil}}`;
+    const answerCardHeader = renderAnswerCardHeader({
+      institution,
+      title,
+      grade,
+      className,
+      qr,
+    });
     const details = [
       teacherName && `Professor(a): ${teacherName}`,
       className && `Turma: ${className}`,
@@ -71,10 +87,7 @@ export const simulatedExamV1 = Object.freeze({
     const cover =
       mode === 'student'
         ? `\\startframedtext[width=\\textwidth,framecolor=simuladoaccent,background=color,backgroundcolor=simuladobackground,corner=round,offset=4mm]
-\\startcombination[2*1]
-{${logo}} {}
-{\\framed[frame=off,width=\\dimexpr\\textwidth-34mm\\relax,align=middle]{\\tfd\\bf ${institution}}} {}
-\\stopcombination
+${examHeader}
 \\blank[small]
 \\midaligned{\\tfd\\bf ${title}}
 \\midaligned{${grade} \\quad Versão ${version} \\quad Valor: ${points}}
@@ -117,16 +130,7 @@ Turma: ${className || '\\thinrules[n=1,width=35mm]'} \\quad Data: ${assessmentDa
         ? `\\page
 \\noindent\\blackrule[width=7mm,height=7mm]\\hfill\\blackrule[width=7mm,height=7mm]
 \\blank[small]
-\\startframedtext[width=\\textwidth,framecolor=simuladoaccent,corner=round,offset=3mm]
-\\bTABLE[frame=off]
-\\bTR \\bTD[width=.72\\textwidth] {\\tfc\\bf CARTÃO-RESPOSTA — SIMULADO}\\blank[small]
-Nome: ${candidateName || '\\thinrules[n=1,width=10cm]'}\\par
-Nº/Matrícula: ${candidateNumber || '\\thinrules[n=1,width=35mm]'} \\quad Turma: ${className || '\\thinrules[n=1,width=30mm]'}\\par
-Data de nascimento: \\thinrules[n=1,width=35mm]\\par
-Assinatura: \\thinrules[n=1,width=85mm]
-\\eTD \\bTD[align=middle] ${qr}\\par Versão ${version} \\eTD \\eTR
-\\eTABLE
-\\stopframedtext
+${answerCardHeader}
 \\blank[small]
 {\\bf\\color[simuladoaccent]{INSTRUÇÕES}}\\par
 \\switchtobodyfont[8pt]Preencha completamente apenas um círculo por questão, usando caneta preta ou azul. Não dobre, rasure nem danifique o QR Code e as marcas pretas. Em caso de alteração, solicite orientação ao aplicador.\\par
@@ -136,6 +140,7 @@ Assinatura: \\thinrules[n=1,width=85mm]
 \\noindent\\blackrule[width=7mm,height=7mm]\\hfill\\blackrule[width=7mm,height=7mm]`
         : '';
     return `% Gerado automaticamente pelo layout simulado-v1. Não editar.
+\\mainlanguage[pt]
 \\usemodule[basicexam][mode=student]
 \\usemodule[units]
 \\def\\lqd{\\m{\\char"1D4C1}}
@@ -151,15 +156,15 @@ Assinatura: \\thinrules[n=1,width=85mm]
 \\define[1]\\DescritorSAEB{{\\switchtobodyfont[cursor]#1}}
 \\definecolor[simuladoaccent][s=.25]
 \\definecolor[simuladobackground][s=.92]
+\\definecolor[answercardrule][s=.35]
+${answerCardHeaderPreamble}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
 \\setuplayout[topspace=13mm,backspace=14mm,width=middle,height=middle]
+\\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
 \\starttext
 ${cover}
-\\startcombination[2*1]
-{${logo}} {}
-{\\framed[frame=off,width=\\dimexpr\\textwidth-32mm\\relax,align=middle]{\\tfd\\bf ${institution}}} {}
-\\stopcombination
+${examHeader}
 \\blank[small]
 \\midaligned{\\tfb ${title}}
 \\midaligned{${grade} \\quad Versão ${version} \\quad Valor: ${points}}

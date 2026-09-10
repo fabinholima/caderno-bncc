@@ -27,6 +27,14 @@ test('libera os dois downloads quando a composição termina', () => {
     job.downloads.gabarito,
     `/api/render-jobs/${baseRow.id}/gabarito`,
   );
+  assert.equal(
+    job.downloads.provaTex,
+    `/api/render-jobs/${baseRow.id}/prova.tex`,
+  );
+  assert.equal(
+    job.downloads.gabaritoTex,
+    `/api/render-jobs/${baseRow.id}/gabarito.tex`,
+  );
 });
 
 test('expõe uma mensagem segura quando a composição falha', () => {

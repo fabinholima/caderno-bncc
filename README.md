@@ -43,6 +43,18 @@ Linux: `sudo pacman -S tesseract tesseract-data-por tesseract-data-eng`.
 O recorte de figuras usa ImageMagick (`magick`) e sempre exige confirmação na
 tela de revisão antes de anexar a imagem ao cadastro da questão.
 
+A correção automática dos cartões usa OpenCV em um ambiente Python isolado:
+
+```bash
+python3 -m venv .venv-omr
+.venv-omr/bin/pip install -r services/omr/requirements.txt
+OMR_PYTHON=.venv-omr/bin/python pnpm start:omr
+```
+
+O worker aceita PNG, JPEG ou PDF com um cartão por página. O QR identifica a
+versão e o aluno; leituras em branco, múltiplas ou duvidosas seguem para revisão
+humana antes do cálculo definitivo.
+
 O fluxo editorial de importação inclui prévia dos documentos, extração por
 texto ou OCR, captura de figuras, leitura assistida do gabarito, classificação
 individual ou em lote, filtros por situação/tipo/instituição/série/conteúdo,
