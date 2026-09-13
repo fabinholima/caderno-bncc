@@ -165,6 +165,26 @@ function inlineScientificBlocks(
   return [{ type: 'paragraph', text: scientificInlineText(text, warnings) }];
 }
 
+function alternativeContentBlocks(
+  text: string,
+  warnings: string[],
+): RichContentBlock[] {
+  const blocks: RichContentBlock[] = [];
+  let cursor = 0;
+  const formulas = text.matchAll(
+    /\\startformula\s*([\s\S]*?)\s*\\stopformula/gi,
+  );
+  for (const match of formulas) {
+    const before = text.slice(cursor, match.index).trim();
+    if (before) blocks.push(...inlineScientificBlocks(before, warnings));
+    blocks.push({ type: 'contextFormula', code: match[1].trim() });
+    cursor = (match.index || 0) + match[0].length;
+  }
+  const after = text.slice(cursor).trim();
+  if (after) blocks.push(...inlineScientificBlocks(after, warnings));
+  return blocks.length ? blocks : [{ type: 'paragraph', text: '' }];
+}
+
 function FormulaPreview({ code }: { code: string }) {
   const readable = unitPreview(code)
     .replace(/\\chemical\{\}/g, '')
@@ -332,19 +352,21 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
     const numbered = line.match(/^\d+[.)]\s*(.+)$/);
     if (labeled || numbered) {
       const explicit = labeled?.[1]?.toUpperCase();
-      const text = (labeled?.[2] || numbered?.[1] || '').trim();
+      let text = (labeled?.[2] || numbered?.[1] || '').trim();
+      while (
+        lineIndex + 1 < lines.length &&
+        !/^(?:[a-e]|\d+)[.)]\s*.+/i.test(lines[lineIndex + 1])
+      ) {
+        text += `\n${lines[lineIndex + 1]}`;
+        lineIndex += 1;
+      }
       const values = text.match(valuePattern) || [text];
       for (const value of values) {
         const label =
           explicit && value === values[0]
             ? explicit
             : String.fromCharCode(65 + inferredIndex);
-        alternatives[label] = [
-          {
-            type: 'paragraph',
-            text: scientificInlineText(value.trim(), warnings),
-          },
-        ];
+        alternatives[label] = alternativeContentBlocks(value.trim(), warnings);
         inferredIndex = Math.max(inferredIndex, label.charCodeAt(0) - 64);
         if (!explicit || value !== values[0])
           warnings.push(

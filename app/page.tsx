@@ -339,21 +339,18 @@ export default function Home() {
   const selectedCompetencyInfo = availableCompetencies.find(
     (item) => item.competency_id === competencyId,
   );
-  const selectedTopicSkills = pedagogicalTopics.find(
-    (item) =>
-      item.id ===
-      (pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId),
-  )?.skills;
   const availableSkills = pedagogicalDiscipline
-    ? highSchoolCurriculum.filter(
-        (item) =>
-          item.competency_id === competencyId &&
-          pedagogicalDiscipline.skills.some(
-            (skill) => skill.id === item.skill_id,
-          ) &&
-          (!selectedTopicSkills?.length ||
-            selectedTopicSkills.some((skill) => skill.id === item.skill_id)),
-      )
+    ? [
+        ...new Map(
+          highSchoolCurriculum
+            .filter((item) =>
+              pedagogicalDiscipline.skills.some(
+                (skill) => skill.id === item.skill_id,
+              ),
+            )
+            .map((item) => [item.skill_code, item]),
+        ).values(),
+      ].sort((a, b) => a.skill_code.localeCompare(b.skill_code))
     : curriculum.filter(
         (item) =>
           item.knowledge_object_id === knowledgeObjectId &&
@@ -1680,7 +1677,7 @@ export default function Home() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="dialog-title"
-            className="h-full w-full max-w-[980px] overflow-y-auto bg-white shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+            className="h-full w-full max-w-[1180px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
           >
             <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
               <div>
@@ -1720,7 +1717,7 @@ export default function Home() {
                   'A questão foi alterada. Gere uma nova prévia para validar a versão atual.',
                 );
               }}
-              className="space-y-6 p-6"
+              className="space-y-5 p-6"
             >
               {importCandidateSource && (
                 <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-950">
@@ -1739,14 +1736,14 @@ export default function Home() {
                   );
                 }}
               />
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
-                <strong>Unidade reutilizável.</strong> Classificação curricular,
-                conteúdo e gabarito são gravados juntos na revisão da questão,
-                sem decisões de layout.
-              </div>
-              <section>
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-3">
-                  <p className="text-sm font-semibold">Tipo de questão</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                    Etapa 1
+                  </p>
+                  <p className="mt-1 text-base font-semibold">
+                    Tipo de questão
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
                     O tipo define as alternativas e a forma de correção; o
                     t-basicexam cuida apenas da apresentação.
@@ -1774,9 +1771,12 @@ export default function Home() {
                   ))}
                 </div>
               </section>
-              <section>
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-3">
-                  <p className="text-sm font-semibold">
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                    Etapa 2
+                  </p>
+                  <p className="mt-1 text-base font-semibold">
                     Classificação curricular
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
@@ -1979,8 +1979,13 @@ export default function Home() {
                           name="competencyId"
                           value={competencyId}
                           onChange={(event) => {
-                            setCompetencyId(event.target.value);
-                            setSelectedSkillCode('');
+                            const nextCompetency = event.target.value;
+                            setCompetencyId(nextCompetency);
+                            setSelectedSkillCode(
+                              availableSkills.find(
+                                (item) => item.competency_id === nextCompetency,
+                              )?.skill_code || '',
+                            );
                             setSkillInfoOpen(false);
                             setCompetencyInfoOpen(false);
                           }}
@@ -2162,7 +2167,13 @@ export default function Home() {
                       name="skill"
                       value={selectedSkillCode}
                       onChange={(event) => {
-                        setSelectedSkillCode(event.target.value);
+                        const skillCode = event.target.value;
+                        setSelectedSkillCode(skillCode);
+                        const skill = availableSkills.find(
+                          (item) => item.skill_code === skillCode,
+                        );
+                        if (skill?.competency_id)
+                          setCompetencyId(skill.competency_id);
                         setSkillInfoOpen(false);
                       }}
                       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
@@ -2172,10 +2183,17 @@ export default function Home() {
                           key={item.skill_code || 'skill'}
                           value={item.skill_code || ''}
                         >
-                          {item.skill_code}
+                          {item.skill_code} · Competência{' '}
+                          {item.competency_number}
                         </option>
                       ))}
                     </select>
+                    {discipline === 'Química' && (
+                      <span className="mt-1.5 block text-xs text-slate-500">
+                        {availableSkills.length} habilidades de Química
+                        disponíveis: EM13CNT101, EM13CNT104 e EM13CNT307.
+                      </span>
+                    )}
                     {selectedSkillInfo && (
                       <div className="mt-2">
                         <button
@@ -2219,9 +2237,14 @@ export default function Home() {
                   </label>
                 </div>
               </section>
-              <section>
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-3">
-                  <p className="text-sm font-semibold">Origem da questão</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                    Etapa 3
+                  </p>
+                  <p className="mt-1 text-base font-semibold">
+                    Origem da questão
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
                     Identificação da instituição proprietária e da prova
                     anterior
@@ -2277,39 +2300,58 @@ export default function Home() {
                   </label>
                 </div>
               </section>
-              <RichContentEditor
-                apiUrl={apiUrl}
-                name="statementBlocks"
-                label="Enunciado"
-                required
-                initialBlocks={importedQuestion?.statementBlocks}
-                resetKey={importRevision}
-              />
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold">
-                  Ilustração MetaPost (opcional)
-                </span>
-                <textarea
-                  name="metapostCode"
-                  rows={5}
-                  spellCheck={false}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                  placeholder={
-                    'draw fullcircle scaled 2cm;\nlabel("A", origin);'
-                  }
-                />
-                <span className="mt-1.5 block text-xs leading-5 text-slate-400">
-                  O worker insere este bloco em startMPcode. Comandos de acesso
-                  externo, leitura de arquivos e execução de scripts são
-                  bloqueados.
-                </span>
-              </label>
-              {questionType !== 'essay' && (
+              <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                    Etapa 4
+                  </p>
+                  <p className="mt-1 text-base font-semibold">
+                    Enunciado e recursos visuais
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Escreva o conteúdo principal e acrescente fórmulas, imagens
+                    ou ilustrações somente quando necessário.
+                  </p>
+                </div>
+                <RichContentEditor
+                  apiUrl={apiUrl}
+                  name="statementBlocks"
+                  label="Enunciado"
+                  required
+                  initialBlocks={importedQuestion?.statementBlocks}
+                  resetKey={importRevision}
+                />
+                <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                    Ilustração MetaPost (opcional e avançado)
+                  </summary>
+                  <textarea
+                    name="metapostCode"
+                    rows={5}
+                    spellCheck={false}
+                    className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                    placeholder={
+                      'draw fullcircle scaled 2cm;\nlabel("A", origin);'
+                    }
+                  />
+                  <span className="mt-1.5 block text-xs leading-5 text-slate-400">
+                    O worker insere este bloco em startMPcode. Comandos de
+                    acesso externo, leitura de arquivos e execução de scripts
+                    são bloqueados.
+                  </span>
+                </details>
+              </section>
+              {questionType !== 'essay' && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold">
-                      Alternativas e gabarito
-                    </span>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                        Etapa 5
+                      </p>
+                      <p className="mt-1 text-base font-semibold">
+                        Alternativas e gabarito
+                      </p>
+                    </div>
                     <Badge variant="secondary">
                       {questionType === 'single_choice'
                         ? 'Alternativas A–E · uma correta'
@@ -2317,29 +2359,34 @@ export default function Home() {
                     </Badge>
                   </div>
                   {['A', 'B', 'C', 'D', 'E'].map((letter) => (
-                    <label
+                    <div
                       key={letter}
-                      className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3"
+                      className="mb-3 rounded-xl border border-slate-200 p-3"
                     >
-                      <input
-                        required={
-                          questionType === 'single_choice' && letter === 'A'
-                        }
-                        type={
-                          questionType === 'single_choice'
-                            ? 'radio'
-                            : 'checkbox'
-                        }
-                        name="correct"
-                        value={letter}
-                        key={`correct-${letter}-${importRevision}`}
-                        defaultChecked={importedCorrect.includes(letter)}
-                        className="size-4 accent-blue-600"
-                      />
-                      <span className="grid size-7 place-items-center rounded-md bg-slate-100 text-xs font-bold">
-                        {letter}
-                      </span>
-                      <div className="flex-1">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="grid size-8 place-items-center rounded-lg bg-slate-100 text-sm font-bold">
+                          {letter}
+                        </span>
+                        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600">
+                          <input
+                            required={
+                              questionType === 'single_choice' && letter === 'A'
+                            }
+                            type={
+                              questionType === 'single_choice'
+                                ? 'radio'
+                                : 'checkbox'
+                            }
+                            name="correct"
+                            value={letter}
+                            key={`correct-${letter}-${importRevision}`}
+                            defaultChecked={importedCorrect.includes(letter)}
+                            className="size-4 accent-blue-600"
+                          />
+                          Marcar como correta
+                        </label>
+                      </div>
+                      <div>
                         <RichContentEditor
                           apiUrl={apiUrl}
                           name={`alternative_${letter}`}
@@ -2349,23 +2396,28 @@ export default function Home() {
                           resetKey={importRevision}
                         />
                       </div>
-                    </label>
+                    </div>
                   ))}
-                </div>
+                </section>
               )}
-              <RichContentEditor
-                apiUrl={apiUrl}
-                name="answerBlocks"
-                label={
-                  questionType === 'essay'
-                    ? 'Resposta esperada e critérios de correção'
-                    : 'Resolução comentada (opcional)'
-                }
-                required={questionType === 'essay'}
-                initialBlocks={importedAnswerBlocks}
-                resetKey={importRevision}
-              />
-              <footer className="flex justify-end gap-2 border-t border-slate-200 pt-5">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-600">
+                  {questionType === 'essay' ? 'Etapa 5' : 'Etapa 6'}
+                </p>
+                <RichContentEditor
+                  apiUrl={apiUrl}
+                  name="answerBlocks"
+                  label={
+                    questionType === 'essay'
+                      ? 'Resposta esperada e critérios de correção'
+                      : 'Resolução comentada (opcional)'
+                  }
+                  required={questionType === 'essay'}
+                  initialBlocks={importedAnswerBlocks}
+                  resetKey={importRevision}
+                />
+              </section>
+              <footer className="sticky bottom-0 z-10 -mx-6 -mb-6 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
                 <Button
                   type="button"
                   variant="outline"

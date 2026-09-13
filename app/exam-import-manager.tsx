@@ -198,37 +198,85 @@ type DuplicateQuestion = {
   statement: string;
 };
 
-function ImportedQuestionTextEditor({
-  candidate,
+type ImportedQuestionFields = {
+  statement: string;
+  alternatives: Record<'A' | 'B' | 'C' | 'D' | 'E', string>;
+};
+
+const alternativeLetters = ['A', 'B', 'C', 'D', 'E'] as const;
+
+function editableTextFromBlocks(blocks: RichContentBlock[]) {
+  return blocks
+    .map((block) => {
+      if (block.type === 'paragraph') return block.text;
+      if (block.type === 'contextFormula')
+        return `\\startformula\n${block.code}\n\\stopformula`;
+      if (block.type === 'contextInline') return block.code;
+      if (block.type === 'romanList')
+        return `\\startitemize[I]\n${block.items.map((item) => `\\item ${item}`).join('\n')}\n\\stopitemize`;
+      if (block.type === 'math')
+        return block.display
+          ? `\\startformula\n${block.tex}\n\\stopformula`
+          : `\\m{${block.tex}}`;
+      if (block.type === 'chemical') return `\\chemical{${block.formula}}`;
+      if (block.type === 'thermochemicalEquation') return block.equation;
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function splitImportedQuestion(rawText: string): ImportedQuestionFields {
+  const parsed = parsePastedQuestion(rawText);
+  return {
+    statement: editableTextFromBlocks(parsed.statementBlocks),
+    alternatives: Object.fromEntries(
+      alternativeLetters.map((letter) => [
+        letter,
+        editableTextFromBlocks(parsed.alternatives[letter] || []),
+      ]),
+    ) as ImportedQuestionFields['alternatives'],
+  };
+}
+
+function joinImportedQuestion(fields: ImportedQuestionFields) {
+  return [
+    fields.statement.trim(),
+    ...alternativeLetters.map(
+      (letter) => `${letter}) ${fields.alternatives[letter].trim()}`,
+    ),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function ContextTextField({
+  label,
+  value,
+  rows,
   onChange,
-  onSave,
 }: {
-  candidate: ExamImportCandidate;
+  label: string;
+  value: string;
+  rows: number;
   onChange: (value: string) => void;
-  onSave: (value: string) => void;
 }) {
   const editor = useRef<HTMLTextAreaElement>(null);
-  const savedValue = useRef(candidate.rawText);
-
   const insert = (command: 'm' | 'chemical' | 'unit' | 'bold') => {
     const target = editor.current;
     if (!target) return;
     const start = target.selectionStart;
     const end = target.selectionEnd;
-    const selected = candidate.rawText.slice(start, end);
-    const sample =
-      command === 'm'
-        ? '\\rm E^o_{Zn/Zn^{2+}}'
-        : command === 'chemical'
-          ? 'C\\ell_{2}'
-          : command === 'unit'
-            ? 'kilo joule inverse mol'
-            : 'texto';
-    const argument = selected || sample;
+    const selected = value.slice(start, end);
+    const samples = {
+      m: '\\rm E^o_{Zn/Zn^{2+}}',
+      chemical: 'C\\ell_{2}',
+      unit: '10 gram',
+      bold: 'texto',
+    };
+    const argument = selected || samples[command];
     const replacement = `\\${command}{${argument}}`;
-    onChange(
-      `${candidate.rawText.slice(0, start)}${replacement}${candidate.rawText.slice(end)}`,
-    );
+    onChange(`${value.slice(0, start)}${replacement}${value.slice(end)}`);
     requestAnimationFrame(() => {
       target.focus();
       const selectionStart = start + command.length + 2;
@@ -238,43 +286,20 @@ function ImportedQuestionTextEditor({
       );
     });
   };
-
   const insertFormula = () => {
     const target = editor.current;
     if (!target) return;
     const start = target.selectionStart;
     const end = target.selectionEnd;
-    const selected = candidate.rawText.slice(start, end);
-    const formula = selected || '\\chemical{} \\chemical{2H_2}';
+    const formula = value.slice(start, end) || '\\chemical{} \\chemical{2H_2}';
     const replacement = `\\startformula\n${formula}\n\\stopformula`;
-    onChange(
-      `${candidate.rawText.slice(0, start)}${replacement}${candidate.rawText.slice(end)}`,
-    );
-    requestAnimationFrame(() => {
-      target.focus();
-      const selectionStart = start + '\\startformula\n'.length;
-      target.setSelectionRange(selectionStart, selectionStart + formula.length);
-    });
+    onChange(`${value.slice(0, start)}${replacement}${value.slice(end)}`);
   };
-
-  const save = () => {
-    if (candidate.rawText.trim() === savedValue.current.trim()) return;
-    savedValue.current = candidate.rawText;
-    onSave(candidate.rawText);
-  };
-
   return (
-    <section className="mt-3 rounded-xl border border-slate-300 bg-white p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-slate-800">
-            Editor único da questão
-          </p>
-          <p className="text-xs text-slate-500">
-            Edite enunciado, fórmulas e alternativas no mesmo campo.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="text-xs font-bold text-slate-700">{label}</label>
+        <div className="flex flex-wrap gap-1">
           {(['m', 'chemical', 'unit', 'bold'] as const).map((command) => (
             <Button
               key={command}
@@ -283,7 +308,7 @@ function ImportedQuestionTextEditor({
               variant="outline"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => insert(command)}
-              className="font-mono text-xs"
+              className="h-7 px-2 font-mono text-[11px]"
             >
               \\{command}
               {'{ }'}
@@ -295,16 +320,86 @@ function ImportedQuestionTextEditor({
             variant="outline"
             onMouseDown={(event) => event.preventDefault()}
             onClick={insertFormula}
-            className="font-mono text-xs"
+            className="h-7 px-2 font-mono text-[11px]"
           >
             \\startformula
           </Button>
+        </div>
+      </div>
+      <textarea
+        ref={editor}
+        aria-label={label}
+        value={value}
+        rows={rows}
+        spellCheck={false}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full resize-y rounded-lg border border-slate-200 bg-slate-950 p-3 font-mono text-sm leading-6 text-cyan-50 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+      />
+    </div>
+  );
+}
+
+function ImportedQuestionTextEditor({
+  candidate,
+  onChange,
+  onSave,
+}: {
+  candidate: ExamImportCandidate;
+  onChange: (value: string) => void;
+  onSave: (value: string) => void;
+}) {
+  const savedValue = useRef(candidate.rawText);
+  const lastJoinedValue = useRef(candidate.rawText);
+  const [fields, setFields] = useState(() =>
+    splitImportedQuestion(candidate.rawText),
+  );
+
+  useEffect(() => {
+    if (candidate.rawText === lastJoinedValue.current) return;
+    lastJoinedValue.current = candidate.rawText;
+    savedValue.current = candidate.rawText;
+    setFields(splitImportedQuestion(candidate.rawText));
+  }, [candidate.id, candidate.rawText]);
+
+  const updateFields = (next: ImportedQuestionFields) => {
+    setFields(next);
+    const rawText = joinImportedQuestion(next);
+    lastJoinedValue.current = rawText;
+    onChange(rawText);
+  };
+
+  const save = () => {
+    const rawText = joinImportedQuestion(fields);
+    if (rawText.trim() === savedValue.current.trim()) return;
+    savedValue.current = rawText;
+    onSave(rawText);
+  };
+
+  return (
+    <section className="mt-3 rounded-xl border border-slate-300 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-800">
+            Editor estruturado da questão
+          </p>
+          <p className="text-xs text-slate-500">
+            Enunciado e alternativas A–E separados, todos com ConTeXt livre.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
           <Button
             type="button"
             size="sm"
             variant="outline"
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => onChange(repairPdfTextBreaks(candidate.rawText))}
+            onClick={() => {
+              const repaired = repairPdfTextBreaks(
+                joinImportedQuestion(fields),
+              );
+              lastJoinedValue.current = repaired;
+              setFields(splitImportedQuestion(repaired));
+              onChange(repaired);
+            }}
           >
             Corrigir quebras do PDF
           </Button>
@@ -313,16 +408,30 @@ function ImportedQuestionTextEditor({
           </Button>
         </div>
       </div>
-      <textarea
-        ref={editor}
-        aria-label={`Editor completo da questão ${candidate.sourceNumber}`}
-        value={candidate.rawText}
-        rows={18}
-        spellCheck={false}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={save}
-        className="mt-3 min-h-[28rem] w-full resize-y rounded-lg border border-slate-200 bg-slate-950 p-4 font-mono text-sm leading-6 text-cyan-50 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
-      />
+      <div className="mt-4 space-y-4" onBlur={save}>
+        <ContextTextField
+          label={`Enunciado da questão ${candidate.sourceNumber}`}
+          value={fields.statement}
+          rows={12}
+          onChange={(statement) => updateFields({ ...fields, statement })}
+        />
+        <div className="grid gap-4 xl:grid-cols-2">
+          {alternativeLetters.map((letter) => (
+            <ContextTextField
+              key={letter}
+              label={`Alternativa ${letter}`}
+              value={fields.alternatives[letter]}
+              rows={4}
+              onChange={(value) =>
+                updateFields({
+                  ...fields,
+                  alternatives: { ...fields.alternatives, [letter]: value },
+                })
+              }
+            />
+          ))}
+        </div>
+      </div>
       <p className="mt-2 text-xs text-slate-500">
         Exemplos aceitos: <code>\\m{'{\\rm E^o_{Zn/Zn^{2+}}}'}</code>,{' '}
         <code>\\chemical{'{C\\ell_{2}}'}</code>,{' '}
