@@ -51,18 +51,19 @@ export const basicExamV1 = Object.freeze({
     const logo = logoFileName
       ? `\\externalfigure[${logoFileName}][height=13mm,width=25mm,factor=fit]`
       : '';
-    const institutionalHeader = `\\startframedtext[width=\\textwidth,offset=2.5mm,framecolor=normalheaderrule,rulethickness=.5pt,background=color,backgroundcolor=normalheaderbackground]
-\\dontleavehmode\\hbox to \\hsize{
-\\vbox to 14mm{\\hsize=27mm\\vfil\\leftaligned{${logo}}\\vfil}
+    const institutionalHeader = `\\dontleavehmode\\hbox to \\hsize{
+\\vbox to 16mm{\\hsize=52mm\\vfil\\dontleavehmode\\hbox to \\hsize{${logo}\\hskip2mm\\vbox{\\hsize=25mm\\leftaligned{\\tfx\\bold{${institution}}}}\\hfill}\\vfil}
+\\hskip3mm\\blackrule[width=.5pt,height=16mm,color=normalheaderrule]\\hskip3mm
+\\vbox to 16mm{\\hsize=\\dimexpr\\hsize-84mm\\relax\\vfil\\leftaligned{\\tfa\\bold{${title}}}\\blank[1mm]\\leftaligned{\\tfx ${subjects || grade} · Versão ${version}}\\vfil}
 \\hfill
-\\vbox to 14mm{\\hsize=\\dimexpr\\hsize-52mm\\relax\\vfil\\midaligned{\\tfa\\bf ${institution}}\\blank[1mm]\\midaligned{\\tfx ${title} · ${version}}\\vfil}
-\\hfill
-\\vbox to 14mm{\\hsize=19mm\\vfil\\rightaligned{${qr}}\\vfil}}
-\\switchtobodyfont[8pt]
+\\vbox to 16mm{\\hsize=18mm\\vfil\\rightaligned{${qr}}\\vfil}}
+\\blank[1mm]
+\\blackrule[width=\\textwidth,height=.5pt,color=normalheaderrule]
+\\blank[1mm]
+\\switchtobodyfont[8.5pt]
 \\dontleavehmode{\\bf Aluno(a):} ${candidateName || '\\thinrules[n=1,width=92mm]'}\\hfill{\\bf Nº:} ${candidateNumber || '\\thinrules[n=1,width=18mm]'}\\par
 \\dontleavehmode{\\bf Disciplina:} ${subjects || '\\thinrules[n=1,width=42mm]'}\\hfill{\\bf Série:} ${grade || '\\thinrules[n=1,width=25mm]'}\\hfill{\\bf Turma:} ${className || '\\thinrules[n=1,width=22mm]'}\\par
-\\dontleavehmode{\\bf Professor(a):} ${teacherName || '\\thinrules[n=1,width=45mm]'}\\hfill${term ? `{\\bf Período:} ${term}\\hfill` : ''}{\\bf Data:} ${assessmentDate || '\\thinrules[n=1,width=25mm]'}
-\\stopframedtext`;
+\\dontleavehmode{\\bf Professor(a):} ${teacherName || '\\thinrules[n=1,width=45mm]'}\\hfill${term ? `{\\bf Período:} ${term}\\hfill` : ''}{\\bf Data:} ${assessmentDate || '\\thinrules[n=1,width=25mm]'}`;
     const answerCardHeader = renderAnswerCardHeader({
       institution,
       title,
@@ -104,13 +105,12 @@ ${answerRows}
    stopper=)\\removeunwantedspaces\\space]
 \\define[1]\\HabilidadeBNCC{{\\switchtobodyfont[cursor]#1}}
 \\define[1]\\DescritorSAEB{{\\switchtobodyfont[cursor]#1}}
-\\definecolor[normalheaderbackground][s=.96]
 \\definecolor[normalheaderrule][s=.45]
 \\definecolor[answercardrule][s=.35]
 ${answerCardHeaderPreamble}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=16mm,backspace=18mm,width=middle,height=middle]
+\\setuplayout[topspace=13mm,backspace=18mm,width=middle,height=middle]
 \\setuppagenumbering[location={footer,right},style=\\tfx]
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
 

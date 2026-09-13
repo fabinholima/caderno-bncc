@@ -170,6 +170,7 @@ type PedagogicalDiscipline = {
   id: string;
   name: string;
   stage: string;
+  skills?: Array<{ id: string; code: string; description: string }>;
 };
 
 type PedagogicalTopic = {
@@ -2599,7 +2600,10 @@ function CandidateClassificationFields({
             topic.id === (selectedSubtopic?.parent_id || selected?.parent_id),
         );
   const objects = topics.filter(
-    (topic) => !topic.parent_id && topic.grade_range === candidate.grade,
+    (topic) =>
+      !topic.parent_id &&
+      topic.discipline_id === chemistry?.id &&
+      topic.grade_range === candidate.grade,
   );
   const subtopics = topics.filter(
     (topic) => topic.parent_id === selectedObject?.id,
@@ -2607,6 +2611,9 @@ function CandidateClassificationFields({
   const details = topics.filter(
     (topic) => topic.parent_id === selectedSubtopic?.id,
   );
+  const availableSkills = selected?.skills?.length
+    ? selected.skills
+    : chemistry?.skills || [];
 
   return (
     <section className="mt-3 rounded-lg border border-violet-200 bg-violet-50/60 p-3">
@@ -2623,6 +2630,7 @@ function CandidateClassificationFields({
               grade,
               pedagogicalDisciplineId: chemistry?.id || '',
               pedagogicalTopicId: '',
+              skill: '',
             })
           }
           options={[
@@ -2640,6 +2648,7 @@ function CandidateClassificationFields({
             onChange({
               pedagogicalDisciplineId: chemistry?.id || '',
               pedagogicalTopicId,
+              skill: '',
             })
           }
           options={[
@@ -2655,7 +2664,10 @@ function CandidateClassificationFields({
             label={`Subtópico da questão ${candidate.sourceNumber}`}
             value={selectedSubtopic?.id || ''}
             onChange={(value) =>
-              onChange({ pedagogicalTopicId: value || selectedObject.id })
+              onChange({
+                pedagogicalTopicId: value || selectedObject.id,
+                skill: '',
+              })
             }
             options={[
               ['', 'Sem subtópico específico'],
@@ -2671,7 +2683,10 @@ function CandidateClassificationFields({
             label={`Detalhamento da questão ${candidate.sourceNumber}`}
             value={selectedDetail?.id || ''}
             onChange={(value) =>
-              onChange({ pedagogicalTopicId: value || selectedSubtopic.id })
+              onChange({
+                pedagogicalTopicId: value || selectedSubtopic.id,
+                skill: '',
+              })
             }
             options={[
               ['', 'Sem detalhamento específico'],
@@ -2698,13 +2713,21 @@ function CandidateClassificationFields({
             ['Difícil', 'Difícil'],
           ]}
         />
-        <Input
-          aria-label={`Habilidade BNCC da questão ${candidate.sourceNumber}`}
+        <SelectField
+          name={`candidate-skill-${candidate.id}`}
+          label={`Habilidade BNCC da questão ${candidate.sourceNumber}`}
           value={candidate.skill || ''}
-          onChange={(event) =>
-            onChange({ skill: event.target.value.toUpperCase() })
-          }
-          placeholder="BNCC própria: EM13CNT101"
+          onChange={(skill) => onChange({ skill })}
+          options={[
+            ['', 'Selecione a habilidade BNCC'],
+            ...availableSkills.map(
+              (skill) =>
+                [skill.code, `${skill.code} · ${skill.description}`] as [
+                  string,
+                  string,
+                ],
+            ),
+          ]}
         />
       </div>
     </section>
@@ -2742,7 +2765,10 @@ function BulkRegistrationPanel({
       discipline.name === 'Química' && discipline.stage === 'Ensino Médio',
   );
   const objects = topics.filter(
-    (topic) => !topic.parent_id && topic.grade_range === settings.grade,
+    (topic) =>
+      !topic.parent_id &&
+      topic.discipline_id === chemistry?.id &&
+      topic.grade_range === settings.grade,
   );
   const subtopics = topics.filter(
     (topic) => topic.parent_id === settings.objectId,
@@ -2752,6 +2778,10 @@ function BulkRegistrationPanel({
   );
   const defaultTopicId =
     settings.detailId || settings.topicId || settings.objectId;
+  const defaultTopic = topics.find((topic) => topic.id === defaultTopicId);
+  const availableSkills = defaultTopic?.skills?.length
+    ? defaultTopic.skills
+    : chemistry?.skills || [];
   const classifiable = ready.every(
     (candidate) =>
       Boolean((candidate.grade || settings.grade).trim()) &&
@@ -2790,6 +2820,7 @@ function BulkRegistrationPanel({
             onSettingChange('objectId', '');
             onSettingChange('topicId', '');
             onSettingChange('detailId', '');
+            onSettingChange('skill', '');
           }}
           options={[
             ['', 'Selecione a série'],
@@ -2807,6 +2838,7 @@ function BulkRegistrationPanel({
             onSettingChange('pedagogicalDisciplineId', chemistry?.id || '');
             onSettingChange('topicId', '');
             onSettingChange('detailId', '');
+            onSettingChange('skill', '');
           }}
           options={[
             ['', 'Selecione o objeto de conhecimento'],
@@ -2822,6 +2854,7 @@ function BulkRegistrationPanel({
           onChange={(value) => {
             onSettingChange('topicId', value);
             onSettingChange('detailId', '');
+            onSettingChange('skill', '');
           }}
           options={[
             ['', subtopics.length ? 'Selecione o subtópico' : 'Sem subtópicos'],
@@ -2835,7 +2868,10 @@ function BulkRegistrationPanel({
             name={`bulk-detail-${item.id}`}
             label="Detalhamento"
             value={settings.detailId}
-            onChange={(value) => onSettingChange('detailId', value)}
+            onChange={(value) => {
+              onSettingChange('detailId', value);
+              onSettingChange('skill', '');
+            }}
             options={[
               ['', 'Selecione o detalhamento'],
               ...details.map(
@@ -2857,13 +2893,21 @@ function BulkRegistrationPanel({
             ['Difícil', 'Difícil'],
           ]}
         />
-        <Input
-          aria-label="Habilidade BNCC do lote"
+        <SelectField
+          name={`bulk-skill-${item.id}`}
+          label="Habilidade BNCC do lote"
           value={settings.skill}
-          onChange={(event) =>
-            onSettingChange('skill', event.target.value.toUpperCase())
-          }
-          placeholder="BNCC opcional: EM13CNT101"
+          onChange={(value) => onSettingChange('skill', value)}
+          options={[
+            ['', 'Selecione a habilidade BNCC'],
+            ...availableSkills.map(
+              (skill) =>
+                [skill.code, `${skill.code} · ${skill.description}`] as [
+                  string,
+                  string,
+                ],
+            ),
+          ]}
         />
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

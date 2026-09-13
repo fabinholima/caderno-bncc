@@ -47,7 +47,9 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\bold\{Nome completo do aluno\}/);
   assert.match(tex, /AnswerCardNameGridOverlay/);
   assert.match(tex, /\\externalfigure\[qr\.png\]/);
-  assert.equal(tex.match(/\\startframedtext\[width=\\textwidth/g)?.length, 2);
+  assert.equal(tex.match(/\\startframedtext\[width=\\textwidth/g)?.length, 1);
+  assert.match(tex, /\\blackrule\[width=\.5pt,height=16mm/);
+  assert.match(tex, /\\blackrule\[width=\\textwidth,height=\.5pt/);
 });
 
 test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simplificado', async () => {
