@@ -1082,7 +1082,23 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                 {report.application.title} · {report.application.className}
               </p>
             </div>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex flex-wrap gap-2">
+              <a
+                href={`${apiUrl}/api/assessment-applications/${report.application.id}/report.csv`}
+                download
+              >
+                <Button type="button" variant="outline">
+                  <Download /> CSV
+                </Button>
+              </a>
+              <a
+                href={`${apiUrl}/api/assessment-applications/${report.application.id}/report.xlsx`}
+                download
+              >
+                <Button type="button" variant="outline">
+                  <Download /> Excel
+                </Button>
+              </a>
               {reportPdf && (
                 <a href={reportPdf} download>
                   <Button type="button" variant="outline">

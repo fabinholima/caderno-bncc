@@ -24,6 +24,8 @@ import:saeb` após disponibilizar os PDFs do Inep em `work/saeb`.
 ## Relatório estatístico da turma
 
 - `GET /api/assessment-applications/:id/report`
+- `GET /api/assessment-applications/:id/report.csv`
+- `GET /api/assessment-applications/:id/report.xlsx`
   - devolve estatísticas atualizadas por aluno, questão, habilidade BNCC,
     competência, descritor SAEB e tópico pedagógico, além de uma lista
     determinística de prioridades abaixo de 60% com quantidade de evidências.
@@ -179,6 +181,8 @@ também ficam congelados no snapshot e são aplicados como
 Quando todas as marcações são inequívocas, o worker cria automaticamente uma submissão corrigida contra o gabarito imutável da versão individual. A listagem do cartão passa a informar `submissionId`, `score` e `maxScore`; cartões em revisão não geram nota até a confirmação humana.
 
 `GET /api/assessment-applications/:id/report` consolida a aplicação por aluno, habilidade e competência BNCC. O resumo informa quantidade corrigida, pendente, em revisão e média percentual da turma.
+
+Os sufixos `report.csv` e `report.xlsx` exportam o mesmo retrato estatístico. O CSV usa UTF-8, separador por ponto e vírgula e linhas normalizadas. A pasta de trabalho Excel separa resumo, alunos, questões, habilidades, descritores SAEB, tópicos, competências e prioridades em abas próprias; percentuais são armazenados como números, e questões que exigem revisão recebem destaque.
 
 Questões do Ensino Médio podem informar `pedagogicalTopicId`. A API valida se o subtópico pertence à disciplina e à instituição autenticada e também congela o caminho legível em `knowledgeTopic`, por exemplo `Termoquímica > Lei de Hess`. Esse catálogo permanece separado das competências e habilidades oficiais da BNCC e pode ser usado no filtro `knowledgeTopic` de `GET /api/questions`.
 

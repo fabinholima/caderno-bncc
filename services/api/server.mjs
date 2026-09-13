@@ -83,6 +83,10 @@ import {
   getStudentProgress,
 } from './reports.mjs';
 import {
+  buildClassReportCsv,
+  buildClassReportWorkbook,
+} from './report-exports.mjs';
+import {
   acceptInvitation,
   authenticate,
   createInvitation,
@@ -517,6 +521,34 @@ const server = createServer(async (request, response) => {
         ...corsHeaders(response),
       });
       return file.stream.pipe(response);
+    }
+    const applicationReportExportMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/assessment-applications\/([0-9a-f-]{36})\/report\.(csv|xlsx)$/i,
+      );
+    if (applicationReportExportMatch) {
+      const report = await getApplicationReport({
+        institutionId,
+        applicationId: applicationReportExportMatch[1],
+      });
+      if (!report)
+        return json(response, 404, { error: 'Aplicação não encontrada.' });
+      const format = applicationReportExportMatch[2].toLowerCase();
+      const body =
+        format === 'csv'
+          ? Buffer.from(buildClassReportCsv(report), 'utf8')
+          : await buildClassReportWorkbook(report);
+      response.writeHead(200, {
+        'content-type':
+          format === 'csv'
+            ? 'text/csv; charset=utf-8'
+            : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'content-length': body.length,
+        'content-disposition': `attachment; filename="relatorio-turma-${applicationReportExportMatch[1]}.${format}"`,
+        ...corsHeaders(response),
+      });
+      return response.end(body);
     }
     const applicationReportMatch =
       request.method === 'GET' &&
