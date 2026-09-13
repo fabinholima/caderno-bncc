@@ -80,6 +80,7 @@ const allowedMathCommands = new Set([
   'le',
   'left',
   'mathrm',
+  'rm',
   'neq',
   'pm',
   'qquad',
@@ -272,7 +273,7 @@ function normalizeInlineChemicalNotation(code) {
 
 function paragraphWithScientificInline(text) {
   const value = String(text ?? '');
-  const pattern = /\\(chemical|unit|m)\{/g;
+  const pattern = /\\(chemical|unit|m|bold)\{/g;
   let output = '';
   let cursor = 0;
   for (const match of value.matchAll(pattern)) {
@@ -300,8 +301,10 @@ function paragraphWithScientificInline(text) {
           )
         : command === 'unit'
           ? /^[A-Za-z0-9À-ÿ°,+\-\s./]+$/.test(argument)
-          : mathCommandsAllowed &&
-            /^[A-Za-z0-9\\{}_^+\-*/=<>()[\],.;:\s]+$/.test(argument);
+          : command === 'bold'
+            ? /^[A-Za-z0-9À-ÿ() ,.\-:;]+$/u.test(argument)
+            : mathCommandsAllowed &&
+              /^[A-Za-z0-9\\{}_^+\-*/=<>()[\],.;:\s]+$/.test(argument);
     const original = value.slice(index, end);
     const normalized =
       command === 'chemical'
@@ -310,7 +313,9 @@ function paragraphWithScientificInline(text) {
     output += valid
       ? command === 'unit'
         ? `\\allowbreak{}${normalizeContextUnits(original)}`
-        : `\\allowbreak{}${normalized}`
+        : command === 'bold'
+          ? `\\bold{${escapeContext(argument)}}`
+          : `\\allowbreak{}${normalized}`
       : escapeContext(original);
     cursor = end;
   }
@@ -396,6 +401,8 @@ function richText(nodes = []) {
         'approx',
         'mathrm',
         'bold',
+        'm',
+        'rm',
       ]);
       if (
         !code ||

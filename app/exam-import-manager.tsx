@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   ArrowRight,
@@ -17,7 +17,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
-import { parsePastedQuestion } from './question-paste-importer';
+import {
+  parsePastedQuestion,
+  repairPdfTextBreaks,
+} from './question-paste-importer';
 import type { RichContentBlock } from './rich-content-editor';
 
 type ExamImport = {
@@ -193,6 +196,112 @@ type DuplicateQuestion = {
   sourceYear: number;
   statement: string;
 };
+
+function ImportedQuestionTextEditor({
+  candidate,
+  onChange,
+  onSave,
+}: {
+  candidate: ExamImportCandidate;
+  onChange: (value: string) => void;
+  onSave: (value: string) => void;
+}) {
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const savedValue = useRef(candidate.rawText);
+
+  const insert = (command: 'm' | 'chemical' | 'unit' | 'bold') => {
+    const target = editor.current;
+    if (!target) return;
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    const selected = candidate.rawText.slice(start, end);
+    const sample =
+      command === 'm'
+        ? '\\rm E^o_{Zn/Zn^{2+}}'
+        : command === 'chemical'
+          ? 'C\\ell_{2}'
+          : command === 'unit'
+            ? 'kilo joule inverse mol'
+            : 'texto';
+    const argument = selected || sample;
+    const replacement = `\\${command}{${argument}}`;
+    onChange(
+      `${candidate.rawText.slice(0, start)}${replacement}${candidate.rawText.slice(end)}`,
+    );
+    requestAnimationFrame(() => {
+      target.focus();
+      const selectionStart = start + command.length + 2;
+      target.setSelectionRange(
+        selectionStart,
+        selectionStart + argument.length,
+      );
+    });
+  };
+
+  const save = () => {
+    if (candidate.rawText.trim() === savedValue.current.trim()) return;
+    savedValue.current = candidate.rawText;
+    onSave(candidate.rawText);
+  };
+
+  return (
+    <section className="mt-3 rounded-xl border border-slate-300 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-800">
+            Editor único da questão
+          </p>
+          <p className="text-xs text-slate-500">
+            Edite enunciado, fórmulas e alternativas no mesmo campo.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {(['m', 'chemical', 'unit', 'bold'] as const).map((command) => (
+            <Button
+              key={command}
+              type="button"
+              size="sm"
+              variant="outline"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => insert(command)}
+              className="font-mono text-xs"
+            >
+              \\{command}
+              {'{ }'}
+            </Button>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onChange(repairPdfTextBreaks(candidate.rawText))}
+          >
+            Corrigir quebras do PDF
+          </Button>
+          <Button type="button" size="sm" onClick={save}>
+            Salvar texto
+          </Button>
+        </div>
+      </div>
+      <textarea
+        ref={editor}
+        aria-label={`Editor completo da questão ${candidate.sourceNumber}`}
+        value={candidate.rawText}
+        rows={18}
+        spellCheck={false}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={save}
+        className="mt-3 min-h-[28rem] w-full resize-y rounded-lg border border-slate-200 bg-slate-950 p-4 font-mono text-sm leading-6 text-cyan-50 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+      />
+      <p className="mt-2 text-xs text-slate-500">
+        Exemplos aceitos: <code>\\m{'{\\rm E^o_{Zn/Zn^{2+}}}'}</code>,{' '}
+        <code>\\chemical{'{C\\ell_{2}}'}</code>,{' '}
+        <code>\\unit{'{10 gram}'}</code> e <code>\\bold{'{texto}'}</code>.
+      </p>
+    </section>
+  );
+}
 
 const defaultBulkSettings: BulkSettings = {
   grade: '',
@@ -1115,6 +1224,26 @@ export function ExamImportManager({
       );
     }
   };
+
+  const updateCandidateDraft = (
+    importId: string,
+    candidateId: string,
+    rawText: string,
+  ) =>
+    setImports((current) =>
+      current.map((item) =>
+        item.id === importId
+          ? {
+              ...item,
+              candidates: item.candidates.map((candidate) =>
+                candidate.id === candidateId
+                  ? { ...candidate, rawText, status: 'review' }
+                  : candidate,
+              ),
+            }
+          : item,
+      ),
+    );
 
   const createCrop = async (
     item: ExamImport,
@@ -2225,18 +2354,23 @@ export function ExamImportManager({
                             ).catch((error) => setMessage(error.message))
                           }
                         />
-                        <textarea
-                          aria-label={`Texto extraído da questão ${candidate.sourceNumber}`}
-                          defaultValue={candidate.rawText}
-                          rows={9}
-                          onBlur={(event) => {
-                            if (event.target.value.trim() !== candidate.rawText)
-                              updateCandidate(item.id, candidate.id, {
-                                rawText: event.target.value,
-                                status: 'review',
-                              }).catch((error) => setMessage(error.message));
-                          }}
-                          className="mt-3 w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs leading-5"
+                        <ImportedQuestionTextEditor
+                          candidate={candidate}
+                          onChange={(rawText) =>
+                            updateCandidateDraft(item.id, candidate.id, rawText)
+                          }
+                          onSave={(rawText) =>
+                            updateCandidate(item.id, candidate.id, {
+                              rawText,
+                              status: 'review',
+                            })
+                              .then(() =>
+                                setMessage(
+                                  `Texto da questão ${candidate.sourceNumber} salvo.`,
+                                ),
+                              )
+                              .catch((error) => setMessage(error.message))
+                          }
                         />
                         {candidate.questionType !== 'essay' && (
                           <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">

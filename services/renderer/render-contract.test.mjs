@@ -181,6 +181,23 @@ test('renderiza conteúdo científico inline e condições de reação', async (
   );
 });
 
+test('preserva matemática romana e negrito seguro no texto importado', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    {
+      type: 'paragraph',
+      text: 'Considere \\m{\\rm E^o_{Zn/Zn^{2+}}} no estado \\bold{padrão}.',
+    },
+  ];
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /\\m\{\\rm E\^o_\{Zn\/Zn\^\{2\+\}\}\}/);
+  assert.match(tex, /\\bold\{padrão\}/);
+});
+
 test('renderiza estrutura orgânica por preset seguro', async () => {
   const snapshot = JSON.parse(
     await readFile(

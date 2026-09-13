@@ -19,6 +19,38 @@ export type ParsedQuestion = {
   warnings: string[];
 };
 
+export function repairPdfTextBreaks(raw: string) {
+  const lines = raw
+    .replace(/\r/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\t+/g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim());
+  const result: string[] = [];
+  const structural = (line: string) =>
+    /^(?:QUEST(?:ÃO|AO)\s*\d+|[A-Ea-e]\s*(?:[.)]|\(\s*\))|(?:I|II|III|IV|V)\.\s|\\(?:start|stop)(?:formula|itemize)\b)/i.test(
+      line,
+    );
+  for (const line of lines) {
+    if (!line) {
+      if (result.at(-1) !== '') result.push('');
+      continue;
+    }
+    const previous = result.at(-1);
+    if (!previous || structural(line) || /^\\(?:start|stop)/.test(previous)) {
+      result.push(line);
+      continue;
+    }
+    if (/\p{L}[-‐‑]$/u.test(previous) && /^\p{Ll}/u.test(line))
+      result[result.length - 1] = `${previous.slice(0, -1)}${line}`;
+    else result[result.length - 1] = `${previous} ${line}`;
+  }
+  return result
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 const valuePattern = /-?\d+(?:[.,]\d+)?\s*(?:%|g)\b/gi;
 
 const chemicalTokenPattern =

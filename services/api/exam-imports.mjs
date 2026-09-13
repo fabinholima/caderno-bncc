@@ -71,7 +71,7 @@ export const decodePdf = (document) => {
 };
 
 export function splitExamQuestions(text) {
-  const normalized = text
+  const normalized = repairExtractedQuestionText(text)
     .replace(/\r/g, '')
     .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+$/gm, '')
@@ -120,6 +120,38 @@ export function splitExamQuestions(text) {
     if (candidates.length) return candidates;
   }
   return [];
+}
+
+export function repairExtractedQuestionText(text) {
+  const lines = String(text ?? '')
+    .replace(/\r/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\t+/g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim());
+  const result = [];
+  const structural = (line) =>
+    /^(?:QUEST(?:ÃO|AO)\s*\d+|[A-Ea-e]\s*(?:[.)]|\(\s*\))|(?:I|II|III|IV|V)\.\s|\\(?:start|stop)(?:formula|itemize)\b)/i.test(
+      line,
+    );
+  for (const line of lines) {
+    if (!line) {
+      if (result.at(-1) !== '') result.push('');
+      continue;
+    }
+    const previous = result.at(-1);
+    if (!previous || structural(line) || /^\\(?:start|stop)/.test(previous)) {
+      result.push(line);
+      continue;
+    }
+    if (/\p{L}[-‐‑]$/u.test(previous) && /^\p{Ll}/u.test(line))
+      result[result.length - 1] = `${previous.slice(0, -1)}${line}`;
+    else result[result.length - 1] = `${previous} ${line}`;
+  }
+  return result
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function questionNeedsVisualCapture(rawText) {

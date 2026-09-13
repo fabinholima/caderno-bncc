@@ -69,6 +69,7 @@ const allowedMathCommands = new Set([
   'le',
   'left',
   'mathrm',
+  'rm',
   'neq',
   'pm',
   'qquad',
@@ -236,6 +237,8 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
           'approx',
           'mathrm',
           'bold',
+          'm',
+          'rm',
         ]);
         return (
           !forbiddenContextFormula.test(code) &&

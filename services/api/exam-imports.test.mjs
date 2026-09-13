@@ -9,8 +9,18 @@ import {
   parseAnswerKeyText,
   parsePdfQuestionBounds,
   questionNeedsVisualCapture,
+  repairExtractedQuestionText,
   splitExamQuestions,
 } from './exam-imports.mjs';
+
+test('recompõe linhas e palavras quebradas pela extração do PDF', () => {
+  assert.equal(
+    repairExtractedQuestionText(
+      `QUESTÃO 9. Considere as energias de\nligação e o comporta-\nmento das espécies.\n\na) primeira opção\nb) segunda opção`,
+    ),
+    'QUESTÃO 9. Considere as energias de ligação e o comportamento das espécies.\n\na) primeira opção\nb) segunda opção',
+  );
+});
 
 test('valida decisões humanas granulares sobre sugestões da IA', () => {
   const value = candidateUpdateSchema.parse({

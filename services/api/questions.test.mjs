@@ -139,6 +139,19 @@ test('aceita química e unidades ConTeXt dentro do texto corrido', () => {
   assert.equal(parsed.statementBlocks[1].type, 'contextInline');
 });
 
+test('aceita matemática romana e negrito em trecho ConTeXt inline', () => {
+  const parsed = createQuestionSchema.parse({
+    ...baseQuestion,
+    statementBlocks: [
+      {
+        type: 'contextInline',
+        code: '\\m{\\rm E^o_{Zn/Zn^{2+}}} \\bold{padrão}',
+      },
+    ],
+  });
+  assert.equal(parsed.statementBlocks[0].type, 'contextInline');
+});
+
 test('aceita íons com carga e estado físico em chemical', () => {
   const parsed = createQuestionSchema.parse({
     ...baseQuestion,
