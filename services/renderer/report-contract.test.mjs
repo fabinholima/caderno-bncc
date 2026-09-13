@@ -59,12 +59,33 @@ test('gera relatório ConTeXt com tabelas e gráficos MetaPost', () => {
         priority: 'Atenção',
       },
     ],
+    questions: [
+      {
+        questionNumber: 1,
+        correct: 20,
+        incorrect: 8,
+        unanswered: 2,
+        validAnswers: 28,
+        percentage: 71.4,
+        classification: 'Adequado',
+        selectedDistribution: { A: 3, B: 5, C: 20 },
+        discriminationIndex: 42.9,
+        discriminationClassification: 'Discriminação alta',
+        discriminationSampleSize: 14,
+        needsReview: true,
+        reviewReasons: ['Discriminação negativa'],
+      },
+    ],
   });
   assert.match(tex, /\\startMPcode/);
   assert.match(tex, /EM13CNT101/);
   assert.match(tex, /D20/);
   assert.match(tex, /Termoquímica > Lei de Hess/);
   assert.match(tex, /Prioridades para intervenção/);
+  assert.match(tex, /Análise por questão/);
+  assert.match(tex, /A: 3 · B: 5 · C: 20 · D: 0 · E: 0/);
+  assert.match(tex, /42,9 p\.p\. · Discriminação alta/);
+  assert.match(tex, /Revisar: Discriminação negativa/);
   assert.match(tex, /Simulado \\& revisão/);
 });
 

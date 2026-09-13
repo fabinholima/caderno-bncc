@@ -27,6 +27,17 @@ const classification = (value) =>
 
 const rounded = (value) => Math.round(value * 10) / 10;
 
+const discriminationClassification = (value) =>
+  value == null
+    ? 'Amostra insuficiente'
+    : value < 0
+      ? 'Revisar questão'
+      : value < 20
+        ? 'Discriminação baixa'
+        : value < 40
+          ? 'Discriminação adequada'
+          : 'Discriminação alta';
+
 export function aggregateApplicationReport(application, rows, competencies) {
   const competencyBySkill = new Map();
   for (const competency of competencies) {
@@ -105,6 +116,7 @@ export function aggregateApplicationReport(application, rows, competencies) {
         unanswered: 0,
         total: 0,
         selectedDistribution: {},
+        correctLabels: [],
       };
       question.total += 1;
       if (item.status === 'correct') question.correct += 1;
@@ -113,6 +125,9 @@ export function aggregateApplicationReport(application, rows, competencies) {
       for (const label of item.selectedLabels ?? [])
         question.selectedDistribution[label] =
           (question.selectedDistribution[label] ?? 0) + 1;
+      for (const label of item.correctLabels ?? [])
+        if (!question.correctLabels.includes(label))
+          question.correctLabels.push(label);
       questionStats.set(item.questionNumber, question);
     }
   }
@@ -197,6 +212,69 @@ export function aggregateApplicationReport(application, rows, competencies) {
       ...item,
       priority: item.percentage < 40 ? 'Alta' : 'Atenção',
     }));
+  const scoredRows = rows
+    .filter(
+      (row) =>
+        row.submission_id &&
+        Number(row.max_score) > 0 &&
+        Array.isArray(row.result?.items),
+    )
+    .sort(
+      (left, right) =>
+        Number(right.score) / Number(right.max_score) -
+        Number(left.score) / Number(left.max_score),
+    );
+  const groupSize =
+    scoredRows.length >= 4
+      ? Math.max(1, Math.floor(scoredRows.length * 0.27))
+      : 0;
+  const upperGroup = groupSize ? scoredRows.slice(0, groupSize) : [];
+  const lowerGroup = groupSize ? scoredRows.slice(-groupSize) : [];
+  const correctRate = (group, questionNumber) =>
+    group.filter(
+      (row) =>
+        row.result.items.find((item) => item.questionNumber === questionNumber)
+          ?.status === 'correct',
+    ).length / group.length;
+  const questions = withPercentage(questionStats.values())
+    .map((item) => {
+      const discriminationIndex = groupSize
+        ? rounded(
+            (correctRate(upperGroup, item.questionNumber) -
+              correctRate(lowerGroup, item.questionNumber)) *
+              100,
+          )
+        : null;
+      const dominantDistractor = Object.entries(item.selectedDistribution)
+        .filter(([label]) => !item.correctLabels.includes(label))
+        .sort((left, right) => right[1] - left[1])[0];
+      const reviewReasons = [];
+      if (item.validAnswers >= 4 && item.percentage < 20)
+        reviewReasons.push('Taxa de acerto inferior a 20%');
+      if (discriminationIndex != null && discriminationIndex < 0)
+        reviewReasons.push('Discriminação negativa');
+      if (item.total >= 4 && item.unanswered / item.total >= 0.25)
+        reviewReasons.push('Ao menos 25% de respostas em branco');
+      if (
+        dominantDistractor &&
+        item.validAnswers >= 4 &&
+        dominantDistractor[1] / item.validAnswers >= 0.6
+      )
+        reviewReasons.push(
+          `Distrator ${dominantDistractor[0]} concentrou ao menos 60% das respostas válidas`,
+        );
+      return {
+        ...item,
+        discriminationIndex,
+        discriminationClassification:
+          discriminationClassification(discriminationIndex),
+        discriminationSampleSize: groupSize ? groupSize * 2 : 0,
+        needsReview: reviewReasons.length > 0,
+        reviewReasons,
+        dominantDistractor: dominantDistractor?.[0] || null,
+      };
+    })
+    .sort((left, right) => left.questionNumber - right.questionNumber);
   return {
     application,
     summary: {
@@ -232,9 +310,7 @@ export function aggregateApplicationReport(application, rows, competencies) {
     topics,
     competencies: competencyPerformance,
     priorities,
-    questions: withPercentage(questionStats.values()).sort(
-      (left, right) => left.questionNumber - right.questionNumber,
-    ),
+    questions,
   };
 }
 

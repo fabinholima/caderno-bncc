@@ -176,6 +176,23 @@ type ApplicationReport = {
     classification: string;
     priority: 'Alta' | 'Atenção';
   }>;
+  questions: Array<{
+    questionNumber: number;
+    correct: number;
+    incorrect: number;
+    unanswered: number;
+    total: number;
+    validAnswers: number;
+    percentage: number;
+    classification: string;
+    selectedDistribution: Record<string, number>;
+    discriminationIndex: number | null;
+    discriminationClassification: string;
+    discriminationSampleSize: number;
+    needsReview: boolean;
+    reviewReasons: string[];
+    dominantDistractor: string | null;
+  }>;
 };
 type StudentApplicationReport = {
   application: ApplicationReport['application'];
@@ -1183,6 +1200,66 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                 percentage: item.percentage,
               }))}
             />
+          </div>
+          <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200 p-4">
+            <h3 className="font-semibold text-slate-900">
+              Análise por questão
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Distribuição das marcações e taxa de acerto de cada item.
+            </p>
+            <table className="mt-3 w-full min-w-[760px] text-left text-sm">
+              <thead className="border-b text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="py-2">Questão</th>
+                  <th>Acertos</th>
+                  <th>Erros</th>
+                  <th>Em branco</th>
+                  <th>Resultado</th>
+                  <th>Marcações A–E</th>
+                  <th>Discriminação</th>
+                  <th>Diagnóstico</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.questions.map((question) => (
+                  <tr
+                    key={question.questionNumber}
+                    className={`border-b last:border-0 ${question.needsReview ? 'bg-rose-50' : ''}`}
+                  >
+                    <td className="py-2 font-semibold">
+                      {question.questionNumber}
+                    </td>
+                    <td>{question.correct}</td>
+                    <td>{question.incorrect}</td>
+                    <td>{question.unanswered}</td>
+                    <td className="font-semibold">{question.percentage}%</td>
+                    <td>
+                      {['A', 'B', 'C', 'D', 'E']
+                        .map(
+                          (label) =>
+                            `${label}: ${question.selectedDistribution[label] || 0}`,
+                        )
+                        .join(' · ')}
+                    </td>
+                    <td>
+                      {question.discriminationIndex == null
+                        ? 'Amostra insuficiente'
+                        : `${question.discriminationIndex} p.p. · ${question.discriminationClassification}`}
+                    </td>
+                    <td>
+                      {question.needsReview ? (
+                        <span className="font-semibold text-rose-700">
+                          Revisar: {question.reviewReasons.join('; ')}
+                        </span>
+                      ) : (
+                        question.classification
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <div className="mt-5 overflow-x-auto">
             <table className="w-full text-left text-sm">

@@ -27,6 +27,13 @@ import:saeb` após disponibilizar os PDFs do Inep em `work/saeb`.
   - devolve estatísticas atualizadas por aluno, questão, habilidade BNCC,
     competência, descritor SAEB e tópico pedagógico, além de uma lista
     determinística de prioridades abaixo de 60% com quantidade de evidências.
+    A análise por questão inclui acertos, erros, respostas em branco e a
+    distribuição das marcações A--E. Com ao menos quatro correções, também
+    compara os grupos superior e inferior e informa o índice de discriminação
+    do item; sem amostra suficiente, o campo permanece explicitamente vazio.
+    A questão recebe sinal de revisão quando houver taxa de acerto inferior a
+    20%, discriminação negativa, ao menos 25% de respostas em branco ou 60% das
+    respostas válidas concentradas em um distrator.
 - `POST /api/assessment-applications/:id/report-renders`
   - congela um snapshot JSON versionado e enfileira o PDF ConTeXt.
 - `GET /api/report-render-jobs/:id`

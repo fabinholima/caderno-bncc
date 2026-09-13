@@ -24,6 +24,8 @@ test('consolida turma, habilidades e competências BNCC', () => {
             {
               questionNumber: 1,
               status: 'correct',
+              selectedLabels: ['C'],
+              correctLabels: ['C'],
               knowledgeTopic: 'Termoquímica > Lei de Hess',
               skills: [{ code: 'EM13CNT101', primary: true }],
               saebDescriptors: [
@@ -33,6 +35,8 @@ test('consolida turma, habilidades e competências BNCC', () => {
             {
               questionNumber: 2,
               status: 'incorrect',
+              selectedLabels: ['B'],
+              correctLabels: ['C'],
               knowledgeTopic: 'Termoquímica > Lei de Hess',
               skills: [{ code: 'EM13CNT101', primary: true }],
               saebDescriptors: [
@@ -78,12 +82,87 @@ test('consolida turma, habilidades e competências BNCC', () => {
   assert.equal(report.skills[0].classification, 'Em desenvolvimento');
   assert.equal(report.saebDescriptors[0].percentage, 50);
   assert.equal(report.questions.length, 2);
+  assert.equal(report.questions[0].selectedDistribution.C, 1);
+  assert.equal(report.questions[1].selectedDistribution.B, 1);
+  assert.equal(report.questions[0].discriminationIndex, null);
+  assert.equal(
+    report.questions[0].discriminationClassification,
+    'Amostra insuficiente',
+  );
   assert.equal(report.competencies[0].percentage, 50);
   assert.equal(report.topics[0].code, 'Termoquímica > Lei de Hess');
   assert.equal(report.topics[0].percentage, 50);
   assert.equal(report.priorities[0].priority, 'Atenção');
   assert.equal(report.priorities[0].percentage, 50);
   assert.equal(report.students[1].status, 'review');
+});
+
+test('calcula discriminação entre grupos superior e inferior', () => {
+  const rows = [
+    ['s1', 10, 'correct'],
+    ['s2', 8, 'correct'],
+    ['s3', 4, 'incorrect'],
+    ['s4', 2, 'incorrect'],
+  ].map(([studentId, score, status]) => ({
+    student_id: studentId,
+    student_name: studentId,
+    submission_id: `sub-${studentId}`,
+    score,
+    max_score: 10,
+    result: {
+      items: [
+        {
+          questionNumber: 1,
+          status,
+          selectedLabels: status === 'correct' ? ['A'] : ['B'],
+          correctLabels: ['A'],
+        },
+      ],
+    },
+  }));
+  const report = aggregateApplicationReport(
+    { id: 'app-discrimination', title: 'Diagnóstica' },
+    rows,
+    [],
+  );
+  assert.equal(report.questions[0].discriminationIndex, 100);
+  assert.equal(
+    report.questions[0].discriminationClassification,
+    'Discriminação alta',
+  );
+  assert.equal(report.questions[0].discriminationSampleSize, 2);
+  assert.equal(report.questions[0].needsReview, false);
+});
+
+test('sinaliza questão problemática com razões estatísticas', () => {
+  const rows = Array.from({ length: 4 }, (_, index) => ({
+    student_id: `s${index}`,
+    student_name: `Aluno ${index}`,
+    submission_id: `sub${index}`,
+    score: 10 - index,
+    max_score: 10,
+    result: {
+      items: [
+        {
+          questionNumber: 1,
+          status: 'incorrect',
+          selectedLabels: ['B'],
+          correctLabels: ['A'],
+        },
+      ],
+    },
+  }));
+  const report = aggregateApplicationReport(
+    { id: 'app-review', title: 'Revisão de itens' },
+    rows,
+    [],
+  );
+  assert.equal(report.questions[0].needsReview, true);
+  assert.equal(report.questions[0].dominantDistractor, 'B');
+  assert.deepEqual(report.questions[0].reviewReasons, [
+    'Taxa de acerto inferior a 20%',
+    'Distrator B concentrou ao menos 60% das respostas válidas',
+  ]);
 });
 
 test('calcula evolução longitudinal do aluno por avaliação e habilidade', () => {

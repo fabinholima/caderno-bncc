@@ -22,20 +22,20 @@ function barChart(title, values) {
     .map((item, index) => {
       const y = height - 10 - index * 9;
       const width = Math.max(0, Math.min(100, Number(item.percentage) || 0));
-      return `fill unitsquare xyscaled (${width}mm,5mm) shifted (0,${y}mm) withcolor .35white;
-label.lft(textext("${escapeContext(item.code)}"),(0,${y + 2.5}mm));
-label.rt(textext("${number(width)}\\%"),(${width}mm,${y + 2.5}mm));`;
+      return `fill unitsquare xyscaled (${width}mm,5mm) shifted (55mm,${y}mm) withcolor .35white;
+label(textext("\\framed[frame=off,width=52mm,align=flushright]{\\tfx ${escapeContext(item.code)}}"),(26mm,${y + 2.5}mm));
+label.rt(textext("${number(width)}\\%"),(${55 + width}mm,${y + 2.5}mm));`;
     })
     .join('\n');
   return `\\subject{${escapeContext(title)}}
 \\startMPcode
 numeric w; w := 100mm;
-draw (0,0)--(w,0) withcolor .75white;
-draw (40mm,0)--(40mm,${height}mm) dashed evenly withcolor .8white;
-draw (60mm,0)--(60mm,${height}mm) dashed evenly withcolor .7white;
-draw (80mm,0)--(80mm,${height}mm) dashed evenly withcolor .6white;
+draw (55mm,0)--(155mm,0) withcolor .75white;
+draw (95mm,0)--(95mm,${height}mm) dashed evenly withcolor .8white;
+draw (115mm,0)--(115mm,${height}mm) dashed evenly withcolor .7white;
+draw (135mm,0)--(135mm,${height}mm) dashed evenly withcolor .6white;
 ${bars}
-setbounds currentpicture to unitsquare xyscaled (122mm,${height}mm) shifted (-20mm,0);
+setbounds currentpicture to unitsquare xyscaled (170mm,${height}mm);
 \\stopMPcode`;
 }
 
@@ -89,6 +89,46 @@ ${rows || '\\bTR\\bTD[nc=5,align=middle] Nenhuma prioridade calculada. \\eTD\\eT
 \\eTABLE`;
 }
 
+function questionAnalysisTable(items) {
+  const rows = items
+    .map((item) => {
+      const distribution = ['A', 'B', 'C', 'D', 'E']
+        .map(
+          (label) =>
+            `${label}: ${Number(item.selectedDistribution?.[label]) || 0}`,
+        )
+        .join(' · ');
+      const discrimination =
+        item.discriminationIndex == null
+          ? 'Amostra insuficiente'
+          : `${number(item.discriminationIndex)} p.p. · ${item.discriminationClassification}`;
+      return `\\bTR
+\\bTD[align=middle] ${Number(item.questionNumber) || 0} \\eTD
+\\bTD[align=middle] ${item.correct}/${item.validAnswers} \\eTD
+\\bTD[align=middle] ${item.unanswered ?? 0} \\eTD
+\\bTD[align=middle] ${number(item.percentage)}\\% \\eTD
+\\bTD ${escapeContext(distribution)} \\eTD
+\\bTD ${escapeContext(discrimination)} \\eTD
+\\bTD ${escapeContext(item.needsReview ? `Revisar: ${(item.reviewReasons ?? []).join('; ')}` : item.classification)} \\eTD
+\\eTR`;
+    })
+    .join('\n');
+  return `\\subject{Análise por questão}
+\\start
+\\switchtobodyfont[9pt]
+\\bTABLE[split=yes,option=stretch]
+\\bTABLEhead
+\\bTR[background=color,backgroundcolor=lightgray]
+\\bTH Questão \\eTH \\bTH Acertos \\eTH \\bTH Em branco \\eTH \\bTH Resultado \\eTH \\bTH Marcações A--E \\eTH \\bTH Discriminação \\eTH \\bTH Diagnóstico \\eTH
+\\eTR
+\\eTABLEhead
+\\bTABLEbody
+${rows || '\\bTR\\bTD[nc=7,align=middle] Sem respostas corrigidas. \\eTD\\eTR'}
+\\eTABLEbody
+\\eTABLE
+\\stop`;
+}
+
 export function renderClassReport(snapshot) {
   if (snapshot?.schemaVersion !== '1.0' || !snapshot.application)
     throw new Error('Snapshot de relatório inválido.');
@@ -127,6 +167,8 @@ ${interventionTable(snapshot.priorities ?? [])}
 
 \\subject{Critério de leitura}
 As faixas usadas pela instituição são: Consolidado (80--100\\%), Adequado (60--79,9\\%), Em desenvolvimento (40--59,9\\%) e Requer intervenção (abaixo de 40\\%). O número de respostas válidas deve ser considerado junto do percentual.
+
+${questionAnalysisTable(snapshot.questions ?? [])}
 
 \\blank[big]
 \\tfx Snapshot v${escapeContext(snapshot.schemaVersion)} gerado em ${escapeContext(snapshot.generatedAt)}.
