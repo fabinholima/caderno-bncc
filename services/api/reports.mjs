@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { pool, transaction } from './db.mjs';
+import { readRenderArtifact } from './render-artifact-storage.mjs';
 
 const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -834,14 +834,17 @@ export async function getApplicationReportFile({ institutionId, jobId }) {
     return { status: 422, error: 'A composição do relatório falhou.' };
   if (result.rows[0].status !== 'completed')
     return { status: 409, error: 'O relatório ainda está sendo composto.' };
-  const relative = result.rows[0].output_manifest?.pdf;
-  const file = path.resolve(outputRoot, relative || '');
-  if (!relative || !file.startsWith(`${outputRoot}${path.sep}`))
-    return { status: 500, error: 'Manifesto de saída inválido.' };
+  const entry = result.rows[0].output_manifest?.pdf;
   try {
-    const metadata = await stat(file);
-    return { status: 200, size: metadata.size, stream: createReadStream(file) };
-  } catch {
+    const contents = await readRenderArtifact({ entry, outputRoot });
+    return {
+      status: 200,
+      size: contents.length,
+      stream: Readable.from([contents]),
+    };
+  } catch (error) {
+    if (/Manifesto|Provedor/.test(error.message))
+      return { status: 500, error: error.message };
     return {
       status: 410,
       error: 'O PDF do relatório não está mais disponível.',

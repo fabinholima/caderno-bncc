@@ -85,6 +85,9 @@ Em produção, `FILE_STORAGE_PROVIDER=s3` guarda os PDFs importados em S3 ou em 
 serviço compatível, usando `OBJECT_STORAGE_BUCKET`, `OBJECT_STORAGE_REGION` e,
 quando necessário, `OBJECT_STORAGE_ENDPOINT`. O banco conserva apenas a chave
 privada do objeto; os downloads continuam autorizados e transmitidos pela API.
+O mesmo adaptador recebe provas, gabaritos, fontes `.tex` e relatórios depois da
+validação do ConTeXt. No modo filesystem, configure `FILE_STORAGE_DIR` como o
+diretório persistente compartilhado.
 
 ### Acesso pelo celular na rede local
 

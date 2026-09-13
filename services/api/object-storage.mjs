@@ -111,7 +111,9 @@ export function createObjectStorage(environment = process.env, options = {}) {
     (environment.EXAM_STORAGE_DIR ? 'filesystem' : 'database');
   if (provider === 'database') return null;
   if (provider === 'filesystem')
-    return createFilesystemStorage({ root: environment.EXAM_STORAGE_DIR });
+    return createFilesystemStorage({
+      root: environment.FILE_STORAGE_DIR || environment.EXAM_STORAGE_DIR,
+    });
   if (provider === 's3')
     return createS3Storage({
       bucket: environment.OBJECT_STORAGE_BUCKET,

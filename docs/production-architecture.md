@@ -59,13 +59,18 @@ O adaptador em `services/api/object-storage.mjs` centraliza `put`, `get` e
 provedor sem alterar o fluxo editorial. Registros antigos no PostgreSQL e no
 filesystem continuam legíveis durante a migração.
 
-As saídas do ConTeXt ainda usam `RENDER_OUTPUT_DIR`. Na primeira publicação,
-monte esse volume privado na API e na máquina de renderização. O volume não pode
-ser servido diretamente pela internet.
+Provas, gabaritos, fontes ConTeXt e relatórios também são enviados pelo mesmo
+adaptador depois que o worker valida a saída. O manifesto de cada trabalho
+registra provedor, chave privada e tamanho; manifestos antigos contendo caminhos
+locais continuam aceitos. `RENDER_OUTPUT_DIR` passa a ser somente área de
+compilação e cache, enquanto `FILE_STORAGE_DIR` é o destino persistente quando o
+provedor escolhido é `filesystem`.
 
-Antes de operar o ConTeXt em múltiplas máquinas ou regiões, aplique a mesma
-interface às provas, gabaritos e relatórios gerados. Somente depois disso os
-workers de renderização podem abandonar o volume compartilhado. URLs assinadas
+No modo S3, a API e o worker não precisam compartilhar o diretório de arquivos;
+o worker precisa apenas de disco temporário para compilar. O armazenamento não
+pode ser servido diretamente pela internet.
+
+Com S3, os workers ConTeXt podem operar em máquinas diferentes. URLs assinadas
 podem ser adicionadas no futuro, sempre depois da autorização do tenant na API.
 
 ## Segurança obrigatória

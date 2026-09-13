@@ -135,6 +135,9 @@ importers:
 
   services/renderer:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1131.0
+        version: 3.1131.0
       pg:
         specifier: 8.16.3
         version: 8.16.3

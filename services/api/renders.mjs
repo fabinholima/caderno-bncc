@@ -1,11 +1,13 @@
 import path from 'node:path';
-import { createReadStream } from 'node:fs';
-import { mkdir, rename, stat } from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import crypto from 'node:crypto';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { pool } from './db.mjs';
+import { readRenderArtifact } from './render-artifact-storage.mjs';
 
 const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -79,19 +81,17 @@ export async function getRenderFile({
       : kind === 'gabarito'
         ? 'answerKeyPdf'
         : 'studentPdf';
-  const relative = result.rows[0].output_manifest?.[key];
-  const file = path.resolve(outputRoot, relative || '');
-  if (!relative || !file.startsWith(`${outputRoot}${path.sep}`))
-    return { status: 500, error: 'Manifesto de saída inválido.' };
+  const entry = result.rows[0].output_manifest?.[key];
   try {
-    const metadata = await stat(file);
+    const contents = await readRenderArtifact({ entry, outputRoot });
     return {
       status: 200,
-      file,
-      size: metadata.size,
-      stream: createReadStream(file),
+      size: contents.length,
+      stream: Readable.from([contents]),
     };
-  } catch {
+  } catch (error) {
+    if (/Manifesto|Provedor/.test(error.message))
+      return { status: 500, error: error.message };
     return {
       status: 410,
       error: 'O arquivo foi processado, mas não está mais disponível.',
@@ -149,47 +149,40 @@ export async function getApplicationBatchFile({
   const state = applicationBatchState(jobs.rows);
   if (state.error) return state;
 
-  const sources = [];
-  for (const job of jobs.rows) {
-    const relative = job.output_manifest?.studentPdf;
-    const file = path.resolve(outputRoot, relative || '');
-    if (!relative || !file.startsWith(`${outputRoot}${path.sep}`))
-      return { status: 500, error: 'Manifesto de saída inválido.' };
-    try {
-      await stat(file);
-      sources.push(file);
-    } catch {
-      return {
-        status: 410,
-        error: 'Um PDF individual não está mais disponível.',
-      };
-    }
-  }
-
-  const batchDirectory = path.join(outputRoot, 'batches');
-  const destination = path.join(batchDirectory, `${applicationId}.pdf`);
-  const temporary = path.join(
-    batchDirectory,
-    `${applicationId}-${crypto.randomUUID()}.tmp.pdf`,
-  );
-  await mkdir(batchDirectory, { recursive: true });
+  const batchDirectory = await mkdtemp(path.join(tmpdir(), 'caderno-batch-'));
   try {
-    await execFileAsync('pdfunite', [...sources, temporary], {
+    const sources = [];
+    for (const [index, job] of jobs.rows.entries()) {
+      const contents = await readRenderArtifact({
+        entry: job.output_manifest?.studentPdf,
+        outputRoot,
+      });
+      const source = path.join(batchDirectory, `${index + 1}.pdf`);
+      await writeFile(source, contents);
+      sources.push(source);
+    }
+    const destination = path.join(
+      batchDirectory,
+      `${applicationId}-${crypto.randomUUID()}.pdf`,
+    );
+    await execFileAsync('pdfunite', [...sources, destination], {
       timeout: 120_000,
       maxBuffer: 1_000_000,
     });
-    await rename(temporary, destination);
-    const metadata = await stat(destination);
+    const contents = await readFile(destination);
     return {
       status: 200,
-      file: destination,
-      size: metadata.size,
-      stream: createReadStream(destination),
+      size: contents.length,
+      stream: Readable.from([contents]),
     };
   } catch (error) {
+    if (/Manifesto|Provedor/.test(error.message))
+      return { status: 500, error: error.message };
     return {
       status: 500,
       error: `Não foi possível montar o PDF em lote: ${String(error.message).slice(0, 300)}`,
     };
+  } finally {
+    await rm(batchDirectory, { recursive: true, force: true });
   }
 }

@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { renderAssessment } from './render-contract.mjs';
 import { renderClassReport, renderStudentReport } from './report-contract.mjs';
+import { storeRenderArtifact } from '../api/render-artifact-storage.mjs';
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -396,15 +397,29 @@ export async function render(job) {
   );
   await compileAndValidate(studentSource, directory, 'prova');
   await compileAndValidate(answerKeySource, directory, 'gabarito');
+  const artifact = (name, contentType) =>
+    storeRenderArtifact({
+      key: `renders/${job.id}/${name}`,
+      file: path.join(directory, name),
+      contentType,
+      legacyRelative: path.join(job.id, name),
+    });
+  const [studentPdf, answerKeyPdf, storedStudentSource, storedAnswerKeySource] =
+    await Promise.all([
+      artifact('prova.pdf', 'application/pdf'),
+      artifact('gabarito.pdf', 'application/pdf'),
+      artifact('prova.tex', 'text/plain; charset=utf-8'),
+      artifact('gabarito.tex', 'text/plain; charset=utf-8'),
+    ]);
   await pool.query(
     "UPDATE render_jobs SET status = 'completed', completed_at = now(), output_manifest = $2::jsonb WHERE id = $1",
     [
       job.id,
       JSON.stringify({
-        studentPdf: path.join(job.id, 'prova.pdf'),
-        answerKeyPdf: path.join(job.id, 'gabarito.pdf'),
-        studentSource: path.join(job.id, 'prova.tex'),
-        answerKeySource: path.join(job.id, 'gabarito.tex'),
+        studentPdf,
+        answerKeyPdf,
+        studentSource: storedStudentSource,
+        answerKeySource: storedAnswerKeySource,
       }),
     ],
   );
@@ -432,13 +447,27 @@ export async function tick() {
           : renderClassReport;
       await writeFile(source, renderReport(reportJob.snapshot), 'utf8');
       await compileAndValidate(source, directory, 'relatorio');
+      const [pdf, storedSource] = await Promise.all([
+        storeRenderArtifact({
+          key: `reports/${reportJob.id}/relatorio.pdf`,
+          file: path.join(directory, 'relatorio.pdf'),
+          contentType: 'application/pdf',
+          legacyRelative: path.join('reports', reportJob.id, 'relatorio.pdf'),
+        }),
+        storeRenderArtifact({
+          key: `reports/${reportJob.id}/relatorio.tex`,
+          file: source,
+          contentType: 'text/plain; charset=utf-8',
+          legacyRelative: path.join('reports', reportJob.id, 'relatorio.tex'),
+        }),
+      ]);
       await pool.query(
         "UPDATE application_report_render_jobs SET status = 'completed', completed_at = now(), output_manifest = $2::jsonb WHERE id = $1",
         [
           reportJob.id,
           JSON.stringify({
-            pdf: path.join('reports', reportJob.id, 'relatorio.pdf'),
-            source: path.join('reports', reportJob.id, 'relatorio.tex'),
+            pdf,
+            source: storedSource,
           }),
         ],
       );

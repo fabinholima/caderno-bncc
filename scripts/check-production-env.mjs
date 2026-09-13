@@ -42,7 +42,11 @@ export function validateProductionEnvironment(environment = process.env) {
       'QR_SIGNING_SECRET precisa ter pelo menos 32 caracteres aleatórios.',
     );
 
-  for (const name of ['EXAM_STORAGE_DIR', 'RENDER_OUTPUT_DIR']) {
+  for (const name of [
+    'FILE_STORAGE_DIR',
+    'EXAM_STORAGE_DIR',
+    'RENDER_OUTPUT_DIR',
+  ]) {
     const value = String(environment[name] ?? '');
     if (value && !value.startsWith('/'))
       errors.push(`${name} precisa ser um caminho absoluto em produção.`);
@@ -51,8 +55,12 @@ export function validateProductionEnvironment(environment = process.env) {
   const storageProvider = environment.FILE_STORAGE_PROVIDER || 'filesystem';
   if (!['filesystem', 's3'].includes(storageProvider))
     errors.push('FILE_STORAGE_PROVIDER deve ser filesystem ou s3.');
-  if (storageProvider === 'filesystem' && !environment.EXAM_STORAGE_DIR)
-    errors.push('EXAM_STORAGE_DIR precisa estar definida para filesystem.');
+  if (
+    storageProvider === 'filesystem' &&
+    !environment.FILE_STORAGE_DIR &&
+    !environment.EXAM_STORAGE_DIR
+  )
+    errors.push('FILE_STORAGE_DIR precisa estar definida para filesystem.');
   if (storageProvider === 's3' && !environment.OBJECT_STORAGE_BUCKET)
     errors.push('OBJECT_STORAGE_BUCKET precisa estar definido para s3.');
 
