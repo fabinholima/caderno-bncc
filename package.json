@@ -11,6 +11,8 @@
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "test:services": "pnpm --filter @caderno/api test && pnpm --filter @caderno/renderer test",
+    "test:production-env": "node --test scripts/check-production-env.test.mjs",
+    "check:production-env": "node --env-file-if-exists=.env scripts/check-production-env.mjs",
     "start:omr": "node --env-file-if-exists=.env services/omr/worker.mjs",
     "start:imports": "node --env-file-if-exists=.env services/api/exam-import-worker.mjs",
     "lint": "oxlint",

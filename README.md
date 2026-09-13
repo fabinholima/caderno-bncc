@@ -144,6 +144,13 @@ Enquanto a API externa ainda não está ligada ao portal público, a tela de ava
 
 Os testes de contrato e validação rodam com `pnpm test:services`; o portal completo é verificado com `pnpm build`.
 
+O plano da primeira implantação, separação dos processos, armazenamento,
+segurança, capacidade e testes de fumaça está em
+[`docs/production-architecture.md`](docs/production-architecture.md). Antes de
+iniciar qualquer processo de produção, valide os segredos e caminhos com
+`pnpm check:production-env`; use `deploy/production.env.example` apenas como
+referência, nunca como arquivo de segredos versionado.
+
 A API também mantém revisões imutáveis de questões, consulta avaliações e registra respostas. A correção objetiva compara as letras com o gabarito da versão congelada; respostas discursivas são sinalizadas para revisão manual. O contrato completo está em `docs/api.md`.
 
 As configurações de cabeçalho e impressão podem ser salvas como favoritas por
