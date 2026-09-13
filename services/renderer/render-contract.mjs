@@ -468,18 +468,36 @@ export function renderAssessment(snapshot) {
         ];
   const studentQuestions = sections
     .map((section, index) => {
-      const content = (section.questions ?? [])
-        .map(renderQuestion)
-        .join('\n\n');
+      const questions = section.questions ?? [];
       const pageBreak = index > 0 && section.startOnNewPage ? '\\page\n' : '';
       const heading = section.title
         ? `\\subject{${escapeContext(section.title)}}\n\\blank[small]\n`
         : '';
-      const columns =
-        Number(section.columns) === 2
-          ? `\\startmixedcolumns[n=2,balance=yes,distance=${snapshot.render?.template === 'simulado-v1' ? '8mm' : '10mm'},separator=rule,rulethickness=.5pt,rulecolor=${snapshot.render?.template === 'simulado-v1' ? 'simuladocolumnrule' : 'middlegray'}]\n${content}\n\\stopmixedcolumns`
-          : content;
-      return `${pageBreak}${heading}${columns}`;
+      if (Number(section.columns) !== 2) {
+        return `${pageBreak}${heading}${questions.map(renderQuestion).join('\n\n')}`;
+      }
+      const columnOptions = `n=2,balance=yes,distance=${snapshot.render?.template === 'simulado-v1' ? '8mm' : '10mm'},separator=rule,rulethickness=.5pt,rulecolor=${snapshot.render?.template === 'simulado-v1' ? 'simuladocolumnrule' : 'middlegray'}`;
+      const blocks = [];
+      let columnQuestions = [];
+      const flushColumns = () => {
+        if (!columnQuestions.length) return;
+        blocks.push(
+          `\\startmixedcolumns[${columnOptions}]\n${columnQuestions.map(renderQuestion).join('\n\n')}\n\\stopmixedcolumns`,
+        );
+        columnQuestions = [];
+      };
+      questions.forEach((question) => {
+        if (!question.fullWidth) {
+          columnQuestions.push(question);
+          return;
+        }
+        flushColumns();
+        blocks.push(
+          `\\blank[medium]\n${renderQuestion(question)}\n\\blank[medium]`,
+        );
+      });
+      flushColumns();
+      return `${pageBreak}${heading}${blocks.join('\n')}`;
     })
     .join('\n\n');
   const answerRows = sections

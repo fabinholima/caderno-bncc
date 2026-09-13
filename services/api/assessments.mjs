@@ -44,6 +44,7 @@ export const createAssessmentSchema = z
           columns: z.union([z.literal(1), z.literal(2)]).default(1),
           startOnNewPage: z.boolean().default(false),
           questionIds: z.array(z.string().uuid()).min(1).max(100),
+          fullWidthQuestionIds: z.array(z.string().uuid()).max(100).default([]),
         }),
       )
       .min(1)
@@ -81,6 +82,21 @@ export const createAssessmentSchema = z
         message: 'Uma questão não pode aparecer em mais de uma seção.',
       });
     }
+    value.sections.forEach((section, sectionIndex) => {
+      const selected = new Set(section.questionIds);
+      if (
+        new Set(section.fullWidthQuestionIds).size !==
+          section.fullWidthQuestionIds.length ||
+        section.fullWidthQuestionIds.some((id) => !selected.has(id))
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['sections', sectionIndex, 'fullWidthQuestionIds'],
+          message:
+            'Questões em largura total devem pertencer à própria seção e não podem se repetir.',
+        });
+      }
+    });
   });
 
 function seededShuffle(items, seed) {
@@ -168,6 +184,7 @@ export async function createAssessment({ institutionId, userId, input }) {
       const seed = Date.now() + index * 7919;
       let questionNumber = 0;
       const snapshotSections = value.sections.map((section, sectionIndex) => {
+        const fullWidthQuestionIds = new Set(section.fullWidthQuestionIds);
         const sectionQuestions = section.questionIds.map((id) =>
           questionById.get(id),
         );
@@ -206,6 +223,7 @@ export async function createAssessment({ institutionId, userId, input }) {
               explanation: question.explanation || [],
             },
             points: Number(question.default_points),
+            fullWidth: fullWidthQuestionIds.has(question.id),
             skills: question.skills,
             saebDescriptors: question.saeb_descriptors,
           };

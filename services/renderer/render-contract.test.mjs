@@ -285,6 +285,39 @@ test('organiza disciplinas em seções com uma ou duas colunas', async () => {
   assert.match(tex, /\\page\n\\subject\{Química\}/);
 });
 
+test('interrompe e retoma duas colunas para questão em largura total nos dois layouts', async () => {
+  const base = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  const questions = [1, 2, 3].map((number) => ({
+    ...base.questions[0],
+    id: `snapshot-${number}`,
+    number,
+    fullWidth: number === 2,
+  }));
+  base.questions = questions;
+  base.sections = [
+    {
+      title: 'Geografia',
+      subject: 'Geografia',
+      columns: 2,
+      startOnNewPage: false,
+      questions,
+    },
+  ];
+  for (const template of ['basicexam-v1', 'simulado-v1']) {
+    base.render.template = template;
+    const tex = renderAssessment(base);
+    assert.equal(tex.match(/\\startmixedcolumns\[/g)?.length, 2);
+    assert.match(
+      tex,
+      /\\stopmixedcolumns\n\\blank\[medium\]\n\\startquestion\[point=1,showanswer=false\][\s\S]*?\\stopquestion\n\\blank\[medium\]\n\\startmixedcolumns/,
+    );
+  }
+});
+
 test('gera gabarito limpo com a letra correta e sem marcações internas', async () => {
   const snapshot = JSON.parse(
     await readFile(

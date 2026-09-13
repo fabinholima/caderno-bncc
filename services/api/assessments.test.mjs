@@ -19,6 +19,7 @@ test('valida a montagem de avaliação', () => {
         columns: 2,
         startOnNewPage: false,
         questionIds: ['10000000-0000-4000-8000-000000000001'],
+        fullWidthQuestionIds: ['10000000-0000-4000-8000-000000000001'],
       },
       {
         subject: 'Química',
@@ -36,11 +37,32 @@ test('valida a montagem de avaliação', () => {
   });
   assert.equal(input.versionCount, 3);
   assert.equal(input.sections[0].columns, 2);
+  assert.deepEqual(input.sections[0].fullWidthQuestionIds, [
+    '10000000-0000-4000-8000-000000000001',
+  ]);
   assert.equal(input.paper, 'A5');
   assert.equal(input.template, 'basicexam-v1');
   assert.equal(input.font, 'schola');
   assert.equal(input.fontSize, 14);
   assert.equal(input.header.teacherName, 'Ana Souza');
+});
+
+test('rejeita questão em largura total fora da própria seção', () => {
+  assert.throws(() =>
+    createAssessmentSchema.parse({
+      title: 'Simulado de Geografia',
+      grade: '2º ano',
+      sections: [
+        {
+          subject: 'Geografia',
+          columns: 2,
+          questionIds: ['10000000-0000-4000-8000-000000000001'],
+          fullWidthQuestionIds: ['10000000-0000-4000-8000-000000000002'],
+        },
+      ],
+      versionCount: 1,
+    }),
+  );
 });
 
 test('valida formato e tamanho do logotipo do cabeçalho', () => {
@@ -90,12 +112,8 @@ test('aplica o layout padrão e rejeita identificador arbitrário', () => {
   assert.throws(() =>
     createAssessmentSchema.parse({ ...base, template: '../../layout.tex' }),
   );
-  assert.throws(() =>
-    createAssessmentSchema.parse({ ...base, font: 'times' }),
-  );
-  assert.throws(() =>
-    createAssessmentSchema.parse({ ...base, fontSize: 17 }),
-  );
+  assert.throws(() => createAssessmentSchema.parse({ ...base, font: 'times' }));
+  assert.throws(() => createAssessmentSchema.parse({ ...base, fontSize: 17 }));
 });
 
 test('não permite repetir uma questão entre seções', () => {

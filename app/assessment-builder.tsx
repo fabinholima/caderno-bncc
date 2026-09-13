@@ -45,6 +45,7 @@ type AssessmentSection = {
   columns: 1 | 2;
   startOnNewPage: boolean;
   selected: Set<string>;
+  fullWidth: Set<string>;
 };
 
 type GeneratedVersion = {
@@ -141,6 +142,7 @@ export function AssessmentBuilder({
             .slice(0, 2)
             .map((question) => question.id),
         ),
+        fullWidth: new Set<string>(),
       })),
   );
   const [activeSectionId, setActiveSectionId] = useState(
@@ -308,6 +310,11 @@ export function AssessmentBuilder({
               currentQuestionIds.has(id),
             ),
           ),
+          fullWidth: new Set(
+            Array.from(section.fullWidth).filter(
+              (id) => currentQuestionIds.has(id) && section.selected.has(id),
+            ),
+          ),
         }));
       if (synchronized.length || !subjects.length) return synchronized;
       return [
@@ -317,6 +324,7 @@ export function AssessmentBuilder({
           columns: 1,
           startOnNewPage: false,
           selected: new Set<string>(),
+          fullWidth: new Set<string>(),
         },
       ];
     });
@@ -406,8 +414,27 @@ export function AssessmentBuilder({
       current.map((section) => {
         if (section.id !== activeSectionId) return section;
         const selected = new Set(section.selected);
-        selected.has(id) ? selected.delete(id) : selected.add(id);
-        return { ...section, selected };
+        const fullWidth = new Set(section.fullWidth);
+        if (selected.has(id)) {
+          selected.delete(id);
+          fullWidth.delete(id);
+        } else {
+          selected.add(id);
+        }
+        return { ...section, selected, fullWidth };
+      }),
+    );
+  }
+
+  function toggleFullWidth(id: string) {
+    setGenerated(false);
+    setSections((current) =>
+      current.map((section) => {
+        if (section.id !== activeSectionId || !section.selected.has(id))
+          return section;
+        const fullWidth = new Set(section.fullWidth);
+        fullWidth.has(id) ? fullWidth.delete(id) : fullWidth.add(id);
+        return { ...section, fullWidth };
       }),
     );
   }
@@ -428,6 +455,7 @@ export function AssessmentBuilder({
         columns: 1,
         startOnNewPage: false,
         selected: new Set<string>(),
+        fullWidth: new Set<string>(),
       },
     ]);
     setActiveSectionId(id);
@@ -450,6 +478,7 @@ export function AssessmentBuilder({
         columns: 1,
         startOnNewPage: false,
         selected: new Set<string>(),
+        fullWidth: new Set<string>(),
       },
     ]);
     setActiveSectionId(id);
@@ -619,6 +648,7 @@ export function AssessmentBuilder({
               columns: section.columns,
               startOnNewPage: section.startOnNewPage,
               questionIds: Array.from(section.selected),
+              fullWidthQuestionIds: Array.from(section.fullWidth),
             })),
             versionCount: versions,
             paper,
@@ -960,57 +990,74 @@ export function AssessmentBuilder({
             </div>
             <div className="divide-y divide-slate-100">
               {visibleQuestions.map((question) => (
-                <button
+                <article
                   key={question.id}
-                  onClick={() => toggle(question.id)}
-                  className={`flex w-full items-start gap-3 p-4 text-left transition hover:bg-blue-50/50 ${
+                  className={`p-4 transition hover:bg-blue-50/50 ${
                     activeSection?.selected.has(question.id)
                       ? 'bg-blue-50/40'
                       : ''
                   }`}
                 >
-                  <span
-                    className={`mt-1 grid size-5 shrink-0 place-items-center rounded border ${
-                      activeSection?.selected.has(question.id)
-                        ? 'border-blue-600 bg-blue-600 text-white'
-                        : 'border-slate-300'
-                    }`}
+                  <button
+                    type="button"
+                    onClick={() => toggle(question.id)}
+                    className="flex w-full items-start gap-3 text-left"
                   >
-                    {activeSection?.selected.has(question.id) && (
-                      <Check className="size-3" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-blue-700">
-                        {question.code}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="border-violet-200 bg-violet-50 font-mono text-violet-700"
-                      >
-                        {question.skill}
-                      </Badge>
-                      <span className="text-xs text-slate-400">
-                        {question.grade} · {question.difficulty}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {question.sourceInstitution} {question.sourceYear}
-                      </span>
-                      {topicParts(question).topic && (
-                        <span className="text-xs font-medium text-slate-500">
-                          {topicParts(question).topic}
-                          {topicParts(question).subtopic
-                            ? ` › ${topicParts(question).subtopic}`
-                            : ''}
-                        </span>
+                    <span
+                      className={`mt-1 grid size-5 shrink-0 place-items-center rounded border ${
+                        activeSection?.selected.has(question.id)
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-slate-300'
+                      }`}
+                    >
+                      {activeSection?.selected.has(question.id) && (
+                        <Check className="size-3" />
                       )}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-blue-700">
+                          {question.code}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="border-violet-200 bg-violet-50 font-mono text-violet-700"
+                        >
+                          {question.skill}
+                        </Badge>
+                        <span className="text-xs text-slate-400">
+                          {question.grade} · {question.difficulty}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {question.sourceInstitution} {question.sourceYear}
+                        </span>
+                        {topicParts(question).topic && (
+                          <span className="text-xs font-medium text-slate-500">
+                            {topicParts(question).topic}
+                            {topicParts(question).subtopic
+                              ? ` › ${topicParts(question).subtopic}`
+                              : ''}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium leading-5 text-slate-800">
+                        {question.statement}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium leading-5 text-slate-800">
-                      {question.statement}
-                    </p>
-                  </div>
-                </button>
+                  </button>
+                  {activeSection?.selected.has(question.id) &&
+                    activeSection.columns === 2 && (
+                      <label className="mt-3 ml-8 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={activeSection.fullWidth.has(question.id)}
+                          onChange={() => toggleFullWidth(question.id)}
+                          className="accent-blue-600"
+                        />
+                        Usar largura total (1 coluna) para esta questão
+                      </label>
+                    )}
+                </article>
               ))}
               {!visibleQuestions.length && (
                 <div className="p-8 text-center text-sm text-slate-500">
