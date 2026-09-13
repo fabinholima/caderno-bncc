@@ -238,6 +238,24 @@ function ImportedQuestionTextEditor({
     });
   };
 
+  const insertFormula = () => {
+    const target = editor.current;
+    if (!target) return;
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    const selected = candidate.rawText.slice(start, end);
+    const formula = selected || '\\chemical{} \\chemical{2H_2}';
+    const replacement = `\\startformula\n${formula}\n\\stopformula`;
+    onChange(
+      `${candidate.rawText.slice(0, start)}${replacement}${candidate.rawText.slice(end)}`,
+    );
+    requestAnimationFrame(() => {
+      target.focus();
+      const selectionStart = start + '\\startformula\n'.length;
+      target.setSelectionRange(selectionStart, selectionStart + formula.length);
+    });
+  };
+
   const save = () => {
     if (candidate.rawText.trim() === savedValue.current.trim()) return;
     savedValue.current = candidate.rawText;
@@ -270,6 +288,16 @@ function ImportedQuestionTextEditor({
               {'{ }'}
             </Button>
           ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={insertFormula}
+            className="font-mono text-xs"
+          >
+            \\startformula
+          </Button>
           <Button
             type="button"
             size="sm"

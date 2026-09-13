@@ -394,7 +394,7 @@ test('renderiza equação termoquímica com chemical e módulo units', async () 
   assert.match(tex, /\\unit\{-51,9 kilo joule\}/);
 });
 
-test('aceita código ConTeXt seguro e normaliza abreviações do módulo units', async () => {
+test('preserva código ConTeXt seguro para o módulo units interpretar', async () => {
   const snapshot = JSON.parse(
     await readFile(
       new URL('../../samples/assessment-snapshot.json', import.meta.url),
@@ -407,9 +407,9 @@ test('aceita código ConTeXt seguro e normaliza abreviações do módulo units',
     },
   ];
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /\\unit\{18,4 gram\}/);
-  assert.match(tex, /\\unit\{51,9 kilo joule\}/);
-  assert.match(tex, /\\unit\{25 degrees celsius\}/);
+  assert.match(tex, /\\unit\{18,4 g\}/);
+  assert.match(tex, /\\unit\{51,9 kJ\}/);
+  assert.match(tex, /\\unit\{25 °C\}/);
 });
 
 test('renderiza chemical e unit em linha no texto corrido', async () => {
@@ -524,7 +524,7 @@ test('permite ell dentro de chemical sem forçar itálico matemático', async ()
   assert.doesNotMatch(tex, /Considere \\m\{/);
 });
 
-test('normaliza carga iônica e estado físico dentro de chemical', async () => {
+test('preserva carga iônica e estado físico dentro de chemical', async () => {
   const snapshot = JSON.parse(
     await readFile(
       new URL('../../samples/assessment-snapshot.json', import.meta.url),
@@ -539,7 +539,7 @@ test('normaliza carga iônica e estado físico dentro de chemical', async () => 
   const tex = renderAssessment(snapshot);
   assert.match(
     tex,
-    /Íons \\allowbreak\{\}\\chemical\{C\\ell\^\{-\}\(aq\)\} e \\allowbreak\{\}\\chemical\{H\^\{\+\}\(aq\)\}\./,
+    /Íons \\allowbreak\{\}\\chemical\{C\\ell\^-\{\(aq\)\}\} e \\allowbreak\{\}\\chemical\{H\^\+\{\(aq\)\}\}\./,
   );
 });
 

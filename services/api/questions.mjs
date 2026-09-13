@@ -189,6 +189,7 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
       .max(4_000)
       .refine((code) => {
         const allowed = new Set([
+          ...allowedMathCommands,
           'chemical',
           'unit',
           'Delta',
@@ -204,6 +205,9 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
           'pm',
           'approx',
           'mathrm',
+          'bold',
+          'm',
+          'rm',
         ]);
         return (
           !forbiddenContextFormula.test(code) &&

@@ -298,6 +298,36 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
   let inferredIndex = 0;
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
+    if (/^\\startformula\s*$/i.test(line)) {
+      const formulaLines: string[] = [];
+      let closed = false;
+      while (lineIndex + 1 < lines.length) {
+        lineIndex += 1;
+        if (/^\\stopformula\s*$/i.test(lines[lineIndex])) {
+          closed = true;
+          break;
+        }
+        formulaLines.push(lines[lineIndex]);
+      }
+      statementBlocks.push(
+        ...paragraphs
+          .splice(0)
+          .flatMap((paragraph) => inlineScientificBlocks(paragraph, warnings)),
+      );
+      if (closed && formulaLines.length) {
+        statementBlocks.push({
+          type: 'contextFormula',
+          code: formulaLines.join('\n').trim(),
+        });
+        warnings.push(
+          'Fórmula ConTeXt preservada sem conversão; confirme na prévia em PDF.',
+        );
+      } else {
+        paragraphs.push(line, ...formulaLines);
+        warnings.push('Bloco \\startformula sem \\stopformula correspondente.');
+      }
+      continue;
+    }
     const labeled = line.match(/^([a-e])[.)]\s*(.+)$/i);
     const numbered = line.match(/^\d+[.)]\s*(.+)$/);
     if (labeled || numbered) {

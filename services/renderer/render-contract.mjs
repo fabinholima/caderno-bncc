@@ -238,39 +238,6 @@ function thermochemicalEquation(node) {
   return `\\startformula\n\\chemical{} ${rendered} \\qquad \\Delta H(\\unit{${temperature}}) = \\unit{${enthalpy}}\n\\stopformula`;
 }
 
-function normalizeContextUnits(code) {
-  const aliases = new Map([
-    ['g', 'gram'],
-    ['kg', 'kilogram'],
-    ['mg', 'milligram'],
-    ['mol', 'mole'],
-    ['mmol', 'millimole'],
-    ['l', 'liter'],
-    ['ml', 'milliliter'],
-    ['j', 'joule'],
-    ['kj', 'kilo joule'],
-    ['c', 'degrees celsius'],
-    ['°c', 'degrees celsius'],
-  ]);
-  return code.replace(/\\unit\{([^{}]+)\}/g, (_whole, rawValue) => {
-    const value = String(rawValue).trim();
-    const match = value.match(/^([+-]?[0-9]+(?:[.,][0-9]+)?)\s*([A-Za-z°]+)$/);
-    if (!match) return `\\unit{${value}}`;
-    const normalizedUnit = aliases.get(match[2].toLocaleLowerCase('pt-BR'));
-    return normalizedUnit
-      ? `\\unit{${match[1]} ${normalizedUnit}}`
-      : `\\unit{${value}}`;
-  });
-}
-
-function normalizeInlineChemicalNotation(code) {
-  return String(code ?? '').replace(
-    /\\chemical\{((?:[^{}]|\{[^{}]*\})*)\}/g,
-    (_whole, formula) =>
-      `\\chemical{${formula.replace(/\^([+-])\{(\([^{}]+\))\}/g, '^{$1}$2')}}`,
-  );
-}
-
 function paragraphWithScientificInline(text) {
   const value = String(text ?? '');
   const pattern = /\\(chemical|unit|m|bold)\{/g;
@@ -306,16 +273,12 @@ function paragraphWithScientificInline(text) {
             : mathCommandsAllowed &&
               /^[A-Za-z0-9\\{}_^+\-*/=<>()[\],.;:\s]+$/.test(argument);
     const original = value.slice(index, end);
-    const normalized =
-      command === 'chemical'
-        ? normalizeInlineChemicalNotation(original)
-        : original;
     output += valid
       ? command === 'unit'
-        ? `\\allowbreak{}${normalizeContextUnits(original)}`
+        ? `\\allowbreak{}${original}`
         : command === 'bold'
           ? `\\bold{${escapeContext(argument)}}`
-          : `\\allowbreak{}${normalized}`
+          : `\\allowbreak{}${original}`
       : escapeContext(original);
     cursor = end;
   }
@@ -353,6 +316,7 @@ function richText(nodes = []) {
     if (node.type === 'contextFormula') {
       const code = String(node.code ?? '').trim();
       const allowed = new Set([
+        ...allowedMathCommands,
         'chemical',
         'unit',
         'Delta',
@@ -368,6 +332,9 @@ function richText(nodes = []) {
         'pm',
         'approx',
         'mathrm',
+        'bold',
+        'm',
+        'rm',
       ]);
       if (
         !code ||
@@ -379,7 +346,7 @@ function richText(nodes = []) {
       )
         throw new Error('Fórmula ConTeXt inválida ou não permitida.');
       return {
-        content: `\\startformula\n${normalizeInlineChemicalNotation(normalizeContextUnits(code))}\n\\stopformula`,
+        content: `\\startformula\n${code}\n\\stopformula`,
         inline: false,
       };
     }
@@ -414,7 +381,7 @@ function richText(nodes = []) {
       )
         throw new Error('Trecho ConTeXt em linha inválido ou não permitido.');
       return {
-        content: `\\allowbreak{}${normalizeInlineChemicalNotation(normalizeContextUnits(code))}`,
+        content: `\\allowbreak{}${code}`,
         inline: true,
       };
     }
