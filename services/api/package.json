@@ -11,6 +11,7 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0",
     "@rdkit/rdkit": "2025.3.4-1.0.0",
     "exceljs": "^4.4.0",
     "pg": "8.16.3",

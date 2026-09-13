@@ -7,6 +7,7 @@ const validEnvironment = {
   DATABASE_URL: 'postgresql://user:secret@db.example.com:5432/caderno',
   CORS_ORIGIN: 'https://app.example.com,https://admin.example.com',
   EXAM_STORAGE_DIR: '/srv/caderno/exams',
+  FILE_STORAGE_PROVIDER: 'filesystem',
   RENDER_OUTPUT_DIR: '/srv/caderno/renders',
   QR_SIGNING_SECRET: '0123456789abcdef0123456789abcdef',
   DEV_AUTH_BYPASS: 'false',
@@ -14,6 +15,16 @@ const validEnvironment = {
 
 test('accepts a safe production environment', () => {
   assert.deepEqual(validateProductionEnvironment(validEnvironment), []);
+});
+
+test('accepts S3-compatible object storage without an exam volume', () => {
+  const environment = {
+    ...validEnvironment,
+    FILE_STORAGE_PROVIDER: 's3',
+    OBJECT_STORAGE_BUCKET: 'caderno-private',
+  };
+  delete environment.EXAM_STORAGE_DIR;
+  assert.deepEqual(validateProductionEnvironment(environment), []);
 });
 
 test('rejects development authentication, unsafe origins and weak secrets', () => {

@@ -48,16 +48,25 @@ API e os workers. Não aumente réplicas sem recalcular esse orçamento.
 
 ## Arquivos e evolução para armazenamento de objetos
 
-A implementação atual usa caminhos locais por meio de `EXAM_STORAGE_DIR` e
-`RENDER_OUTPUT_DIR`. Na primeira publicação, monte o mesmo volume privado nesses
-caminhos na API e na máquina de workers. O volume não pode ser servido
-diretamente pela internet: todo download passa pelas rotas autenticadas da API.
+A implementação oferece `filesystem` e `s3` para os PDFs originais de
+importação. Selecione com `FILE_STORAGE_PROVIDER`; o segundo funciona com S3 e
+serviços compatíveis por meio de `OBJECT_STORAGE_ENDPOINT`. Objetos são privados,
+possuem prefixo configurável e podem solicitar criptografia no servidor. Todo
+download continua passando pelas rotas autenticadas da API.
 
-Antes de operar em múltiplas máquinas ou regiões, introduza uma interface de
-armazenamento com dois adaptadores (`filesystem` e `object-storage`). No segundo,
-grave apenas a chave do objeto no PostgreSQL e entregue downloads por URL curta
-assinada. Essa migração deve ocorrer antes de escalar horizontalmente os workers
-em hosts diferentes.
+O adaptador em `services/api/object-storage.mjs` centraliza `put`, `get` e
+`delete`, valida as chaves contra travessia de diretórios e permite trocar o
+provedor sem alterar o fluxo editorial. Registros antigos no PostgreSQL e no
+filesystem continuam legíveis durante a migração.
+
+As saídas do ConTeXt ainda usam `RENDER_OUTPUT_DIR`. Na primeira publicação,
+monte esse volume privado na API e na máquina de renderização. O volume não pode
+ser servido diretamente pela internet.
+
+Antes de operar o ConTeXt em múltiplas máquinas ou regiões, aplique a mesma
+interface às provas, gabaritos e relatórios gerados. Somente depois disso os
+workers de renderização podem abandonar o volume compartilhado. URLs assinadas
+podem ser adicionadas no futuro, sempre depois da autorização do tenant na API.
 
 ## Segurança obrigatória
 

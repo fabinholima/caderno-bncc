@@ -1,31 +1,26 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-
-const storageRoot = process.env.EXAM_STORAGE_DIR
-  ? resolve(process.env.EXAM_STORAGE_DIR)
-  : '';
+import { createObjectStorage } from './object-storage.mjs';
 
 export async function storeExamDocument(importId, kind, contents) {
-  if (!storageRoot)
+  const storage = createObjectStorage();
+  if (!storage)
     return { provider: 'database', key: null, databaseContents: contents };
-  const directory = join(storageRoot, importId);
-  await mkdir(directory, { recursive: true });
-  const key = `${importId}/${kind}.pdf`;
-  await writeFile(join(storageRoot, key), contents, { flag: 'wx' }).catch(
-    async (error) => {
-      if (error.code !== 'EEXIST') throw error;
-      await writeFile(join(storageRoot, key), contents);
+  const key = await storage.put(
+    `exam-imports/${importId}/${kind}.pdf`,
+    contents,
+    {
+      contentType: 'application/pdf',
     },
   );
-  return { provider: 'filesystem', key, databaseContents: null };
+  return { provider: storage.provider, key, databaseContents: null };
 }
 
 export async function readExamDocument(row) {
-  if (row.storage_provider === 'filesystem' && row.storage_key) {
-    const target = resolve(storageRoot, row.storage_key);
-    if (!storageRoot || !target.startsWith(`${storageRoot}/`))
-      throw new Error('Chave de armazenamento inválida.');
-    return readFile(target);
+  if (['filesystem', 's3'].includes(row.storage_provider) && row.storage_key) {
+    const storage = createObjectStorage({
+      ...process.env,
+      FILE_STORAGE_PROVIDER: row.storage_provider,
+    });
+    return storage.get(row.storage_key);
   }
   if (row.file_data) return row.file_data;
   throw new Error('Documento da importação não está disponível.');

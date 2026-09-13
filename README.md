@@ -81,6 +81,11 @@ Para testar a interface sem consumo externo, inicie somente o worker com
 `EXAM_AI_PROVIDER=local_demo`; esse modo preserva o texto e o gabarito e produz
 classificações heurísticas claramente identificadas como demonstração.
 
+Em produção, `FILE_STORAGE_PROVIDER=s3` guarda os PDFs importados em S3 ou em um
+serviço compatível, usando `OBJECT_STORAGE_BUCKET`, `OBJECT_STORAGE_REGION` e,
+quando necessário, `OBJECT_STORAGE_ENDPOINT`. O banco conserva apenas a chave
+privada do objeto; os downloads continuam autorizados e transmitidos pela API.
+
 ### Acesso pelo celular na rede local
 
 Use o IP local do computador tanto no endereço público da API quanto na lista
