@@ -477,9 +477,7 @@ export function renderAssessment(snapshot) {
         : '';
       const columns =
         Number(section.columns) === 2
-          ? snapshot.render?.template === 'simulado-v1'
-            ? `\\startcolumns[n=2,balance=yes,distance=8mm]\n${content}\n\\stopcolumns`
-            : `\\startmixedcolumns[n=2,balance=yes,distance=10mm,separator=rule,rulethickness=.5pt,rulecolor=middlegray]\n${content}\n\\stopmixedcolumns`
+          ? `\\startmixedcolumns[n=2,balance=yes,distance=${snapshot.render?.template === 'simulado-v1' ? '8mm' : '10mm'},separator=rule,rulethickness=.5pt,rulecolor=${snapshot.render?.template === 'simulado-v1' ? 'simuladocolumnrule' : 'middlegray'}]\n${content}\n\\stopmixedcolumns`
           : content;
       return `${pageBreak}${heading}${columns}`;
     })

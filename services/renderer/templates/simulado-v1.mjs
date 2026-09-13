@@ -56,7 +56,7 @@ export const simulatedExamV1 = Object.freeze({
     const examHeader = `\\dontleavehmode\\hbox to \\hsize{
 \\vbox to 20mm{\\hsize=30mm\\vfil\\leftaligned{${logo}}\\vfil}
 \\hfill
-\\vbox to 20mm{\\hsize=\\dimexpr\\hsize-60mm\\relax\\vfil\\midaligned{\\tfd\\bf ${institution}}\\vfil}
+\\vbox to 20mm{\\hsize=\\dimexpr\\hsize-60mm\\relax\\vfil\\midaligned{\\tfd\\bold{${institution}}}\\blank[1mm]\\midaligned{\\tfx\\bold{VERSÃO ${version}}}\\vfil}
 \\hfill
 \\vbox to 20mm{\\hsize=24mm\\vfil\\rightaligned{${qr}}\\vfil}}`;
     const answerCardHeader = renderAnswerCardHeader({
@@ -89,18 +89,18 @@ export const simulatedExamV1 = Object.freeze({
         ? `\\startframedtext[width=\\textwidth,framecolor=simuladoaccent,background=color,backgroundcolor=simuladobackground,corner=round,offset=4mm]
 ${examHeader}
 \\blank[small]
-\\midaligned{\\tfd\\bf ${title}}
-\\midaligned{${grade} \\quad Versão ${version} \\quad Valor: ${points}}
+\\midaligned{\\tfd\\bold{${title}}}
+\\midaligned{${grade} \\quad Valor: ${points}}
 ${details ? `\\blank[small]\\midaligned{${details}}` : ''}
 \\stopframedtext
 \\blank[medium]
 \\framed[width=\\textwidth,align=middle,framecolor=simuladoaccent,offset=3mm]{
-{\\bf FRASE PARA TRANSCRIÇÃO}\\blank[small]
+\\bold{FRASE PARA TRANSCRIÇÃO}\\blank[small]
 ${transcriptionPhrase || 'Transcreva a frase indicada pelo professor.'}\\blank[small]
 \\thinrules[n=1,width=.92\\textwidth]}
 \\blank[medium]
 \\startframedtext[width=\\textwidth,framecolor=simuladoaccent,offset=4mm]
-\\midaligned{\\tfc\\bf INSTRUÇÕES DO SIMULADO}
+\\midaligned{\\tfc\\bold{INSTRUÇÕES DO SIMULADO}}
 \\blank[small]
 \\startitemize[n,packed]
 ${instructionItems}
@@ -132,7 +132,7 @@ Turma: ${className || '\\thinrules[n=1,width=35mm]'} \\quad Data: ${assessmentDa
 \\blank[small]
 ${answerCardHeader}
 \\blank[small]
-{\\bf\\color[simuladoaccent]{INSTRUÇÕES}}\\par
+\\color[simuladoaccent]{\\bold{INSTRUÇÕES}}\\par
 \\switchtobodyfont[8pt]Preencha completamente apenas um círculo por questão, usando caneta preta ou azul. Não dobre, rasure nem danifique o QR Code e as marcas pretas. Em caso de alteração, solicite orientação ao aplicador.\\par
 \\blank[small]
 \\framed[width=\\textwidth,framecolor=simuladoaccent,offset=0mm]{\\hbox to \\textwidth{${blocks}}}
@@ -156,18 +156,20 @@ ${answerCardHeader}
 \\define[1]\\DescritorSAEB{{\\switchtobodyfont[cursor]#1}}
 \\definecolor[simuladoaccent][s=.25]
 \\definecolor[simuladobackground][s=.92]
+\\definecolor[simuladocolumnrule][s=.65]
 \\definecolor[answercardrule][s=.35]
 ${answerCardHeaderPreamble}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
 \\setuplayout[topspace=13mm,backspace=14mm,width=middle,height=middle]
+\\setuppagenumbering[location={footer,right},style=\\tfx]
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
 \\starttext
 ${cover}
 ${examHeader}
 \\blank[small]
-\\midaligned{\\tfb ${title}}
-\\midaligned{${grade} \\quad Versão ${version} \\quad Valor: ${points}}
+\\midaligned{\\tfb\\bold{${title}}}
+\\midaligned{${grade} \\quad Valor: ${points}}
 ${details ? `\\blank[small]\\midaligned{${details}}` : ''}
 ${candidate}
 \\blank[big]

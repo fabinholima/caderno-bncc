@@ -63,6 +63,15 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
   snapshot.version.qrPayload =
     'CBS1:c07a8f8f-7d5e-4b34-9cc0-2d7dc36eee95:759d74e761c57f8cf0d0';
   snapshot.version.qrFileName = 'assessment-qr.png';
+  snapshot.sections = [
+    {
+      title: 'Química',
+      subject: 'Química',
+      columns: 2,
+      startOnNewPage: false,
+      questions: snapshot.questions,
+    },
+  ];
   const tex = renderAssessment(snapshot);
   assert.match(
     tex,
@@ -71,6 +80,16 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
   assert.match(
     tex,
     /\\vbox to 20mm\{\\hsize=24mm\\vfil\\rightaligned\{\\externalfigure\[assessment-qr\.png\]/,
+  );
+  assert.match(tex, /\\bold\{VERSÃO A\}/);
+  assert.match(
+    tex,
+    /\\startmixedcolumns\[n=2,balance=yes,distance=8mm,separator=rule,rulethickness=\.5pt,rulecolor=simuladocolumnrule\]/,
+  );
+  assert.match(tex, /\\definecolor\[simuladocolumnrule\]\[s=\.65\]/);
+  assert.match(
+    tex,
+    /\\setuppagenumbering\[location=\{footer,right\},style=\\tfx\]/,
   );
   assert.match(tex, /Assinatura do Aluno:/);
   assert.match(tex, /Turma:/);
