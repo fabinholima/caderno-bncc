@@ -473,10 +473,17 @@ export function renderAssessment(snapshot) {
       const heading = section.title
         ? `\\subject{${escapeContext(section.title)}}\n\\blank[small]\n`
         : '';
-      if (Number(section.columns) !== 2) {
+      if (
+        Number(section.columns) !== 2 &&
+        snapshot.render?.template !== 'caderno-duas-colunas-v1'
+      ) {
         return `${pageBreak}${heading}${questions.map(renderQuestion).join('\n\n')}`;
       }
-      const columnOptions = `n=2,balance=yes,distance=${snapshot.render?.template === 'simulado-v1' ? '8mm' : '10mm'},separator=rule,rulethickness=.5pt,rulecolor=${snapshot.render?.template === 'simulado-v1' ? 'simuladocolumnrule' : 'middlegray'}`;
+      const compactColumns = [
+        'simulado-v1',
+        'caderno-duas-colunas-v1',
+      ].includes(snapshot.render?.template);
+      const columnOptions = `n=2,balance=yes,distance=${compactColumns ? '8mm' : '10mm'},separator=rule,rulethickness=.5pt,rulecolor=${snapshot.render?.template === 'simulado-v1' ? 'simuladocolumnrule' : snapshot.render?.template === 'caderno-duas-colunas-v1' ? 'modelthreerule' : 'middlegray'}`;
       const blocks = [];
       let columnQuestions = [];
       const flushColumns = () => {

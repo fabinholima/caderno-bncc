@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   ArrowRight,
+  ChevronDown,
+  ChevronRight,
   Eye,
   FileText,
   FileUp,
@@ -880,6 +882,7 @@ export function ExamImportManager({
   onOpenQuestion: (questionId: string) => void;
 }) {
   const [imports, setImports] = useState<ExamImport[]>([]);
+  const [selectedImportId, setSelectedImportId] = useState('');
   const [subjectMode, setSubjectMode] = useState('single');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -1582,6 +1585,52 @@ export function ExamImportManager({
     );
   };
 
+  const importSummary = [
+    {
+      label: 'Na fila',
+      value: imports.filter((item) =>
+        ['uploaded', 'queued'].includes(
+          item.processingJob?.status || item.status,
+        ),
+      ).length,
+      tone: 'bg-slate-50 text-slate-700',
+    },
+    {
+      label: 'Processando',
+      value: imports.filter(
+        (item) =>
+          item.processingJob?.status === 'running' ||
+          item.aiJob?.status === 'running' ||
+          item.status === 'extracting',
+      ).length,
+      tone: 'bg-sky-50 text-sky-800',
+    },
+    {
+      label: 'Em revisão',
+      value: imports.filter(
+        (item) =>
+          item.status === 'needs_review' ||
+          item.candidates.some((candidate) => candidate.status === 'review'),
+      ).length,
+      tone: 'bg-amber-50 text-amber-900',
+    },
+    {
+      label: 'Concluídas',
+      value: imports.filter((item) => item.status === 'completed').length,
+      tone: 'bg-emerald-50 text-emerald-800',
+    },
+    {
+      label: 'Com erro',
+      value: imports.filter(
+        (item) =>
+          item.status === 'failed' ||
+          item.processingJob?.status === 'failed' ||
+          item.aiJob?.status === 'failed',
+      ).length,
+      tone: 'bg-rose-50 text-rose-800',
+    },
+  ];
+
   return (
     <main className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-violet-700">
@@ -1832,6 +1881,17 @@ export function ExamImportManager({
             <RefreshCw /> Atualizar
           </Button>
         </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          {importSummary.map((summary) => (
+            <div
+              key={summary.label}
+              className={`rounded-xl px-4 py-3 ${summary.tone}`}
+            >
+              <p className="text-2xl font-bold">{summary.value}</p>
+              <p className="text-xs font-semibold">{summary.label}</p>
+            </div>
+          ))}
+        </div>
         <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
             <Input
@@ -2008,631 +2068,715 @@ export function ExamImportManager({
             .map((item) => (
               <article
                 key={item.id}
-                className="rounded-xl border border-slate-200 p-4"
+                className={`overflow-hidden rounded-xl border bg-white transition ${selectedImportId === item.id ? 'border-violet-300 shadow-sm' : 'border-slate-200 hover:border-violet-200'}`}
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <button
+                  type="button"
+                  aria-expanded={selectedImportId === item.id}
+                  onClick={() =>
+                    setSelectedImportId((current) =>
+                      current === item.id ? '' : item.id,
+                    )
+                  }
+                  className="grid w-full gap-3 p-4 text-left md:grid-cols-[minmax(220px,1.4fr)_minmax(150px,1fr)_120px_minmax(150px,1fr)_auto] md:items-center"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    {selectedImportId === item.id ? (
+                      <ChevronDown className="size-5 shrink-0 text-violet-700" />
+                    ) : (
+                      <ChevronRight className="size-5 shrink-0 text-slate-400" />
+                    )}
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-[var(--navy)]">
+                        {item.sourceInstitution} · {item.sourceYear}
+                      </h3>
+                      <p className="truncate text-xs text-slate-500">
+                        {item.examType} · criada em{' '}
+                        {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
                   <div>
-                    <h3 className="font-semibold text-[var(--navy)]">
-                      {item.sourceInstitution} {item.sourceYear}
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {item.primarySubject || 'Prova multidisciplinar'} ·{' '}
-                      {statusLabels[item.status] || item.status}
+                    <p className="text-sm font-semibold text-slate-800">
+                      {item.primarySubject || 'Multidisciplinar'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {item.documents.length
+                        ? item.documents
+                            .map((document) =>
+                              document.kind === 'exam' ? 'Prova' : 'Gabarito',
+                            )
+                            .join(' + ')
+                        : 'Sem arquivos'}
                     </p>
                   </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">
+                      {item.reviewedQuestions}/{item.detectedQuestions}
+                    </p>
+                    <p className="text-xs text-slate-500">revisadas</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {statusLabels[item.status] || item.status}
+                    </p>
+                    {item.processingJob && (
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-sky-600"
+                          style={{ width: `${item.processingJob.progress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${item.rightsStatus === 'authorized' || item.rightsStatus === 'public_license' ? 'bg-emerald-50 text-emerald-800' : item.rightsStatus === 'blocked' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800'}`}
+                    className={`justify-self-start rounded-full px-3 py-1 text-xs font-semibold md:justify-self-end ${item.rightsStatus === 'authorized' || item.rightsStatus === 'public_license' ? 'bg-emerald-50 text-emerald-800' : item.rightsStatus === 'blocked' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800'}`}
                   >
                     {rightsLabels[item.rightsStatus] || item.rightsStatus}
                   </span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {item.documents.map((document) => (
-                    <button
-                      type="button"
-                      key={document.id}
-                      onClick={() =>
-                        setStoredPreview({
-                          importId: item.id,
-                          documentId: document.id,
-                          title:
-                            document.kind === 'exam' ? 'Prova' : 'Gabarito',
-                          name: document.fileName,
-                          size: document.sizeBytes,
-                        })
-                      }
-                      className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs transition hover:bg-violet-50 hover:text-violet-900"
-                    >
-                      <FileText className="size-4 text-violet-700" />
-                      {document.kind === 'exam' ? 'Prova' : 'Gabarito'}:{' '}
-                      {document.fileName} ·{' '}
-                      {(document.sizeBytes / 1_000_000).toFixed(1)} MB
-                      <Eye className="ml-1 size-4" />
-                      <span className="font-semibold">Visualizar</span>
-                    </button>
-                  ))}
-                </div>
-                {storedPreview?.importId === item.id && (
-                  <StoredPdfPreviewCard
-                    apiUrl={apiUrl}
-                    preview={storedPreview}
-                    onClose={() => setStoredPreview(null)}
-                  />
-                )}
-                {item.processingJob && (
-                  <section className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-sky-900">
-                          Processamento ·{' '}
-                          {item.processingJob.stage.replaceAll('_', ' ')}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-600">
-                          Tentativa {item.processingJob.attempts} ·{' '}
-                          {item.processingJob.progress}% concluído
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        {['queued', 'running'].includes(
-                          item.processingJob.status,
-                        ) && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              controlProcessing(item, 'cancel').catch((error) =>
-                                setMessage(error.message),
-                              )
-                            }
-                          >
-                            Cancelar
-                          </Button>
-                        )}
-                        {['failed', 'cancelled'].includes(
-                          item.processingJob.status,
-                        ) && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              controlProcessing(item, 'retry').catch((error) =>
-                                setMessage(error.message),
-                              )
-                            }
-                          >
-                            Repetir processamento
-                          </Button>
-                        )}
-                      </div>
+                </button>
+                {selectedImportId === item.id && (
+                  <div className="border-t border-slate-200 bg-slate-50/40 p-4">
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {item.documents.map((document) => (
+                        <button
+                          type="button"
+                          key={document.id}
+                          onClick={() =>
+                            setStoredPreview({
+                              importId: item.id,
+                              documentId: document.id,
+                              title:
+                                document.kind === 'exam' ? 'Prova' : 'Gabarito',
+                              name: document.fileName,
+                              size: document.sizeBytes,
+                            })
+                          }
+                          className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs transition hover:bg-violet-50 hover:text-violet-900"
+                        >
+                          <FileText className="size-4 text-violet-700" />
+                          {document.kind === 'exam' ? 'Prova' : 'Gabarito'}:{' '}
+                          {document.fileName} ·{' '}
+                          {(document.sizeBytes / 1_000_000).toFixed(1)} MB
+                          <Eye className="ml-1 size-4" />
+                          <span className="font-semibold">Visualizar</span>
+                        </button>
+                      ))}
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-sky-100">
-                      <div
-                        className="h-full rounded-full bg-sky-600 transition-all"
-                        style={{ width: `${item.processingJob.progress}%` }}
+                    {storedPreview?.importId === item.id && (
+                      <StoredPdfPreviewCard
+                        apiUrl={apiUrl}
+                        preview={storedPreview}
+                        onClose={() => setStoredPreview(null)}
                       />
-                    </div>
-                    {item.processingJob.error && (
-                      <p className="mt-2 text-xs text-rose-800">
-                        {item.processingJob.error}
-                      </p>
                     )}
-                  </section>
-                )}
-                {item.aiJob && (
-                  <section className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
-                          Análise assistida ·{' '}
-                          {item.aiJob.stage.replaceAll('_', ' ')}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-600">
-                          Tentativa {item.aiJob.attempts} ·{' '}
-                          {item.aiJob.progress}% ·{' '}
-                          {item.aiJob.model ||
-                            item.aiJob.promptVersion ||
-                            'aguardando modelo'}
-                        </p>
-                      </div>
-                      {['queued', 'running'].includes(item.aiJob.status) ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            controlAiAnalysis(item, 'cancel').catch((error) =>
-                              setMessage(error.message),
-                            )
-                          }
-                        >
-                          Cancelar IA
-                        </Button>
-                      ) : ['failed', 'cancelled'].includes(
-                          item.aiJob.status,
-                        ) ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            controlAiAnalysis(item, 'retry').catch((error) =>
-                              setMessage(error.message),
-                            )
-                          }
-                        >
-                          Repetir análise
-                        </Button>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-violet-100">
-                      <div
-                        className="h-full rounded-full bg-violet-600"
-                        style={{ width: `${item.aiJob.progress}%` }}
-                      />
-                    </div>
-                    {item.aiJob.metrics?.total_tokens && (
-                      <p className="mt-2 text-xs text-slate-600">
-                        Uso: {item.aiJob.metrics.total_tokens} tokens (
-                        {item.aiJob.metrics.input_tokens || 0} entrada /{' '}
-                        {item.aiJob.metrics.output_tokens || 0} saída).
-                      </p>
-                    )}
-                    {item.aiJob.error && (
-                      <p className="mt-2 text-xs text-rose-800">
-                        {item.aiJob.error}
-                      </p>
-                    )}
-                  </section>
-                )}
-                <section className="mt-4 border-t border-slate-100 pt-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h4 className="font-semibold text-[var(--navy)]">
-                        Questões extraídas
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Selecione, classifique e revise cada questão antes do
-                        cadastro. A IA analisa até cinco selecionadas por vez e
-                        apenas sugere alterações.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={
-                          extractingId === item.id ||
-                          ['queued', 'running'].includes(
-                            item.processingJob?.status || '',
-                          )
-                        }
-                        onClick={() => extractQuestions(item)}
-                      >
-                        <ScanText />
-                        {extractingId === item.id
-                          ? 'Extraindo...'
-                          : item.candidates?.length
-                            ? 'Extrair novamente'
-                            : 'Extrair questões'}
-                      </Button>
-                      {Boolean(item.candidates?.length) && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={['queued', 'running'].includes(
-                            item.aiJob?.status || '',
-                          )}
-                          onClick={() =>
-                            controlAiAnalysis(item, 'start').catch((error) =>
-                              setMessage(error.message),
-                            )
-                          }
-                        >
-                          <Sparkles /> Analisar próximo lote com IA
-                        </Button>
-                      )}
-                      {item.documents.some(
-                        (document) => document.kind === 'answer_key',
-                      ) &&
-                        Boolean(item.candidates?.length) && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={readingAnswerKeyId === item.id}
-                            onClick={() => readAnswerKey(item)}
-                          >
-                            {readingAnswerKeyId === item.id
-                              ? 'Lendo gabarito...'
-                              : 'Ler gabarito'}
-                          </Button>
-                        )}
-                    </div>
-                  </div>
-                  {item.error && (
-                    <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800">
-                      {item.error}
-                    </p>
-                  )}
-                  {Boolean(item.candidates?.length) && (
-                    <BulkRegistrationPanel
-                      item={item}
-                      settings={bulkSettings[item.id] || defaultBulkSettings}
-                      disciplines={pedagogicalDisciplines}
-                      topics={pedagogicalTopics}
-                      registering={bulkRegisteringId === item.id}
-                      onSettingChange={(field, value) =>
-                        updateBulkSetting(item.id, field, value)
-                      }
-                      onRegister={() => registerSelectedCandidates(item)}
-                    />
-                  )}
-                  <div className="mt-3 space-y-3">
-                    {visibleCandidates(item).map((candidate) => (
-                      <article
-                        key={candidate.id}
-                        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                      >
-                        <div className="flex flex-wrap items-center gap-3">
-                          <label className="flex items-center gap-2 text-sm font-semibold">
-                            <input
-                              type="checkbox"
-                              checked={candidate.selected}
-                              disabled={[
-                                'completed',
-                                'duplicate',
-                                'ignored',
-                              ].includes(candidate.status)}
-                              onChange={(event) =>
-                                updateCandidate(item.id, candidate.id, {
-                                  selected: event.target.checked,
-                                }).catch((error) => setMessage(error.message))
-                              }
-                              className="size-4 accent-violet-700"
-                            />
-                            Questão {candidate.sourceNumber}
-                          </label>
-                          <select
-                            aria-label={`Tipo da questão ${candidate.sourceNumber}`}
-                            value={candidate.questionType}
-                            onChange={(event) =>
-                              updateCandidate(item.id, candidate.id, {
-                                questionType: event.target
-                                  .value as ExamImportCandidate['questionType'],
-                              }).catch((error) => setMessage(error.message))
-                            }
-                            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs"
-                          >
-                            <option value="single_choice">
-                              Múltipla escolha · uma resposta
-                            </option>
-                            <option value="multiple_choice">
-                              Múltipla escolha · várias respostas
-                            </option>
-                            <option value="essay">Discursiva</option>
-                          </select>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-violet-100 text-violet-800'}`}
-                          >
-                            {candidate.status === 'completed'
-                              ? 'Concluída'
-                              : candidate.status === 'duplicate'
-                                ? `Duplicada${candidate.duplicateQuestionCode ? ` de ${candidate.duplicateQuestionCode}` : ''}`
-                                : candidate.status === 'ignored'
-                                  ? 'Ignorada'
-                                  : candidate.status === 'review'
-                                    ? 'Em revisão'
-                                    : 'Completa'}
-                          </span>
-                          {candidate.pageNumber && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                setPagePreviewCandidateId((current) =>
-                                  current === candidate.id ? '' : candidate.id,
-                                )
-                              }
-                            >
-                              <Eye /> Página {candidate.pageNumber}
-                            </Button>
-                          )}
-                          {candidate.extractionMethod === 'ocr' && (
-                            <span className="text-xs font-semibold text-sky-700">
-                              Texto obtido por OCR
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {candidateEditorialChecks(candidate).map((check) => (
-                            <span
-                              key={check.label}
-                              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${check.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
-                            >
-                              {check.ok ? '✓' : '!'} {check.label}
-                            </span>
-                          ))}
-                        </div>
-                        {candidate.aiSuggestion && (
-                          <AiSuggestionReview
-                            candidate={candidate}
-                            disciplines={pedagogicalDisciplines}
-                            topics={pedagogicalTopics}
-                            onAccept={(fields) =>
-                              decideAiSuggestionFields(
-                                item,
-                                candidate,
-                                fields,
-                                'accept',
-                              ).catch((error) => {
-                                setMessage(error.message);
-                              })
-                            }
-                            onReject={(fields) =>
-                              decideAiSuggestionFields(
-                                item,
-                                candidate,
-                                fields,
-                                'reject',
-                              ).catch((error) => {
-                                setMessage(error.message);
-                              })
-                            }
-                          />
-                        )}
-                        {pagePreviewCandidateId === candidate.id &&
-                          candidate.pageNumber && (
-                            <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                              <iframe
-                                title={`Página original da questão ${candidate.sourceNumber}`}
-                                src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
-                                className="h-[620px] w-full rounded-lg border border-slate-200 bg-white"
-                              />
-                              <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                                {[
-                                  ['x', 'Esquerda %'],
-                                  ['y', 'Topo %'],
-                                  ['width', 'Largura %'],
-                                  ['height', 'Altura %'],
-                                ].map(([field, label]) => (
-                                  <label
-                                    key={field}
-                                    className="text-xs font-semibold text-slate-600"
-                                  >
-                                    {label}
-                                    <input
-                                      type="number"
-                                      min={
-                                        field === 'x' || field === 'y' ? 0 : 1
-                                      }
-                                      max="100"
-                                      value={
-                                        cropDraft[
-                                          field as keyof typeof cropDraft
-                                        ]
-                                      }
-                                      onChange={(event) =>
-                                        setCropDraft((current) => ({
-                                          ...current,
-                                          [field]: Number(event.target.value),
-                                        }))
-                                      }
-                                      className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2"
-                                    />
-                                  </label>
-                                ))}
-                              </div>
-                              <div className="mt-3 flex justify-end">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={croppingId === candidate.id}
-                                  onClick={() => createCrop(item, candidate)}
-                                >
-                                  {croppingId === candidate.id
-                                    ? 'Recortando...'
-                                    : 'Criar recorte para a questão'}
-                                </Button>
-                              </div>
-                            </section>
-                          )}
-                        {candidate.imageDataUrl && (
-                          <figure className="mt-3 rounded-lg border border-emerald-200 bg-white p-3">
-                            <img
-                              src={candidate.imageDataUrl}
-                              alt={candidate.imageAlt || 'Recorte da questão'}
-                              className="mx-auto max-h-80 w-auto object-contain"
-                            />
-                            <figcaption className="mt-2 text-center text-xs font-semibold text-emerald-800">
-                              {candidate.imageExtractionMethod ===
-                              'automatic_page_region'
-                                ? 'Conteúdo visual detectado e recortado automaticamente — confira antes do cadastro'
-                                : 'Imagem pronta para acompanhar a questão no cadastro'}
-                            </figcaption>
-                          </figure>
-                        )}
-                        {candidate.visualCaptureWarning && (
-                          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
-                            {candidate.visualCaptureWarning}
-                          </p>
-                        )}
-                        {candidate.status === 'duplicate' &&
-                          candidate.duplicateQuestionId && (
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
-                              <p className="text-xs font-semibold text-rose-900">
-                                Esta questão já existe como{' '}
-                                {candidate.duplicateQuestionCode ||
-                                  'questão cadastrada'}
-                                .
-                              </p>
+                    {item.processingJob && (
+                      <section className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-sky-900">
+                              Processamento ·{' '}
+                              {item.processingJob.stage.replaceAll('_', ' ')}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              Tentativa {item.processingJob.attempts} ·{' '}
+                              {item.processingJob.progress}% concluído
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {['queued', 'running'].includes(
+                              item.processingJob.status,
+                            ) && (
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  onOpenQuestion(candidate.duplicateQuestionId!)
+                                  controlProcessing(item, 'cancel').catch(
+                                    (error) => setMessage(error.message),
+                                  )
                                 }
                               >
-                                Abrir questão principal
+                                Cancelar
                               </Button>
-                            </div>
-                          )}
-                        <CandidateClassificationFields
-                          candidate={candidate}
-                          disciplines={pedagogicalDisciplines}
-                          topics={pedagogicalTopics}
-                          onChange={(changes) =>
-                            updateCandidate(
-                              item.id,
-                              candidate.id,
-                              changes,
-                            ).catch((error) => setMessage(error.message))
-                          }
-                        />
-                        <ImportedQuestionTextEditor
-                          candidate={candidate}
-                          onChange={(rawText) =>
-                            updateCandidateDraft(item.id, candidate.id, rawText)
-                          }
-                          onSave={(rawText) =>
-                            updateCandidate(item.id, candidate.id, {
-                              rawText,
-                              status: 'review',
-                            })
-                              .then(() =>
-                                setMessage(
-                                  `Texto da questão ${candidate.sourceNumber} salvo.`,
-                                ),
-                              )
-                              .catch((error) => setMessage(error.message))
-                          }
-                        />
-                        {candidate.questionType !== 'essay' && (
-                          <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-slate-700">
-                                Gabarito da questão
-                              </p>
-                              {candidate.answerStatus === 'suggested' && (
-                                <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
-                                  Sugestão automática ·{' '}
-                                  {Math.round(
-                                    (candidate.answerConfidence || 0) * 100,
-                                  )}
-                                  % de confiança
-                                </span>
-                              )}
-                              {candidate.answerStatus === 'confirmed' && (
-                                <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
-                                  Confirmado pelo professor
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {['A', 'B', 'C', 'D', 'E'].map((letter) => {
-                                const checked = (
-                                  candidate.correctAnswers || []
-                                ).includes(letter);
-                                return (
-                                  <button
-                                    key={letter}
-                                    type="button"
-                                    aria-pressed={checked}
-                                    onClick={() => {
-                                      const correctAnswers =
-                                        candidate.questionType ===
-                                        'single_choice'
-                                          ? [letter]
-                                          : checked
-                                            ? (
-                                                candidate.correctAnswers || []
-                                              ).filter(
-                                                (answer) => answer !== letter,
-                                              )
-                                            : [
-                                                ...(candidate.correctAnswers ||
-                                                  []),
-                                                letter,
-                                              ];
-                                      updateCandidate(item.id, candidate.id, {
-                                        correctAnswers,
-                                        answerStatus: 'confirmed',
-                                        answerConfidence: 1,
-                                        status: 'review',
-                                      }).catch((error) =>
-                                        setMessage(error.message),
-                                      );
-                                    }}
-                                    className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-violet-700 bg-violet-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
-                                  >
-                                    {letter}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </section>
+                            )}
+                            {['failed', 'cancelled'].includes(
+                              item.processingJob.status,
+                            ) && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  controlProcessing(item, 'retry').catch(
+                                    (error) => setMessage(error.message),
+                                  )
+                                }
+                              >
+                                Repetir processamento
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-sky-100">
+                          <div
+                            className="h-full rounded-full bg-sky-600 transition-all"
+                            style={{ width: `${item.processingJob.progress}%` }}
+                          />
+                        </div>
+                        {item.processingJob.error && (
+                          <p className="mt-2 text-xs text-rose-800">
+                            {item.processingJob.error}
+                          </p>
                         )}
-                        {candidate.selected &&
-                          candidate.status !== 'completed' &&
-                          !candidateReadiness(candidate).ready && (
-                            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
-                              Pendente para o lote:{' '}
-                              {candidateReadiness(candidate)
-                                .reasons.filter(
-                                  (reason) => reason !== 'não selecionada',
-                                )
-                                .join(' · ')}
+                      </section>
+                    )}
+                    {item.aiJob && (
+                      <section className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
+                              Análise assistida ·{' '}
+                              {item.aiJob.stage.replaceAll('_', ' ')}
                             </p>
-                          )}
-                        <div className="mt-3 flex justify-end">
+                            <p className="mt-1 text-xs text-slate-600">
+                              Tentativa {item.aiJob.attempts} ·{' '}
+                              {item.aiJob.progress}% ·{' '}
+                              {item.aiJob.model ||
+                                item.aiJob.promptVersion ||
+                                'aguardando modelo'}
+                            </p>
+                          </div>
+                          {['queued', 'running'].includes(item.aiJob.status) ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                controlAiAnalysis(item, 'cancel').catch(
+                                  (error) => setMessage(error.message),
+                                )
+                              }
+                            >
+                              Cancelar IA
+                            </Button>
+                          ) : ['failed', 'cancelled'].includes(
+                              item.aiJob.status,
+                            ) ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                controlAiAnalysis(item, 'retry').catch(
+                                  (error) => setMessage(error.message),
+                                )
+                              }
+                            >
+                              Repetir análise
+                            </Button>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-violet-100">
+                          <div
+                            className="h-full rounded-full bg-violet-600"
+                            style={{ width: `${item.aiJob.progress}%` }}
+                          />
+                        </div>
+                        {item.aiJob.metrics?.total_tokens && (
+                          <p className="mt-2 text-xs text-slate-600">
+                            Uso: {item.aiJob.metrics.total_tokens} tokens (
+                            {item.aiJob.metrics.input_tokens || 0} entrada /{' '}
+                            {item.aiJob.metrics.output_tokens || 0} saída).
+                          </p>
+                        )}
+                        {item.aiJob.error && (
+                          <p className="mt-2 text-xs text-rose-800">
+                            {item.aiJob.error}
+                          </p>
+                        )}
+                      </section>
+                    )}
+                    <section className="mt-4 border-t border-slate-100 pt-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h4 className="font-semibold text-[var(--navy)]">
+                            Questões extraídas
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Selecione, classifique e revise cada questão antes
+                            do cadastro. A IA analisa até cinco selecionadas por
+                            vez e apenas sugere alterações.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
+                            variant="outline"
                             disabled={
-                              !candidate.selected ||
-                              ['completed', 'duplicate'].includes(
-                                candidate.status,
-                              ) ||
-                              candidate.status === 'ignored'
+                              extractingId === item.id ||
+                              ['queued', 'running'].includes(
+                                item.processingJob?.status || '',
+                              )
                             }
-                            onClick={() => {
-                              updateCandidate(item.id, candidate.id, {
-                                status: 'review',
-                              }).catch((error) => setMessage(error.message));
-                              onRegisterQuestion({
-                                importId: item.id,
-                                candidateId: candidate.id,
-                                rawText: candidate.rawText,
-                                sourceInstitution: item.sourceInstitution,
-                                sourceYear: item.sourceYear,
-                                questionType: candidate.questionType,
-                                imageDataUrl: candidate.imageDataUrl,
-                                imageAlt: candidate.imageAlt,
-                                correctAnswers: candidate.correctAnswers,
-                                grade: candidate.grade,
-                                difficulty: candidate.difficulty,
-                                skill: candidate.skill,
-                                pedagogicalDisciplineId:
-                                  candidate.pedagogicalDisciplineId,
-                                pedagogicalTopicId:
-                                  candidate.pedagogicalTopicId,
-                              });
-                            }}
+                            onClick={() => extractQuestions(item)}
                           >
-                            Editar, gerar prévia e cadastrar <ArrowRight />
+                            <ScanText />
+                            {extractingId === item.id
+                              ? 'Extraindo...'
+                              : item.candidates?.length
+                                ? 'Extrair novamente'
+                                : 'Extrair questões'}
                           </Button>
+                          {Boolean(item.candidates?.length) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={['queued', 'running'].includes(
+                                item.aiJob?.status || '',
+                              )}
+                              onClick={() =>
+                                controlAiAnalysis(item, 'start').catch(
+                                  (error) => setMessage(error.message),
+                                )
+                              }
+                            >
+                              <Sparkles /> Analisar próximo lote com IA
+                            </Button>
+                          )}
+                          {item.documents.some(
+                            (document) => document.kind === 'answer_key',
+                          ) &&
+                            Boolean(item.candidates?.length) && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled={readingAnswerKeyId === item.id}
+                                onClick={() => readAnswerKey(item)}
+                              >
+                                {readingAnswerKeyId === item.id
+                                  ? 'Lendo gabarito...'
+                                  : 'Ler gabarito'}
+                              </Button>
+                            )}
                         </div>
-                      </article>
-                    ))}
+                      </div>
+                      {item.error && (
+                        <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800">
+                          {item.error}
+                        </p>
+                      )}
+                      {Boolean(item.candidates?.length) && (
+                        <BulkRegistrationPanel
+                          item={item}
+                          settings={
+                            bulkSettings[item.id] || defaultBulkSettings
+                          }
+                          disciplines={pedagogicalDisciplines}
+                          topics={pedagogicalTopics}
+                          registering={bulkRegisteringId === item.id}
+                          onSettingChange={(field, value) =>
+                            updateBulkSetting(item.id, field, value)
+                          }
+                          onRegister={() => registerSelectedCandidates(item)}
+                        />
+                      )}
+                      <div className="mt-3 space-y-3">
+                        {visibleCandidates(item).map((candidate) => (
+                          <article
+                            key={candidate.id}
+                            className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                          >
+                            <div className="flex flex-wrap items-center gap-3">
+                              <label className="flex items-center gap-2 text-sm font-semibold">
+                                <input
+                                  type="checkbox"
+                                  checked={candidate.selected}
+                                  disabled={[
+                                    'completed',
+                                    'duplicate',
+                                    'ignored',
+                                  ].includes(candidate.status)}
+                                  onChange={(event) =>
+                                    updateCandidate(item.id, candidate.id, {
+                                      selected: event.target.checked,
+                                    }).catch((error) =>
+                                      setMessage(error.message),
+                                    )
+                                  }
+                                  className="size-4 accent-violet-700"
+                                />
+                                Questão {candidate.sourceNumber}
+                              </label>
+                              <select
+                                aria-label={`Tipo da questão ${candidate.sourceNumber}`}
+                                value={candidate.questionType}
+                                onChange={(event) =>
+                                  updateCandidate(item.id, candidate.id, {
+                                    questionType: event.target
+                                      .value as ExamImportCandidate['questionType'],
+                                  }).catch((error) => setMessage(error.message))
+                                }
+                                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs"
+                              >
+                                <option value="single_choice">
+                                  Múltipla escolha · uma resposta
+                                </option>
+                                <option value="multiple_choice">
+                                  Múltipla escolha · várias respostas
+                                </option>
+                                <option value="essay">Discursiva</option>
+                              </select>
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-violet-100 text-violet-800'}`}
+                              >
+                                {candidate.status === 'completed'
+                                  ? 'Concluída'
+                                  : candidate.status === 'duplicate'
+                                    ? `Duplicada${candidate.duplicateQuestionCode ? ` de ${candidate.duplicateQuestionCode}` : ''}`
+                                    : candidate.status === 'ignored'
+                                      ? 'Ignorada'
+                                      : candidate.status === 'review'
+                                        ? 'Em revisão'
+                                        : 'Completa'}
+                              </span>
+                              {candidate.pageNumber && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setPagePreviewCandidateId((current) =>
+                                      current === candidate.id
+                                        ? ''
+                                        : candidate.id,
+                                    )
+                                  }
+                                >
+                                  <Eye /> Página {candidate.pageNumber}
+                                </Button>
+                              )}
+                              {candidate.extractionMethod === 'ocr' && (
+                                <span className="text-xs font-semibold text-sky-700">
+                                  Texto obtido por OCR
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {candidateEditorialChecks(candidate).map(
+                                (check) => (
+                                  <span
+                                    key={check.label}
+                                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${check.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
+                                  >
+                                    {check.ok ? '✓' : '!'} {check.label}
+                                  </span>
+                                ),
+                              )}
+                            </div>
+                            {candidate.aiSuggestion && (
+                              <AiSuggestionReview
+                                candidate={candidate}
+                                disciplines={pedagogicalDisciplines}
+                                topics={pedagogicalTopics}
+                                onAccept={(fields) =>
+                                  decideAiSuggestionFields(
+                                    item,
+                                    candidate,
+                                    fields,
+                                    'accept',
+                                  ).catch((error) => {
+                                    setMessage(error.message);
+                                  })
+                                }
+                                onReject={(fields) =>
+                                  decideAiSuggestionFields(
+                                    item,
+                                    candidate,
+                                    fields,
+                                    'reject',
+                                  ).catch((error) => {
+                                    setMessage(error.message);
+                                  })
+                                }
+                              />
+                            )}
+                            {pagePreviewCandidateId === candidate.id &&
+                              candidate.pageNumber && (
+                                <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                                  <iframe
+                                    title={`Página original da questão ${candidate.sourceNumber}`}
+                                    src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
+                                    className="h-[620px] w-full rounded-lg border border-slate-200 bg-white"
+                                  />
+                                  <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                                    {[
+                                      ['x', 'Esquerda %'],
+                                      ['y', 'Topo %'],
+                                      ['width', 'Largura %'],
+                                      ['height', 'Altura %'],
+                                    ].map(([field, label]) => (
+                                      <label
+                                        key={field}
+                                        className="text-xs font-semibold text-slate-600"
+                                      >
+                                        {label}
+                                        <input
+                                          type="number"
+                                          min={
+                                            field === 'x' || field === 'y'
+                                              ? 0
+                                              : 1
+                                          }
+                                          max="100"
+                                          value={
+                                            cropDraft[
+                                              field as keyof typeof cropDraft
+                                            ]
+                                          }
+                                          onChange={(event) =>
+                                            setCropDraft((current) => ({
+                                              ...current,
+                                              [field]: Number(
+                                                event.target.value,
+                                              ),
+                                            }))
+                                          }
+                                          className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2"
+                                        />
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <div className="mt-3 flex justify-end">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={croppingId === candidate.id}
+                                      onClick={() =>
+                                        createCrop(item, candidate)
+                                      }
+                                    >
+                                      {croppingId === candidate.id
+                                        ? 'Recortando...'
+                                        : 'Criar recorte para a questão'}
+                                    </Button>
+                                  </div>
+                                </section>
+                              )}
+                            {candidate.imageDataUrl && (
+                              <figure className="mt-3 rounded-lg border border-emerald-200 bg-white p-3">
+                                <img
+                                  src={candidate.imageDataUrl}
+                                  alt={
+                                    candidate.imageAlt || 'Recorte da questão'
+                                  }
+                                  className="mx-auto max-h-80 w-auto object-contain"
+                                />
+                                <figcaption className="mt-2 text-center text-xs font-semibold text-emerald-800">
+                                  {candidate.imageExtractionMethod ===
+                                  'automatic_page_region'
+                                    ? 'Conteúdo visual detectado e recortado automaticamente — confira antes do cadastro'
+                                    : 'Imagem pronta para acompanhar a questão no cadastro'}
+                                </figcaption>
+                              </figure>
+                            )}
+                            {candidate.visualCaptureWarning && (
+                              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                                {candidate.visualCaptureWarning}
+                              </p>
+                            )}
+                            {candidate.status === 'duplicate' &&
+                              candidate.duplicateQuestionId && (
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                                  <p className="text-xs font-semibold text-rose-900">
+                                    Esta questão já existe como{' '}
+                                    {candidate.duplicateQuestionCode ||
+                                      'questão cadastrada'}
+                                    .
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      onOpenQuestion(
+                                        candidate.duplicateQuestionId!,
+                                      )
+                                    }
+                                  >
+                                    Abrir questão principal
+                                  </Button>
+                                </div>
+                              )}
+                            <CandidateClassificationFields
+                              candidate={candidate}
+                              disciplines={pedagogicalDisciplines}
+                              topics={pedagogicalTopics}
+                              onChange={(changes) =>
+                                updateCandidate(
+                                  item.id,
+                                  candidate.id,
+                                  changes,
+                                ).catch((error) => setMessage(error.message))
+                              }
+                            />
+                            <ImportedQuestionTextEditor
+                              candidate={candidate}
+                              onChange={(rawText) =>
+                                updateCandidateDraft(
+                                  item.id,
+                                  candidate.id,
+                                  rawText,
+                                )
+                              }
+                              onSave={(rawText) =>
+                                updateCandidate(item.id, candidate.id, {
+                                  rawText,
+                                  status: 'review',
+                                })
+                                  .then(() =>
+                                    setMessage(
+                                      `Texto da questão ${candidate.sourceNumber} salvo.`,
+                                    ),
+                                  )
+                                  .catch((error) => setMessage(error.message))
+                              }
+                            />
+                            {candidate.questionType !== 'essay' && (
+                              <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-xs font-semibold text-slate-700">
+                                    Gabarito da questão
+                                  </p>
+                                  {candidate.answerStatus === 'suggested' && (
+                                    <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
+                                      Sugestão automática ·{' '}
+                                      {Math.round(
+                                        (candidate.answerConfidence || 0) * 100,
+                                      )}
+                                      % de confiança
+                                    </span>
+                                  )}
+                                  {candidate.answerStatus === 'confirmed' && (
+                                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                                      Confirmado pelo professor
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {['A', 'B', 'C', 'D', 'E'].map((letter) => {
+                                    const checked = (
+                                      candidate.correctAnswers || []
+                                    ).includes(letter);
+                                    return (
+                                      <button
+                                        key={letter}
+                                        type="button"
+                                        aria-pressed={checked}
+                                        onClick={() => {
+                                          const correctAnswers =
+                                            candidate.questionType ===
+                                            'single_choice'
+                                              ? [letter]
+                                              : checked
+                                                ? (
+                                                    candidate.correctAnswers ||
+                                                    []
+                                                  ).filter(
+                                                    (answer) =>
+                                                      answer !== letter,
+                                                  )
+                                                : [
+                                                    ...(candidate.correctAnswers ||
+                                                      []),
+                                                    letter,
+                                                  ];
+                                          updateCandidate(
+                                            item.id,
+                                            candidate.id,
+                                            {
+                                              correctAnswers,
+                                              answerStatus: 'confirmed',
+                                              answerConfidence: 1,
+                                              status: 'review',
+                                            },
+                                          ).catch((error) =>
+                                            setMessage(error.message),
+                                          );
+                                        }}
+                                        className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-violet-700 bg-violet-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
+                                      >
+                                        {letter}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </section>
+                            )}
+                            {candidate.selected &&
+                              candidate.status !== 'completed' &&
+                              !candidateReadiness(candidate).ready && (
+                                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                                  Pendente para o lote:{' '}
+                                  {candidateReadiness(candidate)
+                                    .reasons.filter(
+                                      (reason) => reason !== 'não selecionada',
+                                    )
+                                    .join(' · ')}
+                                </p>
+                              )}
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                type="button"
+                                disabled={
+                                  !candidate.selected ||
+                                  ['completed', 'duplicate'].includes(
+                                    candidate.status,
+                                  ) ||
+                                  candidate.status === 'ignored'
+                                }
+                                onClick={() => {
+                                  updateCandidate(item.id, candidate.id, {
+                                    status: 'review',
+                                  }).catch((error) =>
+                                    setMessage(error.message),
+                                  );
+                                  onRegisterQuestion({
+                                    importId: item.id,
+                                    candidateId: candidate.id,
+                                    rawText: candidate.rawText,
+                                    sourceInstitution: item.sourceInstitution,
+                                    sourceYear: item.sourceYear,
+                                    questionType: candidate.questionType,
+                                    imageDataUrl: candidate.imageDataUrl,
+                                    imageAlt: candidate.imageAlt,
+                                    correctAnswers: candidate.correctAnswers,
+                                    grade: candidate.grade,
+                                    difficulty: candidate.difficulty,
+                                    skill: candidate.skill,
+                                    pedagogicalDisciplineId:
+                                      candidate.pedagogicalDisciplineId,
+                                    pedagogicalTopicId:
+                                      candidate.pedagogicalTopicId,
+                                  });
+                                }}
+                              >
+                                Editar, gerar prévia e cadastrar <ArrowRight />
+                              </Button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                    <p className="mt-3 text-xs text-slate-400">
+                      Criada em{' '}
+                      {new Date(item.createdAt).toLocaleString('pt-BR')} ·{' '}
+                      {item.detectedQuestions} detectadas ·{' '}
+                      {item.reviewedQuestions} revisadas
+                    </p>
                   </div>
-                </section>
-                <p className="mt-3 text-xs text-slate-400">
-                  Criada em {new Date(item.createdAt).toLocaleString('pt-BR')} ·{' '}
-                  {item.detectedQuestions} detectadas · {item.reviewedQuestions}{' '}
-                  revisadas
-                </p>
+                )}
               </article>
             ))}
         </div>

@@ -97,6 +97,42 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
   assert.doesNotMatch(tex, /Data de nascimento:/);
 });
 
+test('renderiza o Modelo 3 em duas colunas com folha de respostas OMR', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.render.template = 'caderno-duas-colunas-v1';
+  snapshot.institution.logoFileName = 'institution-logo.png';
+  snapshot.version.qrPayload =
+    'CBS1:c07a8f8f-7d5e-4b34-9cc0-2d7dc36eee95:759d74e761c57f8cf0d0';
+  snapshot.version.qrFileName = 'assessment-qr.png';
+  snapshot.candidate = { name: 'Estudante Modelo', number: '17' };
+  snapshot.sections = [
+    {
+      title: 'Matemática',
+      subject: 'Matemática',
+      columns: 1,
+      startOnNewPage: false,
+      questions: snapshot.questions,
+    },
+  ];
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /Gerado automaticamente pelo Modelo 3/);
+  assert.match(
+    tex,
+    /\\startmixedcolumns\[n=2,balance=yes,distance=8mm,separator=rule,rulethickness=\.5pt,rulecolor=modelthreerule\]/,
+  );
+  assert.match(tex, /\\bold\{FOLHA DE RESPOSTAS\}/);
+  assert.match(tex, /Nome do\(a\) estudante: Estudante Modelo/);
+  assert.match(tex, /Versão: A/);
+  assert.match(tex, /\\externalfigure\[assessment-qr\.png\]/);
+  assert.match(tex, /\\blackrule\[width=7mm,height=7mm\]/);
+  assert.match(tex, /RESPOSTAS 01 - 01/);
+  assert.match(tex, /\\definecolor\[modelthreerule\]\[s=\.62\]/);
+});
+
 test('aplica somente família e tamanho de fonte permitidos', async () => {
   const snapshot = JSON.parse(
     await readFile(
