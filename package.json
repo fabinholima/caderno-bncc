@@ -14,7 +14,7 @@
     "test:production-env": "node --test scripts/check-production-env.test.mjs",
     "check:production-env": "node --env-file-if-exists=.env scripts/check-production-env.mjs",
     "start:omr": "node --env-file-if-exists=.env services/omr/worker.mjs",
-    "start:imports": "node --env-file-if-exists=.env services/api/exam-import-worker.mjs",
+    "start:imports": "pnpm --filter @caderno/api worker:imports",
     "lint": "oxlint",
     "format": "oxfmt"
   },
