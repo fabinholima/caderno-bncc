@@ -826,7 +826,7 @@ export async function extractExamImportQuestions({
       ],
     );
     return candidates;
-  } catch {
+  } catch (error) {
     await pool.query(
       `UPDATE exam_imports SET status=$3,error_message=$4,updated_at=now()
         WHERE institution_id=$1 AND id=$2`,
