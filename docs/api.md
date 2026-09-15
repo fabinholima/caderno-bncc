@@ -75,6 +75,16 @@ não aprovadas continuam usando a imagem original.
 
 ## Importação editorial de provas
 
+O catálogo do ITA pode ser validado sem downloads antes de entrar na fila:
+
+```sh
+pnpm --filter @caderno/api import:ita caminho/catalogo.xlsx
+```
+
+Para importar, baixar os PDFs e adicionar as extrações à fila, acrescente
+`--execute`. O parâmetro `--limit=N` permite iniciar com um lote pequeno. O
+importador associa prova e gabarito por ano e fase e ignora URLs já cadastradas.
+
 - `GET /api/exam-imports`
   - lista os trabalhos de importação e os metadados dos PDFs, sem devolver o
     conteúdo binário.
@@ -227,3 +237,18 @@ psql "$DATABASE_URL" -f database/012_individual_assessment_applications.sql
 ```
 
 Uma base nova criada pelo `docker compose` recebe todas as migrações automaticamente.
+
+### Habilidades BNCC do Ensino Médio
+
+Depois de criar as disciplinas pedagógicas, importe o catálogo verificado de
+Matemática (`EM13MAT`) e Ciências da Natureza (`EM13CNT`):
+
+```bash
+pnpm --filter @caderno/api import:bncc:api
+```
+
+O comando valida as contagens oficiais (43 habilidades de Matemática e 26 de
+Ciências da Natureza), atualiza competências e habilidades sem duplicação e
+vincula `EM13MAT` a Matemática e `EM13CNT` a Física. O vínculo de Física é uma
+classificação pedagógica institucional, pois a BNCC organiza essas habilidades
+na área integrada de Ciências da Natureza e suas Tecnologias.
