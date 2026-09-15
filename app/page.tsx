@@ -365,16 +365,16 @@ export default function Home() {
   const selectedSaebInfo = saebDescriptors.find(
     (item) => item.id === selectedSaebDescriptor,
   );
-  const chemistryObjects = pedagogicalTopics.filter(
+  const pedagogicalTopicOptions = pedagogicalTopics.filter(
     (item) =>
       item.discipline_id === pedagogicalDiscipline?.id &&
       !item.parent_id &&
       item.grade_range === pedagogicalGrade,
   );
-  const chemistrySubtopics = pedagogicalTopics.filter(
+  const pedagogicalSubtopicOptions = pedagogicalTopics.filter(
     (item) => item.parent_id === pedagogicalObjectId,
   );
-  const chemistryDetails = pedagogicalTopics.filter(
+  const pedagogicalDetailOptions = pedagogicalTopics.filter(
     (item) => item.parent_id === pedagogicalSubtopicId,
   );
   const selectedPedagogicalTopicId =
@@ -432,13 +432,22 @@ export default function Home() {
   );
 
   useEffect(() => {
-    if (discipline !== 'Química' || !chemistryObjects.length) return;
-    if (!chemistryObjects.some((item) => item.id === pedagogicalObjectId)) {
-      setPedagogicalObjectId(chemistryObjects[0].id);
+    if (!pedagogicalDiscipline || !pedagogicalTopicOptions.length) return;
+    if (
+      !pedagogicalTopicOptions.some(
+        (item) => item.id === pedagogicalObjectId,
+      )
+    ) {
+      setPedagogicalObjectId(pedagogicalTopicOptions[0].id);
       setPedagogicalSubtopicId('');
       setPedagogicalDetailId('');
     }
-  }, [discipline, chemistryObjects, pedagogicalObjectId, pedagogicalGrade]);
+  }, [
+    pedagogicalDiscipline,
+    pedagogicalTopicOptions,
+    pedagogicalObjectId,
+    pedagogicalGrade,
+  ]);
 
   useEffect(() => {
     const fallback = `${window.location.protocol}//${window.location.hostname}:8788`;
@@ -1815,7 +1824,7 @@ export default function Home() {
                         setSelectedSkillCode('');
                         setSelectedSaebDescriptor('');
                         setSaebInfoOpen(false);
-                        if (next === 'Química') {
+                        if (pedagogical) {
                           setPedagogicalGrade('1ª série');
                           setPedagogicalObjectId('');
                           setPedagogicalSubtopicId('');
@@ -1975,7 +1984,7 @@ export default function Home() {
                           value={pedagogicalDiscipline.id}
                         />
                         <select
-                          required
+                          required={availableCompetencies.length > 0}
                           name="competencyId"
                           value={competencyId}
                           onChange={(event) => {
@@ -1991,6 +2000,7 @@ export default function Home() {
                           }}
                           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                         >
+                          <option value="">Não vinculada</option>
                           {availableCompetencies.map((item) => (
                             <option
                               key={item.competency_id}
@@ -2032,11 +2042,11 @@ export default function Home() {
                           </div>
                         )}
                       </label>
-                      {discipline === 'Química' ? (
+                      {pedagogicalDiscipline ? (
                         <div className="grid gap-3 sm:grid-cols-3">
                           <label className="block">
                             <span className="mb-2 block text-sm font-semibold">
-                              Objeto de conhecimento
+                              Tópico
                             </span>
                             <select
                               required
@@ -2048,8 +2058,8 @@ export default function Home() {
                               }}
                               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                             >
-                              <option value="">Selecione o objeto</option>
-                              {chemistryObjects.map((topic) => (
+                              <option value="">Selecione o tópico</option>
+                              {pedagogicalTopicOptions.map((topic) => (
                                 <option key={topic.id} value={topic.id}>
                                   {topic.name}
                                 </option>
@@ -2069,14 +2079,14 @@ export default function Home() {
                               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                             >
                               <option value="">Todos/nenhum</option>
-                              {chemistrySubtopics.map((topic) => (
+                              {pedagogicalSubtopicOptions.map((topic) => (
                                 <option key={topic.id} value={topic.id}>
                                   {topic.name}
                                 </option>
                               ))}
                             </select>
                           </label>
-                          {chemistryDetails.length > 0 && (
+                          {pedagogicalDetailOptions.length > 0 && (
                             <label className="block">
                               <span className="mb-2 block text-sm font-semibold">
                                 Detalhamento
@@ -2089,7 +2099,7 @@ export default function Home() {
                                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                               >
                                 <option value="">Selecione</option>
-                                {chemistryDetails.map((topic) => (
+                                {pedagogicalDetailOptions.map((topic) => (
                                   <option key={topic.id} value={topic.id}>
                                     {topic.name}
                                   </option>
@@ -2103,8 +2113,8 @@ export default function Home() {
                             value={selectedPedagogicalTopicId}
                           />
                           <span className="text-xs text-slate-400 sm:col-span-3">
-                            Classificação pedagógica: objeto de conhecimento →
-                            subtópico → detalhamento.
+                            Classificação pedagógica: tópico → subtópico →
+                            detalhamento, quando disponível.
                           </span>
                         </div>
                       ) : (
@@ -2163,7 +2173,7 @@ export default function Home() {
                       Habilidade BNCC
                     </span>
                     <select
-                      required
+                      required={availableSkills.length > 0}
                       name="skill"
                       value={selectedSkillCode}
                       onChange={(event) => {
@@ -2178,6 +2188,7 @@ export default function Home() {
                       }}
                       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                     >
+                      <option value="">Não vinculada</option>
                       {availableSkills.map((item) => (
                         <option
                           key={item.skill_code || 'skill'}
