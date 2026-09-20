@@ -118,7 +118,7 @@ export function compile(source, cwd, resultName) {
     child.on('close', (code) => {
       clearTimeout(timer);
       return code === 0
-        ? resolve()
+        ? resolve(output)
         : reject(new Error(output || `ConTeXt terminou com código ${code}.`));
     });
   });
@@ -141,16 +141,26 @@ export async function validatePdf(file) {
 }
 
 export async function compileAndValidate(source, cwd, resultName) {
+  // A prévia de uma questão chama o compilador diretamente, sem passar por
+  // render(). Garanta que o cache gravável do ConTeXt exista também nesse fluxo.
+  await mkdir(path.join(outputRoot, '.tex-cache'), { recursive: true });
   const pdf = path.join(cwd, `${resultName}.pdf`);
-  await compile(source, cwd, resultName);
-  try {
-    return await validatePdf(pdf);
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-    // A primeira execução de uma instalação nova pode apenas gerar formatos e
-    // caches de fontes. Nesse caso, uma segunda passagem produz o documento.
-    await compile(source, cwd, resultName);
-    return validatePdf(pdf);
+  // Em uma instalação TeX Live nova, as primeiras passagens podem apenas
+  // construir o índice de scripts e o formato LMTX. Tente novamente somente
+  // quando o compilador terminar sem erro, mas ainda não produzir o PDF.
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const output = await compile(source, cwd, resultName);
+    try {
+      return await validatePdf(pdf);
+    } catch (error) {
+      if (error?.code !== 'ENOENT' || attempt === 3) {
+        throw error?.code === 'ENOENT'
+          ? new Error(
+              `ConTeXt terminou sem produzir ${resultName}.pdf.\n${output}`,
+            )
+          : error;
+      }
+    }
   }
 }
 

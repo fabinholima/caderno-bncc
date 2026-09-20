@@ -1686,7 +1686,7 @@ export default function Home() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="dialog-title"
-            className="h-full w-full max-w-[1180px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+            className="h-full w-full max-w-[1380px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
           >
             <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
               <div>
@@ -1726,8 +1726,42 @@ export default function Home() {
                   'A questão foi alterada. Gere uma nova prévia para validar a versão atual.',
                 );
               }}
-              className="space-y-5 p-6"
+              className="relative"
             >
+              <div className="grid items-start lg:grid-cols-[230px_minmax(0,1fr)]">
+                <aside className="hidden border-r border-slate-200 bg-white p-5 lg:sticky lg:top-[93px] lg:block lg:h-[calc(100vh-127px)]">
+                  <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-400">
+                    Etapas do cadastro
+                  </p>
+                  <nav className="mt-4 space-y-1" aria-label="Etapas do cadastro da questão">
+                    {[
+                      ['question-type', '1', 'Tipo de questão'],
+                      ['question-curriculum', '2', 'Classificação'],
+                      ['question-source', '3', 'Origem'],
+                      ['question-content', '4', 'Enunciado'],
+                      ['question-alternatives', '5', 'Alternativas'],
+                      ['question-resolution', '6', 'Resolução'],
+                    ].map(([target, step, label]) => (
+                      <a
+                        key={target}
+                        href={`#${target}`}
+                        className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <span className="grid size-7 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-50 text-xs font-bold">
+                          {step}
+                        </span>
+                        {label}
+                      </a>
+                    ))}
+                  </nav>
+                  <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
+                    <strong>Fluxo recomendado</strong>
+                    <p className="mt-1">
+                      Classifique, escreva, marque o gabarito e confira a prévia em PDF antes de salvar.
+                    </p>
+                  </div>
+                </aside>
+                <div className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-7">
               {importCandidateSource && (
                 <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-950">
                   <strong>Revisão final da questão importada.</strong> Edite o
@@ -1736,16 +1770,29 @@ export default function Home() {
                   questão original continuará vinculada à importação.
                 </div>
               )}
-              <QuestionPasteImporter
-                onConfirm={(parsed) => {
-                  setImportedQuestion(parsed);
-                  setImportRevision((value) => value + 1);
-                  setNotice(
-                    'Análise aplicada. Revise os campos e selecione a resposta correta antes de salvar.',
-                  );
-                }}
-              />
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <details className="group rounded-2xl border border-dashed border-blue-200 bg-blue-50/40">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-blue-900 marker:content-none">
+                  <span className="flex items-center gap-2">
+                    <FileInput className="size-4" />
+                    Colar e analisar uma questão pronta
+                    <span className="font-normal text-blue-600">(opcional)</span>
+                  </span>
+                  <span className="text-xs text-blue-600 group-open:hidden">Abrir importador</span>
+                  <span className="hidden text-xs text-blue-600 group-open:inline">Recolher</span>
+                </summary>
+                <div className="border-t border-blue-100 p-4">
+                  <QuestionPasteImporter
+                    onConfirm={(parsed) => {
+                      setImportedQuestion(parsed);
+                      setImportRevision((value) => value + 1);
+                      setNotice(
+                        'Análise aplicada. Revise os campos e selecione a resposta correta antes de salvar.',
+                      );
+                    }}
+                  />
+                </div>
+              </details>
+              <section id="question-type" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
                     Etapa 1
@@ -1758,7 +1805,7 @@ export default function Home() {
                     t-basicexam cuida apenas da apresentação.
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid gap-2 sm:grid-cols-3">
                   {[
                     ['single_choice', 'Resposta única'],
                     ['multiple_choice', 'Múltiplas'],
@@ -1780,7 +1827,7 @@ export default function Home() {
                   ))}
                 </div>
               </section>
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section id="question-curriculum" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
                     Etapa 2
@@ -2248,7 +2295,7 @@ export default function Home() {
                   </label>
                 </div>
               </section>
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section id="question-source" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
                     Etapa 3
@@ -2311,7 +2358,7 @@ export default function Home() {
                   </label>
                 </div>
               </section>
-              <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section id="question-content" className="scroll-mt-28 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
                     Etapa 4
@@ -2353,7 +2400,7 @@ export default function Home() {
                 </details>
               </section>
               {questionType !== 'essay' && (
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section id="question-alternatives" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
@@ -2411,7 +2458,7 @@ export default function Home() {
                   ))}
                 </section>
               )}
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section id="question-resolution" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-600">
                   {questionType === 'essay' ? 'Etapa 5' : 'Etapa 6'}
                 </p>
@@ -2428,7 +2475,13 @@ export default function Home() {
                   resetKey={importRevision}
                 />
               </section>
-              <footer className="sticky bottom-0 z-10 -mx-6 -mb-6 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+                </div>
+              </div>
+              <footer className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white/95 px-4 py-4 shadow-[0_-8px_24px_rgb(15_23_42/5%)] backdrop-blur sm:px-6">
+                <span className="hidden text-xs text-slate-500 sm:block">
+                  Confira a prévia para validar fórmulas, imagens e paginação.
+                </span>
+                <div className="flex flex-1 flex-wrap justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -2463,9 +2516,10 @@ export default function Home() {
                         ? 'Cadastrar questão revisada'
                         : 'Salvar rascunho'}
                 </Button>
+                </div>
               </footer>
               {questionPreviewUrl && (
-                <section className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <section className="m-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:m-6">
                   <div className="flex items-center justify-between">
                     <strong className="text-sm">
                       PDF compilado pelo ConTeXt

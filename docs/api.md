@@ -252,3 +252,24 @@ Ciências da Natureza), atualiza competências e habilidades sem duplicação e
 vincula `EM13MAT` a Matemática e `EM13CNT` a Física. O vínculo de Física é uma
 classificação pedagógica institucional, pois a BNCC organiza essas habilidades
 na área integrada de Ciências da Natureza e suas Tecnologias.
+
+### Processador de objetos e subtópicos pedagógicos
+
+Os objetos e subtópicos usados nos filtros são uma camada institucional: o
+processador não inventa conteúdo nem altera a árvore normativa da BNCC. Ele
+recebe um JSON revisado pela equipe, confere a área oficial (`em-area-*`) e
+faz upsert transacional da hierarquia, sem apagar registros que não estejam no
+arquivo.
+
+Execute informando o arquivo, a instituição e o usuário responsável:
+
+```bash
+pnpm --filter @caderno/api import:pedagogical-topics \
+  ./dados/objetos-subtopicos.json <institutionId> <userId>
+```
+
+O formato aceito é `version`, seguido de `subjects`; cada disciplina informa
+`name`, `stage`, `areaSourceKey` e uma árvore `topics` com `name`, `gradeRange`
+e `subtopics`. A série é herdada pelos subtópicos, as chaves são únicas no
+arquivo e a área precisa existir no catálogo oficial. A operação é idempotente,
+preserva as posições e relações pai/filho e não remove registros existentes.
