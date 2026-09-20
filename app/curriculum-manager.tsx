@@ -583,6 +583,45 @@ export function CurriculumManager({
           </article>
         ))}
       </div>
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+              Conteúdo curricular disponível no frontend
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Disciplinas e objetos carregados do catálogo oficial da BNCC.
+            </p>
+          </div>
+          <Badge variant="outline">{educationStage}</Badge>
+        </div>
+        {educationStage === 'Ensino Fundamental' ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {subjects.map((item) => {
+              const subjectObjects = objects.filter((object) => object.subject_id === item.subject_id);
+              return <article key={item.subject_id} className="rounded-xl border border-slate-200 p-4">
+                <h3 className="font-semibold text-[var(--navy)]">{item.subject}</h3>
+                <p className="mt-1 text-xs text-slate-500">{subjectObjects.length} objeto(s) de conhecimento</p>
+                <ul className="mt-3 space-y-1 text-sm text-slate-600">
+                  {subjectObjects.slice(0, 8).map((object) => <li key={object.knowledge_object_id}>• {object.knowledge_object}{object.grade_range ? ` · ${object.grade_range}` : ''}</li>)}
+                  {!subjectObjects.length && <li className="text-xs text-slate-400">Objetos ainda não cadastrados.</li>}
+                </ul>
+              </article>;
+            })}
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[...new Map(highSchool.map((item) => [item.area_source_key, item])).values()].map((area) => {
+              const skills = highSchool.filter((item) => item.area_source_key === area.area_source_key);
+              return <article key={area.area_source_key} className="rounded-xl border border-violet-100 bg-violet-50/30 p-4">
+                <h3 className="font-semibold text-[var(--navy)]">{area.area}</h3>
+                <p className="mt-1 text-xs text-slate-500">{new Set(skills.map((item) => item.skill_code)).size} habilidades oficiais</p>
+                <div className="mt-3 flex flex-wrap gap-1">{[...new Set(skills.map((item) => item.skill_code))].slice(0, 12).map((code) => <Badge key={code} variant="outline" className="font-mono text-[11px]">{code}</Badge>)}</div>
+              </article>;
+            })}
+          </div>
+        )}
+      </section>
       {educationStage === 'Ensino Médio' && highSchool.length > 0 && (
         <section className="mt-6 rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
