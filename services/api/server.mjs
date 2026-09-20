@@ -64,6 +64,7 @@ import {
   listApplications,
   listClasses,
   listStudents,
+  setStudentActive,
   retryApplicationRenders,
 } from './academic.mjs';
 import {
@@ -439,6 +440,11 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await listStudents({ institutionId }),
       });
+    const studentActiveMatch = request.method === 'PATCH' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})$/i);
+    if (studentActiveMatch)
+      return json(response, 200, { data: await setStudentActive({
+        institutionId, studentId: studentActiveMatch[1], active: (await readJson(request)).active,
+      }) });
     const enrollmentMatch =
       request.method === 'POST' &&
       url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/enrollments$/i);

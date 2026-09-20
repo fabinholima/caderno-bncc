@@ -579,6 +579,15 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
     setScanReview(null);
     await refresh();
   };
+  const toggleStudent = async (student: Student) => {
+    const response = await apiFetch(`${apiUrl}/api/students/${student.id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ active: !student.active }),
+    });
+    const body = (await response.json()) as ApiBody<Student>;
+    if (!response.ok) throw new Error(body.error || 'Não foi possível atualizar o aluno.');
+    setStudents((items) => items.map((item) => item.id === student.id ? { ...item, active: !student.active } : item));
+  };
   const reviewCandidate = scanReview?.candidates.find(
     (candidate) => candidate.id === reviewCandidateId,
   );
@@ -961,6 +970,17 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
             Nenhuma aplicação agendada.
           </p>
         )}
+      </section>
+      <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <header className="border-b p-4 font-semibold">Alunos cadastrados</header>
+        {students.length ? students.map((student) => (
+          <div key={student.id} className="flex items-center justify-between border-b px-4 py-3 text-sm last:border-0">
+            <span><b>{student.name}</b> · {student.registration}</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => toggleStudent(student).catch((error) => setMessage(error.message))}>
+              {student.active ? 'Inativar' : 'Reativar'}
+            </Button>
+          </div>
+        )) : <p className="p-6 text-sm text-slate-400">Nenhum aluno cadastrado.</p>}
       </section>
       {applicationDetail && (
         <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
