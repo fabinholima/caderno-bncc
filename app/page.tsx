@@ -86,6 +86,7 @@ type PedagogicalDiscipline = {
   name: string;
   area_source_key?: string;
   skills: Array<{ id: string; code: string }>;
+  stage?: 'Ensino Fundamental' | 'Ensino Médio';
 };
 type PedagogicalTopic = {
   id: string;
@@ -1842,6 +1843,11 @@ export default function Home() {
                       : 'Disciplina → Objeto de conhecimento → Habilidade BNCC'}
                   </p>
                 </div>
+                <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                  {(['Ensino Fundamental', 'Ensino Médio'] as const).map((stage) => (
+                    <button key={stage} type="button" onClick={() => { setEducationStage(stage); setDiscipline(stage === 'Ensino Médio' ? 'Química' : 'Ciências'); setKnowledgeObjectId(''); setPedagogicalObjectId(''); setPedagogicalSubtopicId(''); setPedagogicalDetailId(''); }} className={`rounded-md px-3 py-2 text-xs font-semibold ${educationStage === stage ? 'bg-[var(--navy)] text-white' : 'text-slate-600'}`}>{stage}</button>
+                  ))}
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-sm font-semibold">
@@ -1883,8 +1889,8 @@ export default function Home() {
                     >
                       {[
                         ...new Set([
-                          ...curriculum.map((item) => item.subject),
-                          ...pedagogicalDisciplines.map((item) => item.name),
+                          ...curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject),
+                          ...pedagogicalDisciplines.filter((item) => !item.stage || item.stage === educationStage).map((item) => item.name),
                         ]),
                       ].map((item) => (
                         <option key={item}>{item}</option>
