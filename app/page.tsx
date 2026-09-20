@@ -964,7 +964,8 @@ export default function Home() {
                   label === 'Importar provas' ||
                   label === 'Planejamento' ||
                   label === 'Avaliações' ||
-                  label === 'Turmas e alunos') &&
+                  label === 'Turmas e alunos' ||
+                  label === 'Resultados') &&
                 setActive(label)
               }
               className={`mb-1 flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition ${active === label ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/7 hover:text-white'}`}
@@ -1069,7 +1070,7 @@ export default function Home() {
             )}
             apiUrl={apiUrl}
           />
-        ) : active === 'Turmas e alunos' ? (
+        ) : active === 'Turmas e alunos' || active === 'Resultados' ? (
           <AcademicManager apiUrl={apiUrl} />
         ) : active === 'Importar provas' ? (
           <ExamImportManager
