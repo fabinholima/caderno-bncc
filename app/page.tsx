@@ -231,6 +231,12 @@ const nav = [
   ['Turmas e alunos', Users],
   ['Resultados', BarChart3],
 ] as const;
+const highSchoolSubjectAreas: Record<string, string[]> = {
+  'Linguagens e suas Tecnologias': ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
+  'Matemática e suas Tecnologias': ['Matemática'],
+  'Ciências da Natureza e suas Tecnologias': ['Biologia', 'Física', 'Química'],
+  'Ciências Humanas e Sociais Aplicadas': ['História', 'Geografia', 'Sociologia', 'Filosofia'],
+};
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
 function difficultyClass(value: Question['difficulty']) {
@@ -304,6 +310,7 @@ export default function Home() {
     PedagogicalTopic[]
   >([]);
   const [discipline, setDiscipline] = useState('Química');
+  const [knowledgeAreaFilter, setKnowledgeAreaFilter] = useState('Ciências da Natureza e suas Tecnologias');
   const [knowledgeObjectId, setKnowledgeObjectId] = useState(
     curriculumDemo[0].knowledge_object_id || '',
   );
@@ -1849,6 +1856,14 @@ export default function Home() {
                   ))}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
+                  {educationStage === 'Ensino Médio' && (
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-semibold">Área de conhecimento</span>
+                      <select value={knowledgeAreaFilter} onChange={(event) => { const area = event.target.value; setKnowledgeAreaFilter(area); setDiscipline(highSchoolSubjectAreas[area][0]); setPedagogicalObjectId(''); setPedagogicalSubtopicId(''); setPedagogicalDetailId(''); }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                        {Object.keys(highSchoolSubjectAreas).map((area) => <option key={area}>{area}</option>)}
+                      </select>
+                    </label>
+                  )}
                   <label className="block">
                     <span className="mb-2 block text-sm font-semibold">
                       Disciplina
@@ -1889,7 +1904,7 @@ export default function Home() {
                     >
                       {[
                         ...new Set([
-                          ...curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject),
+                          ...(educationStage === 'Ensino Médio' ? highSchoolSubjectAreas[knowledgeAreaFilter] : curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject)),
                           ...pedagogicalDisciplines.filter((item) => !item.stage || item.stage === educationStage).map((item) => item.name),
                         ]),
                       ].map((item) => (
