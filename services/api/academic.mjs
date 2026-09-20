@@ -57,6 +57,15 @@ export async function listStudents({ institutionId }) {
   });
   return result.rows;
 }
+export async function setStudentActive({ institutionId, studentId, active }) {
+  const r = await pool.query({
+    text: 'UPDATE students SET active=$3 WHERE id=$1 AND institution_id=$2 RETURNING id,registration,name,active',
+    values: [studentId, institutionId, Boolean(active)],
+  });
+  if (!r.rowCount)
+    throw Object.assign(new Error('Aluno não encontrado.'), { statusCode: 404 });
+  return r.rows[0];
+}
 export async function enrollStudent({ institutionId, classId, input }) {
   const v = enrollmentSchema.parse(input);
   const r = await pool.query({
