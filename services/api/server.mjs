@@ -53,6 +53,7 @@ import {
   setPedagogicalDisciplineSkills,
   updatePedagogicalTopic,
 } from './pedagogical-disciplines.mjs';
+import { importPedagogicalTopicCatalog } from './pedagogical-topic-import.mjs';
 import {
   cancelApplication,
   createApplication,
@@ -967,6 +968,22 @@ const server = createServer(async (request, response) => {
           institutionId,
           userId,
           input: await readJson(request),
+        }),
+      });
+    }
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/curriculum/pedagogical-topics/import'
+    ) {
+      if (role === 'teacher')
+        return json(response, 403, {
+          error: 'Somente coordenação e administração podem importar o catálogo.',
+        });
+      return json(response, 201, {
+        data: await importPedagogicalTopicCatalog({
+          institutionId,
+          userId,
+          catalog: await readJson(request),
         }),
       });
     }
