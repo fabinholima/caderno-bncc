@@ -394,6 +394,22 @@ export function CurriculumManager({
     },
     { value: skillCount, label: 'habilidades cadastradas', icon: Sparkles },
   ];
+  const fundamentalAreaBySubject: Record<string, string> = {
+    'Língua Portuguesa': 'Linguagens',
+    Arte: 'Linguagens',
+    'Educação Física': 'Linguagens',
+    'Língua Inglesa': 'Linguagens',
+    Matemática: 'Matemática',
+    Ciências: 'Ciências da Natureza',
+    História: 'Ciências Humanas',
+    Geografia: 'Ciências Humanas',
+  };
+  const highSchoolSubjectsByArea: Record<string, string[]> = {
+    'em-area-lgg': ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
+    'em-area-mat': ['Matemática'],
+    'em-area-cnt': ['Biologia', 'Física', 'Química'],
+    'em-area-chs': ['História', 'Geografia', 'Sociologia', 'Filosofia'],
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -600,7 +616,8 @@ export function CurriculumManager({
             {subjects.map((item) => {
               const subjectObjects = objects.filter((object) => object.subject_id === item.subject_id);
               return <article key={item.subject_id} className="rounded-xl border border-slate-200 p-4">
-                <h3 className="font-semibold text-[var(--navy)]">{item.subject}</h3>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">{fundamentalAreaBySubject[item.subject] || 'Componente curricular'}</p>
+                <h3 className="mt-1 font-semibold text-[var(--navy)]">{item.subject}</h3>
                 <p className="mt-1 text-xs text-slate-500">{subjectObjects.length} objeto(s) de conhecimento</p>
                 <ul className="mt-3 space-y-1 text-sm text-slate-600">
                   {subjectObjects.slice(0, 8).map((object) => <li key={object.knowledge_object_id}>• {object.knowledge_object}{object.grade_range ? ` · ${object.grade_range}` : ''}</li>)}
@@ -615,6 +632,7 @@ export function CurriculumManager({
               const skills = highSchool.filter((item) => item.area_source_key === area.area_source_key);
               return <article key={area.area_source_key} className="rounded-xl border border-violet-100 bg-violet-50/30 p-4">
                 <h3 className="font-semibold text-[var(--navy)]">{area.area}</h3>
+                <p className="mt-1 text-xs text-slate-600">{highSchoolSubjectsByArea[area.area_source_key]?.join(' · ')}</p>
                 <p className="mt-1 text-xs text-slate-500">{new Set(skills.map((item) => item.skill_code)).size} habilidades oficiais</p>
                 <div className="mt-3 flex flex-wrap gap-1">{[...new Set(skills.map((item) => item.skill_code))].slice(0, 12).map((code) => <Badge key={code} variant="outline" className="font-mono text-[11px]">{code}</Badge>)}</div>
               </article>;
