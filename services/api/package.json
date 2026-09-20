@@ -11,6 +11,7 @@
     "worker:imports": "node --env-file-if-exists=../../.env exam-import-worker.mjs",
     "test": "node --test",
     "import:ita": "node --env-file-if-exists=../../.env import-ita-catalog.mjs"
+    ,"import:pedagogical-topics": "node --env-file-if-exists=../../.env pedagogical-topic-import.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
