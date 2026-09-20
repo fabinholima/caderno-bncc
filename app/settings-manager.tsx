@@ -27,6 +27,9 @@ export function SettingsManager({
 }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [message, setMessage] = useState('');
+  const [catalog, setCatalog] = useState<Record<string, any> | null>(null);
+  const [catalogName, setCatalogName] = useState('');
+  const [importing, setImporting] = useState(false);
   useEffect(() => {
     apiFetch(`${apiUrl}/api/subscription`)
       .then((response) => response.json())
@@ -57,6 +60,35 @@ export function SettingsManager({
         : 'Convite enviado por e-mail.',
     );
   }
+  function readCatalog(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const value = JSON.parse(String(reader.result));
+        if (!value?.version || !Array.isArray(value.subjects)) throw new Error();
+        setCatalog(value);
+        setCatalogName(file.name);
+        setMessage('Prévia carregada. Confira a hierarquia e confirme a importação.');
+      } catch {
+        setCatalog(null);
+        setMessage('JSON inválido. Use version e subjects conforme o modelo da documentação.');
+      }
+    };
+    reader.readAsText(file);
+  }
+  async function importCatalog() {
+    if (!catalog) return;
+    setImporting(true);
+    try {
+      const response = await apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics/import`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(catalog),
+      });
+      const body = await response.json();
+      setMessage(response.ok ? `Catálogo importado: ${body.data.subjects.length} disciplina(s).` : body.error || 'Importação rejeitada.');
+      if (response.ok) setCatalog(null);
+    } catch { setMessage('Não foi possível conectar à API.'); }
+    finally { setImporting(false); }
+  }
   return (
     <main className="mx-auto max-w-[1100px] px-5 py-7 sm:px-8 sm:py-9">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-blue-600">
@@ -69,6 +101,16 @@ export function SettingsManager({
         </p>
       )}
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        {role !== 'teacher' && <section className="rounded-2xl border bg-white p-5 lg:col-span-2">
+          <h2 className="font-display text-xl font-bold">Objetos e subtópicos BNCC</h2>
+          <p className="mt-1 text-sm text-slate-500">Importe um catálogo revisado, confira a prévia e confirme antes de gravar.</p>
+          <input className="mt-4 block w-full rounded-lg border p-2 text-sm" type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && readCatalog(event.target.files[0])} />
+          {catalog && <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
+            <p className="font-semibold">Prévia: {catalogName} · {catalog.subjects.length} disciplina(s)</p>
+            <ul className="mt-3 space-y-2">{catalog.subjects.map((subject: any) => <li key={subject.sourceKey}><b>{subject.name}</b> · {subject.stage}<ul className="ml-5 list-disc">{(subject.topics || []).map((topic: any) => <li key={topic.sourceKey}>{topic.name} ({topic.subtopics?.length || 0} subtópico(s))</li>)}</ul></li>)}</ul>
+            <Button className="mt-4" type="button" disabled={importing} onClick={importCatalog}>{importing ? 'Importando…' : 'Confirmar importação'}</Button>
+          </div>}
+        </section>}
         <section className="rounded-2xl border bg-white p-5">
           <div className="flex items-center gap-2">
             <CreditCard className="text-blue-600" />
