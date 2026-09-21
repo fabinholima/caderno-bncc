@@ -1,0 +1,11 @@
+{
+  "version":"Referencial-MS-2012-reviewed",
+  "subjects":[{"sourceKey":"ms2012-lingua-inglesa","name":"Língua Inglesa","stage":"Ensino Médio","areaSourceKey":"em-area-lgg","topics":[
+    {"sourceKey":"ingles-linguistic-aspects-1","name":"Linguistic aspects","gradeRange":"1ª série","subtopics":[{"sourceKey":"ingles-present-simple","name":"Simple Present Tense"},{"sourceKey":"ingles-present-continuous","name":"Present Continuous Tense"},{"sourceKey":"ingles-personal-pronouns","name":"Personal pronouns"},{"sourceKey":"ingles-articles","name":"Articles"}]},
+    {"sourceKey":"ingles-communicative-function-1","name":"Communicative function","gradeRange":"1ª série","subtopics":[{"sourceKey":"ingles-short-texts-1","name":"Write and present short texts in real communication situations"}]},
+    {"sourceKey":"ingles-linguistic-aspects-2","name":"Linguistic aspects","gradeRange":"2ª série","subtopics":[{"sourceKey":"ingles-simple-past","name":"Simple Past Tense"},{"sourceKey":"ingles-regular-irregular","name":"Regular and irregular verbs"},{"sourceKey":"ingles-preferences","name":"Preferences: like and dislikes"},{"sourceKey":"ingles-plural-nouns","name":"Plural of nouns"},{"sourceKey":"ingles-possessive","name":"Possessive adjectives and pronouns"},{"sourceKey":"ingles-past-continuous","name":"Past Continuous Tense"}]},
+    {"sourceKey":"ingles-communicative-function-2","name":"Communicative function","gradeRange":"2ª série","subtopics":[{"sourceKey":"ingles-past-actions","name":"Write and present short texts relating past actions"}]},
+    {"sourceKey":"ingles-linguistic-aspects-3","name":"Linguistic aspects","gradeRange":"3ª série","subtopics":[{"sourceKey":"ingles-simple-future","name":"Simple Future Tense"},{"sourceKey":"ingles-indefinite-pronouns","name":"Indefinite pronouns: some, any and no"},{"sourceKey":"ingles-would","name":"Using would for requests, invitations and offerings"}]},
+    {"sourceKey":"ingles-communicative-function-3","name":"Communicative function","gradeRange":"3ª série","subtopics":[{"sourceKey":"ingles-requests-invitations","name":"Write and present short texts for requests, invitations and offerings"}]}
+  ]}]
+}
