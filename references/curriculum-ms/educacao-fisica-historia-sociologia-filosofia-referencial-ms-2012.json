@@ -1,0 +1,36 @@
+{
+  "version":"Referencial-MS-2012-reviewed",
+  "subjects":[
+    {"sourceKey":"ms2012-educacao-fisica","name":"Educação Física","stage":"Ensino Médio","areaSourceKey":"em-area-lgg","topics":[
+      {"sourceKey":"ef-corpo-cultura-1","name":"Corpo e cultura","gradeRange":"1ª série","subtopics":[{"sourceKey":"ef-corpo-midia","name":"O corpo e a mídia"},{"sourceKey":"ef-corpo-construcao","name":"O corpo como construção cultural"}]},
+      {"sourceKey":"ef-atividade-fisica-1","name":"Atividade física","gradeRange":"1ª série","subtopics":[{"sourceKey":"ef-importancia-atividade","name":"Importância da atividade física"},{"sourceKey":"ef-atividade-cultura","name":"Atividade física e cultura"}]},
+      {"sourceKey":"ef-esportes-1","name":"Esportes","gradeRange":"1ª série","subtopics":[{"sourceKey":"ef-historia-esportes","name":"Construção histórica dos esportes"},{"sourceKey":"ef-esporte-cultura","name":"Esporte e cultura"}]},
+      {"sourceKey":"ef-ritmos-1","name":"Atividades rítmicas e expressivas","gradeRange":"1ª série","subtopics":[{"sourceKey":"ef-corpo-fala","name":"O corpo fala"},{"sourceKey":"ef-ritmos-culturas","name":"Ritmos e culturas"}]},
+      {"sourceKey":"ef-jogos-2","name":"Jogos e lazer","gradeRange":"2ª série","subtopics":[{"sourceKey":"ef-jogo-cultura","name":"Jogo e cultura"},{"sourceKey":"ef-jogo-trabalho","name":"Jogo e trabalho"}]},
+      {"sourceKey":"ef-lutas-2","name":"Lutas","gradeRange":"2ª série","subtopics":[{"sourceKey":"ef-lutas-brigas","name":"Lutas e brigas"},{"sourceKey":"ef-disciplina-rituais","name":"Disciplina e rituais"}]},
+      {"sourceKey":"ef-qualidade-vida-3","name":"Qualidade de vida","gradeRange":"3ª série","subtopics":[{"sourceKey":"ef-praticas-relaxamento","name":"Práticas de relaxamento e autoconhecimento"},{"sourceKey":"ef-atividade-qualidade","name":"Atividade física para qualidade de vida"}]}
+    ]},
+    {"sourceKey":"ms2012-historia","name":"História","stage":"Ensino Médio","areaSourceKey":"em-area-chs","topics":[
+      {"sourceKey":"historia-antiguidade","name":"Antiguidade e formação das sociedades","gradeRange":"1ª série","subtopics":[{"sourceKey":"historia-oriental","name":"Sociedades orientais"},{"sourceKey":"historia-grecia-roma","name":"Grécia e Roma"}]},
+      {"sourceKey":"historia-medieval","name":"Mundo medieval","gradeRange":"1ª série","subtopics":[{"sourceKey":"historia-feudalismo","name":"Feudalismo"},{"sourceKey":"historia-igreja","name":"Igreja e cultura medieval"}]},
+      {"sourceKey":"historia-moderna","name":"Mundo moderno","gradeRange":"2ª série","subtopics":[{"sourceKey":"historia-renascimento","name":"Renascimento"},{"sourceKey":"historia-reformas","name":"Reformas religiosas"},{"sourceKey":"historia-absolutismo","name":"Absolutismo"}]},
+      {"sourceKey":"historia-colonial","name":"Colonização e formação do Brasil","gradeRange":"2ª série","subtopics":[{"sourceKey":"historia-colonizacao-america","name":"Colonização da América"},{"sourceKey":"historia-brasil-colonia","name":"Brasil Colônia"}]},
+      {"sourceKey":"historia-contemporanea","name":"Mundo contemporâneo","gradeRange":"3ª série","subtopics":[{"sourceKey":"historia-revolucoes","name":"Revoluções políticas e industriais"},{"sourceKey":"historia-guerras","name":"Guerras mundiais"},{"sourceKey":"historia-guerra-fria","name":"Guerra Fria"}]},
+      {"sourceKey":"historia-brasil-republica","name":"Brasil República","gradeRange":"3ª série","subtopics":[{"sourceKey":"historia-republica-velha","name":"República Velha"},{"sourceKey":"historia-era-vargas","name":"Era Vargas"},{"sourceKey":"historia-ditadura-redemocratizacao","name":"Ditadura e redemocratização"}]}
+    ]},
+    {"sourceKey":"ms2012-sociologia","name":"Sociologia","stage":"Ensino Médio","areaSourceKey":"em-area-chs","topics":[
+      {"sourceKey":"sociologia-cotidiano","name":"Cotidiano, observação e interpretação","gradeRange":"1ª série","subtopics":[{"sourceKey":"sociologia-pesquisa","name":"Pesquisa social"},{"sourceKey":"sociologia-metodos","name":"Métodos de pesquisa social"},{"sourceKey":"sociologia-vivencias-ms","name":"Vivências sociais em Mato Grosso do Sul"}]},
+      {"sourceKey":"sociologia-ordem-progresso","name":"Ordem, progresso e sociedade","gradeRange":"1ª série","subtopics":[{"sourceKey":"sociologia-organismo","name":"Sociedade como organismo"},{"sourceKey":"sociologia-ideologia","name":"Ideologia"},{"sourceKey":"sociologia-classes","name":"Classes e desigualdades sociais"}]},
+      {"sourceKey":"sociologia-instituicoes","name":"Instituições sociais","gradeRange":"2ª série","subtopics":[{"sourceKey":"sociologia-familia","name":"Família"},{"sourceKey":"sociologia-educacao","name":"Educação"},{"sourceKey":"sociologia-religiao","name":"Religião"},{"sourceKey":"sociologia-estado","name":"Instituições estatais"}]},
+      {"sourceKey":"sociologia-cultura","name":"Cultura e identidade","gradeRange":"2ª série","subtopics":[{"sourceKey":"sociologia-diversidade","name":"Diversidade e relativismo cultural"},{"sourceKey":"sociologia-indigenas-quilombolas","name":"Povos indígenas e quilombolas"},{"sourceKey":"sociologia-identidade-resistencia","name":"Processos identitários e resistência cultural"}]},
+      {"sourceKey":"sociologia-direitos","name":"Direitos e movimentos sociais","gradeRange":"3ª série","subtopics":[{"sourceKey":"sociologia-genero","name":"Gênero e direitos sexuais"},{"sourceKey":"sociologia-etnico-racial","name":"Relações étnicas e raciais"},{"sourceKey":"sociologia-luta-terra","name":"Luta pela terra"},{"sourceKey":"sociologia-movimentos","name":"Movimentos sociais"}]}
+    ]},
+    {"sourceKey":"ms2012-filosofia","name":"Filosofia","stage":"Ensino Médio","areaSourceKey":"em-area-chs","topics":[
+      {"sourceKey":"filosofia-origens","name":"Origens do pensamento filosófico","gradeRange":"1ª série","subtopics":[{"sourceKey":"filosofia-mito-filosofia","name":"Mito e filosofia"},{"sourceKey":"filosofia-pre-socraticos","name":"Pré-socráticos"},{"sourceKey":"filosofia-socrates-platao-aristoteles","name":"Sócrates, Platão e Aristóteles"}]},
+      {"sourceKey":"filosofia-etica","name":"Ética e moral","gradeRange":"1ª série","subtopics":[{"sourceKey":"filosofia-virtude","name":"Virtude e felicidade"},{"sourceKey":"filosofia-dever","name":"Dever e responsabilidade"}]},
+      {"sourceKey":"filosofia-conhecimento","name":"Conhecimento e ciência","gradeRange":"2ª série","subtopics":[{"sourceKey":"filosofia-racionalismo","name":"Racionalismo"},{"sourceKey":"filosofia-empirismo","name":"Empirismo"},{"sourceKey":"filosofia-ciencia","name":"Ciência e método"}]},
+      {"sourceKey":"filosofia-politica","name":"Filosofia política","gradeRange":"2ª série","subtopics":[{"sourceKey":"filosofia-estado","name":"Estado e poder"},{"sourceKey":"filosofia-democracia","name":"Democracia e cidadania"},{"sourceKey":"filosofia-contrato","name":"Contrato social"}]},
+      {"sourceKey":"filosofia-contemporanea","name":"Filosofia contemporânea","gradeRange":"3ª série","subtopics":[{"sourceKey":"filosofia-existencia","name":"Existência e liberdade"},{"sourceKey":"filosofia-trabalho","name":"Trabalho e sociedade"},{"sourceKey":"filosofia-tecnica","name":"Técnica, ciência e tecnologia"}]}
+    ]}
+  ]
+}
