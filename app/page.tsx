@@ -237,6 +237,13 @@ const highSchoolSubjectAreas: Record<string, string[]> = {
   'Ciências da Natureza e suas Tecnologias': ['Biologia', 'Física', 'Química'],
   'Ciências Humanas e Sociais Aplicadas': ['História', 'Geografia', 'Sociologia', 'Filosofia'],
 };
+
+const elementarySubjectAreas: Record<string, string[]> = {
+  Linguagens: ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
+  Matemática: ['Matemática'],
+  'Ciências da Natureza': ['Ciências'],
+  'Ciências Humanas': ['História', 'Geografia'],
+};
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
 function difficultyClass(value: Question['difficulty']) {
@@ -1854,7 +1861,7 @@ export default function Home() {
                 </div>
                 <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
                   {(['Ensino Fundamental', 'Ensino Médio'] as const).map((stage) => (
-                    <button key={stage} type="button" onClick={() => { setEducationStage(stage); setDiscipline(stage === 'Ensino Médio' ? 'Química' : 'Ciências'); setKnowledgeObjectId(''); setPedagogicalObjectId(''); setPedagogicalSubtopicId(''); setPedagogicalDetailId(''); }} className={`rounded-md px-3 py-2 text-xs font-semibold ${educationStage === stage ? 'bg-[var(--navy)] text-white' : 'text-slate-600'}`}>{stage}</button>
+                    <button key={stage} type="button" onClick={() => { setEducationStage(stage); setKnowledgeAreaFilter(stage === 'Ensino Médio' ? 'Ciências da Natureza e suas Tecnologias' : 'Ciências da Natureza'); setDiscipline(stage === 'Ensino Médio' ? 'Química' : 'Ciências'); setKnowledgeObjectId(''); setPedagogicalObjectId(''); setPedagogicalSubtopicId(''); setPedagogicalDetailId(''); }} className={`rounded-md px-3 py-2 text-xs font-semibold ${educationStage === stage ? 'bg-[var(--navy)] text-white' : 'text-slate-600'}`}>{stage}</button>
                   ))}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1863,6 +1870,23 @@ export default function Home() {
                       <span className="mb-2 block text-sm font-semibold">Área de conhecimento</span>
                       <select value={knowledgeAreaFilter} onChange={(event) => { const area = event.target.value; setKnowledgeAreaFilter(area); setDiscipline(highSchoolSubjectAreas[area][0]); setPedagogicalObjectId(''); setPedagogicalSubtopicId(''); setPedagogicalDetailId(''); }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
                         {Object.keys(highSchoolSubjectAreas).map((area) => <option key={area}>{area}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {educationStage === 'Ensino Fundamental' && (
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-semibold">Área de conhecimento</span>
+                      <select
+                        value={knowledgeAreaFilter in elementarySubjectAreas ? knowledgeAreaFilter : 'Linguagens'}
+                        onChange={(event) => {
+                          const area = event.target.value;
+                          setKnowledgeAreaFilter(area);
+                          setDiscipline(elementarySubjectAreas[area][0]);
+                          setKnowledgeObjectId('');
+                        }}
+                        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      >
+                        {Object.keys(elementarySubjectAreas).map((area) => <option key={area}>{area}</option>)}
                       </select>
                     </label>
                   )}
@@ -1906,7 +1930,9 @@ export default function Home() {
                     >
                       {[
                         ...new Set([
-                          ...(educationStage === 'Ensino Médio' ? highSchoolSubjectAreas[knowledgeAreaFilter] : curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject)),
+                          ...(educationStage === 'Ensino Médio'
+                            ? highSchoolSubjectAreas[knowledgeAreaFilter] || []
+                            : elementarySubjectAreas[knowledgeAreaFilter] || curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject)),
                           ...pedagogicalDisciplines.filter((item) => !item.stage || item.stage === educationStage).map((item) => item.name),
                         ]),
                       ].map((item) => (
