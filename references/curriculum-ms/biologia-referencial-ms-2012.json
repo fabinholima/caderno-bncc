@@ -1,0 +1,48 @@
+{
+  "version": "Referencial-MS-2012-reviewed",
+  "subjects": [
+    {
+      "sourceKey": "ms2012-biologia",
+      "name": "Biologia",
+      "stage": "Ensino Médio",
+      "areaSourceKey": "em-area-cnt",
+      "topics": [
+        {"sourceKey":"origem-biologia","name":"Origem da Biologia","gradeRange":"1ª série","subtopics":[]},
+        {"sourceKey":"biologia-ciencia","name":"Biologia como ciência","gradeRange":"1ª série","subtopics":[]},
+        {"sourceKey":"divisoes-biologia","name":"Principais divisões da Biologia","gradeRange":"1ª série","subtopics":[{"sourceKey":"citologia","name":"Citologia"},{"sourceKey":"histologia","name":"Histologia"},{"sourceKey":"anatomia","name":"Anatomia"},{"sourceKey":"taxonomia","name":"Taxonomia"},{"sourceKey":"embriologia","name":"Embriologia"},{"sourceKey":"genetica","name":"Genética"},{"sourceKey":"evolucao","name":"Evolução"},{"sourceKey":"ecologia","name":"Ecologia"}]},
+        {"sourceKey":"origem-vida","name":"Origem da vida","gradeRange":"1ª série","subtopics":[]},
+        {"sourceKey":"introducao-citologia","name":"Introdução à Citologia","gradeRange":"1ª série","subtopics":[{"sourceKey":"apresentacao-celula","name":"Apresentação da célula"},{"sourceKey":"composicao-quimica-celula","name":"Composição química da célula"},{"sourceKey":"membrana-plasmatica","name":"Membrana plasmática"}]},
+        {"sourceKey":"citoplasma","name":"Citoplasma","gradeRange":"1ª série","subtopics":[{"sourceKey":"estruturas-celulares","name":"Estruturas celulares"},{"sourceKey":"forma-funcao-localizacao-citoplasma","name":"Forma, função e localização"}]},
+        {"sourceKey":"nucleo","name":"Núcleo","gradeRange":"1ª série","subtopics":[{"sourceKey":"acidos-nucleicos","name":"Ácidos nucleicos"},{"sourceKey":"divisao-celular","name":"Divisão celular"}]},
+        {"sourceKey":"metabolismo-celular","name":"Metabolismo celular","gradeRange":"1ª série","subtopics":[{"sourceKey":"quimiossintese","name":"Quimiossíntese"},{"sourceKey":"fotossintese","name":"Fotossíntese"},{"sourceKey":"fermentacao","name":"Fermentação"},{"sourceKey":"respiracao","name":"Respiração"}]},
+        {"sourceKey":"histologia-tecidos","name":"Histologia","gradeRange":"1ª série","subtopics":[{"sourceKey":"forma-localizacao-funcao-tecidos","name":"Forma, localização e função"}]},
+        {"sourceKey":"reproducao","name":"Reprodução assexuada e sexuada","gradeRange":"1ª série","subtopics":[]},
+        {"sourceKey":"desenvolvimento-embrionario","name":"Desenvolvimento embrionário dos seres vivos","gradeRange":"1ª série","subtopics":[]},
+        {"sourceKey":"ciclos-vida","name":"Ciclos de vida","gradeRange":"1ª série","subtopics":[]},
+        {"sourceKey":"sistematica","name":"Sistemática","gradeRange":"2ª série","subtopics":[{"sourceKey":"definicao-sistematica","name":"Definição de sistemática"}]},
+        {"sourceKey":"classificacao-biodiversidade","name":"Classificação e biodiversidade","gradeRange":"2ª série","subtopics":[]},
+        {"sourceKey":"virus","name":"Estudo dos Vírus","gradeRange":"2ª série","subtopics":[]},
+        {"sourceKey":"reino-monera","name":"Estudo do Reino Monera","gradeRange":"2ª série","subtopics":[]},
+        {"sourceKey":"reino-protista","name":"Estudo do Reino Protista","gradeRange":"2ª série","subtopics":[]},
+        {"sourceKey":"reino-fungi","name":"Estudo do Reino Fungi","gradeRange":"2ª série","subtopics":[]},
+        {"sourceKey":"reino-plantae","name":"Reino Plantae","gradeRange":"2ª série","subtopics":[{"sourceKey":"classificacao-vegetais","name":"Classificação dos vegetais"},{"sourceKey":"desenvolvimento-vegetais","name":"Desenvolvimento morfológico e fisiológico dos vegetais"},{"sourceKey":"briofitas-pteridofitas","name":"Briófitas e pteridófitas"},{"sourceKey":"gimnospermas-angiospermas","name":"Gimnospermas e angiospermas"}]},
+        {"sourceKey":"reino-animalia","name":"Reino Animalia","gradeRange":"2ª série","subtopics":[{"sourceKey":"invertebrados","name":"Invertebrados"},{"sourceKey":"poriferos-cnidarios","name":"Poríferos e cnidários"},{"sourceKey":"platelmintos-nematelmintos","name":"Platelmintos e nematelmintos"},{"sourceKey":"moluscos-anelideos","name":"Moluscos e anelídeos"},{"sourceKey":"artropodes","name":"Artrópodes"},{"sourceKey":"equinodermos-protocordatos","name":"Equinodermos e protocordatos"}]},
+        {"sourceKey":"vertebrados","name":"Vertebrados","gradeRange":"2ª série","subtopics":[{"sourceKey":"anatomia-fisiologia-comparada","name":"Anatomia e fisiologia animal comparada"},{"sourceKey":"peixes-anfibios-repteis-aves-mamiferos","name":"Peixes, anfíbios, répteis, aves e mamíferos"}]},
+        {"sourceKey":"introducao-genetica","name":"Introdução à Genética","gradeRange":"3ª série","subtopics":[{"sourceKey":"origens-conceitos-genetica","name":"Origens e conceitos"},{"sourceKey":"genotipo-fenotipo","name":"Genótipo e fenótipo"},{"sourceKey":"primeira-lei-mendel","name":"Primeira Lei de Mendel e hereditariedade"},{"sourceKey":"monoibridismo-alelos","name":"Monoibridismo e alelos múltiplos"}]},
+        {"sourceKey":"segunda-lei-mendel","name":"Segunda Lei de Mendel e interação gênica","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"heranca-grupos-sanguineos","name":"Herança dos grupos sanguíneos","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"permuta-heranca-sexual","name":"Permuta e herança sexual","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"mutacoes","name":"Mutações","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"biotecnologia","name":"Biotecnologia","gradeRange":"3ª série","subtopics":[{"sourceKey":"engenharia-genetica","name":"Engenharia genética e suas aplicações"}]},
+        {"sourceKey":"teorias-evolucionistas","name":"Retrospectiva histórica das teorias evolucionistas","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"genetica-populacoes","name":"Genética de populações","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"fundamentos-ecologia","name":"Fundamentos da Ecologia","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"fluxos-energia-ciclos","name":"Fluxos de energia e ciclos biogeoquímicos","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"sucessao-biomas","name":"Sucessão ecológica e biomas","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"dinamica-populacoes","name":"Dinâmica das populações","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"relacoes-ecologicas","name":"Relações intra e interespecíficas","gradeRange":"3ª série","subtopics":[]},
+        {"sourceKey":"desequilibrios-ambientais","name":"A humanidade e os desequilíbrios ambientais","gradeRange":"3ª série","subtopics":[]}
+      ]
+    }
+  ]
+}
