@@ -528,7 +528,9 @@ export default function Home() {
   }, [apiUrl, selectedSaebMatrix]);
 
   useEffect(() => {
-    if (!apiUrl || !identity) return;
+    // O catálogo curricular é público para a tela de cadastro. Ele não deve
+    // desaparecer apenas porque o login está desabilitado durante o desenvolvimento.
+    if (!apiUrl) return;
     Promise.all([
       apiFetch(`${apiUrl}/api/curriculum/high-school`).then(
         (response) =>
@@ -561,7 +563,7 @@ export default function Home() {
         }
       })
       .catch(() => undefined);
-  }, [apiUrl, identity]);
+  }, [apiUrl]);
 
   useEffect(() => {
     if (!apiUrl || !identity) return;
