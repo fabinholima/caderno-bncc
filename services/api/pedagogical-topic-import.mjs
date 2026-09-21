@@ -3,7 +3,13 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import { transaction } from './db.mjs';
 
-const gradeRange = z.enum(['1ª série', '2ª série', '3ª série']).optional();
+// O catálogo pedagógico atende tanto ao Ensino Médio quanto ao Fundamental.
+// No Fundamental, a BNCC usa anos (1º–9º); no Médio, séries (1ª–3ª).
+const gradeRange = z
+  .string()
+  .trim()
+  .regex(/^(?:[1-9]º ano|[1-9]ª série)$/)
+  .optional();
 const topicSchema = z.object({
   sourceKey: z.string().trim().min(1).max(160),
   name: z.string().trim().min(2).max(120),
@@ -19,7 +25,7 @@ export const pedagogicalTopicCatalogSchema = z.object({
         sourceKey: z.string().trim().min(1).max(160),
         name: z.string().trim().min(2).max(120),
         stage: z.enum(['Ensino Fundamental', 'Ensino Médio']),
-        areaSourceKey: z.string().trim().regex(/^em-area-[a-z]+$/),
+        areaSourceKey: z.string().trim().regex(/^(?:em|ef)-area-[a-z]+$/),
         topics: z.array(topicSchema).min(1),
       }),
     )
