@@ -1,0 +1,9 @@
+{
+  "version":"Referencial-MS-2012-reviewed",
+  "subjects":[{"sourceKey":"ms2012-arte","name":"Arte","stage":"Ensino Médio","areaSourceKey":"em-area-lgg","topics":[
+    {"sourceKey":"arte-historia-1","name":"História da Arte","gradeRange":"1ª série","subtopics":[{"sourceKey":"arte-pre-historia-idade-media","name":"Da Pré-História à Idade Média"},{"sourceKey":"arte-idade-media","name":"Idade Média"},{"sourceKey":"arte-renascimento","name":"Renascimento"},{"sourceKey":"arte-barroco","name":"Barroco"}]},
+    {"sourceKey":"arte-seculo-xix","name":"Arte no século XIX","gradeRange":"1ª série","subtopics":[{"sourceKey":"arte-inicio-xix","name":"Início do século XIX"},{"sourceKey":"arte-cultura-afro-indigena-1","name":"Cultura afro-brasileira, indígena e demais etnias"}]},
+    {"sourceKey":"arte-seculo-xx","name":"Arte no século XX","gradeRange":"2ª série","subtopics":[{"sourceKey":"arte-inicio-xx","name":"Início do século XX"},{"sourceKey":"arte-cultura-afro-indigena-2","name":"Cultura afro-brasileira, indígena e demais etnias"}]},
+    {"sourceKey":"arte-contemporaneidade","name":"Arte contemporânea","gradeRange":"3ª série","subtopics":[{"sourceKey":"arte-contemporaneidade-brasileira","name":"Contemporaneidade brasileira"},{"sourceKey":"arte-contemporaneidade-ms","name":"Contemporaneidade sul-mato-grossense"},{"sourceKey":"arte-cultura-afro-indigena-3","name":"Cultura afro-brasileira, indígena e demais etnias"}]}
+  ]}]
+}
