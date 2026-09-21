@@ -1,9 +1,11 @@
 from pathlib import Path
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,13 +22,15 @@ line = colors.HexColor("#DCE3EC")
 paper = colors.HexColor("#F7F9FC")
 
 styles = getSampleStyleSheet()
-styles.add(ParagraphStyle(name="Brand", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=9, textColor=blue, leading=12, spaceAfter=4))
-styles.add(ParagraphStyle(name="ExamTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=18, textColor=navy, alignment=TA_CENTER, leading=22, spaceAfter=4))
-styles.add(ParagraphStyle(name="Meta", parent=styles["Normal"], fontSize=9, textColor=slate, alignment=TA_CENTER, leading=13))
-styles.add(ParagraphStyle(name="Question", parent=styles["BodyText"], fontSize=10.5, leading=16, textColor=navy, spaceAfter=7))
-styles.add(ParagraphStyle(name="Choice", parent=styles["BodyText"], fontSize=10, leading=15, leftIndent=7 * mm, textColor=navy))
-styles.add(ParagraphStyle(name="Small", parent=styles["Normal"], fontSize=8, leading=11, textColor=slate))
-styles.add(ParagraphStyle(name="Key", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=13, textColor=navy, spaceAfter=8))
+pdfmetrics.registerFont(TTFont("CadernoSans", "/usr/share/fonts/TTF/DejaVuSans.ttf"))
+pdfmetrics.registerFont(TTFont("CadernoSans-Bold", "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"))
+styles.add(ParagraphStyle(name="Brand", parent=styles["Normal"], fontName="CadernoSans-Bold", fontSize=9, textColor=blue, leading=12, spaceAfter=4))
+styles.add(ParagraphStyle(name="ExamTitle", parent=styles["Title"], fontName="CadernoSans-Bold", fontSize=18, textColor=navy, alignment=TA_CENTER, leading=22, spaceAfter=4))
+styles.add(ParagraphStyle(name="Meta", parent=styles["Normal"], fontName="CadernoSans", fontSize=9, textColor=slate, alignment=TA_CENTER, leading=13))
+styles.add(ParagraphStyle(name="Question", parent=styles["BodyText"], fontName="CadernoSans", fontSize=10.5, leading=16, alignment=TA_LEFT, textColor=navy, spaceAfter=7))
+styles.add(ParagraphStyle(name="Choice", parent=styles["BodyText"], fontName="CadernoSans", fontSize=10, leading=15, alignment=TA_LEFT, leftIndent=7 * mm, textColor=navy))
+styles.add(ParagraphStyle(name="Small", parent=styles["Normal"], fontName="CadernoSans", fontSize=8, leading=11, alignment=TA_LEFT, textColor=slate))
+styles.add(ParagraphStyle(name="Key", parent=styles["Heading2"], fontName="CadernoSans-Bold", fontSize=13, alignment=TA_LEFT, textColor=navy, spaceAfter=8))
 
 questions = [
     ("Em um sistema fechado, 12 g de carbono reagem completamente com 32 g de oxigênio. Qual massa de produto deve ser obtida?", ["20 g", "32 g", "44 g", "56 g"], "C", "EM13CNT101", "Conservação da matéria: 12 g + 32 g = 44 g."),
@@ -42,12 +46,12 @@ def decorate(canvas, doc):
     canvas.setFillColor(lime)
     canvas.circle(17 * mm, height - 6 * mm, 2.3 * mm, stroke=0, fill=1)
     canvas.setFillColor(colors.white)
-    canvas.setFont("Helvetica-Bold", 9)
+    canvas.setFont("CadernoSans-Bold", 9)
     canvas.drawString(23 * mm, height - 8 * mm, "CADERNO | AVALIAÇÕES BNCC")
     canvas.setStrokeColor(line)
     canvas.line(18 * mm, 15 * mm, width - 18 * mm, 15 * mm)
     canvas.setFillColor(slate)
-    canvas.setFont("Helvetica", 8)
+    canvas.setFont("CadernoSans", 8)
     canvas.drawString(18 * mm, 10 * mm, "Colégio Horizonte - Documento demonstrativo")
     canvas.drawRightString(width - 18 * mm, 10 * mm, f"Pagina {doc.page}")
     canvas.restoreState()
@@ -60,13 +64,14 @@ story = [
 ]
 
 identity = Table([["Nome: __________________________________________", "Turma: __________"], ["Numero: __________", "Data: ____/____/________"]], colWidths=[110 * mm, 55 * mm], rowHeights=[9 * mm, 9 * mm])
-identity.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), .7, line), ("INNERGRID", (0, 0), (-1, -1), .5, line), ("BACKGROUND", (0, 0), (-1, -1), paper), ("TEXTCOLOR", (0, 0), (-1, -1), navy), ("FONT", (0, 0), (-1, -1), "Helvetica", 9), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
+identity.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), .7, line), ("INNERGRID", (0, 0), (-1, -1), .5, line), ("BACKGROUND", (0, 0), (-1, -1), paper), ("TEXTCOLOR", (0, 0), (-1, -1), navy), ("FONTNAME", (0, 0), (-1, -1), "CadernoSans"), ("FONTSIZE", (0, 0), (-1, -1), 9), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
 story.extend([identity, Spacer(1, 6 * mm), Paragraph("Leia cada questão com atenção e marque apenas uma alternativa.", styles["Small"]), Spacer(1, 6 * mm)])
 
 for index, (statement, choices, answer, skill, explanation) in enumerate(questions, 1):
     story.append(Paragraph(f"<b>{index}.</b> {statement}", styles["Question"]))
     for letter, choice in zip("ABCD", choices):
         story.append(Paragraph(f"<b>{letter})</b> {choice}", styles["Choice"]))
+        story.append(Spacer(1, 1.2 * mm))
     story.extend([Spacer(1, 2 * mm), Paragraph(f"Habilidade: {skill}", styles["Small"]), Spacer(1, 6 * mm)])
 
 story.extend([PageBreak(), Paragraph("DOCUMENTO DO PROFESSOR", styles["Brand"]), Paragraph("Gabarito comentado", styles["ExamTitle"]), Paragraph("Química - 1ª série | Versão A", styles["Meta"]), Spacer(1, 10 * mm)])
