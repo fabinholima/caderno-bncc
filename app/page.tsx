@@ -330,8 +330,8 @@ export default function Home() {
   const pedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === discipline,
   );
-  const chemistryPedagogicalDiscipline = pedagogicalDisciplines.find(
-    (item) => item.name === 'Química',
+  const filterPedagogicalDiscipline = pedagogicalDisciplines.find(
+    (item) => item.name === subject,
   );
   const availableCompetencies = [
     ...new Map(
@@ -1307,10 +1307,10 @@ export default function Home() {
                       </option>
                     ))}
                   </select>
-                  {subject === 'Química' ? (
+                  {filterPedagogicalDiscipline && educationStage === 'Ensino Médio' ? (
                     <>
                       <select
-                        aria-label="Série de Química"
+                        aria-label={`Série de ${subject}`}
                         value={gradeFilter}
                         onChange={(event) => {
                           setGradeFilter(event.target.value);
@@ -1351,7 +1351,7 @@ export default function Home() {
                         ))}
                       </select>
                       <select
-                        aria-label="Objeto de conhecimento de Química"
+                        aria-label={`Objeto de conhecimento de ${subject}`}
                         value={topicGroupFilter}
                         onChange={(event) => {
                           setTopicGroupFilter(event.target.value);
@@ -1365,7 +1365,7 @@ export default function Home() {
                           .filter(
                             (topic) =>
                               topic.discipline_id ===
-                                chemistryPedagogicalDiscipline?.id &&
+                                filterPedagogicalDiscipline?.id &&
                               !topic.parent_id &&
                               (!gradeFilter ||
                                 topic.grade_range === gradeFilter),
@@ -1377,7 +1377,7 @@ export default function Home() {
                           ))}
                       </select>
                       <select
-                        aria-label="Subtópico de Química"
+                        aria-label={`Subtópico de ${subject}`}
                         value={subtopicFilter}
                         disabled={!topicGroupFilter}
                         onChange={(event) => {
@@ -1395,7 +1395,7 @@ export default function Home() {
                                 (root) =>
                                   !root.parent_id &&
                                   root.discipline_id ===
-                                    chemistryPedagogicalDiscipline?.id &&
+                                    filterPedagogicalDiscipline?.id &&
                                   root.name === topicGroupFilter,
                               )?.id,
                           )
@@ -1415,7 +1415,7 @@ export default function Home() {
                           )?.id,
                       ) && (
                         <select
-                          aria-label="Detalhamento de Química"
+                          aria-label={`Detalhamento de ${subject}`}
                           value={topicDetailFilter}
                           onChange={(event) =>
                             setTopicDetailFilter(event.target.value)
