@@ -815,6 +815,8 @@ export default function Home() {
       const question = body.data;
       const skillCode = question.skills?.[0]?.code || '';
       const topicPath = String(question.knowledgeTopic || '').split(/\s*>\s*/);
+      if (question.stage === 'Ensino Fundamental' || question.stage === 'Ensino Médio')
+        setEducationStage(question.stage);
       const competency = highSchoolCurriculum.find(
         (item) => item.skill_code === skillCode,
       );
@@ -830,18 +832,25 @@ export default function Home() {
       setSelectedSaebMatrix(saebDescriptor?.matrixId || '');
       setSelectedSaebDescriptor(saebDescriptor?.id || '');
       setSaebInfoOpen(false);
-      if (question.subject === 'Química') {
+      const editedDiscipline = pedagogicalDisciplines.find(
+        (item) => item.name === question.subject,
+      );
+      if (editedDiscipline) {
         setPedagogicalGrade(question.grade || '1ª série');
         const pathTopics = topicPath.map((name: string) =>
           pedagogicalTopics.find(
             (topic) =>
-              topic.discipline_id === pedagogicalDiscipline?.id &&
+              topic.discipline_id === editedDiscipline.id &&
               topic.name === name,
           ),
         );
         setPedagogicalObjectId(pathTopics[0]?.id || '');
         setPedagogicalSubtopicId(pathTopics[1]?.id || '');
         setPedagogicalDetailId(pathTopics[2]?.id || '');
+      } else {
+        setPedagogicalObjectId('');
+        setPedagogicalSubtopicId('');
+        setPedagogicalDetailId('');
       }
       setImportedCorrect(
         question.alternatives
