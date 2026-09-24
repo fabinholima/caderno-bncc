@@ -9,6 +9,7 @@ import {
   Eye,
   FileText,
   FileUp,
+  Plus,
   RefreshCw,
   ScanText,
   Sparkles,
@@ -858,11 +859,13 @@ const fileToDataUrl = (file: File) =>
 export function ExamImportManager({
   apiUrl,
   role,
+  onNewQuestion,
   onRegisterQuestion,
   onOpenQuestion,
 }: {
   apiUrl: string;
   role: 'admin' | 'coordinator' | 'teacher';
+  onNewQuestion: () => void;
   onRegisterQuestion: (value: {
     importId: string;
     candidateId: string;
@@ -1636,9 +1639,14 @@ export function ExamImportManager({
       <p className="text-xs font-bold uppercase tracking-[.15em] text-violet-700">
         Curadoria editorial
       </p>
-      <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-        Importar provas
-      </h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
+          Importar provas
+        </h1>
+        <Button type="button" onClick={onNewQuestion} className="bg-[var(--blue)] text-white hover:bg-blue-700">
+          <Plus /> Inserir questão
+        </Button>
+      </div>
       <p className="mt-2 max-w-3xl text-sm text-slate-500">
         Cadastre a fonte e envie os PDFs. Os documentos ficam em preparação e
         nenhuma questão entra no banco público sem revisão e aprovação.
