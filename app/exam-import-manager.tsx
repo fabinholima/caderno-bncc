@@ -1632,7 +1632,7 @@ export function ExamImportManager({
   ];
 
   return (
-    <main className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
+    <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-violet-700">
         Curadoria editorial
       </p>
@@ -1643,6 +1643,18 @@ export function ExamImportManager({
         Cadastre a fonte e envie os PDFs. Os documentos ficam em preparação e
         nenhuma questão entra no banco público sem revisão e aprovação.
       </p>
+      <nav aria-label="Etapas da importação" className="mt-6 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-3">
+        {[
+          ['01', 'Enviar documentos', 'Fonte, prova e gabarito'],
+          ['02', 'Extrair e revisar', 'Texto, imagens e classificação'],
+          ['03', 'Cadastrar questões', 'Aprovação editorial no acervo'],
+        ].map(([number, title, description], index) => (
+          <div key={number} className={`flex items-center gap-3 rounded-xl px-3 py-3 ${index === 0 ? 'bg-violet-50' : 'bg-slate-50'}`}>
+            <span className={`grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold ${index === 0 ? 'bg-violet-700 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>{number}</span>
+            <span className="min-w-0"><span className="block text-sm font-bold text-[var(--navy)]">{title}</span><span className="block truncate text-xs text-slate-500">{description}</span></span>
+          </div>
+        ))}
+      </nav>
       {message && (
         <output className="mt-4 block rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-950">
           {message}
@@ -1732,13 +1744,19 @@ export function ExamImportManager({
         </section>
       )}
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2">
-          <FileUp className="size-5 text-violet-700" />
-          <h2 className="font-display text-xl font-bold">Nova importação</h2>
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <FileUp className="size-5 text-violet-700" />
+            <div>
+              <h2 className="font-display text-xl font-bold">Nova importação</h2>
+              <p className="mt-1 text-xs text-slate-500">Comece pelos dados da fonte e anexe os documentos originais.</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">Etapa 1 de 3</span>
         </div>
         <form onSubmit={submit} className="mt-5 space-y-5">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Input
               name="sourceInstitution"
               required
@@ -1805,7 +1823,7 @@ export function ExamImportManager({
               }
             />
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <PdfField
               name="examPdf"
               title="PDF da prova"
@@ -1861,14 +1879,15 @@ export function ExamImportManager({
         </form>
       </section>
 
-      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-bold">
-              Trabalhos de importação
-            </h2>
+            <div className="flex items-center gap-2">
+              <span className="grid size-8 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">02</span>
+              <h2 className="font-display text-xl font-bold">Revisão das importações</h2>
+            </div>
             <p className="text-sm text-slate-500">
-              Documentos aguardando extração e revisão.
+              Documentos aguardando extração, classificação e aprovação.
             </p>
           </div>
           <Button
@@ -1892,7 +1911,7 @@ export function ExamImportManager({
             </div>
           ))}
         </div>
-        <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
             <Input
               aria-label="Buscar na fila de revisão"
@@ -2136,7 +2155,7 @@ export function ExamImportManager({
                   </span>
                 </button>
                 {selectedImportId === item.id && (
-                  <div className="border-t border-slate-200 bg-slate-50/40 p-4">
+                  <div className="border-t border-slate-200 bg-slate-50/40 p-4 sm:p-5">
                     <div className="mt-3 flex flex-wrap gap-2">
                       {item.documents.map((document) => (
                         <button
@@ -2297,7 +2316,7 @@ export function ExamImportManager({
                         )}
                       </section>
                     )}
-                    <section className="mt-4 border-t border-slate-100 pt-4">
+                    <section className="mt-5 border-t border-slate-100 pt-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <h4 className="font-semibold text-[var(--navy)]">
@@ -2385,7 +2404,7 @@ export function ExamImportManager({
                         {visibleCandidates(item).map((candidate) => (
                           <article
                             key={candidate.id}
-                            className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                           >
                             <div className="flex flex-wrap items-center gap-3">
                               <label className="flex items-center gap-2 text-sm font-semibold">
