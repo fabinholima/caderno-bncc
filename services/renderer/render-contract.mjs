@@ -421,7 +421,7 @@ export function renderAssessment(snapshot) {
   }
   const mode =
     snapshot.render?.mode === 'answer-key' ? 'answer-key' : 'student';
-  const renderQuestion = (question) => {
+  const renderQuestion = (question, addGap = true) => {
     const source = [question.source?.institution, question.source?.year]
       .filter(Boolean)
       .join('-');
@@ -452,7 +452,12 @@ export function renderAssessment(snapshot) {
       : mode === 'student'
         ? '\\blank[4*big]'
         : '';
-    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion`;
+    const questionGap = addGap
+      ? mode === 'answer-key'
+        ? '\\blank[small]'
+        : '\\blank[medium]'
+      : '';
+    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\\n${questionGap}` : ''}`;
   };
   const sections =
     Array.isArray(snapshot.sections) && snapshot.sections.length
@@ -500,7 +505,7 @@ export function renderAssessment(snapshot) {
         }
         flushColumns();
         blocks.push(
-          `\\blank[medium]\n${renderQuestion(question)}\n\\blank[medium]`,
+          `\\blank[medium]\n${renderQuestion(question, false)}\n\\blank[medium]`,
         );
       });
       flushColumns();
