@@ -1713,7 +1713,7 @@ export default function Home() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="dialog-title"
-            className="h-full w-full max-w-[1380px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+            className="h-full w-full max-w-[1540px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
           >
             <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
               <div>
@@ -1755,8 +1755,8 @@ export default function Home() {
               }}
               className="relative"
             >
-              <div className="grid items-start lg:grid-cols-[230px_minmax(0,1fr)]">
-                <aside className="hidden border-r border-slate-200 bg-white p-5 lg:sticky lg:top-[93px] lg:block lg:h-[calc(100vh-127px)]">
+              <div className="grid items-start lg:grid-cols-[260px_minmax(0,1fr)]">
+                <aside className="hidden border-r border-slate-200 bg-white p-6 lg:sticky lg:top-[93px] lg:block lg:h-[calc(100vh-127px)]">
                   <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-400">
                     Etapas do cadastro
                   </p>
@@ -1788,7 +1788,7 @@ export default function Home() {
                     </p>
                   </div>
                 </aside>
-                <div className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-7">
+                <div className="min-w-0 space-y-6 p-4 sm:p-7 lg:p-9">
               {importCandidateSource && (
                 <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-950">
                   <strong>Revisão final da questão importada.</strong> Edite o
