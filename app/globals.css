@@ -7,9 +7,3 @@
 .dark { --background: #10243e; --foreground: #f8fafc; --card: #172d48; --card-foreground: #f8fafc; --popover: #172d48; --popover-foreground: #f8fafc; --primary: #bef264; --primary-foreground: #10243e; --secondary: #243b56; --secondary-foreground: #f8fafc; --muted: #243b56; --muted-foreground: #b6c2d2; --accent: #2a435f; --accent-foreground: #fff; --destructive: #f87171; --border: rgb(255 255 255 / 12%); --input: rgb(255 255 255 / 16%); --ring: #60a5fa; }
 @layer base { * { @apply border-border outline-ring/50; } html { @apply font-sans; } body { @apply bg-background text-foreground; } button, select { cursor: pointer; } }
 .font-display { font-family: var(--font-geist-sans), Arial, sans-serif; }
-.dark body { background: var(--background); }
-.dark .bg-white { background-color: var(--card) !important; }
-.dark .bg-slate-50, .dark .bg-slate-50\/50, .dark .bg-slate-50\/80 { background-color: var(--secondary) !important; }
-.dark .text-slate-950, .dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700, .dark .text-slate-600 { color: var(--foreground) !important; }
-.dark .text-slate-500, .dark .text-slate-400 { color: var(--muted-foreground) !important; }
-.dark input, .dark textarea, .dark select { background-color: var(--card); color: var(--foreground); }
