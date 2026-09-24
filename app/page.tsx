@@ -1102,6 +1102,7 @@ export default function Home() {
           <ExamImportManager
             apiUrl={apiUrl}
             role={identity.role}
+            onNewQuestion={openNewQuestion}
             onRegisterQuestion={(candidate) => {
               const parsed = parsePastedQuestion(candidate.rawText);
               setImportedQuestion({
