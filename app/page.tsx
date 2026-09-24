@@ -18,8 +18,6 @@ import {
   Search,
   Settings,
   Sparkles,
-  Sun,
-  Moon,
   Trash2,
   Users,
   X,
@@ -259,7 +257,6 @@ export default function Home() {
   const [apiUrl, setApiUrl] = useState('');
   const [identity, setIdentity] = useState<AuthIdentity | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [questions, setQuestions] = useState(initialQuestions);
   const [query, setQuery] = useState('');
   const [educationStage, setEducationStage] = useState<
@@ -397,20 +394,6 @@ export default function Home() {
   );
   const selectedPedagogicalTopicId =
     pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId;
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem('caderno-theme') as 'light' | 'dark' | null;
-    const preferred = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    setTheme(preferred);
-    document.documentElement.classList.toggle('dark', preferred === 'dark');
-  }, []);
-
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    window.localStorage.setItem('caderno-theme', next);
-    document.documentElement.classList.toggle('dark', next === 'dark');
-  };
 
   useEffect(() => {
     if (
@@ -1076,15 +1059,6 @@ export default function Home() {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={theme === 'dark' ? 'Ativar modo diurno' : 'Ativar modo noturno'}
-              title={theme === 'dark' ? 'Modo diurno' : 'Modo noturno'}
-              onClick={toggleTheme}
-            >
-              {theme === 'dark' ? <Sun /> : <Moon />}
-            </Button>
             <Button variant="ghost" size="icon" aria-label="Ajuda">
               <CircleHelp />
             </Button>
