@@ -675,6 +675,22 @@ export async function listExamImports({ institutionId }) {
   }));
 }
 
+export async function deleteFailedExamImport({ institutionId, examImportId }) {
+  const result = await pool.query(
+    `DELETE FROM exam_imports
+      WHERE institution_id=$1 AND id=$2
+        AND (status='failed' OR status='cancelled'
+             OR EXISTS (
+               SELECT 1 FROM exam_import_jobs j
+                WHERE j.exam_import_id=exam_imports.id
+                  AND j.status IN ('failed','cancelled')
+             ))
+      RETURNING id`,
+    [institutionId, examImportId],
+  );
+  return Boolean(result.rowCount);
+}
+
 export async function extractExamImportQuestions({
   institutionId,
   examImportId,

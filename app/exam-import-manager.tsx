@@ -1233,6 +1233,16 @@ export function ExamImportManager({
     );
   };
 
+  const removeFailedImport = async (item: ExamImport) => {
+    const response = await apiFetch(`${apiUrl}/api/exam-imports/${item.id}`, {
+      method: 'DELETE',
+    });
+    const body = (await response.json()) as { error?: string };
+    if (!response.ok) throw new Error(body.error || 'Não foi possível remover a importação.');
+    await refresh();
+    setMessage('Importação removida da fila.');
+  };
+
   const controlAiAnalysis = async (
     item: ExamImport,
     action: 'start' | 'cancel' | 'retry',
@@ -2189,6 +2199,23 @@ export function ExamImportManager({
                           <span className="font-semibold">Visualizar</span>
                         </button>
                       ))}
+                      {(item.status === 'failed' ||
+                        item.status === 'cancelled' ||
+                        item.processingJob?.status === 'failed' ||
+                        item.processingJob?.status === 'cancelled') && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={() =>
+                            removeFailedImport(item).catch((error) =>
+                              setMessage(error.message),
+                            )
+                          }
+                        >
+                          <Trash2 /> Remover da fila
+                        </Button>
+                      )}
                     </div>
                     {storedPreview?.importId === item.id && (
                       <StoredPdfPreviewCard
