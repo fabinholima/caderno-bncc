@@ -167,6 +167,15 @@ export function questionNeedsVisualCapture(rawText) {
   return axisLabels >= 4 || (visualReference && emptyChoices >= 2);
 }
 
+export function pdfTextNeedsOcr(text) {
+  const value = String(text ?? '');
+  if (value.length < 120) return true;
+  const controls = (value.match(/[\u0000-\u001f\u007f-\u009f]/g) || []).length;
+  const replacement = (value.match(/[�]/g) || []).length;
+  const letters = (value.match(/[A-Za-zÀ-ÿ]/g) || []).length;
+  return controls > 4 || replacement > 2 || letters / value.length < 0.35;
+}
+
 function decodeXmlText(value) {
   return value
     .replace(/&amp;/g, '&')
@@ -706,7 +715,8 @@ export async function extractExamImportQuestions({
       ['-layout', '-enc', 'UTF-8', pdfPath, '-'],
       { maxBuffer: 20_000_000 },
     );
-    let candidates = stdout.split('\f').flatMap((pageText, pageIndex) =>
+    const pageTexts = stdout.split('\f');
+    let candidates = pageTexts.flatMap((pageText, pageIndex) =>
       splitExamQuestions(pageText).map((candidate) => ({
         ...candidate,
         pageNumber: pageIndex + 1,
@@ -714,7 +724,7 @@ export async function extractExamImportQuestions({
       })),
     );
     await checkpoint('extracting_text', 35);
-    if (!candidates.length) {
+    if (!candidates.length || pageTexts.some(pdfTextNeedsOcr)) {
       await checkpoint('rendering_pages', 45);
       const imagePrefix = join(workingDirectory, 'pagina');
       await execFileAsync(
