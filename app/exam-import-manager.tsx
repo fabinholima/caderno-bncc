@@ -2675,7 +2675,7 @@ export function ExamImportManager({
                                     >
                                       {croppingId === candidate.id
                                         ? 'Recortando...'
-                                        : 'Criar recorte para a questão'}
+                                        : 'Criar recorte e extrair texto'}
                                     </Button>
                                   </div>
                                 </section>

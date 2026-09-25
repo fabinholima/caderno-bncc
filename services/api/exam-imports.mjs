@@ -1149,6 +1149,21 @@ export async function cropExamImportCandidateImage({
         { statusCode: 422 },
       );
     const imageDataUrl = `data:image/jpeg;base64,${contents.toString('base64')}`;
+    let cropText = '';
+    try {
+      const { stdout } = await execFileAsync(
+        process.env.TESSERACT_BIN || 'tesseract',
+        [cropPath, 'stdout', '-l', 'por+eng', '--psm', '6'],
+        { maxBuffer: 2_000_000 },
+      );
+      cropText = repairExtractedQuestionText(stdout);
+    } catch (error) {
+      if (error.code === 'ENOENT')
+        cropText = '';
+    }
+    const rawText = cropText
+      ? `${candidate.rawText}\n\n[Texto extraído do recorte]\n${cropText}`
+      : candidate.rawText;
     return updateExamImportCandidate({
       institutionId,
       examImportId,
@@ -1156,6 +1171,7 @@ export async function cropExamImportCandidateImage({
       input: {
         imageDataUrl,
         imageAlt: `Figura original da questão ${candidate.sourceNumber}`,
+        rawText,
         status: 'review',
       },
     });
