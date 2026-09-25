@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ClipboardEvent } from 'react';
 import type { ReactNode } from 'react';
 import Image from 'next/image';
 import { ImagePlus, Plus, Trash2 } from 'lucide-react';
@@ -158,6 +159,15 @@ export function RichContentEditor({
         alt: file.name.replace(/\.[^.]+$/, ''),
       });
     reader.readAsDataURL(file);
+  };
+
+  const pasteImage = (index: number, event: ClipboardEvent<HTMLDivElement>) => {
+    const file = Array.from(event.clipboardData.files).find((item) =>
+      ['image/png', 'image/jpeg'].includes(item.type),
+    );
+    if (!file) return;
+    event.preventDefault();
+    selectImage(index, file);
   };
 
   const selectStructureOriginal = (index: number, file?: File) => {
@@ -491,7 +501,12 @@ export function RichContentEditor({
             </div>
           )}
           {block.type === 'image' && (
-            <div className="space-y-2">
+            <div
+              className="space-y-2"
+              tabIndex={0}
+              onPaste={(event) => pasteImage(index, event)}
+              title="Você também pode colar uma imagem aqui (Ctrl+V)."
+            >
               {block.dataUrl && (
                 <Image
                   src={block.dataUrl}
@@ -531,7 +546,10 @@ export function RichContentEditor({
                   placeholder="Legenda opcional"
                 />
               </div>
-              <p className="text-xs text-slate-400">PNG ou JPEG, até 400 KB.</p>
+              <p className="text-xs text-slate-400">
+                PNG ou JPEG, até 400 KB. Você também pode colar uma imagem aqui
+                com Ctrl+V.
+              </p>
             </div>
           )}
         </div>
