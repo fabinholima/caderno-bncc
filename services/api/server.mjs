@@ -109,6 +109,7 @@ import {
   getExamImportDocument,
   getExamImportPagePreview,
   listExamImports,
+  deleteFailedExamImport,
   updateExamImportCandidate,
 } from './exam-imports.mjs';
 import {
@@ -250,6 +251,20 @@ const server = createServer(async (request, response) => {
           input: await readJson(request, 42_000_000),
         }),
       });
+    const examImportDeleteMatch =
+      request.method === 'DELETE' &&
+      url.pathname.match(/^\/api\/exam-imports\/([0-9a-f-]{36})$/i);
+    if (examImportDeleteMatch) {
+      const deleted = await deleteFailedExamImport({
+        institutionId,
+        examImportId: examImportDeleteMatch[1],
+      });
+      if (!deleted)
+        return json(response, 409, {
+          error: 'Só é possível remover importações com falha ou canceladas.',
+        });
+      return json(response, 200, { data: { deleted: true } });
+    }
     const examImportDocumentMatch =
       request.method === 'GET' &&
       url.pathname.match(
