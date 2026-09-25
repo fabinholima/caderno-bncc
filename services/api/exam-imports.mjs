@@ -958,13 +958,18 @@ export async function extractExamImportQuestions({
         throw error;
       }
     }
-    if (!candidates.length)
-      throw Object.assign(
-        new Error(
-          'Nenhuma questão com alternativas foi reconhecida. O PDF pode ser uma imagem e precisar de OCR.',
-        ),
-        { statusCode: 422 },
+    if (!candidates.length) {
+      const manualMessage =
+        'A extração automática não reconheceu questões. O PDF foi mantido para revisão manual por página e recorte.';
+      await pool.query(
+        `UPDATE exam_imports
+            SET status='needs_review',detected_questions=0,
+                extracted_candidates='[]'::jsonb,error_message=$3,updated_at=now()
+          WHERE institution_id=$1 AND id=$2`,
+        [institutionId, examImportId, manualMessage],
       );
+      return [];
+    }
     await checkpoint('normalizing_questions', 72);
     candidates = mergeReextractedCandidates(
       candidates,

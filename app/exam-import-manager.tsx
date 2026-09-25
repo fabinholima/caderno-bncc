@@ -2458,6 +2458,11 @@ export function ExamImportManager({
                           {item.error}
                         </p>
                       )}
+                      {!item.candidates?.length && item.status === 'needs_review' && (
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                          <strong>Revisão manual necessária.</strong> A prova foi mantida. Abra a prévia do PDF, selecione a página e crie cada questão por recorte.
+                        </div>
+                      )}
                       {Boolean(item.candidates?.length) && (
                         <BulkRegistrationPanel
                           item={item}
