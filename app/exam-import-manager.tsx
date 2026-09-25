@@ -1234,6 +1234,7 @@ export function ExamImportManager({
   };
 
   const removeFailedImport = async (item: ExamImport) => {
+    if (!window.confirm(`Remover ${item.sourceInstitution} ${item.sourceYear} da fila? Os PDFs e candidatos desta importação serão excluídos.`)) return;
     const response = await apiFetch(`${apiUrl}/api/exam-imports/${item.id}`, {
       method: 'DELETE',
     });
@@ -2199,23 +2200,18 @@ export function ExamImportManager({
                           <span className="font-semibold">Visualizar</span>
                         </button>
                       ))}
-                      {(item.status === 'failed' ||
-                        item.status === 'cancelled' ||
-                        item.processingJob?.status === 'failed' ||
-                        item.processingJob?.status === 'cancelled') && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          onClick={() =>
-                            removeFailedImport(item).catch((error) =>
-                              setMessage(error.message),
-                            )
-                          }
-                        >
-                          <Trash2 /> Remover da fila
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() =>
+                          removeFailedImport(item).catch((error) =>
+                            setMessage(error.message),
+                          )
+                        }
+                      >
+                        <Trash2 /> Remover da fila
+                      </Button>
                     </div>
                     {storedPreview?.importId === item.id && (
                       <StoredPdfPreviewCard
