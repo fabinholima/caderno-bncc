@@ -1000,7 +1000,7 @@ export default function Home() {
               {label}
               {label === 'Questões' && (
                 <span className="ml-auto rounded-full bg-[var(--lime)] px-2 py-0.5 text-[10px] font-bold text-[var(--navy)]">
-                  248
+                  {questions.length}
                 </span>
               )}
             </button>
@@ -1252,9 +1252,9 @@ export default function Home() {
             </div>
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {[
-                ['248', 'questões no acervo', '+12 este mês'],
-                ['196', 'aprovadas', '79% do acervo'],
-                ['37', 'habilidades cobertas', '8 componentes'],
+                [String(questions.length), 'questões no acervo', 'Dados atuais do banco'],
+                [String(questions.filter((question) => question.status === 'Aprovada').length), 'aprovadas', questions.length ? `${Math.round((questions.filter((question) => question.status === 'Aprovada').length / questions.length) * 100)}% do acervo` : 'Nenhuma questão cadastrada'],
+                [String(new Set(questions.map((question) => question.skill).filter(Boolean)).size), 'habilidades cobertas', `${new Set(questions.map((question) => question.subject).filter(Boolean)).size} componentes`],
               ].map(([value, label, note], index) => (
                 <article
                   key={label}
