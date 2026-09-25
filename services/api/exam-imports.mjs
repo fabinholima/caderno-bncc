@@ -71,12 +71,24 @@ export const decodePdf = (document) => {
 };
 
 export function splitExamQuestions(text) {
-  const normalized = repairExtractedQuestionText(text)
+  const normalized = repairExtractedQuestionText(
+    String(text).replace(
+      /^(\d{1,2})2\s+QUEST(?:ÃO|AO)\b/gim,
+      '$1 QUESTÃO',
+    ),
+  )
     .replace(/\r/g, '')
     .replace(/\u00a0/g, ' ')
+    // Tesseract commonly reads the ordinal marker in "1ª QUESTÃO" as a
+    // trailing 2 ("12 QUESTAO", "22 QUESTAO"). Recover the question number.
+    .replace(/^(\d{1,2})2\s+QUEST(?:ÃO|AO)\b/gim, '$1 QUESTÃO')
     .replace(/[ \t]+$/gm, '')
     .trim();
   const patterns = [
+    {
+      expression: /^\s*(\d{1,3})\s*(?:º|o|°)?\s*QUEST(?:ÃO|AO)\b\s*/gim,
+      allowEssay: true,
+    },
     {
       expression: /^\s*QUEST(?:ÃO|AO)\s*(\d{1,3})\s*[.):-]?\s*/gim,
       allowEssay: true,
@@ -93,7 +105,7 @@ export function splitExamQuestions(text) {
         const end = matches[index + 1]?.index ?? normalized.length;
         const rawText = normalized.slice(match.index, end).trim();
         const alternativeCount = (
-          rawText.match(/(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g) || []
+          rawText.match(/(?:^|\s)(?:\(\s*)?[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g) || []
         ).length;
         return {
           id: randomUUID(),
@@ -113,7 +125,7 @@ export function splitExamQuestions(text) {
           (pattern.allowEssay ||
             (
               candidate.rawText.match(
-                /(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g,
+                /(?:^|\s)(?:\(\s*)?[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g,
               ) || []
             ).length >= 2),
       );
@@ -131,7 +143,7 @@ export function repairExtractedQuestionText(text) {
     .map((line) => line.replace(/\s+/g, ' ').trim());
   const result = [];
   const structural = (line) =>
-    /^(?:QUEST(?:ÃO|AO)\s*\d+|[A-Ea-e]\s*(?:[.)]|\(\s*\))|(?:I|II|III|IV|V)\.\s|\\(?:start|stop)(?:formula|itemize)\b)/i.test(
+    /^(?:(?:\d{1,3}\s+)?QUEST(?:ÃO|AO)\s*\d*|[A-Ea-e]\s*(?:[.)]|\(\s*\))|(?:\(\s*)?[A-Ea-e]\s*\)|(?:I|II|III|IV|V)\.\s|\\(?:start|stop)(?:formula|itemize)\b)/i.test(
       line,
     );
   for (const line of lines) {
