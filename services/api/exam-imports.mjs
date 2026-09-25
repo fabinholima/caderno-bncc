@@ -244,7 +244,7 @@ export function parsePdfQuestionRegions(xml) {
       yMax: Number(match[4]),
       text: decodeXmlText(match[5].replace(/<[^>]+>/g, '')),
     }));
-    const markers = words
+    const numericMarkers = words
       .filter((word) => /^(?:quest(?:ão|ao)\s*)?\d{1,3}[.)]?$/.test(word.text.trim()))
       .map((word) => ({
         sourceNumber: Number(word.text.match(/\d+/)?.[0]),
@@ -254,6 +254,23 @@ export function parsePdfQuestionRegions(xml) {
         yMax: word.yMax,
       }))
       .filter((marker) => marker.sourceNumber > 0 && marker.sourceNumber < 1000);
+    const explicitMarkers = [];
+    for (let index = 0; index < words.length - 1; index += 1) {
+      const label = words[index].text.trim();
+      const number = words[index + 1].text.trim();
+      if (!/^quest(?:ão|ao)$/i.test(label) || !/^\d{1,3}$/.test(number))
+        continue;
+      explicitMarkers.push({
+        sourceNumber: Number(number),
+        xMin: words[index].xMin,
+        xMax: words[index + 1].xMax,
+        yMin: Math.min(words[index].yMin, words[index + 1].yMin),
+        yMax: Math.max(words[index].yMax, words[index + 1].yMax),
+      });
+    }
+    // Prefer the explicit QUESTÃO N marker when present. Numeric-only markers
+    // are retained for layouts such as Fuvest that print only "01", "02".
+    const markers = explicitMarkers.length >= 2 ? explicitMarkers : numericMarkers;
     const deduped = [];
     for (const marker of markers) {
       const duplicate = deduped.some(
