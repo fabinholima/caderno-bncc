@@ -518,9 +518,21 @@ export function QuestionPasteImporter({
           setText(e.target.value);
           setPreview(null);
         }}
+        onPaste={(event) => {
+          const file = Array.from(event.clipboardData.files).find((item) =>
+            ['image/png', 'image/jpeg'].includes(item.type),
+          );
+          if (!file) return;
+          event.preventDefault();
+          if (!preview) {
+            window.alert('Analise o texto da questão antes de colar uma imagem.');
+            return;
+          }
+          addImage(file);
+        }}
         rows={9}
         className="w-full rounded-lg border bg-white p-3 text-sm"
-        placeholder="Cole aqui o texto completo da questão..."
+        placeholder="Cole aqui o texto completo da questão. Depois, cole uma imagem do clipboard na prévia..."
       />
       <div className="flex gap-2">
         <Button
