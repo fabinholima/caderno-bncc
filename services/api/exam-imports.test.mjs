@@ -8,6 +8,7 @@ import {
   mergeReextractedCandidates,
   parseAnswerKeyText,
   parsePdfQuestionBounds,
+  parsePdfQuestionRegions,
   questionNeedsVisualCapture,
   repairExtractedQuestionText,
   splitExamQuestions,
@@ -20,6 +21,28 @@ test('recompõe linhas e palavras quebradas pela extração do PDF', () => {
     ),
     'QUESTÃO 9. Considere as energias de ligação e o comportamento das espécies.\n\na) primeira opção\nb) segunda opção',
   );
+});
+
+test('separa questões e alternativas por coluna sem misturar regiões', () => {
+  const xml = `<doc><page width="600" height="800">
+    <word xMin="40" yMin="50" xMax="90" yMax="62">QUESTÃO</word>
+    <word xMin="95" yMin="50" xMax="105" yMax="62">1</word>
+    <word xMin="40" yMin="70" xMax="180" yMax="82">Enunciado da questão um.</word>
+    <word xMin="40" yMin="100" xMax="80" yMax="112">a)</word>
+    <word xMin="85" yMin="100" xMax="180" yMax="112">Alternativa um.</word>
+    <word xMin="320" yMin="50" xMax="370" yMax="62">QUESTÃO</word>
+    <word xMin="375" yMin="50" xMax="385" yMax="62">2</word>
+    <word xMin="320" yMin="70" xMax="460" yMax="82">Enunciado da questão dois.</word>
+    <word xMin="320" yMin="100" xMax="350" yMax="112">a)</word>
+    <word xMin="355" yMin="100" xMax="460" yMax="112">Alternativa dois.</word>
+  </page></doc>`;
+  const regions = parsePdfQuestionRegions(xml);
+  assert.deepEqual(regions.map(({ sourceNumber, column }) => ({ sourceNumber, column })), [
+    { sourceNumber: 1, column: 'left' },
+    { sourceNumber: 2, column: 'right' },
+  ]);
+  assert.match(regions[0].rawText, /Alternativa um/);
+  assert.doesNotMatch(regions[0].rawText, /Alternativa dois/);
 });
 
 test('valida decisões humanas granulares sobre sugestões da IA', () => {
