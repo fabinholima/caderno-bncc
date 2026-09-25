@@ -220,6 +220,101 @@ export function parsePdfQuestionBounds(xml) {
   return pages;
 }
 
+/**
+ * Reconstructs question-sized regions from pdftotext's bbox XML.  Unlike
+ * pdftotext -layout, this keeps the reading order inside each column and
+ * never lets the end of a question in the left column consume text from the
+ * right column.
+ */
+export function parsePdfQuestionRegions(xml) {
+  const pages = [];
+  for (const pageMatch of xml.matchAll(
+    /<page\b[^>]*width="([\d.]+)"[^>]*height="([\d.]+)"[^>]*>([\s\S]*?)<\/page>/g,
+  )) {
+    const width = Number(pageMatch[1]);
+    const height = Number(pageMatch[2]);
+    const words = [
+      ...pageMatch[3].matchAll(
+        /<word\b[^>]*xMin="([\d.]+)"[^>]*yMin="([\d.]+)"[^>]*xMax="([\d.]+)"[^>]*yMax="([\d.]+)"[^>]*>([\s\S]*?)<\/word>/g,
+      ),
+    ].map((match) => ({
+      xMin: Number(match[1]),
+      yMin: Number(match[2]),
+      xMax: Number(match[3]),
+      yMax: Number(match[4]),
+      text: decodeXmlText(match[5].replace(/<[^>]+>/g, '')),
+    }));
+    const markers = words
+      .filter((word) => /^(?:quest(?:ão|ao)\s*)?\d{1,3}[.)]?$/.test(word.text.trim()))
+      .map((word) => ({
+        sourceNumber: Number(word.text.match(/\d+/)?.[0]),
+        xMin: word.xMin,
+        xMax: word.xMax,
+        yMin: word.yMin,
+        yMax: word.yMax,
+      }))
+      .filter((marker) => marker.sourceNumber > 0 && marker.sourceNumber < 1000);
+    const deduped = [];
+    for (const marker of markers) {
+      const duplicate = deduped.some(
+        (item) =>
+          item.sourceNumber === marker.sourceNumber &&
+          Math.abs(item.xMin - marker.xMin) < 4 &&
+          Math.abs(item.yMin - marker.yMin) < 4,
+      );
+      if (!duplicate) deduped.push(marker);
+    }
+    const columns = deduped.reduce((map, marker) => {
+      const key = marker.xMin < width / 2 ? 'left' : 'right';
+      const list = map.get(key) || [];
+      list.push(marker);
+      map.set(key, list);
+      return map;
+    }, new Map());
+    const regions = [];
+    for (const [column, columnMarkers] of columns) {
+      columnMarkers.sort((a, b) => a.yMin - b.yMin);
+      columnMarkers.forEach((marker, index) => {
+        const next = columnMarkers[index + 1];
+        const left = column === 'left' ? 0 : width / 2;
+        const right = column === 'left' ? width / 2 : width;
+        const regionWords = words.filter(
+          (word) =>
+            word.xMin >= left - 3 &&
+            word.xMax <= right + 3 &&
+            word.yMin >= marker.yMin - 2 &&
+            word.yMin < (next?.yMin ?? height) - 2,
+        );
+        const lines = [];
+        for (const word of regionWords.sort((a, b) =>
+          a.yMin - b.yMin || a.xMin - b.xMin,
+        )) {
+          let line = lines.at(-1);
+          if (!line || Math.abs(line.y - word.yMin) > 3) {
+            line = { y: word.yMin, words: [] };
+            lines.push(line);
+          }
+          line.words.push(word.text);
+        }
+        const rawText = lines.map((line) => line.words.join(' ')).join('\n');
+        if (rawText.length >= 40)
+          regions.push({
+            sourceNumber: marker.sourceNumber,
+            rawText: repairExtractedQuestionText(rawText),
+            pageNumber: pages.length + 1,
+            column,
+            xMin: left,
+            xMax: right,
+            yMin: marker.yMin,
+            yMax: next?.yMin ?? height,
+          });
+      });
+    }
+    pages.push({ width, height, regions });
+  }
+  return pages.flatMap((page) => page.regions);
+}
+
 export function mergeReextractedCandidates(candidates, previousCandidates) {
   const previousByNumber = new Map(
     previousCandidates.map((candidate) => [candidate.sourceNumber, candidate]),
@@ -738,6 +833,54 @@ export async function extractExamImportQuestions({
         extractionMethod: 'text',
       })),
     );
+    // Prefer question-sized regions whenever bbox data is available. This is
+    // essential for two-column exams: page-wide extraction interleaves columns.
+    try {
+      const { stdout: bboxXml } = await execFileAsync(
+        process.env.PDFTOTEXT_BIN || 'pdftotext',
+        ['-bbox-layout', '-enc', 'UTF-8', pdfPath, '-'],
+        { maxBuffer: 30_000_000 },
+      );
+      const regions = parsePdfQuestionRegions(bboxXml);
+      const regionCandidates = regions
+        .map((region) => {
+          const alternatives = (
+            region.rawText.match(
+              /(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g,
+            ) || []
+          ).length;
+          return {
+            id: randomUUID(),
+            sourceNumber: region.sourceNumber,
+            rawText: region.rawText,
+            pageNumber: region.pageNumber,
+            selected: true,
+            questionType: alternatives >= 4 ? 'single_choice' : 'essay',
+            status:
+              alternatives === 5 || alternatives === 0 ? 'complete' : 'review',
+            extractionMethod: 'text-region',
+            region: {
+              column: region.column,
+              xMin: region.xMin,
+              xMax: region.xMax,
+              yMin: region.yMin,
+              yMax: region.yMax,
+            },
+          };
+        })
+        .filter(
+          (candidate) =>
+            candidate.rawText.length >= 40 &&
+            (candidate.questionType === 'essay' ||
+              candidate.rawText.match(
+                /(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g,
+              )?.length >= 2),
+        );
+      if (regionCandidates.length >= 2) candidates = regionCandidates;
+    } catch {
+      // Some PDFs do not expose bbox XML; the existing page/OCR fallback below
+      // remains valid for those documents.
+    }
     await checkpoint('extracting_text', 35);
     if (!candidates.length || pageTexts.some(pdfTextNeedsOcr)) {
       await checkpoint('rendering_pages', 45);
