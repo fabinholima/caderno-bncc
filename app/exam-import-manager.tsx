@@ -926,6 +926,13 @@ export function ExamImportManager({
     width: 80,
     height: 50,
   });
+  const [cropPointer, setCropPointer] = useState<{
+    candidateId: string;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
 
   useEffect(
     () => () => {
@@ -1427,6 +1434,41 @@ export function ExamImportManager({
     } finally {
       setCroppingId('');
     }
+  };
+
+  const beginCropSelection = (
+    candidateId: string,
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setCropPointer({ candidateId, startX: x, startY: y, currentX: x, currentY: y });
+  };
+
+  const updateCropSelection = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    if (!cropPointer) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setCropPointer({
+      ...cropPointer,
+      currentX: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+      currentY: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+    });
+  };
+
+  const finishCropSelection = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!cropPointer) return;
+    const left = Math.min(cropPointer.startX, cropPointer.currentX);
+    const top = Math.min(cropPointer.startY, cropPointer.currentY);
+    const width = Math.abs(cropPointer.currentX - cropPointer.startX);
+    const height = Math.abs(cropPointer.currentY - cropPointer.startY);
+    if (width >= 1 && height >= 1)
+      setCropDraft({ x: left, y: top, width, height });
+    setCropPointer(null);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const readAnswerKey = async (item: ExamImport) => {
@@ -2554,11 +2596,35 @@ export function ExamImportManager({
                             {pagePreviewCandidateId === candidate.id &&
                               candidate.pageNumber && (
                                 <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                                  <iframe
-                                    title={`Página original da questão ${candidate.sourceNumber}`}
-                                    src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
-                                    className="h-[620px] w-full rounded-lg border border-slate-200 bg-white"
-                                  />
+                                  <div
+                                    className="relative cursor-crosshair select-none overflow-hidden rounded-lg border border-slate-200 bg-white"
+                                    onPointerDown={(event) =>
+                                      beginCropSelection(candidate.id, event)
+                                    }
+                                    onPointerMove={updateCropSelection}
+                                    onPointerUp={finishCropSelection}
+                                  >
+                                    <img
+                                      draggable={false}
+                                      alt={`Página original da questão ${candidate.sourceNumber}`}
+                                      src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
+                                      className="block max-h-[620px] w-full object-contain"
+                                    />
+                                    {cropPointer?.candidateId === candidate.id && (
+                                      <div
+                                        className="pointer-events-none absolute border-2 border-violet-600 bg-violet-300/20"
+                                        style={{
+                                          left: `${Math.min(cropPointer.startX, cropPointer.currentX)}%`,
+                                          top: `${Math.min(cropPointer.startY, cropPointer.currentY)}%`,
+                                          width: `${Math.abs(cropPointer.currentX - cropPointer.startX)}%`,
+                                          height: `${Math.abs(cropPointer.currentY - cropPointer.startY)}%`,
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                  <p className="mt-2 text-xs text-slate-500">
+                                    Arraste o mouse sobre a página para selecionar o gráfico, tabela ou trecho da questão.
+                                  </p>
                                   <div className="mt-3 grid gap-2 sm:grid-cols-4">
                                     {[
                                       ['x', 'Esquerda %'],
