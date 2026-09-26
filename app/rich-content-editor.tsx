@@ -4,7 +4,18 @@ import { useEffect, useState } from 'react';
 import type { ClipboardEvent } from 'react';
 import type { ReactNode } from 'react';
 import Image from 'next/image';
-import { ImagePlus, Plus, Trash2 } from 'lucide-react';
+import {
+  Bold,
+  FlaskConical,
+  ImagePlus,
+  Image as ImageIcon,
+  List,
+  Plus,
+  Ruler,
+  Sigma,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
@@ -225,6 +236,15 @@ export function RichContentEditor({
     reader.readAsDataURL(file);
   };
 
+  const pasteRawImage = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(event.clipboardData.files).find((item) =>
+      ['image/png', 'image/jpeg'].includes(item.type),
+    );
+    if (!file) return;
+    event.preventDefault();
+    uploadRawImage(file);
+  };
+
   return (
     <div className="space-y-2">
       {label && <span className="block text-sm font-semibold">{label}</span>}
@@ -378,24 +398,30 @@ export function RichContentEditor({
             <div className="overflow-hidden rounded-lg border border-slate-300">
               <div className="flex flex-wrap items-center gap-1 border-b bg-slate-50 p-1.5">
                 {[
-                  ['Fórmula', '\\startformula\n\\chemical{} \\stopformula'],
-                  ['Química', '\\chemical{H_2O}'],
-                  ['Unidade', '\\unit{10 gram}'],
-                  ['Negrito', '\\bold{texto}'],
-                  ['Imagem', '\\externalfigure[imagens/figura.png][width=\\textwidth]'],
-                  ['Lista I, II', '\\startitemize[I]\n\\item texto\n\\stopitemize'],
-                ].map(([label, snippet]) => (
+                  { label: 'Fórmula', icon: Sigma, snippet: '\\startformula\n\\chemical{} \\stopformula' },
+                  { label: 'Química', icon: FlaskConical, snippet: '\\chemical{H_2O}' },
+                  { label: 'Unidade', icon: Ruler, snippet: '\\unit{10 gram}' },
+                  { label: 'Negrito', icon: Bold, snippet: '\\bold{texto}' },
+                  { label: 'Imagem', icon: ImageIcon, snippet: '\\externalfigure[imagens/figura.png][width=\\textwidth]' },
+                  { label: 'Lista I, II', icon: List, snippet: '\\startitemize[I]\n\\item texto\n\\stopitemize' },
+                ].map(({ label, icon: Icon, snippet }) => (
                   <button
                     key={label}
                     type="button"
-                    className="rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-white hover:text-violet-700"
+                    title={label}
+                    aria-label={label}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 hover:bg-white hover:text-violet-700"
                     onClick={() => insertRawSnippet(index, snippet)}
                   >
-                    {label}
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                   </button>
                 ))}
-                <label className="cursor-pointer rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-white hover:text-violet-700">
-                  Upload de imagem
+                <label
+                  title="Upload de imagem"
+                  aria-label="Upload de imagem"
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded text-slate-600 hover:bg-white hover:text-violet-700"
+                >
+                  <Upload className="h-4 w-4" aria-hidden="true" />
                   <input
                     type="file"
                     accept="image/png,image/jpeg"
@@ -409,6 +435,7 @@ export function RichContentEditor({
               </div>
               <textarea
                 value={block.code}
+                onPaste={pasteRawImage}
                 onChange={(event) =>
                   update(index, {
                     code: event.target.value
