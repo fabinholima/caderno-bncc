@@ -416,6 +416,63 @@ export function RichContentEditor({
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </button>
                 ))}
+                <details className="relative">
+                  <summary
+                    title="Símbolos matemáticos"
+                    className="inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded text-slate-600 hover:bg-white hover:text-violet-700"
+                    aria-label="Símbolos matemáticos"
+                  >
+                    <span className="text-base font-semibold">∑</span>
+                  </summary>
+                  <div className="absolute left-0 top-9 z-20 grid w-72 grid-cols-6 gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
+                    {[
+                      ['∈', 'Pertence'],
+                      ['∉', 'Não pertence'],
+                      ['⊂', 'Subconjunto'],
+                      ['∪', 'União'],
+                      ['∩', 'Interseção'],
+                      ['∞', 'Infinito'],
+                      ['±', 'Mais ou menos'],
+                      ['×', 'Multiplicação'],
+                      ['÷', 'Divisão'],
+                      ['≤', 'Menor ou igual'],
+                      ['≥', 'Maior ou igual'],
+                      ['≠', 'Diferente'],
+                      ['≈', 'Aproximadamente'],
+                      ['∑', 'Somatório'],
+                      ['∏', 'Produtório'],
+                      ['∫', 'Integral'],
+                      ['∂', 'Derivada parcial'],
+                      ['∇', 'Nabla'],
+                      ['∀', 'Para todo'],
+                      ['∃', 'Existe'],
+                      ['→', 'Implicação'],
+                      ['↔', 'Equivalência'],
+                      ['√', 'Raiz'],
+                      ['α', 'Alfa'],
+                      ['β', 'Beta'],
+                      ['Δ', 'Delta'],
+                      ['θ', 'Teta'],
+                      ['λ', 'Lambda'],
+                      ['μ', 'Mu'],
+                      ['π', 'Pi'],
+                    ].map(([symbol, description]) => (
+                      <button
+                        key={symbol}
+                        type="button"
+                        title={description}
+                        aria-label={`${description}: ${symbol}`}
+                        className="rounded px-1 py-1 text-lg leading-none text-slate-700 hover:bg-violet-100 hover:text-violet-700"
+                        onClick={(event) => {
+                          insertRawSnippet(index, symbol);
+                          event.currentTarget.closest('details')?.removeAttribute('open');
+                        }}
+                      >
+                        {symbol}
+                      </button>
+                    ))}
+                  </div>
+                </details>
                 <label
                   title="Upload de imagem"
                   aria-label="Upload de imagem"
