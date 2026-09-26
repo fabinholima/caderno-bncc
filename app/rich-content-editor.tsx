@@ -46,6 +46,7 @@ export function RichContentEditor({
   required = false,
   compact = false,
   allowRawContext = false,
+  rawOnly = false,
   initialBlocks,
   resetKey,
   apiUrl,
@@ -55,19 +56,21 @@ export function RichContentEditor({
   required?: boolean;
   compact?: boolean;
   allowRawContext?: boolean;
+  rawOnly?: boolean;
   initialBlocks?: RichContentBlock[];
   resetKey?: number;
   apiUrl: string;
 }) {
-  const [blocks, setBlocks] = useState<RichContentBlock[]>([
-    { type: 'paragraph', text: '' },
-  ]);
+  const emptyBlocks = rawOnly
+    ? ([{ type: 'contextRaw', code: '' }] as RichContentBlock[])
+    : ([{ type: 'paragraph', text: '' }] as RichContentBlock[]);
+  const [blocks, setBlocks] = useState<RichContentBlock[]>(emptyBlocks);
   const [structureLoading, setStructureLoading] = useState<number | null>(null);
   useEffect(() => {
     setBlocks(
-      initialBlocks?.length ? initialBlocks : [{ type: 'paragraph', text: '' }],
+      initialBlocks?.length ? initialBlocks : emptyBlocks,
     );
-  }, [initialBlocks, resetKey]);
+  }, [initialBlocks, resetKey, rawOnly]);
   const update = (index: number, patch: Partial<RichContentBlock>) =>
     setBlocks((current) =>
       current.map((block, position) =>
@@ -607,7 +610,7 @@ export function RichContentEditor({
       <div className="flex flex-wrap gap-1.5">
         {(
           [
-            'paragraph',
+            ...(rawOnly ? [] : ['paragraph']),
             'romanList',
             'thermochemicalEquation',
             'contextFormula',
@@ -618,7 +621,7 @@ export function RichContentEditor({
             'chemicalStructure',
             'image',
           ] as const
-        ).map((type) => (
+        ).filter((type) => !rawOnly || type === 'contextRaw').map((type) => (
           <Button
             key={type}
             type="button"
