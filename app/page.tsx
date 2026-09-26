@@ -502,6 +502,14 @@ export default function Home() {
   }, [apiUrl, identity]);
 
   useEffect(() => {
+    if (
+      questions.length &&
+      !questions.some((question) => question.stage === educationStage)
+    )
+      setEducationStage(questions[0].stage);
+  }, [questions, educationStage]);
+
+  useEffect(() => {
     if (!apiUrl || !identity) return;
     apiFetch(`${apiUrl}/api/curriculum/saeb/matrices`)
       .then((response) => response.json() as Promise<{ data: SaebMatrix[] }>)
