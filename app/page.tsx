@@ -2436,6 +2436,7 @@ export default function Home() {
                   name="statementBlocks"
                   label="Enunciado"
                   required
+                  allowRawContext
                   initialBlocks={importedQuestion?.statementBlocks}
                   resetKey={importRevision}
                 />

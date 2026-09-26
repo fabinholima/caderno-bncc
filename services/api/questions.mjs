@@ -8,6 +8,8 @@ const forbiddenMetaPost =
 
 const forbiddenContextFormula =
   /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;
+const forbiddenRawContext =
+  /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|startMPcode|startluacode|xmlprocess|processfile)\b/i;
 
 export const metapostCodeSchema = z
   .string()
@@ -251,6 +253,13 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
           )
         );
       }, 'O trecho em linha contém um comando ConTeXt não permitido.'),
+  }),
+  z.object({
+    type: z.literal('contextRaw'),
+    code: z.string().trim().min(1).max(20_000).refine(
+      (code) => !forbiddenRawContext.test(code),
+      'O código ConTeXt contém comando não permitido.',
+    ),
   }),
   z.object({
     type: z.literal('chemical'),

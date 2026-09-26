@@ -385,6 +385,15 @@ function richText(nodes = []) {
         inline: true,
       };
     }
+    if (node.type === 'contextRaw') {
+      const code = String(node.code ?? '')
+        .replace(/^\s*\\starttext\s*/i, '')
+        .replace(/\\stoptext\s*$/i, '')
+        .trim();
+      if (!code || code.length > 20_000 || forbiddenContextFormula.test(code))
+        throw new Error('Código ConTeXt inválido ou não permitido.');
+      return { content: code, inline: false };
+    }
     if (node.type === 'chemical')
       return {
         content: `${node.display === false ? '\\allowbreak{}' : ''}${chemicalFormula(node)}`,
