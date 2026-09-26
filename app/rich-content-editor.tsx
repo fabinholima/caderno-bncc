@@ -20,6 +20,51 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 
+const contextSymbolSnippets: Record<string, string> = {
+  '∈': '\\in',
+  '∉': '\\notin',
+  'ℕ': '\\blackboard{N}',
+  'ℤ': '\\blackboard{Z}',
+  'ℚ': '\\blackboard{Q}',
+  'ℝ': '\\blackboard{R}',
+  'ℂ': '\\blackboard{C}',
+  '∅': '\\emptyset',
+  '⊂': '\\subset',
+  '∪': '\\cup',
+  '∩': '\\cap',
+  '∞': '\\infty',
+  '±': '\\pm',
+  '×': '\\times',
+  '÷': '\\div',
+  '≤': '\\leq',
+  '≥': '\\geq',
+  '≠': '\\neq',
+  '≈': '\\approx',
+  '∑': '\\sum',
+  '∏': '\\prod',
+  '∫': '\\int',
+  '∂': '\\partial',
+  '∇': '\\nabla',
+  '∀': '\\forall',
+  '∃': '\\exists',
+  '→': '\\rightarrow',
+  '↔': '\\leftrightarrow',
+  '√': '\\sqrt{}',
+  '|x|': '|x|',
+  'f(x)': 'f(x)',
+  '∘': '\\circ',
+  'lim': '\\lim',
+  'sup': '\\sup',
+  'inf': '\\inf',
+  'α': '\\alpha',
+  'β': '\\beta',
+  'Δ': '\\Delta',
+  'θ': '\\theta',
+  'λ': '\\lambda',
+  'μ': '\\mu',
+  'π': '\\pi',
+};
+
 export type RichContentBlock =
   | { type: 'paragraph'; text: string }
   | { type: 'romanList'; items: string[] }
@@ -476,7 +521,7 @@ export function RichContentEditor({
                         aria-label={`${description}: ${symbol}`}
                         className="rounded px-1 py-1 text-lg leading-none text-slate-700 hover:bg-violet-100 hover:text-violet-700"
                         onClick={(event) => {
-                          insertRawSnippet(index, symbol);
+                          insertRawSnippet(index, contextSymbolSnippets[symbol] ?? symbol);
                           event.currentTarget.closest('details')?.removeAttribute('open');
                         }}
                       >
