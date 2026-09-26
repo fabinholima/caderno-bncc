@@ -2542,6 +2542,7 @@ export default function Home() {
                           apiUrl={apiUrl}
                           name={`alternative_${letter}`}
                           compact
+                          allowRawContext
                           required
                           initialBlocks={importedQuestion?.alternatives[letter]}
                           resetKey={importRevision}
@@ -2558,6 +2559,7 @@ export default function Home() {
                 <RichContentEditor
                   apiUrl={apiUrl}
                   name="answerBlocks"
+                  allowRawContext
                   label={
                     questionType === 'essay'
                       ? 'Resposta esperada e critérios de correção'
