@@ -359,6 +359,7 @@ export function RichContentEditor({
                   ['Química', '\\chemical{H_2O}'],
                   ['Unidade', '\\unit{10 gram}'],
                   ['Negrito', '\\bold{texto}'],
+                  ['Imagem', '\\externalfigure[imagens/figura.png][width=\\textwidth]'],
                   ['Lista I, II', '\\startitemize[I]\n\\item texto\n\\stopitemize'],
                 ].map(([label, snippet]) => (
                   <button
