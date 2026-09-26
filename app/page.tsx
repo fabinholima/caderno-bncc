@@ -253,6 +253,30 @@ function difficultyClass(value: Question['difficulty']) {
   return 'border-amber-200 bg-amber-50 text-amber-700';
 }
 
+function readableStatement(value: string) {
+  return value
+    .replace(/\$\$?/g, '')
+    .replace(/\\mathbb\{R\}/g, 'ℝ')
+    .replace(/\\infty/g, '∞')
+    .replace(/\\in\b/g, '∈')
+    .replace(/\\cup/g, '∪')
+    .replace(/\\cap/g, '∩')
+    .replace(/\\mid/g, '∣')
+    .replace(/\\rightarrow/g, '→')
+    .replace(/\\leq/g, '≤')
+    .replace(/\\geq/g, '≥')
+    .replace(/\\neq/g, '≠')
+    .replace(/\\times/g, '×')
+    .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
+    .replace(/\\sum_\{([^{}]+)\}\^\{([^{}]+)\}/g, 'Σ ($1 → $2)')
+    .replace(/\{([^{}]+)\}/g, '$1')
+    .replace(/\\([A-Za-z]+)/g, '$1')
+    .replace(/_/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export default function Home() {
   const [apiUrl, setApiUrl] = useState('');
   const [identity, setIdentity] = useState<AuthIdentity | null>(null);
@@ -1625,7 +1649,7 @@ export default function Home() {
                                 </span>
                               </div>
                               <p className="max-w-2xl text-sm font-medium leading-5 text-slate-800">
-                                {q.statement}
+                                {readableStatement(q.statement)}
                               </p>
                             </div>
                           </div>
