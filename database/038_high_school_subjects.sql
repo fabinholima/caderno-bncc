@@ -1,5 +1,14 @@
 -- Componentes curriculares do Ensino Médio, organizados pelas áreas oficiais da BNCC.
 -- Objetos e subtópicos pedagógicos permanecem em catálogos revisados separados.
+INSERT INTO curriculum_areas (curriculum_version, source_key, name, stage)
+VALUES
+  ('BNCC-2018', 'em-area-lgg', 'Linguagens e suas Tecnologias', 'Ensino Médio'),
+  ('BNCC-2018', 'em-area-mat', 'Matemática e suas Tecnologias', 'Ensino Médio'),
+  ('BNCC-2018', 'em-area-cnt', 'Ciências da Natureza e suas Tecnologias', 'Ensino Médio'),
+  ('BNCC-2018', 'em-area-chs', 'Ciências Humanas e Sociais Aplicadas', 'Ensino Médio')
+ON CONFLICT (curriculum_version, source_key) DO UPDATE
+SET name = EXCLUDED.name, stage = EXCLUDED.stage;
+
 WITH catalog(area_key, subject_name) AS (
   VALUES
     ('em-area-lgg','Língua Portuguesa'),
