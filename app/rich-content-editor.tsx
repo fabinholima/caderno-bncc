@@ -192,6 +192,13 @@ export function RichContentEditor({
     reader.readAsDataURL(file);
   };
 
+  const insertRawSnippet = (index: number, snippet: string) => {
+    const block = blocks[index];
+    if (block?.type !== 'contextRaw') return;
+    const next = `${block.code}${block.code && !block.code.endsWith('\n') ? '\n' : ''}${snippet}`;
+    update(index, { code: next });
+  };
+
   return (
     <div className="space-y-2">
       {label && <span className="block text-sm font-semibold">{label}</span>}
@@ -342,20 +349,40 @@ export function RichContentEditor({
             </div>
           )}
           {block.type === 'contextRaw' && (
-            <textarea
-              value={block.code}
-              onChange={(event) =>
-                update(index, {
-                  code: event.target.value
-                    .replace(/\\starttext\b/gi, '')
-                    .replace(/\\stoptext\b/gi, ''),
-                })
-              }
-              rows={10}
-              spellCheck={false}
-              className="min-h-48 w-full rounded-lg border border-slate-300 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:border-violet-400"
-              placeholder="Digite o texto e os comandos ConTeXt..."
-            />
+            <div className="overflow-hidden rounded-lg border border-slate-300">
+              <div className="flex flex-wrap items-center gap-1 border-b bg-slate-50 p-1.5">
+                {[
+                  ['Fórmula', '\\startformula\n\\chemical{} \\stopformula'],
+                  ['Química', '\\chemical{H_2O}'],
+                  ['Unidade', '\\unit{10 gram}'],
+                  ['Negrito', '\\bold{texto}'],
+                  ['Lista I, II', '\\startitemize[I]\n\\item texto\n\\stopitemize'],
+                ].map(([label, snippet]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-white hover:text-violet-700"
+                    onClick={() => insertRawSnippet(index, snippet)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={block.code}
+                onChange={(event) =>
+                  update(index, {
+                    code: event.target.value
+                      .replace(/\\starttext\b/gi, '')
+                      .replace(/\\stoptext\b/gi, ''),
+                  })
+                }
+                rows={10}
+                spellCheck={false}
+                className="min-h-48 w-full border-0 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:ring-0"
+                placeholder="Digite o texto e os comandos ConTeXt..."
+              />
+            </div>
           )}
           {block.type === 'math' && (
             <div className="space-y-2">
