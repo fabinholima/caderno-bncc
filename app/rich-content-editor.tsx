@@ -15,6 +15,7 @@ export type RichContentBlock =
   | { type: 'math'; tex: string; display: boolean }
   | { type: 'contextFormula'; code: string }
   | { type: 'contextInline'; code: string }
+  | { type: 'contextRaw'; code: string }
   | {
       type: 'chemical';
       formula: string;
@@ -44,6 +45,7 @@ export function RichContentEditor({
   label,
   required = false,
   compact = false,
+  allowRawContext = false,
   initialBlocks,
   resetKey,
   apiUrl,
@@ -52,6 +54,7 @@ export function RichContentEditor({
   label?: string;
   required?: boolean;
   compact?: boolean;
+  allowRawContext?: boolean;
   initialBlocks?: RichContentBlock[];
   resetKey?: number;
   apiUrl: string;
@@ -91,6 +94,8 @@ export function RichContentEditor({
               ? { type, code: '\\chemical{} ' }
               : type === 'contextInline'
                 ? { type, code: '\\chemical{H_2}' }
+                : type === 'contextRaw'
+                  ? { type, code: '\\starttext\n\n\\stoptext' }
                 : type === 'math'
                   ? { type, tex: '', display: true }
                   : type === 'chemical'
@@ -206,8 +211,10 @@ export function RichContentEditor({
                     ? 'Equação termoquímica'
                     : block.type === 'contextFormula'
                       ? 'ConTeXt da fórmula'
-                      : block.type === 'contextInline'
-                        ? 'ConTeXt em linha'
+                        : block.type === 'contextInline'
+                          ? 'ConTeXt em linha'
+                          : block.type === 'contextRaw'
+                            ? 'ConTeXt puro'
                         : block.type === 'math'
                           ? 'Matemática'
                           : block.type === 'chemical'
@@ -333,6 +340,16 @@ export function RichContentEditor({
                 apenas comandos científicos seguros.
               </p>
             </div>
+          )}
+          {block.type === 'contextRaw' && (
+            <textarea
+              value={block.code}
+              onChange={(event) => update(index, { code: event.target.value })}
+              rows={10}
+              spellCheck={false}
+              className="min-h-48 w-full rounded-lg border border-slate-300 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:border-violet-400"
+              placeholder="\\starttext\nTexto e comandos ConTeXt...\n\\stoptext"
+            />
           )}
           {block.type === 'math' && (
             <div className="space-y-2">
@@ -562,6 +579,7 @@ export function RichContentEditor({
             'thermochemicalEquation',
             'contextFormula',
             'contextInline',
+            ...(allowRawContext ? (['contextRaw'] as const) : []),
             'math',
             'chemical',
             'chemicalStructure',
@@ -584,8 +602,10 @@ export function RichContentEditor({
                   ? 'Equação termoquímica'
                   : type === 'contextFormula'
                     ? 'ConTeXt da fórmula'
-                    : type === 'contextInline'
-                      ? 'ConTeXt em linha'
+              : type === 'contextInline'
+                ? 'ConTeXt em linha'
+                : type === 'contextRaw'
+                  ? 'ConTeXt puro'
                       : type === 'math'
                         ? 'Fórmula'
                         : type === 'chemical'
