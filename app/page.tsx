@@ -361,6 +361,14 @@ export default function Home() {
   const pedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === discipline,
   );
+  const pedagogicalGradeOptions = [
+    ...new Set(
+      pedagogicalTopics
+        .filter((item) => item.discipline_id === pedagogicalDiscipline?.id)
+        .map((item) => item.grade_range)
+        .filter(Boolean),
+    ),
+  ];
   const filterPedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === subject,
   );
@@ -408,7 +416,7 @@ export default function Home() {
     (item) =>
       item.discipline_id === pedagogicalDiscipline?.id &&
       !item.parent_id &&
-      item.grade_range === pedagogicalGrade,
+      (!item.grade_range || item.grade_range === pedagogicalGrade),
   );
   const pedagogicalSubtopicOptions = pedagogicalTopics.filter(
     (item) => item.parent_id === pedagogicalObjectId,
@@ -426,6 +434,17 @@ export default function Home() {
     )
       setSelectedSkillCode(availableSkills[0].skill_code || '');
   }, [availableSkills, selectedSkillCode]);
+  useEffect(() => {
+    if (
+      pedagogicalGradeOptions.length &&
+      !pedagogicalGradeOptions.includes(pedagogicalGrade)
+    ) {
+      setPedagogicalGrade(pedagogicalGradeOptions[0]);
+      setPedagogicalObjectId('');
+      setPedagogicalSubtopicId('');
+      setPedagogicalDetailId('');
+    }
+  }, [pedagogicalDiscipline?.id, pedagogicalGradeOptions.join('|'), pedagogicalGrade]);
   const visible = useMemo(
     () =>
       questions.filter(
@@ -1962,7 +1981,19 @@ export default function Home() {
                         setSelectedSaebDescriptor('');
                         setSaebInfoOpen(false);
                         if (pedagogical) {
-                          setPedagogicalGrade('1ª série');
+                          const firstGrade = pedagogicalTopics
+                            .filter(
+                              (topic) =>
+                                topic.discipline_id === pedagogical.id &&
+                                topic.grade_range,
+                            )
+                            .map((topic) => topic.grade_range)[0];
+                          setPedagogicalGrade(
+                            firstGrade ||
+                              (educationStage === 'Ensino Médio'
+                                ? '1ª série'
+                                : '6º ano'),
+                          );
                           setPedagogicalObjectId('');
                           setPedagogicalSubtopicId('');
                           setPedagogicalDetailId('');
