@@ -2469,6 +2469,7 @@ export default function Home() {
                   label="Enunciado"
                   required
                   allowRawContext
+                  rawOnly
                   initialBlocks={importedQuestion?.statementBlocks}
                   resetKey={importRevision}
                 />
@@ -2543,6 +2544,7 @@ export default function Home() {
                           name={`alternative_${letter}`}
                           compact
                           allowRawContext
+                          rawOnly
                           required
                           initialBlocks={importedQuestion?.alternatives[letter]}
                           resetKey={importRevision}
@@ -2560,6 +2562,7 @@ export default function Home() {
                   apiUrl={apiUrl}
                   name="answerBlocks"
                   allowRawContext
+                  rawOnly
                   label={
                     questionType === 'essay'
                       ? 'Resposta esperada e critérios de correção'
