@@ -202,6 +202,29 @@ export function RichContentEditor({
     update(index, { code: next });
   };
 
+  const uploadRawImage = (file?: File) => {
+    if (!file) return;
+    if (
+      !['image/png', 'image/jpeg'].includes(file.type) ||
+      file.size > 400_000
+    ) {
+      window.alert('Escolha uma imagem PNG ou JPEG de até 400 KB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      setBlocks((current) => [
+        ...current,
+        {
+          type: 'image',
+          dataUrl: typeof reader.result === 'string' ? reader.result : '',
+          alt: file.name.replace(/\.[^.]+$/, ''),
+          caption: '',
+        },
+      ]);
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-2">
       {label && <span className="block text-sm font-semibold">{label}</span>}
@@ -371,6 +394,18 @@ export function RichContentEditor({
                     {label}
                   </button>
                 ))}
+                <label className="cursor-pointer rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-white hover:text-violet-700">
+                  Upload de imagem
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    className="sr-only"
+                    onChange={(event) => {
+                      uploadRawImage(event.target.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                </label>
               </div>
               <textarea
                 value={block.code}
