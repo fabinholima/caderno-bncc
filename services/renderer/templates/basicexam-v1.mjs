@@ -27,6 +27,7 @@ export const basicExamV1 = Object.freeze({
     candidateNumber,
     subjects,
     content,
+    previewOnly = false,
   }) {
     const classicHeader = logoFileName
       ? `\\startcombination[2*1]
@@ -71,7 +72,7 @@ export const basicExamV1 = Object.freeze({
       className,
       qr,
     });
-    const header = mode === 'student' ? institutionalHeader : classicHeader;
+    const header = previewOnly ? '' : mode === 'student' ? institutionalHeader : classicHeader;
     const answerRows = Array.from(
       { length: Number(questionCount) || 0 },
       (_, index) =>
@@ -115,7 +116,7 @@ ${answerCardHeaderPreamble}
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
 
 \\starttext
-${header}
+${header ? `${header}\\blank[medium]` : ''}
 ${
   mode === 'answer-key'
     ? `\\blank[small]
