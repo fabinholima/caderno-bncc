@@ -44,6 +44,7 @@ next-env.d.ts
 /services/api/outputs/
 /work/
 /tmp/
+/var/
 
 # ConTeXt generated files
 /basicexam-template.pdf
