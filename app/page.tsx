@@ -359,7 +359,7 @@ export default function Home() {
   const [pedagogicalSubtopicId, setPedagogicalSubtopicId] = useState('');
   const [pedagogicalDetailId, setPedagogicalDetailId] = useState('');
   const pedagogicalDiscipline = pedagogicalDisciplines.find(
-    (item) => item.name === discipline,
+    (item) => item.name === discipline && item.stage === educationStage,
   );
   const pedagogicalGradeOptions = [
     ...new Set(
@@ -370,7 +370,7 @@ export default function Home() {
     ),
   ];
   const filterPedagogicalDiscipline = pedagogicalDisciplines.find(
-    (item) => item.name === subject,
+    (item) => item.name === subject && item.stage === educationStage,
   );
   const availableCompetencies = [
     ...new Map(
@@ -1963,7 +1963,8 @@ export default function Home() {
                         const next = event.target.value;
                         setDiscipline(next);
                         const pedagogical = pedagogicalDisciplines.find(
-                          (item) => item.name === next,
+                          (item) =>
+                            item.name === next && item.stage === educationStage,
                         );
                         setKnowledgeObjectId(
                           pedagogical
