@@ -328,6 +328,7 @@ export default function Home() {
   const [previewing, setPreviewing] = useState(false);
   const [questionPreviewUrl, setQuestionPreviewUrl] = useState('');
   const [questionPreviewVerified, setQuestionPreviewVerified] = useState(false);
+  const [questionPreviewError, setQuestionPreviewError] = useState('');
   const [notice, setNotice] = useState('');
   const [active, setActive] = useState('Questões');
   const [curriculum, setCurriculum] = useState(curriculumDemo);
@@ -828,6 +829,7 @@ export default function Home() {
   async function previewQuestion(form: HTMLFormElement) {
     setPreviewing(true);
     setNotice('');
+    setQuestionPreviewError('');
     try {
       const response = await apiFetch(`${apiUrl}/api/questions/preview`, {
         method: 'POST',
@@ -835,8 +837,25 @@ export default function Home() {
         body: JSON.stringify(questionInputFromForm(new FormData(form))),
       });
       if (!response.ok) {
-        const body = (await response.json()) as { error?: string };
-        throw new Error(body.error || 'Não foi possível gerar a prévia.');
+        const raw = await response.text();
+        let message = raw;
+        try {
+          const body = JSON.parse(raw) as {
+            error?: string;
+            issues?: Array<{ path?: Array<string | number>; message: string }>;
+          };
+          message = [
+            body.error,
+            ...(body.issues || []).map((issue) =>
+              `${issue.message}${issue.path?.length ? ` (${issue.path.join(' → ')})` : ''}`,
+            ),
+          ]
+            .filter(Boolean)
+            .join('\n');
+        } catch {
+          // Mantém a resposta textual para facilitar o diagnóstico.
+        }
+        throw new Error(message || 'Não foi possível gerar a prévia.');
       }
       const nextUrl = URL.createObjectURL(await response.blob());
       setQuestionPreviewUrl((current) => {
@@ -848,8 +867,11 @@ export default function Home() {
         'Prévia gerada. Confira o PDF; se estiver correto, o cadastro da questão está liberado.',
       );
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Erro ao gerar a prévia.';
+      setQuestionPreviewError(message);
       setNotice(
-        error instanceof Error ? error.message : 'Erro ao gerar a prévia.',
+        'A prévia não foi gerada. Consulte o log de erro abaixo.',
       );
     } finally {
       setPreviewing(false);
@@ -2668,6 +2690,28 @@ export default function Home() {
                     src={questionPreviewUrl}
                     className="h-[620px] w-full rounded-lg border bg-white"
                   />
+                </section>
+              )}
+              {questionPreviewError && (
+                <section
+                  role="alert"
+                  className="m-4 rounded-xl border border-red-200 bg-red-50 p-4 sm:m-6"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm text-red-900">
+                      Log da prévia ConTeXt
+                    </strong>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-red-700 hover:underline"
+                      onClick={() => setQuestionPreviewError('')}
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                  <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-red-950 p-3 font-mono text-xs leading-5 text-red-100">
+                    {questionPreviewError}
+                  </pre>
                 </section>
               )}
             </form>
