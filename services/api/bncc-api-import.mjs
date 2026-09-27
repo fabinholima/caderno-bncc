@@ -3,8 +3,22 @@ import { pool, transaction } from './db.mjs';
 
 export const BNCC_API_URL = 'https://api.bncc.dev/v1/habilidades';
 export const HIGH_SCHOOL_AREAS = Object.freeze([
-  { key: 'em-area-mat', expectedSkills: 43, discipline: 'Matemática' },
-  { key: 'em-area-cnt', expectedSkills: 26, discipline: 'Física' },
+  { key: 'em-area-mat', expectedSkills: 43, disciplines: ['Matemática'] },
+  {
+    key: 'em-area-cnt',
+    expectedSkills: 26,
+    disciplines: ['Biologia', 'Física', 'Química'],
+  },
+  {
+    key: 'em-area-lgg',
+    expectedSkills: 82,
+    disciplines: ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
+  },
+  {
+    key: 'em-area-chs',
+    expectedSkills: 32,
+    disciplines: ['História', 'Geografia', 'Sociologia', 'Filosofia'],
+  },
 ]);
 
 export function validateAreaPayload(payload, area) {
@@ -19,7 +33,16 @@ export function validateAreaPayload(payload, area) {
     throw new Error(`${area.key}: a resposta não contém todos os registros.`);
   if (new Set(codes).size !== codes.length)
     throw new Error(`${area.key}: há códigos duplicados.`);
-  if (codes.some((code) => !code.startsWith(area.key === 'em-area-mat' ? 'EM13MAT' : 'EM13CNT')))
+  const expectedPrefixes = {
+    'em-area-mat': 'EM13MAT',
+    'em-area-cnt': 'EM13CNT',
+    'em-area-lgg': ['EM13LGG', 'EM13LP'],
+    'em-area-chs': 'EM13CHS',
+  }[area.key];
+  const prefixes = Array.isArray(expectedPrefixes)
+    ? expectedPrefixes
+    : [expectedPrefixes];
+  if (codes.some((code) => !prefixes.some((prefix) => code.startsWith(prefix))))
     throw new Error(`${area.key}: há códigos de outra área na resposta.`);
   return payload.itens;
 }
@@ -65,22 +88,37 @@ async function saveArea(client, area, items) {
 
   const competencyIds = new Map();
   for (const competency of competencies.values()) {
-    const result = await client.query(
-      `INSERT INTO curriculum_competencies
-         (area_id,source_key,number,description,source_metadata)
-       VALUES($1,$2,$3,$4,$5::jsonb)
-       ON CONFLICT(area_id,source_key) DO UPDATE SET
-         number=EXCLUDED.number,description=EXCLUDED.description,
-         source_metadata=EXCLUDED.source_metadata
-       RETURNING id`,
-      [
-        areaId,
-        competency.id,
-        competency.numero,
-        competency.texto,
-        JSON.stringify({ documento: 'bncc-2018', fonte: 'api.bncc.dev' }),
-      ],
+    const existing = await client.query(
+      `SELECT id FROM curriculum_competencies
+       WHERE area_id=$1 AND (source_key=$2 OR number=$3)
+       ORDER BY (source_key=$2) DESC LIMIT 1`,
+      [areaId, competency.id, competency.numero],
     );
+    const result = existing.rowCount
+      ? await client.query(
+          `UPDATE curriculum_competencies
+           SET source_key=$2, number=$3, description=$4, source_metadata=$5::jsonb
+           WHERE id=$1 RETURNING id`,
+          [
+            existing.rows[0].id,
+            competency.id,
+            competency.numero,
+            competency.texto,
+            JSON.stringify({ documento: 'bncc-2018', fonte: 'api.bncc.dev' }),
+          ],
+        )
+      : await client.query(
+          `INSERT INTO curriculum_competencies
+             (area_id,source_key,number,description,source_metadata)
+           VALUES($1,$2,$3,$4,$5::jsonb) RETURNING id`,
+          [
+            areaId,
+            competency.id,
+            competency.numero,
+            competency.texto,
+            JSON.stringify({ documento: 'bncc-2018', fonte: 'api.bncc.dev' }),
+          ],
+        );
     competencyIds.set(competency.id, result.rows[0].id);
   }
 
@@ -127,8 +165,8 @@ async function saveArea(client, area, items) {
 
   const disciplines = await client.query(
     `SELECT id,created_by FROM pedagogical_disciplines
-     WHERE area_id=$1 AND name=$2 AND stage='Ensino Médio'`,
-    [areaId, area.discipline],
+     WHERE area_id=$1 AND name = ANY($2::text[]) AND stage='Ensino Médio'`,
+    [areaId, area.disciplines],
   );
   for (const discipline of disciplines.rows) {
     await client.query(
@@ -144,9 +182,7 @@ async function saveArea(client, area, items) {
           discipline.id,
           skillId,
           discipline.created_by,
-          area.discipline === 'Física'
-            ? 'Vínculo pedagógico institucional com a área integrada de Ciências da Natureza.'
-            : 'Vínculo com as habilidades oficiais de Matemática do Ensino Médio.',
+          `Vínculo com as habilidades oficiais da área ${first.area.nome}.`,
         ],
       );
   }
