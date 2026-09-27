@@ -985,7 +985,7 @@ export default function Home() {
       setQuickPreviewQuestion(detail);
       const input = {
         type: detail.type,
-        statement: detail.statement.map((node: any) => node.text || node.code || '').join('\n'),
+        statement: detail.statement.map((node: any) => node.text || node.code || node.tex || node.formula || '').join('\n'),
         statementBlocks: detail.statement,
         subject: detail.subject,
         grade: detail.grade,
@@ -997,7 +997,7 @@ export default function Home() {
         difficulty: detail.difficulty === 'hard' ? 'Difícil' : detail.difficulty === 'easy' ? 'Fácil' : 'Média',
         alternatives: detail.alternatives.map((alternative: any) => ({
           stableKey: alternative.stableKey,
-          content: alternative.content.map((node: any) => node.text || node.code || '').join(' '),
+          content: alternative.content.map((node: any) => node.text || node.code || node.tex || node.formula || '').join(' '),
           contentBlocks: alternative.content,
           isCorrect: alternative.isCorrect,
           position: alternative.position,
