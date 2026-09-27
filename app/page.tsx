@@ -780,6 +780,9 @@ export default function Home() {
         )
         .filter(
           (block) => block.type !== 'romanList' || Boolean(block.items?.length),
+        )
+        .filter(
+          (block) => block.type !== 'contextRaw' || Boolean((block as any).code?.trim()),
         );
     };
     const statementBlocks = parseBlocks('statementBlocks');
