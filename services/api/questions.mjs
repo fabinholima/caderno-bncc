@@ -586,8 +586,10 @@ export async function listQuestions({
   return result.rows.map((row) => ({
     id: row.id,
     code: row.public_code,
-    statement:
-      row.statement?.find((node) => node.type === 'paragraph')?.text ?? '',
+    statement: (row.statement || [])
+      .map((node) => duplicateNodeText(node))
+      .filter(Boolean)
+      .join(' '),
     type: row.type,
     subject: row.subject,
     grade: row.grade,
