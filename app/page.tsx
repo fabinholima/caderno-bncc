@@ -330,6 +330,7 @@ export default function Home() {
   const [questionPreviewVerified, setQuestionPreviewVerified] = useState(false);
   const [questionPreviewError, setQuestionPreviewError] = useState('');
   const [notice, setNotice] = useState('');
+  const [quickPreviewQuestion, setQuickPreviewQuestion] = useState<any>(null);
   const [active, setActive] = useState('Questões');
   const [curriculum, setCurriculum] = useState(curriculumDemo);
   const [highSchoolCurriculum, setHighSchoolCurriculum] = useState<
@@ -967,6 +968,15 @@ export default function Home() {
       setNotice(
         error instanceof Error ? error.message : 'Erro ao carregar a questão.',
       );
+    }
+  }
+
+  async function previewQuestionInBank(question: Question) {
+    if (!apiUrl) return;
+    const response = await apiFetch(`${apiUrl}/api/questions/${question.id}`);
+    if (response.ok) {
+      const body = (await response.json()) as { data: any };
+      setQuickPreviewQuestion(body.data);
     }
   }
 
@@ -1724,6 +1734,15 @@ export default function Home() {
                         </td>
                         <td className="px-3 py-4">
                           <div className="flex">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Visualizar ${q.code}`}
+                              onClick={() => previewQuestionInBank(q)}
+                            >
+                              <Eye />
+                            </Button>
                             <Button
                               type="button"
                               variant="ghost"
@@ -2712,6 +2731,31 @@ export default function Home() {
                 </section>
               )}
             </form>
+          </section>
+        </div>
+      )}
+      {quickPreviewQuestion && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4" role="dialog" aria-modal="true">
+          <section className="max-h-[85vh] w-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-xs font-semibold text-blue-700">{quickPreviewQuestion.code}</p>
+                <p className="text-xs text-slate-500">{quickPreviewQuestion.subject} · {quickPreviewQuestion.grade}</p>
+              </div>
+              <button type="button" className="text-slate-500 hover:text-slate-900" onClick={() => setQuickPreviewQuestion(null)} aria-label="Fechar prévia"><X /></button>
+            </div>
+            <div className="space-y-4 text-sm leading-6 text-slate-800">
+              <p className="whitespace-pre-wrap">{readableStatement((quickPreviewQuestion.statement || []).map((node: any) => node.text || node.code || '').join('\n'))}</p>
+              {quickPreviewQuestion.alternatives?.length > 0 && (
+                <ol className="space-y-2" type="A">
+                  {quickPreviewQuestion.alternatives.map((alternative: any) => (
+                    <li key={alternative.stableKey} className={alternative.isCorrect ? 'font-semibold text-emerald-700' : ''}>
+                      {alternative.content?.map((node: any) => node.text || node.code || '').join(' ')}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </section>
         </div>
       )}
