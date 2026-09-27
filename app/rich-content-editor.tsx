@@ -23,11 +23,11 @@ import { apiFetch } from '@/lib/api-client';
 const contextSymbolSnippets: Record<string, string> = {
   '∈': '\\in',
   '∉': '\\notin',
-  'ℕ': '\\blackboard{N}',
-  'ℤ': '\\blackboard{Z}',
-  'ℚ': '\\blackboard{Q}',
-  'ℝ': '\\blackboard{R}',
-  'ℂ': '\\blackboard{C}',
+  ℕ: '\\blackboard{N}',
+  ℤ: '\\blackboard{Z}',
+  ℚ: '\\blackboard{Q}',
+  ℝ: '\\blackboard{R}',
+  ℂ: '\\blackboard{C}',
   '∅': '\\emptyset',
   '⊂': '\\subset',
   '∪': '\\cup',
@@ -53,16 +53,16 @@ const contextSymbolSnippets: Record<string, string> = {
   '|x|': '|x|',
   'f(x)': 'f(x)',
   '∘': '\\circ',
-  'lim': '\\lim',
-  'sup': '\\sup',
-  'inf': '\\inf',
-  'α': '\\alpha',
-  'β': '\\beta',
-  'Δ': '\\Delta',
-  'θ': '\\theta',
-  'λ': '\\lambda',
-  'μ': '\\mu',
-  'π': '\\pi',
+  lim: '\\lim',
+  sup: '\\sup',
+  inf: '\\inf',
+  α: '\\alpha',
+  β: '\\beta',
+  Δ: '\\Delta',
+  θ: '\\theta',
+  λ: '\\lambda',
+  μ: '\\mu',
+  π: '\\pi',
 };
 
 export type RichContentBlock =
@@ -123,9 +123,7 @@ export function RichContentEditor({
   const [blocks, setBlocks] = useState<RichContentBlock[]>(emptyBlocks);
   const [structureLoading, setStructureLoading] = useState<number | null>(null);
   useEffect(() => {
-    setBlocks(
-      initialBlocks?.length ? initialBlocks : emptyBlocks,
-    );
+    setBlocks(initialBlocks?.length ? initialBlocks : emptyBlocks);
   }, [initialBlocks, resetKey, rawOnly]);
   const update = (index: number, patch: Partial<RichContentBlock>) =>
     setBlocks((current) =>
@@ -155,24 +153,24 @@ export function RichContentEditor({
                 ? { type, code: '\\chemical{H_2}' }
                 : type === 'contextRaw'
                   ? { type, code: '' }
-                : type === 'math'
-                  ? { type, tex: '', display: true }
-                  : type === 'chemical'
-                    ? {
-                        type,
-                        formula: '',
-                        display: true,
-                        conditionAbove: '',
-                        conditionBelow: '',
-                      }
-                    : type === 'chemicalStructure'
+                  : type === 'math'
+                    ? { type, tex: '', display: true }
+                    : type === 'chemical'
                       ? {
                           type,
-                          smiles: 'c1ccccc1',
-                          caption: '',
-                          approved: false,
+                          formula: '',
+                          display: true,
+                          conditionAbove: '',
+                          conditionBelow: '',
                         }
-                      : { type, dataUrl: '', alt: '', caption: '' },
+                      : type === 'chemicalStructure'
+                        ? {
+                            type,
+                            smiles: 'c1ccccc1',
+                            caption: '',
+                            approved: false,
+                          }
+                        : { type, dataUrl: '', alt: '', caption: '' },
     ]);
 
   const previewStructure = async (index: number, smiles: string) => {
@@ -309,17 +307,17 @@ export function RichContentEditor({
                     ? 'Equação termoquímica'
                     : block.type === 'contextFormula'
                       ? 'ConTeXt da fórmula'
-                        : block.type === 'contextInline'
-                          ? 'ConTeXt em linha'
-                          : block.type === 'contextRaw'
-                            ? 'ConTeXt puro'
-                        : block.type === 'math'
-                          ? 'Matemática'
-                          : block.type === 'chemical'
-                            ? 'Química'
-                            : block.type === 'chemicalStructure'
-                              ? 'Estrutura orgânica'
-                              : 'Imagem'}
+                      : block.type === 'contextInline'
+                        ? 'ConTeXt em linha'
+                        : block.type === 'contextRaw'
+                          ? 'ConTeXt puro'
+                          : block.type === 'math'
+                            ? 'Matemática'
+                            : block.type === 'chemical'
+                              ? 'Química'
+                              : block.type === 'chemicalStructure'
+                                ? 'Estrutura orgânica'
+                                : 'Imagem'}
             </span>
             {blocks.length > 1 && (
               <button
@@ -443,12 +441,29 @@ export function RichContentEditor({
             <div className="overflow-hidden rounded-lg border border-slate-300">
               <div className="flex flex-wrap items-center gap-1 border-b bg-slate-50 p-1.5">
                 {[
-                  { label: 'Fórmula', icon: Sigma, snippet: '\\startformula\n\\chemical{} \\stopformula' },
-                  { label: 'Química', icon: FlaskConical, snippet: '\\chemical{H_2O}' },
+                  {
+                    label: 'Fórmula',
+                    icon: Sigma,
+                    snippet: '\\startformula\n\\chemical{} \\stopformula',
+                  },
+                  {
+                    label: 'Química',
+                    icon: FlaskConical,
+                    snippet: '\\chemical{H_2O}',
+                  },
                   { label: 'Unidade', icon: Ruler, snippet: '\\unit{10 gram}' },
                   { label: 'Negrito', icon: Bold, snippet: '\\bold{texto}' },
-                  { label: 'Imagem', icon: ImageIcon, snippet: '\\externalfigure[imagens/figura.png][width=\\textwidth]' },
-                  { label: 'Lista I, II', icon: List, snippet: '\\startitemize[I]\n\\item texto\n\\stopitemize' },
+                  {
+                    label: 'Imagem',
+                    icon: ImageIcon,
+                    snippet:
+                      '\\externalfigure[imagens/figura.png][width=\\textwidth]',
+                  },
+                  {
+                    label: 'Lista I, II',
+                    icon: List,
+                    snippet: '\\startitemize[I]\n\\item texto\n\\stopitemize',
+                  },
                 ].map(({ label, icon: Icon, snippet }) => (
                   <button
                     key={label}
@@ -521,8 +536,13 @@ export function RichContentEditor({
                         aria-label={`${description}: ${symbol}`}
                         className="rounded px-1 py-1 text-lg leading-none text-slate-700 hover:bg-violet-100 hover:text-violet-700"
                         onClick={(event) => {
-                          insertRawSnippet(index, contextSymbolSnippets[symbol] ?? symbol);
-                          event.currentTarget.closest('details')?.removeAttribute('open');
+                          insertRawSnippet(
+                            index,
+                            contextSymbolSnippets[symbol] ?? symbol,
+                          );
+                          event.currentTarget
+                            .closest('details')
+                            ?.removeAttribute('open');
                         }}
                       >
                         {symbol}
@@ -784,51 +804,55 @@ export function RichContentEditor({
           )}
         </div>
       ))}
-      <div className="flex flex-wrap gap-1.5">
-        {(
-          [
-            ...(rawOnly ? [] : ['paragraph']),
-            'romanList',
-            'thermochemicalEquation',
-            'contextFormula',
-            'contextInline',
-            ...(allowRawContext ? (['contextRaw'] as const) : []),
-            'math',
-            'chemical',
-            'chemicalStructure',
-            'image',
-          ] as const
-        ).filter((type) => !rawOnly || type === 'contextRaw').map((type) => (
-          <Button
-            key={type}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => add(type)}
-          >
-            <Plus className="size-3.5" />
-            {type === 'paragraph'
-              ? 'Texto'
-              : type === 'romanList'
-                ? 'Lista I, II, III'
-                : type === 'thermochemicalEquation'
-                  ? 'Equação termoquímica'
-                  : type === 'contextFormula'
-                    ? 'ConTeXt da fórmula'
-              : type === 'contextInline'
-                ? 'ConTeXt em linha'
-                : type === 'contextRaw'
-                  ? 'ConTeXt puro'
-                      : type === 'math'
-                        ? 'Fórmula'
-                        : type === 'chemical'
-                          ? 'Química'
-                          : type === 'chemicalStructure'
-                            ? 'Estrutura'
-                            : 'Imagem'}
-          </Button>
-        ))}
-      </div>
+      {!rawOnly && (
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ...(rawOnly ? [] : ['paragraph']),
+              'romanList',
+              'thermochemicalEquation',
+              'contextFormula',
+              'contextInline',
+              ...(allowRawContext ? (['contextRaw'] as const) : []),
+              'math',
+              'chemical',
+              'chemicalStructure',
+              'image',
+            ] as const
+          )
+            .filter((type) => !rawOnly || type === 'contextRaw')
+            .map((type) => (
+              <Button
+                key={type}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => add(type)}
+              >
+                <Plus className="size-3.5" />
+                {type === 'paragraph'
+                  ? 'Texto'
+                  : type === 'romanList'
+                    ? 'Lista I, II, III'
+                    : type === 'thermochemicalEquation'
+                      ? 'Equação termoquímica'
+                      : type === 'contextFormula'
+                        ? 'ConTeXt da fórmula'
+                        : type === 'contextInline'
+                          ? 'ConTeXt em linha'
+                          : type === 'contextRaw'
+                            ? 'ConTeXt puro'
+                            : type === 'math'
+                              ? 'Fórmula'
+                              : type === 'chemical'
+                                ? 'Química'
+                                : type === 'chemicalStructure'
+                                  ? 'Estrutura'
+                                  : 'Imagem'}
+              </Button>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
