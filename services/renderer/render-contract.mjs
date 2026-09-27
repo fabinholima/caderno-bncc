@@ -605,5 +605,6 @@ export function renderAssessment(snapshot) {
       ].join(', '),
     ),
     content,
+    previewOnly: Boolean(snapshot.render?.previewOnly),
   });
 }

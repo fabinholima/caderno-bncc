@@ -55,7 +55,7 @@ function snapshotFromQuestion(question) {
     totals: { points: 1, questions: 1 },
     render: {
       locale: 'pt-BR', paper: 'A4', mode: 'student', template: 'basicexam-v1',
-      font: 'plex', fontSize: 11, showBnccSkills: Boolean(question.skill),
+      font: 'plex', fontSize: 11, showBnccSkills: Boolean(question.skill), previewOnly: true,
     },
   };
 }
