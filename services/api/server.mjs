@@ -1129,6 +1129,12 @@ const server = createServer(async (request, response) => {
           ...corsHeaders(response),
         });
         return response.end(pdf);
+      } catch (error) {
+        // Durante o desenvolvimento, devolva o diagnóstico do ConTeXt para
+        // que o editor consiga exibir o log e apontar o comando inválido.
+        return json(response, error?.statusCode || 422, {
+          error: error instanceof Error ? error.message : 'Falha ao compilar a prévia.',
+        });
       } finally {
         activePreviewUsers.delete(userId);
         activePreviewCount -= 1;
