@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createQuestionSchema } from './questions.mjs';
@@ -10,6 +11,8 @@ import {
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const previewRoot = path.join(projectRoot, 'tmp', 'pdfs');
+const previewCache = new Map();
+const previewCacheLimit = 24;
 
 function snapshotFromQuestion(question) {
   const alternatives = question.alternatives.map((alternative, index) => ({
@@ -62,6 +65,11 @@ function snapshotFromQuestion(question) {
 
 export async function createQuestionPdfPreview(input) {
   const previewInput = structuredClone(input);
+  const cacheKey = createHash('sha256')
+    .update(JSON.stringify(previewInput))
+    .digest('hex');
+  const cached = previewCache.get(cacheKey);
+  if (cached) return cached;
   if (previewInput.type === 'single_choice' && !previewInput.alternatives?.some((item) => item.isCorrect))
     previewInput.alternatives[0].isCorrect = true;
   if (previewInput.type === 'multiple_choice' && previewInput.alternatives?.filter((item) => item.isCorrect).length < 2)
@@ -75,7 +83,11 @@ export async function createQuestionPdfPreview(input) {
     const pdf = path.join(directory, 'previa.pdf');
     await writeFile(source, renderAssessment(snapshot), 'utf8');
     await compileAndValidate(source, directory, 'previa');
-    return await readFile(pdf);
+    const contents = await readFile(pdf);
+    previewCache.set(cacheKey, contents);
+    while (previewCache.size > previewCacheLimit)
+      previewCache.delete(previewCache.keys().next().value);
+    return contents;
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
