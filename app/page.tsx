@@ -1002,7 +1002,9 @@ export default function Home() {
           isCorrect: alternative.isCorrect,
           position: alternative.position,
         })),
-        answerBlocks: detail.explanation,
+        ...(detail.explanation?.length
+          ? { answerBlocks: detail.explanation }
+          : {}),
       };
       const preview = await apiFetch(`${apiUrl}/api/questions/preview`, {
         method: 'POST',
