@@ -331,6 +331,9 @@ export default function Home() {
   const [questionPreviewError, setQuestionPreviewError] = useState('');
   const [notice, setNotice] = useState('');
   const [quickPreviewQuestion, setQuickPreviewQuestion] = useState<any>(null);
+  const [quickPreviewPdfUrl, setQuickPreviewPdfUrl] = useState('');
+  const [quickPreviewLoading, setQuickPreviewLoading] = useState(false);
+  const [quickPreviewError, setQuickPreviewError] = useState('');
   const [active, setActive] = useState('Questões');
   const [curriculum, setCurriculum] = useState(curriculumDemo);
   const [highSchoolCurriculum, setHighSchoolCurriculum] = useState<
@@ -973,11 +976,52 @@ export default function Home() {
 
   async function previewQuestionInBank(question: Question) {
     if (!apiUrl) return;
+    setQuickPreviewLoading(true);
+    setQuickPreviewError('');
     const response = await apiFetch(`${apiUrl}/api/questions/${question.id}`);
     if (response.ok) {
       const body = (await response.json()) as { data: any };
-      setQuickPreviewQuestion(body.data);
+      const detail = body.data;
+      setQuickPreviewQuestion(detail);
+      const input = {
+        type: detail.type,
+        statement: detail.statement.map((node: any) => node.text || node.code || '').join('\n'),
+        statementBlocks: detail.statement,
+        subject: detail.subject,
+        grade: detail.grade,
+        sourceInstitution: detail.sourceInstitution,
+        sourceYear: detail.sourceYear,
+        skill: detail.skills?.[0]?.code || '',
+        pedagogicalTopicId: detail.pedagogicalTopicId || '',
+        knowledgeTopic: detail.knowledgeTopic || '',
+        difficulty: detail.difficulty === 'hard' ? 'Difícil' : detail.difficulty === 'easy' ? 'Fácil' : 'Média',
+        alternatives: detail.alternatives.map((alternative: any) => ({
+          stableKey: alternative.stableKey,
+          content: alternative.content.map((node: any) => node.text || node.code || '').join(' '),
+          contentBlocks: alternative.content,
+          isCorrect: alternative.isCorrect,
+          position: alternative.position,
+        })),
+        answerBlocks: detail.explanation,
+      };
+      const preview = await apiFetch(`${apiUrl}/api/questions/preview`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!preview.ok) {
+        const error = await preview.json().catch(() => ({}));
+        throw new Error(error.error || 'Não foi possível compilar a prévia.');
+      }
+      const nextUrl = URL.createObjectURL(await preview.blob());
+      setQuickPreviewPdfUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return nextUrl;
+      });
+    } else {
+      throw new Error('Não foi possível carregar a questão.');
     }
+    setQuickPreviewLoading(false);
   }
 
   async function removeQuestion(question: Question) {
@@ -1739,7 +1783,16 @@ export default function Home() {
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`Visualizar ${q.code}`}
-                              onClick={() => previewQuestionInBank(q)}
+                              onClick={() =>
+                                previewQuestionInBank(q).catch((error) => {
+                                  setQuickPreviewError(
+                                    error instanceof Error
+                                      ? error.message
+                                      : 'Erro ao compilar a prévia.',
+                                  );
+                                  setQuickPreviewLoading(false);
+                                })
+                              }
                             >
                               <Eye />
                             </Button>
@@ -2742,20 +2795,11 @@ export default function Home() {
                 <p className="font-mono text-xs font-semibold text-blue-700">{quickPreviewQuestion.code}</p>
                 <p className="text-xs text-slate-500">{quickPreviewQuestion.subject} · {quickPreviewQuestion.grade}</p>
               </div>
-              <button type="button" className="text-slate-500 hover:text-slate-900" onClick={() => setQuickPreviewQuestion(null)} aria-label="Fechar prévia"><X /></button>
+              <button type="button" className="text-slate-500 hover:text-slate-900" onClick={() => { setQuickPreviewQuestion(null); setQuickPreviewError(''); if (quickPreviewPdfUrl) URL.revokeObjectURL(quickPreviewPdfUrl); setQuickPreviewPdfUrl(''); }} aria-label="Fechar prévia"><X /></button>
             </div>
-            <div className="space-y-4 text-sm leading-6 text-slate-800">
-              <p className="whitespace-pre-wrap">{readableStatement((quickPreviewQuestion.statement || []).map((node: any) => node.text || node.code || '').join('\n'))}</p>
-              {quickPreviewQuestion.alternatives?.length > 0 && (
-                <ol className="space-y-2" type="A">
-                  {quickPreviewQuestion.alternatives.map((alternative: any) => (
-                    <li key={alternative.stableKey} className={alternative.isCorrect ? 'font-semibold text-emerald-700' : ''}>
-                      {alternative.content?.map((node: any) => node.text || node.code || '').join(' ')}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
+            {quickPreviewLoading && <p className="text-sm text-slate-500">Compilando prévia com ConTeXt...</p>}
+            {quickPreviewError && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-red-950 p-3 text-xs text-red-100">{quickPreviewError}</pre>}
+            {quickPreviewPdfUrl && <iframe title={`Prévia ConTeXt ${quickPreviewQuestion.code}`} src={quickPreviewPdfUrl} className="h-[65vh] w-full rounded-lg border bg-white" />}
           </section>
         </div>
       )}
