@@ -8,6 +8,7 @@ import {
 } from '../../lib/render-templates.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 import { pool, transaction } from './db.mjs';
+import { schoolHeader } from './educator-profile.mjs';
 
 export const logoDataUrlSchema = z
   .string()
@@ -22,7 +23,7 @@ export const logoDataUrlSchema = z
   }, 'O logotipo deve ter no máximo 400 KB.');
 
 export const assessmentHeaderSchema = z.object({
-  institutionName: z.string().trim().min(2).max(180),
+  institutionName: z.string().trim().min(2).max(300),
   teacherName: z.string().trim().max(160).default(''),
   className: z.string().trim().max(80).default(''),
   term: z.string().trim().max(80).default(''),
@@ -36,6 +37,7 @@ export const createAssessmentSchema = z
     title: z.string().trim().min(5).max(180),
     grade: z.string().trim().min(2).max(40),
     header: assessmentHeaderSchema.optional(),
+    schoolId: z.uuid().optional(),
     sections: z
       .array(
         z.object({
@@ -119,6 +121,7 @@ export async function createAssessment({ institutionId, userId, input }) {
       ? value.sections[0].subject
       : 'Multidisciplinar';
   return transaction(async (client) => {
+    if (value.schoolId) value.header = { ...value.header, ...await schoolHeader(client,userId,value.schoolId) };
     const institution = await client.query(
       'SELECT name FROM institutions WHERE id = $1',
       [institutionId],

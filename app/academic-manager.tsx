@@ -12,7 +12,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 
@@ -952,15 +952,14 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
                   Ver relatório
                 </Button>
                 {x.students > 0 && x.completed === x.students && (
-                  <Button asChild type="button" size="sm">
-                    <a
-                      href={`${apiUrl}/api/assessment-applications/${x.id}/pdf`}
-                      download
-                    >
-                      <Download />
-                      Baixar lote
-                    </a>
-                  </Button>
+                  <a
+                    className={buttonVariants({ size: 'sm' })}
+                    href={`${apiUrl}/api/assessment-applications/${x.id}/pdf`}
+                    download
+                  >
+                    <Download />
+                    Baixar lote
+                  </a>
                 )}
               </div>
             </div>

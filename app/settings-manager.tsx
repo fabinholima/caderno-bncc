@@ -5,6 +5,8 @@ import { CreditCard, ShieldCheck, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
+import { BillingManager } from './billing-manager';
+import { EducatorProfile } from './educator-profile';
 
 type Subscription = {
   name: string;
@@ -33,8 +35,11 @@ export function SettingsManager({
   const [catalogStage, setCatalogStage] = useState<'Ensino Médio' | 'Ensino Fundamental'>('Ensino Médio');
   useEffect(() => {
     apiFetch(`${apiUrl}/api/subscription`)
-      .then((response) => response.json())
-      .then((body) => setSubscription(body.data || null))
+      .then(async (response) => {
+        const body = await response.json() as { data?: Subscription; error?: string };
+        if (!response.ok) throw new Error(body.error || 'Não foi possível consultar o plano.');
+        setSubscription(body.data || null);
+      })
       .catch(() => setMessage('Não foi possível consultar o plano.'));
   }, [apiUrl]);
   async function invite(event: FormEvent<HTMLFormElement>) {
@@ -87,9 +92,13 @@ export function SettingsManager({
       const response = await apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics/import`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(catalog),
       });
-      const body = await response.json();
-      setMessage(response.ok ? `Catálogo importado: ${body.data.subjects.length} disciplina(s).` : body.error || 'Importação rejeitada.');
-      if (response.ok) setCatalog(null);
+      const body = await response.json() as { data?: { subjects: unknown[] }; error?: string };
+      if (!response.ok || !body.data) {
+        setMessage(body.error || 'Importação rejeitada.');
+        return;
+      }
+      setMessage(`Catálogo importado: ${body.data.subjects.length} disciplina(s).`);
+      setCatalog(null);
     } catch { setMessage('Não foi possível conectar à API.'); }
     finally { setImporting(false); }
   }
@@ -99,6 +108,8 @@ export function SettingsManager({
         Administração
       </p>
       <h1 className="font-display mt-1 text-3xl font-bold">Configurações</h1>
+      <BillingManager apiUrl={apiUrl} role={role} />
+      <EducatorProfile apiUrl={apiUrl} />
       {message && (
         <p role="status" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm">
           {message}

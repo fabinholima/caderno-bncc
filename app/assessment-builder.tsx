@@ -1,4 +1,5 @@
 'use client';
+import type { EducatorData, School } from './educator-profile';
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -165,6 +166,26 @@ export function AssessmentBuilder({
     'Instituição de ensino',
   );
   const [teacherName, setTeacherName] = useState('');
+  const [schools, setSchools] = useState<School[]>([]);
+  const [schoolId, setSchoolId] = useState('');
+  useEffect(() => {
+    let active = true;
+    apiFetch(`${apiUrl}/api/educator-profile`).then(async response => {
+      if (!response.ok) throw new Error('Não foi possível carregar as escolas.');
+      return await response.json() as { data: EducatorData };
+    }).then(body => {
+      if (!active) return;
+      setSchools(body.data.schools);
+      setTeacherName(current => current || body.data.teacherName);
+      const first = body.data.schools[0];
+      if (first) {
+        setSchoolId(first.id || '');
+        setInstitutionName(`${first.name} — ${first.city}/${first.state}`);
+        setLogoDataUrl(first.logoDataUrl);
+      }
+    }).catch(() => { if (active) setMessage('Não foi possível carregar as escolas do seu cadastro.'); });
+    return () => { active = false; };
+  }, [apiUrl]);
   const [className, setClassName] = useState('');
   const [term, setTerm] = useState('');
   const [assessmentDate, setAssessmentDate] = useState('');
@@ -504,6 +525,7 @@ export function AssessmentBuilder({
   }
 
   function chooseLogo(file?: File) {
+    setSchoolId('');
     if (!file) return;
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
       setMessage('Escolha um logotipo em PNG ou JPEG.');
@@ -525,6 +547,7 @@ export function AssessmentBuilder({
   }
 
   function applyPreset(preset: AssessmentPreset) {
+    setSchoolId('');
     const { configuration } = preset;
     setInstitutionName(configuration.header.institutionName);
     setTeacherName(configuration.header.teacherName);
@@ -631,6 +654,7 @@ export function AssessmentBuilder({
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
+            ...(schoolId ? { schoolId } : {}),
             title,
             grade,
             header: {
@@ -1138,11 +1162,26 @@ export function AssessmentBuilder({
             </div>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold">
-                Nome da instituição
+                Escola cadastrada para o cabeçalho
+              </span>
+              <select className="mb-3 w-full rounded-lg border p-2" value={schoolId} onChange={event => {
+                const id=event.target.value;
+                setSchoolId(id);
+                const school=schools.find(item=>item.id===id);
+                if(school){setInstitutionName(`${school.name} — ${school.city}/${school.state}`);setLogoDataUrl(school.logoDataUrl);}
+                setGenerated(false);
+              }}>
+                <option value="">Cabeçalho personalizado</option>
+                {schools.map(school=><option key={school.id} value={school.id}>{school.name} — {school.city}/{school.state}</option>)}
+              </select>
+            </label>
+            <label className="mt-4 block">
+              <span className="mb-2 block text-sm font-semibold">
+                Nome da instituição / município
               </span>
               <Input
                 value={institutionName}
-                onChange={(event) => setInstitutionName(event.target.value)}
+                onChange={(event) => { setSchoolId(''); setInstitutionName(event.target.value); }}
                 placeholder="Ex.: Escola Municipal Paulo Freire"
               />
             </label>
@@ -1180,6 +1219,7 @@ export function AssessmentBuilder({
                       <button
                         type="button"
                         onClick={() => {
+                          setSchoolId('');
                           setLogoDataUrl('');
                           setGenerated(false);
                         }}

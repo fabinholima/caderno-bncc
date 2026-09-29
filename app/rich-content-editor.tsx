@@ -808,7 +808,7 @@ export function RichContentEditor({
         <div className="flex flex-wrap gap-1.5">
           {(
             [
-              ...(rawOnly ? [] : ['paragraph']),
+              'paragraph',
               'romanList',
               'thermochemicalEquation',
               'contextFormula',
