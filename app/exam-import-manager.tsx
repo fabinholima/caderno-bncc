@@ -562,7 +562,7 @@ function candidateMatchesReviewFilters(
 function blockPlainText(block: RichContentBlock) {
   if (block.type === 'paragraph') return block.text;
   if (block.type === 'romanList') return block.items.join(' ');
-  if (block.type === 'contextFormula' || block.type === 'contextInline')
+  if (block.type === 'contextFormula' || block.type === 'contextInline' || block.type === 'contextRaw')
     return block.code;
   if (block.type === 'math') return block.tex;
   if (block.type === 'chemical') return block.formula;

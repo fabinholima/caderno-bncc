@@ -17,6 +17,7 @@ test('cadastro exige senha longa e e-mail válido', () => {
       displayName: 'Professor Exemplo',
       email: 'PROFESSOR@EXEMPLO.COM',
       password: 'SenhaSegura123!',
+      cpf: '123.456.789-09',
     }).email,
     'professor@exemplo.com',
   );
@@ -26,6 +27,7 @@ test('cadastro exige senha longa e e-mail válido', () => {
       displayName: 'Professor',
       email: 'invalido',
       password: 'curta',
+      cpf: '00000000000',
     }),
   );
 });

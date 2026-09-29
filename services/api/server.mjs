@@ -1,4 +1,8 @@
 import { createServer } from 'node:http';
+import { switchBank, globalBankRouteAllowed } from './portal-admin.mjs';
+import { getEducatorProfile, saveEducatorProfile } from './educator-profile.mjs';
+import { googleConfigured, startGoogle, finishGoogle } from './google-auth.mjs';
+import { billingStatus, createCheckout, cancelBilling, billingWebhook } from './billing.mjs';
 import { ZodError } from 'zod';
 import { pool } from './db.mjs';
 import {
@@ -91,6 +95,7 @@ import {
 import {
   acceptInvitation,
   authenticate,
+  completeCpf,
   createInvitation,
   getSubscription,
   login,
@@ -178,12 +183,56 @@ function clearSessionCookie(response) {
   );
 }
 
+const authAttempts = new Map();
+function allowAuthAttempt(key) {
+  const now = Date.now();
+  for (const [ip, value] of authAttempts) if (value.until <= now) authAttempts.delete(ip);
+  const current = authAttempts.get(key) || { count: 0, until: now + 15 * 60_000 };
+  if (!authAttempts.has(key) && authAttempts.size >= 10000) return false;
+  authAttempts.set(key, current);
+  return ++current.count <= 30;
+}
+function oauthCookie(value, age) {
+  return `caderno_oauth=${value}; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=${age}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+}
+
 const server = createServer(async (request, response) => {
   const requestOrigin = request.headers.origin;
   response.corsOrigin = allowedOrigins.has(requestOrigin) ? requestOrigin : '';
   if (request.method === 'OPTIONS') return json(response, 204, null);
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
+    if (request.method === 'GET' && url.pathname === '/api/auth/config')
+      return json(response, 200, { data: { google: googleConfigured(), passwordRecovery: process.env.NODE_ENV !== 'production' && process.env.AUTH_DEV_RESET_TOKENS === 'true' } });
+    if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      if (['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/forgot-password', '/api/auth/reset-password'].includes(url.pathname)) {
+        if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
+          return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
+      }
+    }
+    if (request.method === 'POST' && url.pathname === '/api/auth/google/start') {
+      const result = await startGoogle(await readJson(request, 4096));
+      response.setHeader('set-cookie', oauthCookie(result.browser, 600));
+      return json(response, 200, { data: { url: result.url } });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/auth/google/callback') {
+      if (!googleConfigured()) return json(response, 503, { error: 'Login Google não configurado.' });
+      const destination = new URL('/portal', process.env.AUTH_FRONTEND_URL);
+      try {
+        const result = await finishGoogle(url, request.headers.cookie);
+        setSessionCookie(response, result.token);
+        response.setHeader('set-cookie', [response.getHeader('set-cookie'), oauthCookie('', 0)]);
+      } catch (error) {
+        destination.searchParams.set('auth_error', error.statusCode === 428 ? 'registration_required' : error.statusCode === 409 || error.code === '23505' ? 'existing_account' : 'google_failed');
+        response.setHeader('set-cookie', oauthCookie('', 0));
+      }
+      response.writeHead(303, { location: destination.href, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+      return response.end();
+    }
+    if (request.method === 'POST' && url.pathname === '/api/billing/webhook')
+      return json(response, 200, { data: await billingWebhook(request, url, await readJson(request, 64000)) });
     if (request.method === 'GET' && url.pathname === '/health') {
       await pool.query('SELECT 1');
       return json(response, 200, { status: 'ok' });
@@ -218,6 +267,33 @@ const server = createServer(async (request, response) => {
     if (!identity)
       return json(response, 401, { error: 'Faça login para continuar.' });
     const { institutionId, userId, role } = identity;
+    if (request.method === 'POST' && url.pathname === '/api/admin/bank-context') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
+      return json(response,200,{data:await switchBank(identity,await readJson(request,1024))});
+    }
+    if (identity.globalBank && !globalBankRouteAllowed(url.pathname))
+      return json(response,403,{error:'Este recurso pertence ao espaço pessoal. Saia do banco geral para acessá-lo.'});
+    if (request.method === 'POST' && url.pathname === '/api/auth/complete-cpf')
+      return json(response, 200, { data: await completeCpf(identity, await readJson(request, 4096)) });
+    if (!identity.portalAdmin && !identity.cpfComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
+      return json(response, 428, { error: 'Complete o cadastro com seu CPF para continuar.' });
+    if (request.method === 'GET' && url.pathname === '/api/educator-profile')
+      return json(response, 200, { data: await getEducatorProfile(userId) });
+    if (request.method === 'POST' && url.pathname === '/api/educator-profile') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, { data: await saveEducatorProfile(userId, await readJson(request, 650000)) });
+    }
+    if (!identity.portalAdmin && !identity.profileComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
+      return json(response, 428, { error: 'Complete seu perfil e cadastre sua escola para continuar.' });
+    if (request.method === 'GET' && url.pathname === '/api/billing')
+      return json(response, 200, { data: await billingStatus(identity) });
+    if (request.method === 'POST' && ['/api/billing/checkout', '/api/billing/cancel'].includes(url.pathname)) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      return json(response, 200, { data: url.pathname.endsWith('/checkout')
+        ? await createCheckout(identity, await readJson(request, 4096))
+        : await cancelBilling(identity) });
+    }
     if (request.method === 'POST' && url.pathname === '/api/auth/logout') {
       await logout(identity.sessionId);
       clearSessionCookie(response);
@@ -230,12 +306,16 @@ const server = createServer(async (request, response) => {
             id: identity.userId,
             email: identity.email,
             displayName: identity.displayName,
+            cpfComplete: Boolean(identity.cpfComplete),
+            profileComplete: Boolean(identity.profileComplete),
           },
           institution: {
             id: identity.institutionId,
             name: identity.institutionName,
           },
           role: identity.role,
+          portalAdmin: Boolean(identity.portalAdmin),
+          globalBank: Boolean(identity.globalBank),
         },
       });
     if (request.method === 'GET' && url.pathname === '/api/exam-imports')
@@ -1218,6 +1298,8 @@ const server = createServer(async (request, response) => {
     }
     return json(response, 404, { error: 'Rota não encontrada.' });
   } catch (error) {
+    if (error.code === '23505' && (error.constraint === 'users_cpf_hash_unique' || error.constraint === 'users_email_key'))
+      return json(response, 409, { error: 'Já existe cadastro com os dados informados. Entre na conta existente ou procure suporte.' });
     if (error instanceof ZodError)
       return json(response, 422, {
         error: error.issues.map((issue) => issue.message).join(' '),

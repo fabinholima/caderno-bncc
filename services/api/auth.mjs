@@ -2,11 +2,14 @@ import crypto from 'node:crypto';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { cpfFingerprint, normalizeCpf } from './cpf.mjs';
+import { resolvePortalContext } from './portal-admin.mjs';
 
 const scrypt = promisify(crypto.scrypt);
 const email = z.string().trim().toLowerCase().email().max(254);
 const password = z.string().min(10).max(200);
 export const registerSchema = z.object({
+  cpf: z.string().refine((value) => Boolean(normalizeCpf(value)), 'Informe um CPF válido.'),
   institutionName: z.string().trim().min(2).max(160),
   displayName: z.string().trim().min(2).max(160),
   email,
@@ -56,8 +59,8 @@ function slugify(value) {
 async function createSession(client, userId) {
   const token = randomToken();
   await client.query(
-    `INSERT INTO user_sessions(user_id,token_hash,expires_at)
-     VALUES($1,$2,now()+interval '30 days')`,
+    `INSERT INTO user_sessions(user_id,token_hash,expires_at,global_bank)
+     SELECT id,$2,now()+interval '30 days',portal_admin FROM users WHERE id=$1`,
     [userId, tokenHash(token)],
   );
   return token;
@@ -65,23 +68,27 @@ async function createSession(client, userId) {
 
 export async function register(input) {
   const value = registerSchema.parse(input);
+  const cpfHash = cpfFingerprint(value.cpf);
   return transaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [value.email]);
+    const existing = await client.query('SELECT id FROM users WHERE lower(email)=$1', [value.email]);
+    if (existing.rowCount) throw Object.assign(new Error('Não foi possível cadastrar este e-mail. Tente entrar na sua conta.'), { statusCode: 409 });
     const institution = await client.query(
       `INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id,name`,
       [value.institutionName, slugify(value.institutionName)],
     );
     const user = await client.query(
-      `INSERT INTO users(email,display_name,password_hash)
-       VALUES($1,$2,$3) RETURNING id,email,display_name`,
-      [value.email, value.displayName, await hashPassword(value.password)],
+      `INSERT INTO users(email,display_name,password_hash,cpf_hash)
+       VALUES($1,$2,$3,$4) RETURNING id,email,display_name`,
+      [value.email, value.displayName, await hashPassword(value.password),cpfHash],
     );
     await client.query(
       `INSERT INTO memberships(institution_id,user_id,role) VALUES($1,$2,'admin')`,
       [institution.rows[0].id, user.rows[0].id],
     );
     await client.query(
-      `INSERT INTO institution_subscriptions(institution_id,plan_id)
-       VALUES($1,'trial')`,
+      `INSERT INTO institution_subscriptions(institution_id,plan_id,period_started_at,period_ends_at)
+       VALUES($1,'trial',now(),now()+interval '7 days')`,
       [institution.rows[0].id],
     );
     const token = await createSession(client, user.rows[0].id);
@@ -100,6 +107,30 @@ export async function register(input) {
       institution: institution.rows[0],
       role: 'admin',
     };
+  });
+}
+
+export async function loginWithGoogle(profile, cpfHash) {
+  return transaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [profile.email]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`google:${profile.sub}`]);
+    let user = (await client.query('SELECT id,active FROM users WHERE google_subject=$1', [profile.sub])).rows[0];
+    if (user && !user.active) throw Object.assign(new Error('Conta indisponível.'), { statusCode: 403 });
+    if (!user) {
+      if (!cpfHash) throw Object.assign(new Error('Complete o cadastro com CPF antes de criar sua conta Google.'), { statusCode: 428 });
+      const existing = await client.query('SELECT id FROM users WHERE lower(email)=$1', [profile.email]);
+      if (existing.rowCount) throw Object.assign(new Error('Entre com a senha da conta existente. A vinculação automática ao Google não é permitida.'), { statusCode: 409 });
+      const institutionName = `Espaço de ${profile.name || 'Professor'}`;
+      const institution = await client.query('INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id', [institutionName,slugify(institutionName)]);
+      user = (await client.query('INSERT INTO users(email,display_name,google_subject,cpf_hash) VALUES($1,$2,$3,$4) RETURNING id,active', [profile.email,profile.name || 'Professor',profile.sub,cpfHash])).rows[0];
+      await client.query("INSERT INTO memberships(institution_id,user_id,role) VALUES($1,$2,'admin')", [institution.rows[0].id,user.id]);
+      await client.query("INSERT INTO institution_subscriptions(institution_id,plan_id,period_started_at,period_ends_at) VALUES($1,'trial',now(),now()+interval '7 days')", [institution.rows[0].id]);
+    }
+    const membership = await client.query('SELECT institution_id FROM memberships WHERE user_id=$1 LIMIT 1', [user.id]);
+    if (!membership.rowCount) throw Object.assign(new Error('Conta sem instituição vinculada.'), { statusCode: 403 });
+    const token = await createSession(client,user.id);
+    await client.query("INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.google.login')", [membership.rows[0].institution_id,user.id]);
+    return { token };
   });
 }
 
@@ -130,6 +161,13 @@ export async function login(input) {
     institution: { id: row.institution_id, name: row.institution_name },
     role: row.role,
   };
+}
+
+export async function completeCpf(identity, input) {
+  const fingerprint = cpfFingerprint(input?.cpf);
+  const updated = await pool.query('UPDATE users SET cpf_hash=$2 WHERE id=$1 AND cpf_hash IS NULL RETURNING id', [identity.userId,fingerprint]);
+  if (!updated.rowCount) throw Object.assign(new Error('CPF já cadastrado nesta conta. Alterações exigem suporte.'), { statusCode: 409 });
+  return { completed: true };
 }
 
 export async function authenticate(request) {
@@ -171,7 +209,8 @@ export async function authenticate(request) {
   const token = /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
   if (!token) return null;
   const result = await pool.query(
-    `SELECT s.id session_id,u.id user_id,u.email,u.display_name,
+    `SELECT s.id session_id,s.global_bank,u.portal_admin,u.id user_id,u.email,u.display_name,u.cpf_hash,
+            (EXISTS(SELECT 1 FROM educator_profiles ep WHERE ep.user_id=u.id) AND EXISTS(SELECT 1 FROM educator_schools es WHERE es.user_id=u.id)) profile_complete,
             m.institution_id,m.role,i.name institution_name
      FROM user_sessions s JOIN users u ON u.id=s.user_id AND u.active
      JOIN memberships m ON m.user_id=u.id
@@ -185,15 +224,18 @@ export async function authenticate(request) {
   await pool.query('UPDATE user_sessions SET last_seen_at=now() WHERE id=$1', [
     row.session_id,
   ]);
-  return {
+  return resolvePortalContext({
     sessionId: row.session_id,
+    portalAdmin: Boolean(row.portal_admin),
+    cpfComplete: Boolean(row.cpf_hash),
+    profileComplete: Boolean(row.profile_complete),
     userId: row.user_id,
     email: row.email,
     displayName: row.display_name,
     institutionId: row.institution_id,
     institutionName: row.institution_name,
     role: row.role,
-  };
+  }, row.global_bank);
 }
 
 export async function logout(sessionId) {
@@ -202,6 +244,8 @@ export async function logout(sessionId) {
 }
 
 export async function requestPasswordReset(input) {
+  if (process.env.NODE_ENV === 'production' || process.env.AUTH_DEV_RESET_TOKENS !== 'true')
+    throw Object.assign(new Error('O envio de e-mail de recuperação ainda não está configurado. Solicite ao administrador do servidor um link temporário de recuperação.'), { statusCode: 503 });
   const value = forgotSchema.parse(input);
   const user = await pool.query(
     'SELECT id FROM users WHERE email=$1 AND active',
@@ -301,10 +345,10 @@ export async function acceptInvitation(identity, input) {
 
 export async function getSubscription(identity) {
   const result = await pool.query(
-    `SELECT sp.*,sub.status,sub.period_started_at,sub.period_ends_at,
+    `SELECT sp.*,CASE WHEN sub.period_ends_at <= now() THEN 'past_due' ELSE sub.status END status,sub.period_started_at,sub.period_ends_at,
        COALESCE((SELECT sum(quantity) FROM usage_events ue
                  WHERE ue.institution_id=sub.institution_id AND ue.kind='assessment'
-                   AND ue.created_at>=sub.period_started_at),0)::int assessments_used,
+                   AND ue.created_at>=GREATEST(sub.period_started_at,date_trunc('month',now()))),0)::int assessments_used,
        (SELECT count(*)::int FROM students s
         WHERE s.institution_id=sub.institution_id AND s.active) students_used
      FROM institution_subscriptions sub
@@ -317,10 +361,10 @@ export async function getSubscription(identity) {
 
 export async function assertInstitutionLimit({ institutionId, kind }) {
   const subscription = await pool.query(
-    `SELECT sp.monthly_assessments,sp.max_students,sub.period_started_at
+    `SELECT sp.monthly_assessments,sp.max_students,GREATEST(sub.period_started_at,date_trunc('month',now())) period_started_at
      FROM institution_subscriptions sub
      JOIN subscription_plans sp ON sp.id=sub.plan_id
-     WHERE sub.institution_id=$1 AND sub.status IN ('trialing','active')`,
+     WHERE sub.institution_id=$1 AND sub.status IN ('trialing','active') AND sub.period_ends_at>now()`,
     [institutionId],
   );
   if (!subscription.rowCount)

@@ -31,6 +31,9 @@ import { RichContentEditor } from './rich-content-editor';
 import { AcademicManager } from './academic-manager';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
+import { CompleteCpf } from './complete-cpf';
+import { EducatorProfile } from './educator-profile';
+import { PortalAdminSwitch } from './portal-admin-switch';
 import { SettingsManager } from './settings-manager';
 import { ExamImportManager } from './exam-import-manager';
 import {
@@ -518,7 +521,7 @@ export default function Home() {
       const target = new URL(configuredApiUrl || fallback);
       // Usa o mesmo host aberto pelo usuário. Assim o cookie funciona tanto em
       // localhost quanto no celular pela rede local.
-      target.hostname = window.location.hostname;
+      if (!configuredApiUrl) target.hostname = window.location.hostname;
       setApiUrl(target.origin);
     } catch {
       setApiUrl(fallback);
@@ -533,6 +536,7 @@ export default function Home() {
         return ((await response.json()) as { data: AuthIdentity }).data;
       })
       .then(setIdentity)
+      .catch(() => setIdentity(null))
       .finally(() => setAuthReady(true));
   }, [apiUrl]);
 
@@ -1015,8 +1019,12 @@ export default function Home() {
         body: JSON.stringify(input),
       });
       if (!preview.ok) {
-        const error = await preview.json().catch(() => ({}));
-        throw new Error(error.error || 'Não foi possível compilar a prévia.');
+        const error: unknown = await preview.json().catch(() => ({}));
+        throw new Error(
+          error && typeof error === 'object' && 'error' in error && typeof error.error === 'string'
+            ? error.error
+            : 'Não foi possível compilar a prévia.',
+        );
       }
       const nextUrl = URL.createObjectURL(await preview.blob());
       setQuickPreviewPdfUrl((current) => {
@@ -1093,6 +1101,9 @@ export default function Home() {
       </main>
     );
   if (!identity) return <AuthScreen apiUrl={apiUrl} />;
+  if (!identity.portalAdmin && !identity.user.cpfComplete) return <CompleteCpf apiUrl={apiUrl} />;
+  if (!identity.portalAdmin && !identity.user.profileComplete) return <EducatorProfile apiUrl={apiUrl} onboarding />;
+  const visibleNav = identity.globalBank ? nav.filter(([label]) => ['Questões','Importar provas','Planejamento'].includes(label)) : nav;
 
   return (
     <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
@@ -1114,7 +1125,7 @@ export default function Home() {
           <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">
             Espaço de trabalho
           </p>
-          {nav.map(([label, Icon]) => (
+          {visibleNav.map(([label, Icon]) => (
             <button
               key={label}
               onClick={() =>
@@ -1139,13 +1150,13 @@ export default function Home() {
           ))}
         </nav>
         <div className="border-t border-white/10 p-3">
-          <button
+          {!identity.globalBank && <button
             onClick={() => setActive('Configurações')}
             className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7"
           >
             <Settings className="size-[18px]" />
             Configurações
-          </button>
+          </button>}
           <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/6 p-3">
             <span className="grid size-9 place-items-center rounded-full bg-cyan-200 text-xs font-bold text-cyan-950">
               {identity.user.displayName
@@ -1160,7 +1171,7 @@ export default function Home() {
                 {identity.user.displayName}
               </p>
               <p className="truncate text-xs text-slate-400">
-                {identity.role === 'admin'
+                {identity.portalAdmin ? 'Administrador do portal' : identity.role === 'admin'
                   ? 'Administrador'
                   : identity.role === 'coordinator'
                     ? 'Coordenador'
@@ -1191,6 +1202,7 @@ export default function Home() {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {identity.portalAdmin && <PortalAdminSwitch apiUrl={apiUrl} globalBank={Boolean(identity.globalBank)} />}
             <Button variant="ghost" size="icon" aria-label="Ajuda">
               <CircleHelp />
             </Button>
@@ -1207,8 +1219,8 @@ export default function Home() {
           className="sticky top-[76px] z-20 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3 lg:hidden"
         >
           {[
-            ...nav.filter(([label]) => label !== 'Visão geral'),
-            ['Configurações', Settings] as const,
+            ...visibleNav.filter(([label]) => label !== 'Visão geral'),
+            ...(!identity.globalBank ? [['Configurações', Settings] as const] : []),
           ].map(([label, Icon]) => (
             <button
               key={label}
@@ -2262,7 +2274,7 @@ export default function Home() {
                             setCompetencyId(nextCompetency);
                             setSelectedSkillCode(
                               availableSkills.find(
-                                (item) => item.competency_id === nextCompetency,
+                                (item) => 'competency_id' in item && item.competency_id === nextCompetency,
                               )?.skill_code || '',
                             );
                             setSkillInfoOpen(false);
@@ -2452,7 +2464,7 @@ export default function Home() {
                         const skill = availableSkills.find(
                           (item) => item.skill_code === skillCode,
                         );
-                        if (skill?.competency_id)
+                        if (skill && 'competency_id' in skill && skill.competency_id)
                           setCompetencyId(skill.competency_id);
                         setSkillInfoOpen(false);
                       }}
@@ -2464,8 +2476,10 @@ export default function Home() {
                           key={item.skill_code || 'skill'}
                           value={item.skill_code || ''}
                         >
-                          {item.skill_code} · Competência{' '}
-                          {item.competency_number}
+                          {item.skill_code}
+                          {'competency_number' in item && item.competency_number != null
+                            ? ` · Competência ${item.competency_number}`
+                            : ''}
                         </option>
                       ))}
                     </select>
