@@ -29,6 +29,7 @@ test(
     let paymentStatus = 'approved';
     let providerStatus = 'pending';
     let paymentAmount = 29.9;
+    let refundedAmount = 0;
     let ref;
     globalThis.fetch = async (url, options) => {
       const path = new URL(url).pathname;
@@ -53,6 +54,7 @@ test(
         data = {
           id: 'payment1',
           transaction_amount: paymentAmount,
+          transaction_amount_refunded: refundedAmount,
           currency_id: 'BRL',
           status: paymentStatus,
           date_approved: new Date().toISOString(),
@@ -73,7 +75,7 @@ test(
       );
     };
     try {
-      await pool.query(`CREATE TABLE institutions(id uuid PRIMARY KEY);
+      await pool.query(`CREATE TABLE users(id uuid PRIMARY KEY); CREATE TABLE user_sessions(id uuid PRIMARY KEY); CREATE TABLE institutions(id uuid PRIMARY KEY);
       CREATE TABLE subscription_plans(id text PRIMARY KEY,name text,monthly_assessments int,max_students int,storage_mb int,concurrent_renders int);
       CREATE TABLE institution_subscriptions(institution_id uuid PRIMARY KEY,plan_id text,status text,period_started_at timestamptz,period_ends_at timestamptz,updated_at timestamptz);`);
       await pool.query(
@@ -82,6 +84,7 @@ test(
           'utf8',
         ),
       );
+      await pool.query(await readFile(new URL('../../database/047_admin_reporting.sql',import.meta.url),'utf8'));
       const identity = {
         institutionId: randomUUID(),
         role: 'admin',
@@ -158,8 +161,17 @@ test(
         createCheckout(identity, { plan: 'escola', cycle: 'monthly' }),
         /período pago/,
       );
-      paymentStatus = 'refunded';
+      refundedAmount = 10;
       await notify('payment', 'payment1');
+      await notify('payment', 'payment1');
+      refundedAmount = 20;
+      await notify('payment', 'payment1');
+      paymentStatus = 'refunded';
+      refundedAmount = paymentAmount;
+      await notify('payment', 'payment1');
+      await notify('payment', 'payment1');
+      assert.equal((await pool.query('SELECT count(*)::int n,sum(amount_cents)::int cents FROM billing_refund_events')).rows[0].n,3);
+      assert.equal((await pool.query('SELECT sum(amount_cents)::int cents FROM billing_refund_events')).rows[0].cents,2990);
       assert.equal(
         (await pool.query('SELECT status FROM institution_subscriptions'))
           .rows[0].status,

@@ -49,6 +49,7 @@ type HighSchoolItem = {
 type PedagogicalDiscipline = {
   id: string;
   name: string;
+  stage: string;
   area_source_key: string;
   skills: Array<{ id: string; code: string }>;
 };
@@ -806,7 +807,7 @@ export function CurriculumManager({
                     }}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                   >
-                    {pedagogicalDisciplines.map((discipline) => (
+                    {pedagogicalDisciplines.filter((discipline) => discipline.stage === educationStage).map((discipline) => (
                       <option key={discipline.id} value={discipline.id}>
                         {discipline.name}
                       </option>
@@ -1270,6 +1271,7 @@ export function CurriculumManager({
             )}
             <Button
               disabled={
+                role === 'teacher' ||
                 saving ||
                 (mode === 'object' && !subjects.length) ||
                 (mode === 'skill' && !objects.length)

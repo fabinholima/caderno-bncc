@@ -1,5 +1,7 @@
 # Administrador do portal
 
+> Atualização: a navegação por dois contextos descrita abaixo foi substituída pelo [painel unificado](painel-unificado.md). Todos os perfis consultam o mesmo catálogo; apenas administrador e editor podem alterá-lo. Avaliações e dados escolares continuam isolados por instituição.
+
 A migração 045 adiciona users.portal_admin (false por padrão) e um banco editorial separado. Registro, Google e convites nunca atribuem essa permissão. Não existe endpoint público para promovê-la; concessão e revogação são operações administrativas no banco, para usuário existente e ativo, com registro em audit_log.
 
 O botão Administrar banco geral troca o contexto da sessão, não as memberships do usuário. Banco geral permite apenas questões, importações e catálogo curricular. Não permite convidar terceiros, consultar alunos de escolas, gerenciar pagamentos ou criar avaliações nesse contexto. Voltar ao meu espaço restaura o contexto pessoal.

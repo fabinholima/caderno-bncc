@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ReuCU6e96Qu51aIVYjGqvFKa5TNp8hBjMmudCIycaXOgPj9r0GEQiK5BZK8hm6e
+\restrict JUIYxJGFdvjguL8FlEkQTzKupy4dbzNNzfBI6O7xvvBIjgKrQjSdxXv2m7E7HgZ
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -337,8 +337,43 @@ CREATE TABLE public.billing_payments (
     amount_cents integer NOT NULL,
     paid_at timestamp with time zone,
     access_until timestamp with time zone,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    refund_cents integer DEFAULT 0 NOT NULL,
+    CONSTRAINT billing_payments_refund_cents_check CHECK ((refund_cents >= 0))
 );
+
+
+--
+-- Name: billing_refund_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_refund_events (
+    id bigint NOT NULL,
+    payment_id text NOT NULL,
+    cumulative_cents integer NOT NULL,
+    amount_cents integer NOT NULL,
+    observed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_refund_events_amount_cents_check CHECK ((amount_cents > 0))
+);
+
+
+--
+-- Name: billing_refund_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.billing_refund_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: billing_refund_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.billing_refund_events_id_seq OWNED BY public.billing_refund_events.id;
 
 
 --
@@ -1142,7 +1177,9 @@ CREATE TABLE public.user_sessions (
     expires_at timestamp with time zone NOT NULL,
     last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    global_bank boolean DEFAULT false NOT NULL
+    global_bank boolean DEFAULT false NOT NULL,
+    last_ip inet,
+    user_agent text
 );
 
 
@@ -1159,7 +1196,9 @@ CREATE TABLE public.users (
     active boolean DEFAULT true NOT NULL,
     google_subject text,
     cpf_hash text,
-    portal_admin boolean DEFAULT false NOT NULL
+    portal_admin boolean DEFAULT false NOT NULL,
+    portal_editor boolean DEFAULT false NOT NULL,
+    deleted_at timestamp with time zone
 );
 
 
@@ -1168,6 +1207,13 @@ CREATE TABLE public.users (
 --
 
 ALTER TABLE ONLY public.audit_log ALTER COLUMN id SET DEFAULT nextval('public.audit_log_id_seq'::regclass);
+
+
+--
+-- Name: billing_refund_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_refund_events ALTER COLUMN id SET DEFAULT nextval('public.billing_refund_events_id_seq'::regclass);
 
 
 --
@@ -1335,6 +1381,22 @@ ALTER TABLE ONLY public.billing_contracts
 
 ALTER TABLE ONLY public.billing_payments
     ADD CONSTRAINT billing_payments_pkey PRIMARY KEY (provider_id);
+
+
+--
+-- Name: billing_refund_events billing_refund_events_payment_id_cumulative_cents_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_refund_events
+    ADD CONSTRAINT billing_refund_events_payment_id_cumulative_cents_key UNIQUE (payment_id, cumulative_cents);
+
+
+--
+-- Name: billing_refund_events billing_refund_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_refund_events
+    ADD CONSTRAINT billing_refund_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -2145,6 +2207,13 @@ CREATE INDEX usage_events_period_idx ON public.usage_events USING btree (institu
 
 
 --
+-- Name: user_sessions_last_ip_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_sessions_last_ip_idx ON public.user_sessions USING btree (last_ip);
+
+
+--
 -- Name: user_sessions_token_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2340,6 +2409,14 @@ ALTER TABLE ONLY public.billing_contracts
 
 ALTER TABLE ONLY public.billing_payments
     ADD CONSTRAINT billing_payments_contract_id_fkey FOREIGN KEY (contract_id) REFERENCES public.billing_contracts(id);
+
+
+--
+-- Name: billing_refund_events billing_refund_events_payment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_refund_events
+    ADD CONSTRAINT billing_refund_events_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.billing_payments(provider_id);
 
 
 --
@@ -2842,4 +2919,4 @@ ALTER TABLE ONLY public.user_sessions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ReuCU6e96Qu51aIVYjGqvFKa5TNp8hBjMmudCIycaXOgPj9r0GEQiK5BZK8hm6e
+\unrestrict JUIYxJGFdvjguL8FlEkQTzKupy4dbzNNzfBI6O7xvvBIjgKrQjSdxXv2m7E7HgZ

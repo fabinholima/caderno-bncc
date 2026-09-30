@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
-import { switchBank, globalBankRouteAllowed } from './portal-admin.mjs';
+import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
+import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { getEducatorProfile, saveEducatorProfile } from './educator-profile.mjs';
 import { googleConfigured, startGoogle, finishGoogle } from './google-auth.mjs';
 import { billingStatus, createCheckout, cancelBilling, billingWebhook } from './billing.mjs';
@@ -266,13 +267,29 @@ const server = createServer(async (request, response) => {
     const identity = await authenticate(request);
     if (!identity)
       return json(response, 401, { error: 'Faça login para continuar.' });
-    const { institutionId, userId, role } = identity;
-    if (request.method === 'POST' && url.pathname === '/api/admin/bank-context') {
+    const { userId } = identity;
+    if (url.pathname.startsWith('/api/admin/')) response.setHeader('cache-control','no-store');
+    if (request.method === 'GET' && url.pathname === '/api/admin/revenue')
+      return json(response,200,{data:await revenueReport(identity,{year:url.searchParams.get('year') || new Date().getFullYear()})});
+    if (request.method === 'GET' && url.pathname === '/api/admin/subscribers')
+      return json(response,200,{data:await listSubscribers(identity,{q:url.searchParams.get('q') || '',ip:url.searchParams.get('ip') || '',page:url.searchParams.get('page') || 1})});
+    if (request.method === 'POST' && url.pathname === '/api/admin/subscribers') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
-      return json(response,200,{data:await switchBank(identity,await readJson(request,1024))});
+      return json(response,200,{data:await manageSubscriber(identity,await readJson(request,4096))});
     }
-    if (identity.globalBank && !globalBankRouteAllowed(url.pathname))
-      return json(response,403,{error:'Este recurso pertence ao espaço pessoal. Saia do banco geral para acessá-lo.'});
+    const canEditCatalog = catalogAccess(identity, request.method, url.pathname);
+    const sharedRoute = sharedCatalogRoute(url.pathname);
+    const institutionId = sharedRoute ? identity.questionBankId || identity.institutionId : identity.institutionId;
+    const role = sharedRoute ? (canEditCatalog ? 'admin' : 'teacher') : identity.role;
+    if (request.method === 'POST' && url.pathname === '/api/admin/bank-context') {
+      return json(response,410,{error:'O portal agora usa um painel único. Atualize a página.'});
+    }
+    if (request.method === 'POST' && url.pathname === '/api/admin/editors') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
+      return json(response,200,{data:await setPortalEditor(identity,await readJson(request,4096))});
+    }
+    if (request.method === 'POST' && url.pathname === '/api/invitations' && !identity.portalAdmin)
+      return json(response,403,{error:'Somente o administrador geral pode gerenciar permissões.'});
     if (request.method === 'POST' && url.pathname === '/api/auth/complete-cpf')
       return json(response, 200, { data: await completeCpf(identity, await readJson(request, 4096)) });
     if (!identity.portalAdmin && !identity.cpfComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
@@ -315,6 +332,8 @@ const server = createServer(async (request, response) => {
           },
           role: identity.role,
           portalAdmin: Boolean(identity.portalAdmin),
+          portalEditor: Boolean(identity.portalEditor),
+          portalRole: identity.portalRole,
           globalBank: Boolean(identity.globalBank),
         },
       });
@@ -1255,6 +1274,7 @@ const server = createServer(async (request, response) => {
       return json(response, 201, {
         data: await createAssessment({
           institutionId,
+          questionBankId: identity.questionBankId,
           userId,
           input: await readJson(request),
         }),

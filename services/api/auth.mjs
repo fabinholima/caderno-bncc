@@ -3,7 +3,8 @@ import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { cpfFingerprint, normalizeCpf } from './cpf.mjs';
-import { resolvePortalContext } from './portal-admin.mjs';
+import { resolveUnifiedContext } from './portal-access.mjs';
+import { sessionNetwork } from './admin-dashboard.mjs';
 
 const scrypt = promisify(crypto.scrypt);
 const email = z.string().trim().toLowerCase().email().max(254);
@@ -209,7 +210,7 @@ export async function authenticate(request) {
   const token = /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
   if (!token) return null;
   const result = await pool.query(
-    `SELECT s.id session_id,s.global_bank,u.portal_admin,u.id user_id,u.email,u.display_name,u.cpf_hash,
+    `SELECT s.id session_id,s.global_bank,u.portal_admin,u.portal_editor,u.id user_id,u.email,u.display_name,u.cpf_hash,
             (EXISTS(SELECT 1 FROM educator_profiles ep WHERE ep.user_id=u.id) AND EXISTS(SELECT 1 FROM educator_schools es WHERE es.user_id=u.id)) profile_complete,
             m.institution_id,m.role,i.name institution_name
      FROM user_sessions s JOIN users u ON u.id=s.user_id AND u.active
@@ -221,12 +222,12 @@ export async function authenticate(request) {
   );
   if (!result.rowCount) return null;
   const row = result.rows[0];
-  await pool.query('UPDATE user_sessions SET last_seen_at=now() WHERE id=$1', [
-    row.session_id,
-  ]);
-  return resolvePortalContext({
+  const network=sessionNetwork(request);
+  await pool.query('UPDATE user_sessions SET last_seen_at=now(),last_ip=COALESCE($2::inet,last_ip),user_agent=COALESCE(NULLIF($3,\'\'),user_agent) WHERE id=$1', [row.session_id,network.ip,network.agent]);
+  return resolveUnifiedContext({
     sessionId: row.session_id,
     portalAdmin: Boolean(row.portal_admin),
+    portalEditor: Boolean(row.portal_editor),
     cpfComplete: Boolean(row.cpf_hash),
     profileComplete: Boolean(row.profile_complete),
     userId: row.user_id,
