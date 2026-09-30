@@ -46,9 +46,41 @@ tela de revisão antes de anexar a imagem ao cadastro da questão.
 A correção automática dos cartões usa OpenCV em um ambiente Python isolado:
 
 ```bash
+cd /home/fabio/Nextcloud/caderno-bncc-atualizado
 python3 -m venv .venv-omr
+.venv-omr/bin/pip install --upgrade pip
 .venv-omr/bin/pip install -r services/omr/requirements.txt
 OMR_PYTHON=.venv-omr/bin/python pnpm start:omr
+```
+
+O worker OMR requer Python 3.11 ou superior, `python3-venv`, `pip` e as
+dependências fixadas em `services/omr/requirements.txt`:
+
+```text
+opencv-python-headless==5.0.0.93
+numpy==2.5.3
+```
+
+Para aceitar cartões em PDF, instale também o Poppler, que fornece `pdfinfo` e
+`pdftoppm`:
+
+```bash
+# Ubuntu/Debian
+sudo apt install python3 python3-venv python3-pip poppler-utils
+
+# Arch Linux
+sudo pacman -S python python-pip poppler
+```
+
+O worker usa o detector de QR do próprio OpenCV; não é necessário instalar
+`pyzbar`. Ele precisa ainda de um PostgreSQL acessível pela variável
+`DATABASE_URL` e do Node.js 22 ou superior. Quando o banco usa a configuração
+local padrão, o comando completo é:
+
+```bash
+DATABASE_URL=postgresql://caderno:caderno_dev@localhost:5432/caderno \
+  OMR_PYTHON=.venv-omr/bin/python \
+  pnpm start:omr
 ```
 
 O worker aceita PNG, JPEG ou PDF com um cartão por página. O QR identifica a
