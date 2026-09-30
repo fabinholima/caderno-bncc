@@ -112,7 +112,7 @@ function seededShuffle(items, seed) {
   return result;
 }
 
-export async function createAssessment({ institutionId, userId, input }) {
+export async function createAssessment({ institutionId, questionBankId = institutionId, userId, input }) {
   await assertInstitutionLimit({ institutionId, kind: 'assessment' });
   const value = createAssessmentSchema.parse(input);
   const questionIds = value.sections.flatMap((section) => section.questionIds);
@@ -141,10 +141,10 @@ export async function createAssessment({ institutionId, userId, input }) {
              LEFT JOIN question_saeb_descriptors qsd ON qsd.question_id = q.id AND qsd.revision = qr.revision
              LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
              LEFT JOIN saeb_topics st ON st.id = sd.topic_id
-             WHERE q.institution_id = $1 AND q.status <> 'archived'
+             WHERE q.institution_id = ANY($1::uuid[]) AND q.status <> 'archived'
                AND q.id = ANY($2::uuid[])
              GROUP BY q.id, qr.question_id, qr.revision`,
-      values: [institutionId, questionIds],
+      values: [[institutionId, questionBankId], questionIds],
     });
     if (questions.rowCount !== questionIds.length) {
       const error = new Error(

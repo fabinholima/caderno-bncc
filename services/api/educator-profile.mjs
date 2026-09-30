@@ -137,8 +137,9 @@ export async function saveEducatorProfile(userId, input) {
         'SELECT count(*)::int n FROM educator_schools WHERE user_id=$1',
         [userId],
       );
-      if (count.rows[0].n >= 30)
-        throw Object.assign(new Error('Limite de 30 escolas por pessoa.'), {
+      const schoolLimit = v.professionalRole === 'teacher' ? 6 : 30;
+      if (count.rows[0].n >= schoolLimit)
+        throw Object.assign(new Error(`Limite de ${schoolLimit} escolas no perfil.`), {
           statusCode: 422,
         });
       result = await db.query(

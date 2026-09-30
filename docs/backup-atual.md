@@ -1,8 +1,8 @@
 # Backup atual
 
-`database/backups/caderno-schema-current.sql` contém a estrutura atual do PostgreSQL, sem dados. As migrações 041–045 acompanham as alterações de autenticação, assinaturas, perfis e administração geral.
+`database/backups/caderno-schema-current.sql` contém a estrutura atual do PostgreSQL, sem dados, atualizada em 30/09/2026, incluindo as migrações até 047.
 
-O backup integral desta operação está em `outputs/backups/caderno-full-2026-09-29.sql`, ignorado pelo Git e com permissão de leitura restrita ao proprietário. Ele contém dados sensíveis: guarde uma cópia privada e não publique. Copiar o repositório não transfere esse backup.
+O backup integral mais recente está em `outputs/backups/caderno-full-20260930-092950.sql`, incluído explicitamente no repositório privado por solicitação do proprietário. Contém dados sensíveis: não publique o repositório nem compartilhe o arquivo publicamente. Os backups anteriores foram preservados. A cópia local tem permissão restrita ao proprietário; essa permissão deve ser reaplicada após clonar o repositório.
 
 Os arquivos SQL antigos em `database/backups` são históricos e não representam o banco atual. Não restaurá-los sobre a base em uso. Para recuperar o banco completo, use o backup privado em uma base vazia e valide antes de substituir qualquer serviço.
 

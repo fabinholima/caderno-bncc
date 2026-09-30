@@ -33,8 +33,8 @@ import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
 import { CompleteCpf } from './complete-cpf';
 import { EducatorProfile } from './educator-profile';
-import { PortalAdminSwitch } from './portal-admin-switch';
 import { SettingsManager } from './settings-manager';
+import { AdminDashboard } from './admin-dashboard';
 import { ExamImportManager } from './exam-import-manager';
 import {
   parsePastedQuestion,
@@ -363,20 +363,13 @@ export default function Home() {
   const [selectedSaebDescriptor, setSelectedSaebDescriptor] = useState('');
   const [saebInfoOpen, setSaebInfoOpen] = useState(false);
   const [pedagogicalGrade, setPedagogicalGrade] = useState('1ª série');
+  const [catalogError, setCatalogError] = useState('');
   const [pedagogicalObjectId, setPedagogicalObjectId] = useState('');
   const [pedagogicalSubtopicId, setPedagogicalSubtopicId] = useState('');
   const [pedagogicalDetailId, setPedagogicalDetailId] = useState('');
   const pedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === discipline && item.stage === educationStage,
   );
-  const pedagogicalGradeOptions = [
-    ...new Set(
-      pedagogicalTopics
-        .filter((item) => item.discipline_id === pedagogicalDiscipline?.id)
-        .map((item) => item.grade_range)
-        .filter(Boolean),
-    ),
-  ];
   const filterPedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === subject && item.stage === educationStage,
   );
@@ -442,17 +435,6 @@ export default function Home() {
     )
       setSelectedSkillCode(availableSkills[0].skill_code || '');
   }, [availableSkills, selectedSkillCode]);
-  useEffect(() => {
-    if (
-      pedagogicalGradeOptions.length &&
-      !pedagogicalGradeOptions.includes(pedagogicalGrade)
-    ) {
-      setPedagogicalGrade(pedagogicalGradeOptions[0]);
-      setPedagogicalObjectId('');
-      setPedagogicalSubtopicId('');
-      setPedagogicalDetailId('');
-    }
-  }, [pedagogicalDiscipline?.id, pedagogicalGradeOptions.join('|'), pedagogicalGrade]);
   const visible = useMemo(
     () =>
       questions.filter(
@@ -595,23 +577,27 @@ export default function Home() {
   }, [apiUrl, selectedSaebMatrix]);
 
   useEffect(() => {
-    // O catálogo curricular é público para a tela de cadastro. Ele não deve
-    // desaparecer apenas porque o login está desabilitado durante o desenvolvimento.
-    if (!apiUrl) return;
+    // O catálogo depende da sessão e da instituição selecionada.
+    if (!apiUrl || !identity) return;
+    let active = true;
+    setCatalogError('');
+    const requireCatalogResponse = async (response: Response) => {
+      if (!response.ok) throw new Error('Não foi possível carregar o catálogo curricular. Atualize a página e confira sua sessão.');
+      return response.json();
+    };
     Promise.all([
       apiFetch(`${apiUrl}/api/curriculum/high-school`).then(
-        (response) =>
-          response.json() as Promise<{ data: HighSchoolCurriculumItem[] }>,
+        (response) => requireCatalogResponse(response) as Promise<{ data: HighSchoolCurriculumItem[] }>,
       ),
       apiFetch(`${apiUrl}/api/curriculum/pedagogical-disciplines`).then(
-        (response) =>
-          response.json() as Promise<{ data: PedagogicalDiscipline[] }>,
+        (response) => requireCatalogResponse(response) as Promise<{ data: PedagogicalDiscipline[] }>,
       ),
       apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics`).then(
-        (response) => response.json() as Promise<{ data: PedagogicalTopic[] }>,
+        (response) => requireCatalogResponse(response) as Promise<{ data: PedagogicalTopic[] }>,
       ),
     ])
       .then(([official, pedagogical, topics]) => {
+        if (!active) return;
         setHighSchoolCurriculum(official.data || []);
         setPedagogicalDisciplines(
           (pedagogical.data || []).map((item) => ({
@@ -629,8 +615,9 @@ export default function Home() {
           );
         }
       })
-      .catch(() => undefined);
-  }, [apiUrl]);
+      .catch((error: unknown) => { if (active) setCatalogError(error instanceof Error ? error.message : 'Falha ao carregar catálogo.'); });
+    return () => { active = false; };
+  }, [apiUrl, identity]);
 
   useEffect(() => {
     if (!apiUrl || !identity) return;
@@ -1103,7 +1090,12 @@ export default function Home() {
   if (!identity) return <AuthScreen apiUrl={apiUrl} />;
   if (!identity.portalAdmin && !identity.user.cpfComplete) return <CompleteCpf apiUrl={apiUrl} />;
   if (!identity.portalAdmin && !identity.user.profileComplete) return <EducatorProfile apiUrl={apiUrl} onboarding />;
-  const visibleNav = identity.globalBank ? nav.filter(([label]) => ['Questões','Importar provas','Planejamento'].includes(label)) : nav;
+  const canEditCatalog = Boolean(identity.portalAdmin || identity.portalEditor);
+  const visibleNav = [
+    ...(canEditCatalog ? nav : nav.filter(([label]) => label !== 'Importar provas')),
+    ['Minhas escolas', BookOpenCheck] as const,
+    ...(identity.portalAdmin ? [['Assinantes', Users] as const, ['Receitas', BarChart3] as const] : []),
+  ];
 
   return (
     <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
@@ -1128,15 +1120,8 @@ export default function Home() {
           {visibleNav.map(([label, Icon]) => (
             <button
               key={label}
-              onClick={() =>
-                (label === 'Questões' ||
-                  label === 'Importar provas' ||
-                  label === 'Planejamento' ||
-                  label === 'Avaliações' ||
-                  label === 'Turmas e alunos' ||
-                  label === 'Resultados') &&
-                setActive(label)
-              }
+              type="button"
+              onClick={() => setActive(label)}
               className={`mb-1 flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition ${active === label ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/7 hover:text-white'}`}
             >
               <Icon className="size-[18px]" />
@@ -1150,7 +1135,7 @@ export default function Home() {
           ))}
         </nav>
         <div className="border-t border-white/10 p-3">
-          {!identity.globalBank && <button
+          {<button
             onClick={() => setActive('Configurações')}
             className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7"
           >
@@ -1171,11 +1156,7 @@ export default function Home() {
                 {identity.user.displayName}
               </p>
               <p className="truncate text-xs text-slate-400">
-                {identity.portalAdmin ? 'Administrador do portal' : identity.role === 'admin'
-                  ? 'Administrador'
-                  : identity.role === 'coordinator'
-                    ? 'Coordenador'
-                    : 'Professor'}
+                {identity.portalAdmin ? 'Administrador do portal' : identity.portalEditor ? 'Editor' : 'Professor'}
               </p>
             </div>
             <button
@@ -1202,7 +1183,7 @@ export default function Home() {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {identity.portalAdmin && <PortalAdminSwitch apiUrl={apiUrl} globalBank={Boolean(identity.globalBank)} />}
+            {identity.portalAdmin && <span className="text-sm font-semibold">Administração geral · painel único</span>}
             <Button variant="ghost" size="icon" aria-label="Ajuda">
               <CircleHelp />
             </Button>
@@ -1220,7 +1201,7 @@ export default function Home() {
         >
           {[
             ...visibleNav.filter(([label]) => label !== 'Visão geral'),
-            ...(!identity.globalBank ? [['Configurações', Settings] as const] : []),
+            ...([['Configurações', Settings] as const]),
           ].map(([label, Icon]) => (
             <button
               key={label}
@@ -1233,7 +1214,11 @@ export default function Home() {
             </button>
           ))}
         </nav>
-        {active === 'Avaliações' ? (
+        {(active === 'Receitas' || active === 'Assinantes') && identity.portalAdmin ? (
+          <AdminDashboard key={active} apiUrl={apiUrl} view={active === 'Receitas' ? 'revenue' : 'subscribers'} />
+        ) : active === 'Minhas escolas' ? (
+          <div className="mx-auto max-w-5xl p-6"><EducatorProfile apiUrl={apiUrl} /></div>
+        ) : active === 'Avaliações' ? (
           <AssessmentBuilder
             questions={questions.filter(
               (question) => question.status !== 'Arquivada',
@@ -1245,7 +1230,7 @@ export default function Home() {
         ) : active === 'Importar provas' ? (
           <ExamImportManager
             apiUrl={apiUrl}
-            role={identity.role}
+            role={canEditCatalog ? 'admin' : 'teacher'}
             onNewQuestion={openNewQuestion}
             onRegisterQuestion={(candidate) => {
               const parsed = parsePastedQuestion(candidate.rawText);
@@ -1326,12 +1311,12 @@ export default function Home() {
             }}
           />
         ) : active === 'Configurações' ? (
-          <SettingsManager apiUrl={apiUrl} role={identity.role} />
+          <SettingsManager apiUrl={apiUrl} role={identity.role} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
         ) : active === 'Planejamento' ? (
           <CurriculumManager
             items={curriculum}
             apiUrl={apiUrl}
-            role={identity.role}
+            role={canEditCatalog ? 'admin' : 'teacher'}
             onChange={setCurriculum}
           />
         ) : (
@@ -1351,6 +1336,7 @@ export default function Home() {
               </div>
               <Button
                 onClick={openNewQuestion}
+                disabled={!canEditCatalog}
                 size="lg"
                 className="h-11 bg-[var(--blue)] px-4 text-white shadow-sm hover:bg-blue-700"
               >
@@ -1818,6 +1804,7 @@ export default function Home() {
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`Editar ${q.code}`}
+                              disabled={!canEditCatalog}
                               onClick={() => editQuestion(q.id)}
                             >
                               <Pencil />
@@ -1828,6 +1815,7 @@ export default function Home() {
                               size="icon-sm"
                               className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                               aria-label={`Excluir ${q.code}`}
+                              disabled={!canEditCatalog}
                               onClick={() => removeQuestion(q)}
                             >
                               <Trash2 />
@@ -2085,7 +2073,7 @@ export default function Home() {
                         );
                         setCompetencyId(
                           pedagogical
-                            ? highSchoolCurriculum[0]?.competency_id || ''
+                            ? highSchoolCurriculum.find((item) => item.area_source_key === pedagogical.area_source_key)?.competency_id || ''
                             : '',
                         );
                         setCompetencyInfoOpen(false);
@@ -2118,7 +2106,7 @@ export default function Home() {
                           ...(educationStage === 'Ensino Médio'
                             ? highSchoolSubjectAreas[knowledgeAreaFilter] || []
                             : elementarySubjectAreas[knowledgeAreaFilter] || curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject)),
-                          ...pedagogicalDisciplines.filter((item) => !item.stage || item.stage === educationStage).map((item) => item.name),
+                          ...pedagogicalDisciplines.filter((item) => item.stage === educationStage && (educationStage !== 'Ensino Médio' || (highSchoolSubjectAreas[knowledgeAreaFilter] || []).includes(item.name))).map((item) => item.name),
                         ]),
                       ].map((item) => (
                         <option key={item}>{item}</option>
@@ -2220,12 +2208,12 @@ export default function Home() {
                     <select
                       name="grade"
                       value={
-                        pedagogicalDiscipline
+                        educationStage === 'Ensino Médio'
                           ? pedagogicalGrade
                           : importedDetails.grade || undefined
                       }
                       onChange={
-                        pedagogicalDiscipline
+                        educationStage === 'Ensino Médio'
                           ? (event) => {
                               setPedagogicalGrade(event.target.value);
                               setPedagogicalObjectId('');
@@ -2236,7 +2224,7 @@ export default function Home() {
                       }
                       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                     >
-                      {(pedagogicalDiscipline
+                      {(educationStage === 'Ensino Médio'
                         ? ['1ª série', '2ª série', '3ª série']
                         : [
                             ...new Set(
@@ -2254,6 +2242,13 @@ export default function Home() {
                       ))}
                     </select>
                   </label>
+                  {catalogError && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{catalogError}</p>}
+                  {educationStage === 'Ensino Médio' && !pedagogicalDiscipline && !catalogError && (
+                    <p role="status" className="text-sm text-amber-800 sm:col-span-2">O catálogo de {discipline} ainda não está disponível. Solicite o cadastro da disciplina e dos tópicos em Planejamento.</p>
+                  )}
+                  {pedagogicalDiscipline && pedagogicalTopicOptions.length === 0 && (
+                    <p role="status" className="text-sm text-amber-800 sm:col-span-2">Não há tópicos cadastrados para {discipline} na {pedagogicalGrade}. Você pode informar um tema abaixo ou cadastrar tópicos em Planejamento.</p>
+                  )}
                   {pedagogicalDiscipline ? (
                     <div className="space-y-4 sm:col-span-2">
                       <label className="block">
@@ -2428,6 +2423,7 @@ export default function Home() {
                         }
                         className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                       >
+                        <option value="">Selecione um objeto cadastrado</option>
                         {curriculum
                           .filter(
                             (item, index, list) =>

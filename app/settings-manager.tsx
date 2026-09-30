@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { BillingManager } from './billing-manager';
 import { EducatorProfile } from './educator-profile';
+import { PortalEditorManager } from './portal-editor-manager';
 
 type Subscription = {
   name: string;
@@ -23,9 +24,13 @@ type Subscription = {
 export function SettingsManager({
   apiUrl,
   role,
+  portalAdmin = false,
+  canEditCatalog = false,
 }: {
   apiUrl: string;
   role: string;
+  portalAdmin?: boolean;
+  canEditCatalog?: boolean;
 }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [message, setMessage] = useState('');
@@ -108,6 +113,7 @@ export function SettingsManager({
         Administração
       </p>
       <h1 className="font-display mt-1 text-3xl font-bold">Configurações</h1>
+      {portalAdmin && <PortalEditorManager apiUrl={apiUrl} />}
       <BillingManager apiUrl={apiUrl} role={role} />
       <EducatorProfile apiUrl={apiUrl} />
       {message && (
@@ -116,7 +122,7 @@ export function SettingsManager({
         </p>
       )}
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        {role !== 'teacher' && <section className="rounded-2xl border bg-white p-5 lg:col-span-2">
+        {canEditCatalog && <section className="rounded-2xl border bg-white p-5 lg:col-span-2">
           <h2 className="font-display text-xl font-bold">Objetos e subtópicos BNCC</h2>
           <p className="mt-1 text-sm text-slate-500">Importe um catálogo revisado, confira a prévia e confirme antes de gravar.</p>
           <div className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
@@ -170,7 +176,7 @@ export function SettingsManager({
               Convidar professor
             </h2>
           </div>
-          {['admin', 'coordinator'].includes(role) ? (
+          {portalAdmin ? (
             <form className="mt-4 space-y-3" onSubmit={invite}>
               <Input
                 type="email"

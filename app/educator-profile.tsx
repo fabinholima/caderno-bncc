@@ -102,6 +102,10 @@ export function EducatorProfile({
   }, [apiUrl]);
   async function save(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!school.id && schools.length >= (role === 'teacher' ? 6 : 30)) {
+      setMessage('Limite de escolas atingido. Você pode editar as escolas cadastradas.');
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
@@ -260,7 +264,7 @@ export function EducatorProfile({
               }
               className="mt-1 w-full rounded-lg border p-2"
             >
-              <option value="">Cadastrar nova escola</option>
+              <option value="" disabled={schools.length >= (role === 'teacher' ? 6 : 30)}>Cadastrar nova escola</option>
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} — {s.city}/{s.state}
@@ -269,6 +273,10 @@ export function EducatorProfile({
             </select>
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
+            <p className="text-sm text-slate-600">
+              {schools.length} de {role === 'teacher' ? 6 : 30} escolas cadastradas.
+              {schools.length >= (role === 'teacher' ? 6 : 30) && ' Limite atingido. Você pode editar as escolas existentes.'}
+            </p>
             {field('name', 'Nome da escola', true)}
             <label className="text-sm">
               Rede / tipo
@@ -335,6 +343,7 @@ export function EducatorProfile({
           )}
           <button
             type="submit"
+            disabled={busy || (!school.id && schools.length >= (role === 'teacher' ? 6 : 30))}
             className="rounded-lg bg-blue-700 px-5 py-3 text-white"
           >
             {busy

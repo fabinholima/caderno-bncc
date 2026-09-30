@@ -1,0 +1,47 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!process.env.AUTH_TEST_DATABASE_URL},async()=>{
+  const {default:pg}=await import('pg');
+  const control=new pg.Pool({connectionString:process.env.AUTH_TEST_DATABASE_URL});
+  const schema=`admin_test_${randomUUID().replaceAll('-','')}`;
+  await control.query(`CREATE SCHEMA ${schema}`);
+  const url=new URL(process.env.AUTH_TEST_DATABASE_URL);url.searchParams.set('options',`-c search_path=${schema}`);process.env.DATABASE_URL=url.href;
+  const {pool}=await import('./db.mjs');
+  const {revenueReport,listSubscribers,manageSubscriber}=await import('./admin-dashboard.mjs');
+  const admin={userId:randomUUID(),sessionId:randomUUID(),portalAdmin:true};
+  const userId=randomUUID(),institution=randomUUID(),contract=randomUUID(),session=randomUUID();
+  try {
+    await pool.query(`CREATE TABLE users(id uuid PRIMARY KEY,email text,display_name text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false,deleted_at timestamptz,created_at timestamptz DEFAULT now());
+      CREATE TABLE institutions(id uuid PRIMARY KEY,name text);
+      CREATE TABLE memberships(user_id uuid,institution_id uuid);
+      CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text);
+      CREATE TABLE user_sessions(id uuid PRIMARY KEY,user_id uuid,last_ip inet,user_agent text,expires_at timestamptz,last_seen_at timestamptz DEFAULT now());
+      CREATE TABLE audit_log(user_id uuid,action text,entity_type text,entity_id text,metadata jsonb);
+      CREATE TABLE billing_contracts(id uuid PRIMARY KEY,institution_id uuid);
+      CREATE TABLE billing_payments(provider_id text,status text,contract_id uuid,amount_cents int,refund_cents int DEFAULT 0,paid_at timestamptz);
+      CREATE TABLE billing_refund_events(payment_id text,amount_cents int,observed_at timestamptz);`);
+    await pool.query("INSERT INTO users(id,email,display_name,portal_admin) VALUES($1,'admin@test.local','Admin',true),($2,'prof@test.local','Professor',false)",[admin.userId,userId]);
+    await pool.query("INSERT INTO institutions VALUES($1,'Escola')",[institution]);
+    await pool.query('INSERT INTO memberships VALUES($1,$2)',[userId,institution]);
+    await pool.query("INSERT INTO institution_subscriptions VALUES($1,'professor','active')",[institution]);
+    await pool.query("INSERT INTO user_sessions(id,user_id,last_ip,user_agent,expires_at) VALUES($1,$2,'192.0.2.10','Test browser',now()+interval '1 day')",[session,userId]);
+    await pool.query('INSERT INTO billing_contracts VALUES($1,$2)',[contract,institution]);
+    await pool.query("INSERT INTO billing_payments VALUES('p1','refunded',$1,2990,1000,'2026-01-15T12:00:00Z'),('p2','pending',$1,2990,0,NULL)",[contract]);
+    await pool.query("INSERT INTO billing_refund_events VALUES('p1',1000,'2026-02-01T12:00:00Z')");
+    const report=await revenueReport(admin,{year:2026});
+    assert.equal(report.months.length,12);assert.equal(report.months[0].gross,'2990');assert.equal(report.months[0].subscribers,1);assert.equal(report.months[1].net,'-1000');
+    assert.equal((await revenueReport(admin,{year:2025})).months.every(m=>m.gross==='0'),true);
+    assert.equal((await listSubscribers(admin,{ip:'192.0.2.10'})).users.length,1);
+    assert.equal((await listSubscribers(admin,{ip:'192.0.2.11'})).users.length,0);
+    await assert.rejects(manageSubscriber(admin,{userId:admin.userId,action:'block'}),{statusCode:403});
+    await manageSubscriber(admin,{userId,action:'block'});
+    assert.equal((await pool.query('SELECT count(*)::int n FROM user_sessions')).rows[0].n,0);
+    await manageSubscriber(admin,{userId,action:'delete'});
+    await assert.rejects(manageSubscriber(admin,{userId,action:'unblock'}),{statusCode:422});
+    await manageSubscriber(admin,{userId,action:'restore'});
+    const restored=(await pool.query('SELECT active,deleted_at FROM users WHERE id=$1',[userId])).rows[0];
+    assert.equal(restored.active,true);assert.equal(restored.deleted_at,null);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM billing_payments')).rows[0].n,2);
+  } finally {await pool.end();await control.query(`DROP SCHEMA ${schema} CASCADE`);await control.end();}
+});

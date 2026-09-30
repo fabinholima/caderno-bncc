@@ -201,7 +201,7 @@ async function reconcilePayment(paymentId, preapprovalId) {
     const until = approved && paidAt ? accessUntil(paidAt, c.months) : null;
     await db.query(
       `INSERT INTO billing_payments(provider_id,contract_id,status,amount_cents,paid_at,access_until) VALUES($1,$2,$3,$4,$5,$6)
-      ON CONFLICT(provider_id) DO UPDATE SET status=excluded.status,access_until=excluded.access_until,updated_at=now() WHERE billing_payments.contract_id=excluded.contract_id`,
+      ON CONFLICT(provider_id) DO UPDATE SET status=excluded.status,paid_at=COALESCE(billing_payments.paid_at,excluded.paid_at),access_until=excluded.access_until,updated_at=now() WHERE billing_payments.contract_id=excluded.contract_id`,
       [
         paymentId,
         c.id,
@@ -211,6 +211,16 @@ async function reconcilePayment(paymentId, preapprovalId) {
         until,
       ],
     );
+    // Registra diferenças cumulativas uma única vez, inclusive estornos parciais.
+    // observed_at é a data desta confirmação, não uma data bancária presumida.
+    const refundCents = p.status === 'charged_back' ? c.amount_cents : Math.round(Number(p.transaction_amount_refunded || 0)*100);
+    if (!Number.isSafeInteger(refundCents) || refundCents < 0 || refundCents > c.amount_cents) throw billingError('Valor de estorno inválido.',422);
+    const previousRefund=await db.query('SELECT refund_cents FROM billing_payments WHERE provider_id=$1 FOR UPDATE',[paymentId]);
+    const delta=refundCents-previousRefund.rows[0].refund_cents;
+    if(delta>0) {
+      await db.query('INSERT INTO billing_refund_events(payment_id,cumulative_cents,amount_cents) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[paymentId,refundCents,delta]);
+      await db.query('UPDATE billing_payments SET refund_cents=$2 WHERE provider_id=$1',[paymentId,refundCents]);
+    }
     const valid = await db.query(
       `SELECT p.*,c.plan_id FROM billing_payments p JOIN billing_contracts c ON c.id=p.contract_id WHERE c.institution_id=$1 AND p.status='approved' AND p.access_until>now() ORDER BY p.access_until DESC LIMIT 1`,
       [c.institution_id],
