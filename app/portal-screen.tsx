@@ -2567,7 +2567,7 @@ export default function Home() {
                     </span>
                     <Input
                       readOnly
-                      value="Colégio Horizonte"
+                      value="UFA Prova"
                       className="bg-slate-50 text-slate-600"
                     />
                     <span className="mt-1.5 block text-xs text-slate-400">
