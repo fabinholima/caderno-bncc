@@ -48,7 +48,7 @@ services:
     name: ufaprova-renderer
     runtime: node
     rootDir: services/renderer
-    buildCommand: npm install --omit=dev
+    buildCommand: cd ../api && npm install --omit=dev && cd ../renderer && npm install --omit=dev
     startCommand: node worker.mjs
     envVars:
       - key: DATABASE_URL
