@@ -23,6 +23,7 @@ RUN apt-get update \
   && mkdir -p /opt/context/tex/texmf-context/tex/context/modules/mkxl \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /opt/context/tex/texmf-context/tex/context/modules/mkxl/ \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /opt/context/tex/texmf-context/tex/context/modules/mkxl/t-basicexam.mkxl \
+  && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /opt/context/tex/texmf-context/tex/context/modules/mkxl/m-basicexam.mkxl \
   && mkdir -p /usr/share/texmf/tex/context/third \
   && cp -a /usr/local/share/texmf/tex/context/third/basicexam /usr/share/texmf/tex/context/third/ \
   && mkdir -p /usr/share/texmf/tex/context/modules/mkiv \
