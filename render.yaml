@@ -48,7 +48,8 @@ services:
     name: ufaprova-renderer
     runtime: node
     rootDir: services/renderer
-    buildCommand: cd ../api && npm install --omit=dev && cd ../renderer && npm install --omit=dev
+    # Dependências nativas usadas pelo pipeline ConTeXt/LuaMetaTeX e pelo QR.
+    buildCommand: apt-get update && apt-get install --yes context zint librsvg2-bin && cd ../api && npm install --omit=dev && cd ../renderer && npm install --omit=dev
     startCommand: node worker.mjs
     envVars:
       - key: DATABASE_URL
@@ -59,6 +60,8 @@ services:
         value: /var/data/renders
       - key: TEXMFCACHE
         value: /var/data/tex-cache
+      - key: CONTEXT_BIN
+        value: /usr/bin/context
     disk:
       name: ufaprova-render-files
       mountPath: /var/data
