@@ -3,7 +3,11 @@ FROM node:22-bookworm-slim
 ENV TEXMFCACHE=/tmp/tex-cache
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends context zint librsvg2-bin \
+  && apt-get install -y --no-install-recommends context zint librsvg2-bin curl unzip \
+  && mkdir -p /usr/share/texmf-local \
+  && curl -fsSL https://modules.contextgarden.net/dl/basicexam-2026.04.28.zip -o /tmp/basicexam.zip \
+  && unzip -q /tmp/basicexam.zip -d /usr/share/texmf-local \
+  && rm -f /tmp/basicexam.zip \
   && mkdir -p "$TEXMFCACHE" \
   && mtxrun --generate \
   && context --generate \
