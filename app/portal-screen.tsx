@@ -1171,7 +1171,7 @@ export default function Home() {
               }
             >
               <LogOut className="size-4" />
-              <span className="hidden sm:inline">Sair</span>
+              <span>Sair</span>
             </button>
           </div>
         </div>
