@@ -3,10 +3,19 @@ FROM node:22-bookworm-slim
 ENV TEXMFCACHE=/tmp/tex-cache
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends context zint librsvg2-bin curl unzip \
+  && apt-get install -y --no-install-recommends zint librsvg2-bin curl unzip \
+  && mkdir -p /opt/context \
+  && curl -fsSL https://lmtx.pragma-ade.com/install-lmtx/context-linux-64.zip -o /tmp/context-lmtx.zip \
+  && unzip -q /tmp/context-lmtx.zip -d /opt/context \
+  && cd /opt/context \
+  && sh install.sh \
+  && ln -sf /opt/context/tex/texmf-linux-64/bin/context /usr/local/bin/context \
+  && ln -sf /opt/context/tex/texmf-linux-64/bin/mtxrun /usr/local/bin/mtxrun \
   && mkdir -p /usr/local/share/texmf \
   && curl -fsSL https://modules.contextgarden.net/dl/basicexam-2026.04.28.zip -o /tmp/basicexam.zip \
   && unzip -q /tmp/basicexam.zip -d /usr/local/share/texmf \
+  && mkdir -p /opt/context/tex/texmf-context/tex/context/third \
+  && cp -a /usr/local/share/texmf/tex/context/third/basicexam /opt/context/tex/texmf-context/tex/context/third/ \
   && mkdir -p /usr/local/texlive/2026/texmf-dist/tex/context/third \
   && cp -a /usr/local/share/texmf/tex/context/third/basicexam /usr/local/texlive/2026/texmf-dist/tex/context/third/ \
   && mkdir -p /usr/local/share/texmf/tex/context/modules/mkiv \
@@ -14,7 +23,7 @@ RUN apt-get update \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/t-basicexam.mkiv \
   && rm -f /tmp/basicexam.zip \
   && mkdir -p "$TEXMFCACHE" \
-  && mtxrun --generate \
+  && /usr/local/bin/mtxrun --generate \
   && context --generate \
   && rm -rf /var/lib/apt/lists/*
 
@@ -27,7 +36,7 @@ COPY services/renderer/package*.json services/renderer/
 RUN cd services/renderer && npm install --omit=dev
 COPY services/renderer services/renderer
 
-ENV CONTEXT_BIN=/usr/bin/context
+ENV CONTEXT_BIN=/usr/local/bin/context
 ENV CONTEXT_VIA_MTXRUN=false
 ENV NODE_ENV=production
 WORKDIR /app/services/renderer
