@@ -1,7 +1,11 @@
 FROM node:22-bookworm-slim
 
+ENV TEXMFCACHE=/tmp/tex-cache
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends context zint librsvg2-bin \
+  && mkdir -p "$TEXMFCACHE" \
+  && mtxrun --generate \
   && context --generate \
   && rm -rf /var/lib/apt/lists/*
 
@@ -17,6 +21,5 @@ COPY services/renderer services/renderer
 ENV CONTEXT_BIN=/usr/bin/context
 ENV CONTEXT_VIA_MTXRUN=false
 ENV NODE_ENV=production
-ENV TEXMFCACHE=/tmp/tex-cache
 WORKDIR /app/services/renderer
 CMD ["node", "worker.mjs"]
