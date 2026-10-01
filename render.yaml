@@ -46,11 +46,9 @@ services:
 
   - type: worker
     name: ufaprova-renderer
-    runtime: node
-    rootDir: services/renderer
-    # Dependências nativas usadas pelo pipeline ConTeXt/LuaMetaTeX e pelo QR.
-    buildCommand: apt-get update && apt-get install --yes context zint librsvg2-bin && cd ../api && npm install --omit=dev && cd ../renderer && npm install --omit=dev
-    startCommand: node worker.mjs
+    runtime: docker
+    dockerfilePath: ./services/renderer/Dockerfile
+    dockerContext: .
     envVars:
       - key: DATABASE_URL
         fromDatabase:
