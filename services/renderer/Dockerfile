@@ -9,7 +9,7 @@ RUN apt-get update \
   # LuaMetaTeX and the matching format files, unlike Debian's MKIV package.
   && curl -fL --retry 4 --retry-delay 3 https://www.pragma-ade.com/context/latest/cont-lmt.zip -o /tmp/cont-lmt.zip \
   && unzip -q /tmp/cont-lmt.zip -d /opt/context \
-  && test -x /opt/context/tex/texmf-linux-64/bin/context \
+  && test -f /opt/context/tex/texmf-linux-64/bin/context \
   && chmod +x /opt/context/tex/texmf-linux-64/bin/context /opt/context/tex/texmf-linux-64/bin/mtxrun /opt/context/tex/texmf-linux-64/bin/luametatex \
   && mkdir -p /usr/local/share/texmf \
   && curl -fsSL https://modules.contextgarden.net/dl/basicexam-2026.04.28.zip -o /tmp/basicexam.zip \
