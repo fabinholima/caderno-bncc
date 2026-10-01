@@ -1461,12 +1461,15 @@ export default function Home() {
                   >
                     <option value="Todas">Todas as disciplinas</option>
                     {Array.from(
-                      new Set(
-                        curriculum
+                      new Set([
+                        ...curriculum
                           .filter((item) => item.stage === educationStage)
                           .map((item) => item.subject),
-                      ),
-                    ).map((item) => (
+                        ...questions
+                          .filter((item) => item.stage === educationStage)
+                          .map((item) => item.subject),
+                      ].filter(Boolean)),
+                    ).sort((a, b) => a.localeCompare(b, 'pt-BR')).map((item) => (
                       <option key={item} value={item}>
                         {item}
                       </option>
