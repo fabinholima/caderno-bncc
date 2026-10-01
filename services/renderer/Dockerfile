@@ -7,6 +7,8 @@ RUN apt-get update \
   && mkdir -p /usr/local/share/texmf \
   && curl -fsSL https://modules.contextgarden.net/dl/basicexam-2026.04.28.zip -o /tmp/basicexam.zip \
   && unzip -q /tmp/basicexam.zip -d /usr/local/share/texmf \
+  && mkdir -p /usr/local/share/texmf/tex/context/modules/mkiv \
+  && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/ \
   && rm -f /tmp/basicexam.zip \
   && mkdir -p "$TEXMFCACHE" \
   && mtxrun --generate \
