@@ -913,6 +913,7 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await listQuestions({
           institutionId,
+          allInstitutions: Boolean(identity.portalAdmin),
           stage: url.searchParams.get('stage') || '',
           query: url.searchParams.get('q') || '',
           subject: url.searchParams.get('subject') || '',
