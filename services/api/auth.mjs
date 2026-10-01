@@ -360,7 +360,10 @@ export async function getSubscription(identity) {
   return result.rows[0] || null;
 }
 
-export async function assertInstitutionLimit({ institutionId, kind }) {
+export async function assertInstitutionLimit({ institutionId, kind, portalAdmin = false }) {
+  // Administradores gerais precisam conseguir validar o portal e o compositor
+  // independentemente do plano da instituição selecionada.
+  if (portalAdmin) return;
   const subscription = await pool.query(
     `SELECT sp.monthly_assessments,sp.max_students,GREATEST(sub.period_started_at,date_trunc('month',now())) period_started_at
      FROM institution_subscriptions sub
