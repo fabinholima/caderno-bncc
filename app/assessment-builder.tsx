@@ -214,6 +214,19 @@ export function AssessmentBuilder({
   const [generatedVersions, setGeneratedVersions] = useState<
     GeneratedVersion[]
   >([]);
+  const downloadRenderFile = async (url: string, filename: string) => {
+    const response = await apiFetch(url);
+    if (!response.ok) throw new Error('Não foi possível baixar o arquivo.');
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+  };
   const [questionTopic, setQuestionTopic] = useState('');
   const [questionSubtopic, setQuestionSubtopic] = useState('');
   const [questionSourceInstitution, setQuestionSourceInstitution] =
@@ -1616,30 +1629,32 @@ export function AssessmentBuilder({
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       {version.status === 'completed' ? (
                         <>
-                          <a
-                            href={
+                          <button
+                            type="button"
+                            onClick={() => downloadRenderFile(
                               version.renderJobId
                                 ? `${apiUrl}${version.downloads?.prova || `/api/render-jobs/${version.renderJobId}/prova`}`
-                                : '/generated/avaliacao-modelo.pdf'
-                            }
-                            download
+                                : '/generated/avaliacao-modelo.pdf',
+                              `prova-${version.code}.pdf`,
+                            )}
                             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-blue-50"
                           >
                             <Printer className="size-3.5" />
                             Prova
-                          </a>
-                          <a
-                            href={
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadRenderFile(
                               version.renderJobId
                                 ? `${apiUrl}${version.downloads?.gabarito || `/api/render-jobs/${version.renderJobId}/gabarito`}`
-                                : '/generated/avaliacao-modelo.pdf'
-                            }
-                            download
+                                : '/generated/avaliacao-modelo.pdf',
+                              `gabarito-${version.code}.pdf`,
+                            )}
                             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-blue-50"
                           >
                             <FileOutput className="size-3.5" />
                             Gabarito
-                          </a>
+                          </button>
                           {version.renderJobId && (
                             <>
                               <a
