@@ -1,0 +1,97 @@
+services:
+  - type: web
+    name: ufaprova-api
+    runtime: node
+    rootDir: services/api
+    buildCommand: npm install --omit=dev
+    startCommand: node server.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8788"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ufaprova-postgres
+          property: connectionString
+      - key: DEV_AUTH_BYPASS
+        value: "false"
+      - key: CORS_ORIGIN
+        sync: false
+      - key: QR_SIGNING_SECRET
+        generateValue: true
+      - key: FILE_STORAGE_PROVIDER
+        value: filesystem
+      - key: FILE_STORAGE_DIR
+        value: /var/data/files
+      - key: RENDER_OUTPUT_DIR
+        value: /var/data/renders
+      - key: TEXMFCACHE
+        value: /var/data/tex-cache
+    disk:
+      name: ufaprova-api-files
+      mountPath: /var/data
+      sizeGB: 10
+
+  - type: web
+    name: ufaprova-frontend
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- --ip 0.0.0.0 --port $PORT
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  - type: worker
+    name: ufaprova-renderer
+    runtime: node
+    rootDir: services/renderer
+    buildCommand: npm install --omit=dev
+    startCommand: node worker.mjs
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ufaprova-postgres
+          property: connectionString
+      - key: RENDER_OUTPUT_DIR
+        value: /var/data/renders
+      - key: TEXMFCACHE
+        value: /var/data/tex-cache
+    disk:
+      name: ufaprova-render-files
+      mountPath: /var/data
+      sizeGB: 10
+
+  - type: worker
+    name: ufaprova-imports
+    runtime: node
+    rootDir: services/api
+    buildCommand: npm install --omit=dev
+    startCommand: node exam-import-worker.mjs
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ufaprova-postgres
+          property: connectionString
+      - key: DEV_AUTH_BYPASS
+        value: "false"
+
+  - type: worker
+    name: ufaprova-omr
+    runtime: node
+    buildCommand: apt-get update && apt-get install -y python3 python3-venv python3-pip poppler-utils && python3 -m venv /opt/venv-omr && /opt/venv-omr/bin/pip install -r services/omr/requirements.txt && npm install --omit=dev
+    startCommand: node services/omr/worker.mjs
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ufaprova-postgres
+          property: connectionString
+      - key: OMR_PYTHON
+        value: /opt/venv-omr/bin/python
+
+databases:
+  - name: ufaprova-postgres
+    plan: basic-256mb
+    databaseName: caderno
+    user: caderno
