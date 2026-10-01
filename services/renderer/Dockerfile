@@ -9,6 +9,9 @@ RUN apt-get update \
   && unzip -q /tmp/basicexam.zip -d /usr/local/share/texmf \
   && mkdir -p /usr/share/texmf/tex/context/third \
   && cp -a /usr/local/share/texmf/tex/context/third/basicexam /usr/share/texmf/tex/context/third/ \
+  && mkdir -p /usr/share/texmf/tex/context/modules/mkiv \
+  && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/share/texmf/tex/context/modules/mkiv/ \
+  && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/share/texmf/tex/context/modules/mkiv/t-basicexam.mkiv \
   && mkdir -p /usr/local/share/texmf/tex/context/modules/mkiv \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/ \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/t-basicexam.mkiv \
