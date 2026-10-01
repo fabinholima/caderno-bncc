@@ -14,7 +14,8 @@ COPY services/renderer/package*.json services/renderer/
 RUN cd services/renderer && npm install --omit=dev
 COPY services/renderer services/renderer
 
-ENV CONTEXT_BIN=/usr/bin/context
+ENV CONTEXT_BIN=/usr/bin/mtxrun
+ENV CONTEXT_VIA_MTXRUN=true
 ENV NODE_ENV=production
 ENV TEXMFCACHE=/tmp/tex-cache
 WORKDIR /app/services/renderer
