@@ -497,6 +497,7 @@ const statusFromDb = {
 
 export async function listQuestions({
   institutionId,
+  allInstitutions = false,
   stage = '',
   query = '',
   subject = '',
@@ -546,7 +547,7 @@ export async function listQuestions({
         ON qsd.question_id = qr.question_id AND qsd.revision = qr.revision AND qsd.is_primary
       LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
       LEFT JOIN alternatives a ON a.question_id = qr.question_id AND a.revision = qr.revision
-      WHERE q.institution_id = $1
+      WHERE ($1::uuid IS NULL OR q.institution_id = $1)
         AND q.status <> 'archived'
         AND ($2 = '' OR qr.subject = $2)
         AND ($3 = '' OR to_tsvector('portuguese', qr.statement::text) @@ plainto_tsquery('portuguese', $3)
@@ -571,7 +572,7 @@ export async function listQuestions({
       ORDER BY q.updated_at DESC
       LIMIT 100`,
     values: [
-      institutionId,
+      allInstitutions ? null : institutionId,
       filters.subject === 'Todas' ? '' : filters.subject,
       filters.query,
       filters.knowledgeObjectId || null,
