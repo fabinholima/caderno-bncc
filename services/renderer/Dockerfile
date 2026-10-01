@@ -9,8 +9,7 @@ RUN apt-get update \
   && unzip -q /tmp/context-lmtx.zip -d /opt/context \
   && cd /opt/context \
   && sh install.sh \
-  && ln -sf /opt/context/tex/texmf-linux-64/bin/context /usr/local/bin/context \
-  && ln -sf /opt/context/tex/texmf-linux-64/bin/mtxrun /usr/local/bin/mtxrun \
+  && ln -sf /opt/context/bin/mtxrun /usr/local/bin/mtxrun \
   && mkdir -p /usr/local/share/texmf \
   && curl -fsSL https://modules.contextgarden.net/dl/basicexam-2026.04.28.zip -o /tmp/basicexam.zip \
   && unzip -q /tmp/basicexam.zip -d /usr/local/share/texmf \
@@ -24,7 +23,6 @@ RUN apt-get update \
   && rm -f /tmp/basicexam.zip \
   && mkdir -p "$TEXMFCACHE" \
   && /usr/local/bin/mtxrun --generate \
-  && context --generate \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -36,8 +34,8 @@ COPY services/renderer/package*.json services/renderer/
 RUN cd services/renderer && npm install --omit=dev
 COPY services/renderer services/renderer
 
-ENV CONTEXT_BIN=/usr/local/bin/context
-ENV CONTEXT_VIA_MTXRUN=false
+ENV CONTEXT_BIN=/usr/local/bin/mtxrun
+ENV CONTEXT_VIA_MTXRUN=true
 ENV NODE_ENV=production
 WORKDIR /app/services/renderer
-CMD ["sh", "-c", "mkdir -p \"$TEXMFCACHE\" && mtxrun --generate && context --generate && exec node worker.mjs"]
+CMD ["sh", "-c", "mkdir -p \"$TEXMFCACHE\" && mtxrun --generate && exec node worker.mjs"]
