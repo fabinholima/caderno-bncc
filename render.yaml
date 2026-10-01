@@ -4,6 +4,7 @@ services:
     runtime: node
     rootDir: services/api
     buildCommand: npm install --omit=dev && cd ../renderer && npm install --omit=dev
+    preDeployCommand: node migrate.mjs
     startCommand: node server.mjs
     healthCheckPath: /health
     envVars:
