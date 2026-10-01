@@ -3,7 +3,7 @@ services:
     name: ufaprova-api
     runtime: node
     rootDir: services/api
-    buildCommand: npm install --omit=dev
+    buildCommand: npm install --omit=dev && cd ../renderer && npm install --omit=dev
     startCommand: node server.mjs
     healthCheckPath: /health
     envVars:
