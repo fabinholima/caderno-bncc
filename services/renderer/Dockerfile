@@ -11,6 +11,7 @@ RUN apt-get update \
   && cp -a /usr/local/share/texmf/tex/context/third/basicexam /usr/local/texlive/2026/texmf-dist/tex/context/third/ \
   && mkdir -p /usr/local/share/texmf/tex/context/modules/mkiv \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/ \
+  && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/t-basicexam.mkiv \
   && rm -f /tmp/basicexam.zip \
   && mkdir -p "$TEXMFCACHE" \
   && mtxrun --generate \
