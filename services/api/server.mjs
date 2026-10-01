@@ -1282,6 +1282,7 @@ const server = createServer(async (request, response) => {
           institutionId,
           questionBankId: identity.questionBankId,
           userId,
+          portalAdmin: identity.portalAdmin,
           input: await readJson(request),
         }),
       });

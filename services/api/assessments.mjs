@@ -112,8 +112,8 @@ function seededShuffle(items, seed) {
   return result;
 }
 
-export async function createAssessment({ institutionId, questionBankId = institutionId, userId, input }) {
-  await assertInstitutionLimit({ institutionId, kind: 'assessment' });
+export async function createAssessment({ institutionId, questionBankId = institutionId, userId, portalAdmin = false, input }) {
+  await assertInstitutionLimit({ institutionId, kind: 'assessment', portalAdmin });
   const value = createAssessmentSchema.parse(input);
   const questionIds = value.sections.flatMap((section) => section.questionIds);
   const assessmentSubject =
