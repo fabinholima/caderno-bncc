@@ -17,7 +17,9 @@ const outputRoot = path.resolve(
   projectRoot,
   process.env.RENDER_OUTPUT_DIR || 'outputs/renders',
 );
-const configuredContextBin = process.env.CONTEXT_BIN || 'context';
+const configuredContextBin =
+  process.env.CONTEXT_BIN ||
+  '/opt/context/tex/texmf-linux-64/bin/mtxrun';
 const contextBin = configuredContextBin;
 const contextViaMtxrun =
   String(process.env.CONTEXT_VIA_MTXRUN || '').toLowerCase() === 'true' ||
