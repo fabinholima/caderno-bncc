@@ -18,15 +18,10 @@ const outputRoot = path.resolve(
   process.env.RENDER_OUTPUT_DIR || 'outputs/renders',
 );
 const configuredContextBin = process.env.CONTEXT_BIN || 'context';
-// Compatibilidade com serviços Render que ainda tenham CONTEXT_BIN=mtxrun.
-// A imagem atual fornece o executável completo `context`.
-const contextBin = configuredContextBin.includes('mtxrun')
-  ? '/usr/bin/context'
-  : configuredContextBin;
-// O Render pode manter variáveis antigas do serviço. O executável `context`
-// deve ser chamado diretamente; só usamos `mtxrun --script context` quando
-// isso for explicitamente solicitado para outro binário.
-const contextViaMtxrun = false;
+const contextBin = configuredContextBin;
+const contextViaMtxrun =
+  String(process.env.CONTEXT_VIA_MTXRUN || '').toLowerCase() === 'true' ||
+  configuredContextBin.includes('mtxrun');
 const interval = Number(process.env.RENDER_POLL_MS || 3000);
 const renderTimeout = Number(process.env.RENDER_TIMEOUT_MS || 300_000);
 
