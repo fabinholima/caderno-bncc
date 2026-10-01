@@ -66,12 +66,22 @@ export function createS3Storage({
   endpoint,
   forcePathStyle = false,
   serverSideEncryption,
+  accessKeyId,
+  secretAccessKey,
   client,
 }) {
   if (!bucket) throw new Error('OBJECT_STORAGE_BUCKET não configurado.');
   const s3 =
     client ||
-    new S3Client({ region, endpoint: endpoint || undefined, forcePathStyle });
+    new S3Client({
+      region,
+      endpoint: endpoint || undefined,
+      forcePathStyle,
+      credentials:
+        accessKeyId && secretAccessKey
+          ? { accessKeyId, secretAccessKey }
+          : undefined,
+    });
   const cleanPrefix = String(prefix).replace(/^\/+|\/+$/g, '');
   const objectKey = (key) =>
     [cleanPrefix, normalizeStorageKey(key)].filter(Boolean).join('/');
@@ -124,6 +134,12 @@ export function createObjectStorage(environment = process.env, options = {}) {
         String(environment.OBJECT_STORAGE_FORCE_PATH_STYLE).toLowerCase() ===
         'true',
       serverSideEncryption: environment.OBJECT_STORAGE_SSE,
+      accessKeyId:
+        environment.OBJECT_STORAGE_ACCESS_KEY_ID ||
+        environment.AWS_ACCESS_KEY_ID,
+      secretAccessKey:
+        environment.OBJECT_STORAGE_SECRET_ACCESS_KEY ||
+        environment.AWS_SECRET_ACCESS_KEY,
       client: options.s3Client,
     });
   throw new Error(`Provedor de armazenamento não permitido: ${provider}.`);
