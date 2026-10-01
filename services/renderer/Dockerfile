@@ -22,4 +22,4 @@ ENV CONTEXT_BIN=/usr/bin/context
 ENV CONTEXT_VIA_MTXRUN=false
 ENV NODE_ENV=production
 WORKDIR /app/services/renderer
-CMD ["node", "worker.mjs"]
+CMD ["sh", "-c", "mkdir -p \"$TEXMFCACHE\" && mtxrun --generate && context --generate && exec node worker.mjs"]
