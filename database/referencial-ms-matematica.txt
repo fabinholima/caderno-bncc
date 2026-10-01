@@ -1,0 +1,2307 @@
+Área do conhecimento
+MATEMÁTICA
+
+
+
+
+        157
+158
+                                           VISÃO DE ÁREA
+
+
+
+
+                                                                                                              Área do conhecimento: Matemática
+                                            MATEMÁTICA
+
+                        Os sonhos devem ser ditos para começar a se realizarem. E como todo projeto,
+                        precisam de uma estratégia para serem alcançados. O adiamento destes sonhos
+                        desaparecerá com o primeiro movimento.
+                                                                                        Paulo Freire
+
+        A matemática no Referencial Curricular do Ensino Médio será abordada como uma área de
+conhecimento, porém, vale ressaltar que, embora tenha uma área destinada a ela, a matemática tem
+grande presença nas outras áreas, apresentando-se em forma de gráficos e tabelas, dados
+estatísticos, expressões e fórmulas que representam fenômenos.
+       Os Parâmetros Curriculares Nacionais (PCN+) estabelecem que
+
+                         [...] no ensino médio, etapa final da escolaridade básica, a Matemática deve ser
+                         compreendida como uma parcela do conhecimento humano essencial para a
+                         formação de todos os jovens, que contribui para a construção de uma visão de
+                         mundo, para ler e interpretar a realidade e para desenvolver capacidades que deles
+                         serão exigidas ao longo da vida social e profissional (BRASIL. 2002, p.111).
+
+
+       Assim, o componente curricular deixou de ser um instrumento centrado em si mesmo,
+extrapolando os muros da escola, passando a ter sua aplicabilidade em situações sociais, o que
+proporciona um aprendizado que vai além do conteúdo, desenvolvendo no estudante a capacidade
+de associar a lógica com o cotidiano.
+       Portanto, a Matemática não tem como função formar matemáticos, ou mesmo formar nos
+estudantes de forma restrita apenas as competências relacionadas a este componente curricular.
+       Uma formação com tal aspiração exige, porém, de escolas e professores métodos de ensino
+suficientemente elaborados, capazes de proporcionar aos estudantes as condições efetivas para
+comunicação, argumentação, confronto e compreensão de situações-problema, escolhas e
+proposições; enfim, para que tomem gosto pelo conhecimento e aprendam a aprender e aplicar a
+matemática, não há mais espaço, no ambiente escolar, para o mero transmissor e comunicador de
+conteúdos, assim como não se pode admitir a postura passiva do aluno que busca conhecimentos
+prontos do professor a serem digeridos.
+       São vários os recursos didáticos que podemos utilizar bem como os meios tecnológicos
+aplicados à educação, pois nos dias de hoje o aluno precisa saber buscar a informação de que
+necessita, realizando consultas na Internet para oportunizar aos estudantes a chance de construir
+seu próprio conhecimento, por meio da interação com o objeto, o que os estimulam a pensar, a
+alcançar níveis mais elevados de abstração, a refletir, a criar estratégias, manipular conceitos,
+acarretando consequências benéficas no que tange a adaptação às constantes mudanças sociais,
+assim como ao pleno exercício da cidadania e do trabalho.
+       Para as competências desenvolvidas pelos estudantes por meio do ensino da matemática,
+consideramos que ela é relevante para proporcionar ao estudante/cidadãos instrumentos à vida,
+exigência da era de informação, tecnologia e globalização, ressaltamos que ela vai muito além. Vista
+desta forma, a Matemática é também um recurso lógico e intelectual fundamental para transitar nas
+demais áreas do conhecimento. Segundo o PCN (1998),
+
+
+                                                 159
+Área do conhecimento: Matemática
+                                                                  [...] num mundo como o atual, de tão rápidas transformações e de tão difíceis
+                                                         contradições, estar formado para a vida significa mais do que reproduzir dados,
+                                                         denominar classificações ou identificar símbolos. Significa: saber se informar,
+                                                         comunicar-se, argumentar, compreender e agir; enfrentar problemas de diferentes
+                                                         naturezas; participar socialmente, de forma prática e solidária; ser capaz de elaborar
+                                                         críticas ou propostas; e, especialmente, adquirir uma atitude de permanente
+                                                         aprendizado (BRASIL. 2002, p.9).
+
+                                          Assim, a Matemática trabalhada em sala de aula não é a mesma da esfera científica. Na
+                                   concepção de Brousseau, na esfera científica, a Matemática apresenta explicações gerais,
+                                   desvinculadas do contexto específico de produção de um dado conhecimento, enquanto na escola
+                                   um conhecimento matemático deve ser construído por meio de situações que lhe deem sentido, ou
+                                   seja, ligadas a contextos específicos. Dessa forma, o aluno não aprende Matemática primeiro para
+                                   depois resolver problemas, mas aprende Matemática ao resolver problemas. O saber matemático
+                                   deve ser encarado como um meio e não um fim em si mesmo.
+
+
+
+
+                                                                                  160
+                                            REFERÊNCIAS
+
+
+
+
+                                                                                             Área do conhecimento: Matemática
+BRASIL. PCN+ Ensino Médio: Orientações Educacionais Complementares aos Parâmetros
+Curriculares Nacionais. Ciências da Natureza, Matemática e suas Tecnologias. Secretaria de
+Educação Média e Tecnológica. Brasília: MEC; SEMTEC, 2002.
+
+BROUSSEAU, G.. Educação em Pauta. Disponível em:
+http://www.educacional.com.br/entrevistas/interativa/educadores_pais/entrevista022.asp.
+Acesso em: 14 de dezembro de 2011.
+
+
+
+
+                                             161
+                                                   PRIMEIRO ANO
+
+
+
+
+Matemática
+                                                    1° BIMESTRE
+
+                                                    CONTEÚDOS
+
+             NÚMEROS E OPERAÇÕES
+
+             ü
+             Conjuntos Numéricos
+             - conjuntos dos números naturais
+             - conjuntos dos números inteiros
+             - conjuntos dos números racionais
+             - conjuntos dos números irracionais
+             - conjunto dos números reais
+             - intervalos reais
+
+             FUNÇÕES
+
+             ü
+             Funções
+             - domínio e contradomínio
+             - plano cartesiano
+             - construção de gráficos
+             - análise de gráficos
+             ü
+             Função Afim ou do 1º grau
+             - gráficos
+             - coeficientes da função
+             - estudo dos sinais
+             - inequações
+
+                                           COMPETÊNCIAS/HABILIDADES
+
+             ·  Avaliar propostas de intervenção na realidade utilizando conhecimentos numéricos.
+             ·  Resolver problema com dados apresentados em tabelas ou gráficos.
+             ·  Analisar informações expressas em gráficos ou tabelas como recurso para a construção de
+             argumentos.
+             ·  Entender o significado e as formas de representar os números, as relações entre eles e os
+             diferentes sistemas numéricos.
+             ·  Ler, articular e interpretar símbolos e códigos em diferentes linguagens e representações:
+             sentenças, equações, diagramas, tabelas, gráficos e representações geométricas.
+
+
+                                                    2° BIMESTRE
+
+                                                    CONTEÚDOS
+             FUNÇÕES
+
+             ü
+             Função Quadrática ou do 2º grau
+             - gráficos
+             - raízes da equação
+             - estudo dos sinais
+             - inequações do 2º grau
+             ü
+             Função Modular
+             - gráficos
+
+
+
+
+                                                        162
+                                                                                                      Matemática
+                                COMPETÊNCIAS/HABILIDADES
+
+·  Usar e interpretar modelos, perceber o sentido de transformações, buscar regularidades, conhecer
+o desenvolvimento histórico e tecnológico de parte de nossa cultura e adquirir uma visão
+sistematizada de parte do conhecimento matemático.
+·  Compreender o conceito de função, associando-o a exemplos da vida cotidiana.
+·  Associar diferentes funções a seus gráficos correspondentes.
+
+
+                                          3° BIMESTRE
+
+                                          CONTEÚDOS
+
+FUNÇÕES
+
+ü
+Função exponencial
+- potências e raízes
+- gráficos
+- equação exponencial
+- inequação exponencial
+
+ü
+Função Logaritmica
+- logaritmos
+- definição
+- propriedades dos logaritmos
+- função logarítmica
+- gráficos
+- equações logarítmicas
+- inequações logarítmicas
+
+                                COMPETÊNCIAS/HABILIDADES
+
+· Expressar-se com clareza sobre temas matemáticos oralmente ou por escrito.
+· Enfrentar desafios e resolução de situações problema, utilizando-se de conceitos e procedimentos
+peculiares (experimentação, abstração, modelagem).
+
+
+                                          4° BIMESTRE
+
+                                          CONTEÚDOS
+
+ANÁLISE DE DADOS E PROBABILIDADE
+
+ü
+Matemática Financeira
+- razão e proporção
+- porcentagem
+- juros simples
+- juros compostos
+
+GEOMETRIA
+
+ü
+Trigonometria
+- semelhanças de triângulos
+- relações métricas no triângulo retângulo
+- razões trigonométricas
+- seno, cosseno e tangente de um ângulo agudo
+
+                                              163
+Matemática
+               - ângulos notáveis (30°, 45°, 60°)
+
+                                             COMPETÊNCIAS/HABILIDADES
+
+             ·  Utilizar o conhecimento geométrico para realizar a leitura e a representação da realidade e agir
+             sobre ela.
+             ·  Modelar e resolver problemas que envolvem variáveis socioeconômicas ou técnico-científicas,
+             usando representações algébricas.
+             ·  Utilizar conhecimentos geométricos de espaço e forma na seleção de argumentos propostos como
+             solução de problemas do cotidiano.
+
+
+                                                      SEGUNDO ANO
+
+                                                       1° BIMESTRE
+
+                                                       CONTEÚDOS
+
+             GEOMETRIA
+
+             ü
+             Resolução de Triângulos
+             - lei dos senos
+             - lei dos cossenos
+             - área de um triângulo
+             - área de um triângulo em função de um lado e da altura relativa a esse lado.
+             - área de um triângulo em função de dois lados e do ângulo correspondente entre eles.
+             ü
+             Sistema Trigonométrico
+             - arcos e ângulos
+             - funções e relações trigonométricas
+             - equações e inequações trigonométricas
+
+                                             COMPETÊNCIAS/HABILIDADES
+
+             ·  Utilizar o conhecimento geométrico para realizar a leitura e a representação da realidade e agir
+             sobre ela.
+             ·  Construir conhecimento sobre a conceituação das funções trigonométricas e as suas relações
+             tanto algébrica como gráfica.
+             ·  Facultar a visão da prática e a relação que esses conhecimentos trigonométricos estabelecem com
+             as situações reais do cotidiano.
+
+
+                                                       2º BIMESTRE
+
+                                                       CONTEÚDOS
+
+             NÚMEROS E OPERAÇÕES
+
+             ü
+             Sequências Numéricas
+             - conceituação
+             - progressão aritmética (PA)
+             - termo geral (PA)
+             - soma dos "n" primeiros termos de uma PA
+             - progressão geométrica (PG)
+             - termo geral (PG)
+             - soma dos "n" primeiros termos de uma PG
+             - soma dos infinitos termos de uma PG
+                                                           164
+                                                                                                     Matemática
+ü
+Matrizes
+- representação
+- matrizes especiais
+- operações com matrizes
+- matriz inversa
+
+                                COMPETÊNCIAS/HABILIDADES
+
+·  Identificar padrões numéricos ou princípios de contagem.
+·  Identificar regularidades em situações semelhantes para estabelecer regras, algoritmos e
+propriedades.
+·  Identificar a regularidade de que é constante a soma dos termos equidistantes de uma progressão
+aritmética finita, estender essa propriedade a toda situação, envolvendo progressões aritméticas e
+daí deduzir a soma de seus termos.
+
+
+                                         3º BIMESTRE
+
+                                         CONTEÚDOS
+
+NÚMEROS E OPERAÇÕES
+
+ü
+Determinantes
+- determinante de uma matriz
+- teorema de Laplace
+- propriedades dos determinantes
+ü
+Sistemas Lineares
+- equação linear
+- sistema linear
+- classificação de um sistema linear
+- resolução de sistemas por escalonamento
+- sistema linear homogêneo
+- regra de Cramer
+- discussão de um sistema
+
+                                COMPETÊNCIAS/HABILIDADES
+
+· Modelar e resolver problemas que envolvem variáveis socioeconômicas ou técnico-científicas,
+usando representações algébricas.
+· Tomar decisões diante de situações problemas, baseado no uso de determinante.
+· Elaborar argumentos consistentes, de diferentes naturezas, fazendo uso das operações com
+determinantes.
+
+                                         4º BIMESTRE
+
+                                         CONTEÚDOS
+
+ANÁLISE DE DADOS E PROBABILIDADE
+
+ü
+Análise Combinatória
+- princípio fundamental da contagem
+- permutações simples
+- permutação com repetição
+- arranjos simples
+- combinação simples
+
+
+                                             165
+                                             COMPETÊNCIAS/HABILIDADES
+
+
+
+
+Matemática
+             ·  Compreender o caráter aleatório e não determinístico dos fenômenos naturais e sociais e utilizar
+             instrumentos adequados para medidas, determinação de amostras e cálculos de probabilidade para
+             interpretar informações de variáveis apresentadas em uma distribuição estatística.
+
+
+                                                     TERCEIRO ANO
+
+                                                       1° BIMESTRE
+
+                                                       CONTEÚDOS
+
+             ANÁLISE DE DADOS E PROBABILIDADE
+
+             ü
+             Probabilidade
+             - experimento aleatório
+             - espaço amostral
+
+             NÚMEROS E OPERAÇÕES
+
+             ü
+             Binômio de Newton
+             - números binomiais
+             - triângulo de Pascal
+             - fórmula do termo geral
+
+                                             COMPETÊNCIAS/HABILIDADES
+
+             ·  Identificar regularidades em expressões matemáticas e estabelecer relações entre variáveis.
+             ·  Identificar diferentes formas de quantificar dados numéricos para decidir se a resolução de um
+             problema requer cálculo exato, aproximado, probabilístico ou análise de medias.
+
+
+                                                       2º BIMESTRE
+
+                                                       CONTEÚDOS
+
+             GEOMETRIA
+
+             ü
+             Geometria Espacial
+             - postulados e teoremas
+             - paralelismo
+             - perpendicularidade
+             ü
+             Poliedros
+             ü
+             Prismas
+             ü
+             Pirâmides
+             ü
+             Cilindros
+             ü
+             Cones
+             ü
+             Esferas
+
+                                             COMPETÊNCIAS/HABILIDADES
+
+             · Utilizar o conhecimento geométrico para realizar a leitura e a representação da realidade e agir
+             sobre ela.
+             · Identificar características de figuras planas ou espaciais.
+             · Analisar características e propriedades das formas geométricas bi e tridimensionais e desenvolver
+                                                           166
+                                                                                                     Matemática
+argumentos matemáticos sobre as relações geométricas
+·  Entender as características mensuráveis dos objetos, as unidades e sistemas de medidas e os
+processos de medição
+·  Representar dados, fazer estimativas e medidas, aplicar técnicas apropriadas, ferramentas e
+fórmulas para determinar medidas, elaborar hipóteses e interpretar resultados.
+
+
+                                         3º BIMESTRE
+
+                                         CONTEÚDOS
+
+GEOMETRIA
+
+ü
+Geometria Analítica
+- o ponto
+- a reta
+- a circunferência
+- as cônicas
+
+NÚMEROS E OPERAÇÕES
+
+ü
+Números Complexos
+- operações com múmeros complexos
+- forma trigonométrica
+- operações na forma trigonométrica
+
+                                COMPETÊNCIAS/HABILIDADES
+
+· Reconhecer a necessidade de ampliação do conjunto dos números reais.
+· Realizar operações com números complexos e identificar suas partes reais e imaginárias: somar,
+subtrair; multiplicar, dividir, calcular uma potência, raízes, o conjugado e o módulo de um número
+complexo.
+
+                                         4º BIMESTRE
+
+                                         CONTEÚDOS
+NUMEROS E OPERAÇÕES
+
+ü
+Polinômios e Equações Algébricas
+- operações com polinômios
+- equações polinomiais
+
+ANÁLISE DE DADOS E PROBABILIDADE
+
+ü
+Estatística
+- frequências
+- representações gráficas
+- média aritmética
+- mediana
+- moda
+
+                                COMPETÊNCIAS/HABILIDADES
+
+Avaliar propostas de intervenção na realidade utilizando conhecimentos algébricos.
+·
+Relacionar o estudo de polinômios e equações polinomiais com estudo de funções.
+·
+
+                                             167
+Matemática
+             ·  Tomar decisões diante de situações-problema, argumentando com base na interpretação das
+             informações e nos conhecimento sobre polinômios.
+             ·  Resolver situação problema que envolva conhecimentos de estatística e Probabilidade.
+
+
+
+
+                                                      168
+                                                                                                    Matemática
+                                        REFERÊNCIAS
+
+BARROSO, J.M. Matemática: Conexões com a Matemática. Ensino Médio. 1º ano. 1ª ed.. São
+Paulo: Moderna, 2010.
+
+______. Matemática: Conexões com a Matemática. Ensino Médio. 2º ano. 1 ed. São Paulo:
+Moderna, 2010.
+
+______. Matemática: Conexões com a Matemática. Ensino Médio. 3º ano. 1 ed. São Paulo:
+Moderna, 2010.
+
+BRASIL. Diretrizes Curriculares Nacionais para o Ensino Médio. Resolução n° 3 de 26 de junho
+de 1998. Brasília: CNE/CEB, 1998
+
+______. Orientações Curriculares para o Ensino Médio: Ciências da Natureza, Matemática e
+Suas Tecnologias. v. 2. Secretaria de Educação Básica. – Brasília: Ministério da educação, 2006.
+
+______. PCN+ Ensino Médio: Orientações Educacionais Complementares aos Parâmetros
+Curriculares Nacionais. Ciências da Natureza, Matemática e suas Tecnologias. Secretaria de
+Educação Média e Tecnológica. Brasília: MEC; SEMTEC, 2002.
+IEZZI, G. (etal). Matemática: Ciências e Aplicações. 1º ano Ensino Médio. 1. ed.São Paulo: Atual,
+2004.
+
+______. Matemática: Ciências e Aplicações. 2º ano Ensino Médio. 1. ed. São Paulo: Atual, 2004.
+
+______. Matemática: Ciências e Aplicações. 3º ano Ensino Médio. 1. ed. São Paulo: Atual, 2004.
+
+MATO GROSSO DO SUL. Referencial Curricular para o Ensino Médio: Área de Ciências da
+Natureza. Matemática e suas Tecnologias. Coordenadoria de Educação Básica. COEB; SED/MS:
+2006.
+
+PAIVA, M.. Coleção Base: Matemática. Ensino Médio. 1º ano. 1ed. São Paulo: Moderna, 2009.
+
+______. Coleção Base: Matemática. Ensino Médio. 2º ano. 1ed. São Paulo: Moderna, 2009.
+
+______. Coleção Base: Matemática. Ensino Médio. 3º ano. 1ed. São Paulo: Moderna, 2009.
+
+
+
+
+                                             169
+170
+Área do conhecimento
+CIÊNCIAS DA
+ NATUREZA
+
+
+
+
+        171
+172
+                                          VISÃO DE ÁREA
+
+
+
+
+                                                                                                              Área do conhecimento: Ciências da Natureza
+                                     CIÊNCIAS DA NATUREZA
+
+                        A maioria das idéias fundamentais da ciência são essencialmente sensíveis e, regra
+                        geral, podem ser expressas em linguagem compreensível a todos.
+
+                                                                                            Albert Einstein
+
+
+       A Ciência não pode ser entendida como um conjunto de saberes absolutos, puros e acabados,
+tornando-a meramente estática. Ela é considerada uma construção humana e coletiva que sofre
+influências do contexto histórico, social, cultural e econômico em que está inserida.
+       De acordo com as Diretrizes Curriculares Nacionais para o Ensino Médio (2011), a Ciência
+pode ser conceituada como um conjunto de conhecimentos sistematizados, produzidos socialmente
+no decorrer da história a qual busca a compreensão e transformação da natureza e da sociedade. Os
+conhecimentos produzidos ao longo da história são resultados de um processo empreendido pela
+humanidade na busca da compreensão e transformação dos fenômenos naturais e sociais. Dessa
+forma, apresenta conceitos e métodos cuja objetividade permite a transmissão para diferentes
+gerações, ao mesmo tempo em que podem ser questionados e superados historicamente na
+construção de novos conhecimentos.
+       A sistematização dos conjuntos de conhecimentos presentes na Ciência possibilitam a
+construção e concretização de áreas específicas. Dentre essas, destaca-se as Ciências da Natureza,
+cuja mediação, como área de conhecimento, é a relevância social, tecnológica e científica para a
+educação.
+
+       As Ciências da Natureza destina-se às ciências vinculadas ao estudo dos aspectos naturais,
+como meio de conhecimento, fazendo uso de uma linguagem investigativa e de caráter científico para
+o entendimento do mundo.
+
+       Na organização curricular do Ensino Médio frente à base nacional comum, segundo as
+Diretrizes Curriculares Nacionais para o Ensino Médio (2011), essa área é contemplada pelos
+componentes curriculares: Biologia, Física e Química, sendo estes vinculados por especificidades
+comuns que possibilitam a articulação didática e pedagógica dos conteúdos. Outra característica é a
+possível mediação e integração dos seus respectivos conteúdos, os quais promovem um trabalho
+contextualizado e interdisciplinar inerente à realidade cotidiana e escolar dos educandos.
+
+
+                        A organização por áreas de conhecimento não dilui nem exclui componentes
+                        curriculares com especificidades e saberes próprios construídos e sistematizados,
+                        mas implica no fortalecimento das relações entre eles e a sua contextualização para
+                        apreensão e intervenção na realidade requerendo planejamento e execução
+                        conjugados e cooperativos dos seus professores (Brasil, 2011, p.58).
+
+
+
+       No artigo 9 das Diretrizes Curriculares Nacionais da Educação Básica (2001), nota-se a
+relevância e a proficuidade da contextualização dos conteúdos curriculares apresentados na escola
+com as experiências vivenciadas pelos estudantes, sendo os contextos: da vida pessoal, do cotidiano
+e da convivência, o mais propício ao favorecimento desse processo.
+                                                 173
+                                                                     I – na situação de ensino – aprendizagem, o conhecimento é transposto da situação
+
+
+
+
+Área do conhecimento: Ciências da Natureza
+                                                                     em que foi criado, inventando ou produzindo, e por causa dessa transposição
+                                                                     didática deve ser relacionado com a prática ou experiência do aluno a fim de adquirir
+                                                                     significado;
+                                                                     II - a relação entre teoria e prática requer a concretização dos conteúdos curriculares
+                                                                     em situações mais próximas e familiares do aluno, nas quais se incluem as do
+                                                                     trabalho e do exercício da cidadania;
+                                                                     III - a aplicação de conhecimentos constituídos na escola às situações de vida
+                                                                     cotidiana e das experiências espontâneas permite o seu entendimento, critica e
+                                                                     revisão (p. 104-105).
+
+
+                                                    O ensino das Ciências da Natureza, pautado numa prática integradora, garante a formação de
+                                             estudantes com visão global de mundo e promove uma ação crítica e reflexiva, por meio da integração
+                                             dos componentes curriculares da área.
+                                                    No desenvolvimento interdisciplinar dos componentes curriculares, faz-se uso de uma
+                                             linguagem comum, justificando o alinhamento dos conteúdos e proporcionando a articulação dos
+                                             diferentes conhecimentos e competências de caráter geral, possibilitando, assim, um melhor
+                                             aprendizado. Entretanto, as particularidades de cada disciplina não devem ser esquecidas, pelo
+                                             contrário, elas devem convergir para o entendimento do objeto estudado.
+                                                    O componente curricular Biologia, cujo principal objeto de estudo é o fenômeno vida em toda
+                                             sua diversidade de manifestações, permite ao docente trabalhar os conteúdos aqui elencados de
+                                             maneira a proporcionar aos estudantes ultrapassar os limites das informações contidas nos livros
+                                             didáticos, visto que o estudo dessa disciplina não é estático, pois a associação entre ciência e
+                                             inovações tecnológicas, têm-se mostrado cada vez mais presente.
+                                                    Assim, é comum nos depararmos com inovações no ramo das Ciências Biológicas fazendo-se
+                                             necessário que os docentes estejam atentos para disseminar esses conhecimentos aos estudantes,
+                                             uma vez que descobertas dessa natureza fazem parte do nosso cotidiano.
+
+                                                                    O conhecimento científico e as novas tecnologias constituem-se, cada vez mais,
+                                                                    condição para que a pessoa saiba se posicionar frente a processos e inovações que a
+                                                                    afetam. Não se pode, pois, ignorar que se vive: o avanço do uso da energia nuclear;
+                                                                    da nanotecnologia; a conquista da produção de alimentos geneticamente
+                                                                    modificados; a clonagem biológica. Nesse contexto, tanto o docente quanto o
+                                                                    estudante e o gestor requerem uma escola em que a cultura, a arte, a ciência e a
+                                                                    tecnologia estejam presentes no cotidiano escolar, desde o inicio da Educação
+                                                                    Básica (BRASIL, 2010, p. 21).
+
+
+                                                    Nesse sentido, o ensino da Biologia abrange muito mais do que reproduzir dados, dominar
+                                             classificações ou identificar símbolos, pois urge que compreendamos nosso papel na natureza, bem
+                                             como as consequências que nossa maneira de viver pode acarretar. Entender que há muito, ainda, a
+                                             se descobrir e que nós fazemos parte dessas descobertas.
+                                                    As Orientações Curriculares para o Ensino Médio compreendem que: o grande desafio do
+                                             professor é possibilitar ao estudante desenvolver as habilidades necessárias para a compreensão do
+                                             papel do homem na natureza. (BRASIL, 2006, p.18)
+                                                    Sendo assim, o docente norteando-se pelas orientações e pelos conteúdos listados nesse
+                                             documento, poderá concretizar os objetivos educacionais para a área de Ciências da Natureza e,
+                                             também, proporcionar aos estudantes/cidadãos uma visão de mundo que permita-lhes o
+
+                                                                                              174
+                                                                                                            Área do conhecimento: Ciências da Natureza
+conhecimento e posicionamento diante de situações-problema que, certamente vivenciarão.
+       Em relação à disciplina Física, objetiva-se promover o ensino para a formação do cidadão
+contemporâneo com instrumentos para compreender e intervir na realidade. Partimos da premissa de
+que no Ensino Médio não se pretende formar físicos e que o ensino dessa disciplina destina-se
+àqueles que terão na escola uma das poucas oportunidades de acesso formal a esse conhecimento
+(Brasil, 2006). Desse modo, esta Secretaria propõe um ensino de Física que enfatize a compreensão
+dos conceitos científicos por meio da construção de significados e não a mera memorização de
+fórmulas.
+       Assim, o ensino de Física deve levar os estudantes a construírem competências para discutir
+e analisar fatos cotidianos como, por exemplo: situações ligadas ao trânsito, às vantagens e
+desvantagens da utilização de novas fontes de energia e seu impacto no desenvolvimento de uma
+economia sustentável, na descrição dos processos de formação de raios e na elaboração de
+estratégias para prevenir acidentes com descargas elétricas.
+       A Física Moderna e Contemporânea, de extrema relevância, oportuniza aos estudantes o
+contato com temas que, muitas vezes são divulgados apenas em jornais ou filmes de ficção científica
+como, por exemplo, Buracos Negros e Big Bang, e que por falta de oportunidades não são abordados
+nas aulas de física (OSTERMANN & MOREIRA, 2000).
+       Nessa perspectiva, esse documento sugere, também, o ensino a partir do desenvolvimento de
+situações ou problemas contextualizados, integrados com o conteúdo desenvolvido em outras
+disciplinas, buscando a interdisciplinaridade e a construção de significado para os conteúdos
+estudados em sala de aula, dando-lhes sentido por permitir aos estudantes aplicá-los na
+compreensão de situações do cotidiano.
+       Nos conteúdos do componente curricular - Química buscamos contemplar os aspectos
+conceituais da disciplina, favorecer o entendimento da constituição e transformação dos materiais,
+bem como suas aplicações e implicações sociais.
+       A Química estrutura-se como um conhecimento que se institui mediante relações complexas e
+dinâmicas que envolvem um tripé bastante específico, em seus três eixos fundamentais: as
+transformações químicas, os materiais e suas propriedades e os modelos explicativos. A relação
+entre esses eixos corresponde aos objetos e aos focos de interesse da Química, tanto como
+componente curricular como ciência, cujas investigações e estudos concentram - se, precisamente,
+nas propriedades, na constituição e nas transformações dos materiais e das substâncias em diversas
+e reais situações (BRASIL, 2006).
+       Assim, a Química no contexto escolar, além dos aspectos supramencionados, deve também
+ser considerada como um instrumento educativo para formar cidadãos conscientes, possibilitar o
+desenvolvimento de conhecimentos e atitudes que valorizam a formação dos educandos,
+habilitando-os à tomada de decisões frente a situações-problema, oriundas da apropriação e uso dos
+meios tecnológicos e bens de consumo da sociedade atual.
+
+                       A Química pode ser um instrumento da formação humana que amplia os horizontes
+                       culturais e a autonomia no exercício da cidadania, se o conhecimento químico for
+                       promovido como um dos meios de interpretar o mundo e intervir na realidade, se for
+                       apresentado como ciência, com seus conceitos, métodos e linguagens próprios, e
+
+                                               175
+                                                                    como construção histórica, relacionada ao desenvolvimento tecnológico e aos muitos
+
+
+
+
+Área do conhecimento: Ciências da Natureza
+                                                                    aspectos da vida em sociedade ( PCN+, 2002, p. 87).
+
+                                                    Neste sentido, esta proposta prioriza que o aprendizado da disciplina de Química, no âmbito
+                                             escolar, proporcione ao estudante a compreensão dos processos químicos e dos conhecimentos
+                                             científicos relacionados aos meios tecnológicos, econômicos e sociais, evidenciando, que o
+                                             conhecimento químico não pode ser entendido como um conjunto de conhecimentos isolados, mas,
+                                             sim, como um instrumento de construção da mente humana em permanente transformação.
+                                                    Em face ao exposto, propomos por meio do Referencial Curricular da Educação Básica da
+                                             Rede Estadual de Ensino de Mato Grosso do Sul, no que tange às disciplinas da área de Ciências da
+                                             Natureza, subsidiar a prática docente, visando assim, contribuir para a aprendizagem significativa
+                                             dos educandos.
+
+
+
+
+                                                                                            176
+                                         REFERÊNCIAS
+
+
+
+
+                                                                                                      Área do conhecimento: Ciências da Natureza
+BRASIL. Orientações Curriculares para o Ensino Médio: Ciências da Natureza, Matemática e
+suas Tecnologias. v 2. Secretaria de Educação Básica – Brasília: MEC, 2006.
+
+______. Diretrizes Curriculares Nacionais para o Ensino Médio. Parecer CEB n. 5, 2011. Brasília:
+CNE, 2011.
+
+______. Diretrizes Curriculares Nacionais Gerais para a Educação Básica - Parecer CEB n. 7,
+2010. Brasília: CNE, 2010.
+
+______. PCN+ Ensino Médio: Orientações Educacionais Complementares aos Parâmetros
+Curriculares Nacionais. Ciências da Natureza, Matemática e suas Tecnologias. Secretaria de
+Educação Média e Tecnológica - Brasília: MEC; SEMTEC, 2002.
+
+OSTERMANN, F.; Moreira, M. A. Uma revisão bibliográfica sobre a área de pesquisa “física moderna
+e contemporânea no ensino médio”. In: Investigação em Ensino de Ciências, v. 5, n. 1. Porto Alegre:
+2000.
+
+
+
+
+                                              177
+178
+BIOLOGIA
+
+
+
+
+   179
+180
+                                         PRIMEIRO ANO
+
+
+
+
+                                                                                                    Biologia
+                                          1º BIMESTRE
+
+                                          CONTEÚDOS
+
+ü
+Origem da Biologia
+ü
+Biologia como ciência
+ü
+Principais divisões da Biologia
+- citologia, histologia, anatomia, taxonomia, embriologia, genética, evolução e ecologia
+ü
+Origem da vida
+ü
+Introdução à Citologia
+- apresentação da célula
+- composição química da célula
+- membrana plasmática
+
+                                COMPETÊNCIAS/HABILIDADES
+
+·  Analisar e interpretar a vida nos seus aspectos históricos e científicos.
+·  Compreender a Ciência como um processo de produção de conhecimento e uma atividade
+essencialmente humana.
+·  Distinguir as principais divisões da Biologia pelas suas especificidades e importância para a
+humanidade.
+·  Conhecer e compreender as diversas teorias referentes à origem da vida identificando a
+interferência de aspectos culturais e científicos.
+·  Identificar a organização celular como característica fundamental de todas as formas vivas.
+·  Interpretar modelos e experimentos para explicar fenômenos ou processos em qualquer nível de
+organização dos sistemas biológicos.
+·  Utilizar códigos e nomenclatura da química para caracterizar materiais, substâncias ou
+transformações químicas nos processos biológicos.
+·  Identificar a membrana plasmática como estrutura que delimita todas as células vivas e que
+proporciona o funcionamento normal e regular das células.
+
+
+                                          2º BIMESTRE
+
+                                          CONTEÚDOS
+
+ü
+Citoplasma
+- estruturas celulares
+- forma, função e localização
+ü
+Núcleo
+- ácidos nucleicos
+
+                                COMPETÊNCIAS/HABILIDADES
+
+
+·  Reconhecer as principais estruturas celulares presentes no citoplasma e correlacionar suas
+interações na atividade celular.
+·  Conhecer e analisar a forma, localização e função do citoplasma e suas interferências nas
+atividades celulares.
+·  Identificar o papel do núcleo dando continuidade ao conhecimento adquirido sobre as interações
+que ocorrem nas atividades celulares.
+·  Conhecer os ácidos nucleicos quanto às suas características principais reconhecendo-os como
+parte das atividades celulares.
+
+                                              181
+Biologia
+           ·  Analisar o modelo da molécula do DNA, conhecendo o processo de autoduplicação desta molécula
+           e o significado desse processo na transmissão de caracteres.
+
+
+                                                      3º BIMESTRE
+
+                                                      CONTEÚDOS
+
+           ü
+           Núcleo
+           - divisão celular
+           ü
+           Metabolismo celular
+           - quimiossíntese, fotossíntese, fermentação e respiração
+
+                                            COMPETÊNCIAS/HABILIDADES
+
+           ·  Valorizar os estudos detalhados sobre o interior da célula reconhecendo-o como possíveis
+           geradores de conhecimentos e tecnologias úteis a humanidade.
+           ·  Compreender o processo de divisão celular identificando a mitose e a meiose como parte do ciclo
+           celular.
+           ·  Relacionar a diferenciação celular como forma de adaptação dos seres vivos ao meio em vivem.
+           ·  Compreender a importância dos ciclos biogeoquímicos ou do fluxo energia para a vida, ou da ação
+           de agentes ou fenômenos que podem causar alterações nesses processos.
+           ·  Analisar os processos de obtenção de energia de modo a reconhecer a importância desses
+           processos.
+
+
+                                                      4º BIMESTRE
+
+                                                      CONTEÚDOS
+
+           ü
+           Histologia
+           - forma, localização, função
+           ü
+           Reprodução assexuada e sexuada
+           ü
+           Desenvolvimento embrionário dos seres vivos
+           ü
+           Ciclos de vida
+
+                                            COMPETÊNCIAS/HABILIDADES
+
+           ·  Distinguir os tecidos dos animais e vegetais por características como forma, localização e função.
+           ·  Relacionar as formas dos tecidos com as funções realizadas por ele no organismo.
+           ·  Analisar e distinguir as reproduções assexuada e sexuada.
+           ·  Reconhecer a reprodução sexuada como processo que envolve troca de material genético entre
+           indivíduos, processo articulado com a hereditariedade, com a identidade e a diversidade dos
+           organismos.
+           ·  Ter acesso as informações referentes à incidência de DST e AIDS entre homens e mulheres de
+           diferentes faixas etárias.
+           ·  Analisar e interpretar os processos reprodutivos e os ciclos que compõem a vida.
+
+
+
+
+                                                          182
+                                         SEGUNDO ANO
+
+
+
+                                                                                                        Biologia
+                                           1º BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+Sistemática
+- definição de sistemática
+ü
+Classificação e biodiversidade
+ü
+Estudo dos Vírus
+ü
+Estudo do Reino Monera
+ü
+Estudo do Reino Protista
+ü
+Estudo do Reino Fungi
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Compreender o papel da evolução na produção de padrões, processos biológicos ou na
+organização sistemática dos seres vivos.
+·  Analisar sobre a importância da classificação dos diversos reinos para a manutenção da
+biodiversidade e equilíbrio do meio ambiente.
+·  Analisar a estrutura viral e a estrutura celular, identificando a sua relação de dependência.
+·  Identificar as principais doenças causadas por vírus.
+·  Reconhecer a importância dos Reinos Monera, Protista e Fungi, analisando implicações para o
+ambiente, a saúde, a produção de alimentos, matérias primas ou produtos industriais.
+
+
+                                           2º BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+Reino Plantae
+- classificação dos vegetais
+- estudo do desenvolvimento morfológico e fisiológico dos vegetais
+- briófitas e pteridófitas
+- gimnospermas e angiospermas
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Classificar os vegetais quanto às suas características morfológicas e fisiológicas relacionando-as
+aos seus habitats.
+·  Associar características adaptativas dos vegetais com seu modo de vida ou com seus limites de
+distribuição em diferentes ambientes, em especial em ambientes brasileiros.
+·  Avaliar propostas de intervenção no ambiente, considerando a qualidade da vida humana ou
+medidas de conservação, recuperação ou utilização sustentável da biodiversidade.
+·  Analisar as semelhanças e diferenças entre as briófitas e pteridófitas por meio de comparação das
+suas principais características.
+·  Caracterizar as gimnospermas e angiospermas quanto às suas propriedades e características
+diferentes.
+
+
+
+
+                                               183
+Biologia
+                                                      3º BIMESTRE
+
+                                                      CONTEÚDOS
+
+           ü
+           Reino Animalia
+           - invertebrados
+           - poríferos e cnidários
+           - platelmintos e nematelmintos
+           - moluscos e anelídeos
+           - artrópodes
+           - equinodermos e protocordatos
+
+                                            COMPETÊNCIAS/HABILIDADES
+
+           ·  Valorizar a importância do Reino Animalia no que tange às suas implicações na biodiversidade.
+           ·  Identi?car características morfológicas e ?siológicas dos animais invertebrados, tais como:
+           alimentação, digestão, circulação, excreção e trocas gasosas, relacionando-as com o modo de vida.
+           ·  Analisar características e importância dos invertebrados e suas implicações para o ambiente,
+           saúde, produção de alimentos, matérias primas ou produtos industriais.
+
+
+                                                      4º BIMESTRE
+
+                                                      CONTEÚDOS
+
+           ü
+           Vertebrados
+           - anatomia e fisiologia animal comparada
+           - peixes, anfíbios, répteis, aves e mamíferos
+
+                                            COMPETÊNCIAS/HABILIDADES
+
+           ·  Identi?car características morfológicas e ?siológicas dos animais vertebrados por meio de
+           comparação dando ênfase a morfologia e fisiologia humana.
+           ·  Relacionar o modo de vida dos vertebrados, relacionando-o com alimentação, digestão,
+           circulação, excreção e trocas gasosas.
+           ·  Identificar padrões em fenômenos e processos vitais dos organismos, como manutenção do
+           equilíbrio interno, defesa, relações com o ambiente, sexualidade entre outros.
+
+
+                                                     TERCEIRO ANO
+
+                                                      1º BIMESTRE
+
+                                                      CONTEÚDOS
+
+           ü   Introdução à Genética
+           - origens e conceitos
+           - formas e expressão dos genes (genótipo e fenótipo)
+           - primeira Lei de Mendel e estudo da hereditariedade
+           - monoibridismo e alelos múltiplos
+
+                                            COMPETÊNCIAS/HABILIDADES
+
+           · Analisar e interpretar o significado da genética e suas intervenções na humanidade.
+           · Identificar as características fenotípicas e evidências de hereditariedade, utilizando os princípios
+           básicos da herança mendeliana aplicados em exercícios de genealogias humanas e em situações
+                                                           184
+                                                                                                         Biologia
+problema que envolva características dominantes, recessivas, em relação a algumas heranças.
+·  Reconhecer mecanismos de transmissão da vida, prevendo ou explicando a manifestação de
+características dos seres vivos.
+·  Compreender a primeira lei de Mendel a partir de resultados de cruzamentos e princípios básicos
+como monoibridismo e alelos múltiplus que regem a transmissão de características hereditárias.
+
+
+                                           2º BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+Segunda Lei de Mendel e interação gênica
+ü
+Herança dos grupos sanguíneos
+ü
+Permuta e herança sexual
+ü
+Mutações
+ü
+Biotecnologia
+- Engenharia Genética e suas aplicações
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Compreender a segunda lei de Mendel analisando a interação gênica e seus resultados.
+·  Identificar as incompatibilidades que podem ocorrer nas transfusões de sangue e comunicação
+materno-fetal a partir da transmissão hereditária dos grupos sanguíneos.
+·  Utilizar os conhecimentos referentes à genética e analisar os conceitos de permuta e herança
+sexual.
+·  Analisar as causas das mutações e suas consequências para a vida do indivíduo.
+·  Reconhecer benefícios, limitações e aspectos éticos da biotecnologia, considerando estruturas e
+processos biológicos envolvidos em produtos biotecnológicos.
+·  Compreender, analisar e interpretar o significado da genética e suas concepções, reconhecendo o
+mapeamento genético e engenharia genética como uns dos grandes avanços científicos e
+tecnológicos da humanidade.
+
+
+                                           3º BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+Retrospectiva histórica das teorias evolucionistas
+ü
+Genética de populações
+ü
+Fundamentos da Ecologia
+ü
+Fluxos de energia e ciclos biogeoquímicos
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Fazer um paralelo entre as teorias evolucionistas e as outras teorias da origem da vida.
+·  Conceituar genética de populações e os fatores relevantes que a influenciam.
+·  Analisar os fundamentos da ecologia e justificar a importância dos estudos ecológicos para o futuro
+da humanidade e seu bem-estar.
+·  Avaliar métodos, processos ou procedimentos das ciências naturais que contribuam para
+diagnosticar ou solucionar problemas de ordem social, econômica ou ambiental.
+·  Identificar etapas em processos de obtenção, transformação ou utilização de energia,
+considerando processos biológicos, químicos ou físicos neles envolvidos.
+
+
+
+                                               185
+                                                      4º BIMESTRE
+
+
+
+
+Biologia
+                                                      CONTEÚDOS
+
+           ü
+           A sucessão ecológica e os biomas
+           ü
+           Dinâmica das populações
+           ü
+           Relações intra e interespecíficas
+           ü
+           A humanidade e os desequilíbrios ambientais
+
+                                            COMPETÊNCIAS/HABILIDADES
+
+           ·  Conceituar sucessão ecológica e analisar as tendências observadas em seu decorrer.
+           ·  Analisar e interpretar os diferentes biomas da Terra.
+           ·  Conhecer e analisar as diversas características das populações, bem como reconhecer as
+           alterações que estas sofrem ao longo do tempo.
+           ·  Analisar e diferenciar as relações intra e interespecíficas de modo a classificá-las quanto as suas
+           especificidades.
+           ·  Avaliar propostas de intervenção no ambiente, considerando a qualidade da vida humana ou
+           medidas de conservação, recuperação ou utilização sustentável da biodiversidade.
+           ·  Distinguir e caracterizar os diferentes tipos de desequilíbrios ambientais.
+           ·  Compreender a grandeza da vida através do conhecimento dos fenômenos naturais, que
+           demonstram o equilíbrio da natureza.
+           ·  Avaliar impactos em ambientes naturais decorrentes de atividades sociais ou econômicas,
+           considerando interesses contraditórios.
+           ·  Avaliar propostas de alcance individual ou coletivo, identificando aquelas que visam à preservação
+           e a implementação da saúde individual, coletiva ou do ambiente.
+
+
+
+
+                                                          186
+                                           REFERÊNCIAS
+
+
+
+                                                                                                     Biologia
+AMABIS, J. M.; MARTHO, G. R. Biologia. v. 1, 3. ed. São Paulo: Moderna, 2010.
+
+______. Biologia. v. 2, 3. ed. São Paulo: Moderna, 2010.
+
+______. Biologia. v. 3, 3. ed. São Paulo: Moderna, 2010.
+
+BRASIL. Diretrizes Curriculares Nacionais para o Ensino Médio. Resolução n° 3. Brasília:
+CNE/CEB, 1998
+
+______. Orientações Curriculares para o Ensino Médio: Ciências da Natureza, Matemática e
+suas Tecnologias. v 2. Secretaria de Educação Básica. Brasília: MEC, 2006.
+
+______. PCN+ Ensino Médio: Orientações Educacionais Complementares aos Parâmetros
+Curriculares Nacionais. Ciências da Natureza, Matemática e suas Tecnologias. Secretaria de
+Educação Média e Tecnológica. Brasília: MEC; SEMTEC, 2002.
+
+FUTUYAMA, D. J. Biologia Evolutiva. 2. ed. Ribeirão Preto: Sociedade Brasileira de Genética, 1992.
+
+GRIFFITHS, J. F. (et al.). Introdução a Genética. 9. ed. Rio de Janeiro: Guanabara Koogan, 2008.
+
+JÚNIOR, C. S.; SASSON, S.; JÚNIOR, N. C. Biologia. v. 1, 10. ed. São Paulo: Saraiva. 2010.
+
+______. Biologia. v. 2, 10. ed. São Paulo: Saraiva. 2010.
+
+______. Biologia. v. 3, 10. ed. São Paulo: Saraiva. 2010.
+
+MENDONÇA, V.; LAURENCE, J. Biologia. v. 1, 1. ed. São Paulo: Nova Geração, 2010.
+
+______. Biologia. v. 2, 1. ed. São Paulo: Nova Geração, 2010.
+
+______. Biologia. v. 3, 1. ed. São Paulo: Nova Geração, 2010.
+
+ROSSO, S.; LOPES, S. Bio. v. 1, 2. ed. São Paulo: Saraiva, 2010.
+
+______. Bio. v. 2, 2. ed. São Paulo: Saraiva, 2010.
+
+______. Bio. v. 3, 2. ed. São Paulo: Saraiva, 2010.
+
+STORER, T.; USINGER, R. L. Zoologia Geral. 3. ed. São Paulo: Nacional, 1977.
+
+ODUM, E. P.; BARRETT, G. W. Fundamentos de Ecologia. 1. ed. Rio de Janeiro: Thomson
+Learning, 2007.
+
+
+
+
+                                                187
+188
+FÍSICA
+
+
+
+
+  189
+190
+                                           PRIMEIRO ANO
+
+
+                                                                                                           Física
+                                            1° BIMESTRE
+
+                                            CONTEÚDOS
+
+ü
+Conceituação de Trabalho
+ü
+Potência e Energia
+ü
+Impulso e Quantidade de Movimento
+ü
+Colisões unidimensionais
+ü
+Colisões entre objetos celestes
+
+                                  COMPETÊNCIAS/HABILIDADES
+
+·  Calcular o trabalho realizado por uma força aplicada na mesma direção da velocidade.
+·  Explicar em que casos o trabalho realizado por uma força é positivo, negativo ou nulo.
+·  Relacionar a variação da energia mecânica com o trabalho realizado no sistema.
+·  Calcular a quantidade de movimento de um corpo a partir do conhecimento de sua massa e da sua
+velocidade.
+·  Aplicar o teorema da conservação da quantidade de movimento para determinação da velocidade
+após a colisão entre dois corpos com velocidades colineares.
+·  Aplicar o conhecimento sobre colisões a situações ligadas ao tema transversal trânsito.
+·  Identificar os tipos de choques mecânicos e explicar suas características.
+·  Aplicar os conceitos ligados a colisões na determinação das consequências de choques entre
+objetos celestes (asteroides e planetas).
+
+
+                                            2° BIMESTRE
+
+                                            CONTEÚDOS
+
+ü
+Dinâmica em mais de uma dimensão
+ü
+Força resultante de forças não colineares
+ü
+Lei da Gravitação Universal
+ü
+Movimento de projéteis
+ü
+Movimento circular e segurança no trânsito
+ü
+Buracos Negros
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Descrever os fatos históricos que conduzem os estudos da Dinâmica.
+·  Realizar operação de adição de dois vetores coplanares.
+·  Identificar a força como uma grandeza física vetorial.
+·  Representar graficamente em um diagrama as forças atuando em objetos em repouso ou em
+movimento.
+·  Representar graficamente um diagrama de forças atuando em sistemas de roldanas, planos
+inclinados, elevadores.
+·  Resolver problemas simples em que forças equilibradas não alteram o estado de movimento dos
+objetos.
+·  Utilizar a Segunda Lei de Newton na determinação da aceleração de partículas.
+·  Utilizar a Terceira Lei de Newton na determinação das forças de ação e reação envolvendo dois
+corpos.
+·  Identificar a força de atrito como uma força resistente ao movimento e diferenciar atrito estático de
+atrito dinâmico.
+·  Explicar como a força gravitacional é responsável pelo movimento dos planetas, luas, cometas e
+                                                191
+Física
+         satélites.
+         ·  Identificar a força centrípeta como responsável pela alteração da direção e do sentido do vetor
+         velocidade nos movimentos circulares e aplicar o cálculo da força centrípeta às condições de
+         segurança no trânsito (velocidade limite em curvas).
+         ·  Explicar como corpos massivos podem atrair até mesmo a luz.
+
+
+                                                   3° BIMESTRE
+
+                                                   CONTEÚDOS
+
+         ü
+         Massa específica
+         ü
+         Pressão, Princípio de Pascal e Princípio de Stevin
+         ü
+         Princípio de Arquimedes
+         ü
+         Equação da continuidade e Efeito Bernoulli
+         ü
+         Turbulência e poluição
+
+                                         COMPETÊNCIAS/HABILIDADES
+
+         ·  Diferenciar densidade e massa específica e identificá-las como propriedades dos corpos e das
+         substâncias, respectivamente.
+         ·  Enunciar o conceito de pressão e aplicá-lo na resolução de problemas do cotidiano.
+         ·  Identificar que o aumento da pressão em certo ponto de um líquido em equilíbrio é transmitido a
+         todos os outros pontos do líquido.
+         ·  Identificar a presença da força de Empuxo em situações do cotidiano.
+         ·  Ser capaz de calcular e interpretar o módulo da força de empuxo que age sobre corpos em fluidos.
+         ·  Descrever a relação entre diâmetro, velocidade de escoamento e pressão em vazões.
+         ·  Explicar porque em casos de fortes ventanias, telhados de casas e galpões podem ser
+         arremessados para cima.
+         ·  Descrever como a poluição pode contribuir para a deterioração das condições de manutenção da
+         vida na Terra.
+
+                                                   4° BIMESTRE
+
+                                                   CONTEÚDOS
+
+         ü
+         Momento de uma força (torque)
+         ü
+         Equilíbrio de corpos rígidos
+         ü
+         Máquinas Simples
+         ü
+         Corpo humano e equilíbrio
+
+                                         COMPETÊNCIAS/HABILIDADES
+
+         ·  Reconhecer o momento de uma força como uma grandeza que representa a magnitude da força
+         aplicada a um sistema rotacional.
+         ·  Analisar a condição de equilíbrio dos corpos e identificar os tipos de equilíbrio na natureza.
+         ·  Efetuar a decomposição de vetores em duas direções perpendiculares a fim de verificar condições
+         de equilíbrio.
+         ·  Identificar os tipos de alavancas e compreender como uma força pode fazer um objeto girar em
+         torno de um eixo.
+
+
+
+
+                                                       192
+                                         SEGUNDO ANO
+
+
+                                                                                                       Física
+                                             1° BIMESTRE
+
+                                             CONTEÚDOS
+
+ü
+Ondas e sua caracterização
+ü
+Reflexão e Refração de ondas
+ü
+Interferência e Difração
+ü
+Som
+ü
+Efeito Doppler
+ü
+O mecanismo da audição humana
+
+                                COMPETÊNCIAS/HABILIDADES
+
+·   Definir frequência, amplitude e comprimento de onda.
+·   Reconhecer que uma onda é uma forma de transferir energia sem transferir matéria.
+·   Descrever os fenômenos de reflexão, refração, interferência e difração de ondas.
+·   Identificar em situações do cotidiano o Efeito Doppler em ondas sonoras.
+·   Identificar ondas sonoras como ondas mecânicas, descrever suas propriedades e os seus efeitos
+fisiológicos no ouvido.
+·   Descrever os efeitos do som de altas intensidades sobre o ouvido.
+
+
+                                             2° BIMESTRE
+
+                                             CONTEÚDOS
+
+ü
+O espectro eletromagnético
+ü
+Natureza da Luz
+ü
+Luz como onda
+ü
+Espelhos e lentes
+ü
+Luz como partícula e o efeito fotoelétrico
+ü
+O olho humano e o mecanismo da visão
+
+                                COMPETÊNCIAS/HABILIDADES
+
+·  Reconhecer a luz visível como parte do espectro eletromagnético de ondas que é perceptível ao
+olho humano.
+·  Analisar os fenômenos luminosos a partir de uma representação geométrica (processo de
+formação de imagens em lentes e espelhos).
+·  Explicar a dispersão da luz branca gerando um conjunto de cores.
+·  Representar e explicar a refração dos raios luminosos ao passar de um meio para outro.
+·  Classificar e identificar as lentes convergentes e divergentes.
+·  Descrever o efeito fotoelétrico e sua aplicação na explicação do funcionamento de uma fotocélula.
+·  Aplicar os conceitos de reflexão e refração na descrição de instrumentos ópticos.
+·  Distinguir os principais elementos do olho humano e sua importância para o processo da visão.
+·  Reconhecer os problemas da visão mais comuns e as lentes usadas para solucioná-los.
+
+
+
+
+                                               193
+                                                    3° BIMESTRE
+
+
+Física
+                                                    CONTEÚDOS
+
+         ü
+         Termologia
+         ü
+         Energia Interna e Temperatura
+         ü
+         Equilíbrio Térmico
+         ü
+         Dilatação
+         ü
+         Dilatação e grandes construções
+
+                                          COMPETÊNCIAS/HABILIDADES
+
+         · Explicar o funcionamento de termômetros e aferir a temperatura usando termômetros.
+         · Diferenciar os processos de transmissão de energia sob forma de calor.
+         · Reconhecer o equilíbrio térmico como resultado da troca de energia sob forma de calor.
+         · Identificar na situação de equilíbrio térmico, em um sistema isolado, a energia total conservada.
+         · Diferenciar o conceito de temperatura e calor.
+         · Identificar calor como energia em trânsito devido à diferença de temperatura entre corpos.
+         · Descrever os efeitos da variação de temperatura nos sólidos, líquidos e gases.
+         · Explicar o funcionamento dos termostatos.
+         · Identificar situações nas quais a dilatação e a contração volumétrica dos sólidos são relevantes na
+         construção civil.
+
+
+                                                    4° BIMESTRE
+
+                                                    CONTEÚDOS
+
+         ü
+         Termodinâmica
+         ü
+         Calor e Primeira Lei da Termodinâmica
+         ü
+         Processos de transferência de energia sob forma de calor
+         ü
+         Equação de Estado dos Gases Ideais
+         ü
+         Mudanças de fase
+         ü
+         Segunda Lei da Termodinâmica e processos reversíveis
+         ü
+         Máquinas Térmicas
+         ü
+         Fontes de energia alternativas
+
+                                          COMPETÊNCIAS/HABILIDADES
+
+         ·  Calcular o trabalho recebido ou cedido em um gás durante processos de compressão ou
+         expansão.
+         ·  Descrever as transformações gasosas e suas propriedades (isotérmicas, isobáricas e isocóricas).
+         ·  Identificar as mudanças de fases da matéria.
+         ·  Calcular a energia transferida para um corpo quando varia sua temperatura ou muda de fase.
+         ·  Identificar a entropia como uma quantidade que indica o grau de informação que temos sobre o
+         sistema.
+         ·  Calcular a quantidade de energia envolvida em um processo de mudança de fase.
+         ·  Descrever o funcionamento de máquinas térmicas baseadas no Ciclo de Carnot.
+         ·  Descrever as vantagens e desvantagens da utilização de novas fontes de energia e seu impacto
+         em uma economia sustentável.
+
+
+
+
+                                                        194
+                                          TERCEIRO ANO
+
+
+                                                                                                    Física
+                                           1° BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+O átomo e sua estrutura
+ü
+Carga elétrica e sua quantização
+ü
+Processos de transferência de carga
+ü
+Interação entre corpos carregados – Lei de Coulomb
+ü
+Partículas elementares
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+Descrever a estrutura microscópica da matéria.
+·
+Descrever a estrutura de átomos e a constituição do núcleo e da eletrosfera.
+·
+Enunciar a relação entre a massa do próton e do elétron.
+·
+Identificar os materiais condutores e isolantes e os processos de eletrização.
+·
+Elaborar estratégias para evitar os perigos das cargas eletrostáticas no cotidiano.
+·
+Explicar as forças de atração e repulsão entre cargas elétricas.
+·
+Ser capaz de calcular a força entre duas cargas elétricas pontuais (numérica e literalmente).
+·
+Conhecer e utilizar o conceito de partículas elementares para interpretar notícias científicas.
+·
+
+
+                                           2° BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+O campo elétrico e sua representação
+ü
+Campo elétrico de cargas pontuais em repouso
+ü
+O princípio da superposição
+ü
+Campo de distribuições de cargas pontuais
+ü
+Campo de distribuições esféricas e uniformes de carga
+ü
+Raios em Mato Grosso do Sul
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Descrever os problemas que surgem a partir do conceito de força elétrica e do conceito de
+interação a distância.
+·  Calcular o campo elétrico de uma partícula.
+·  Representar as linhas de força do campo elétrico.
+·  Realizar operações, usando o princípio da superposição, o módulo do campo elétrico produzido
+por duas partículas pontuais.
+·  Calcular o campo elétrico de uma esfera uniformemente carregada para pontos externos à esfera.
+·  Descrever o processo de formação de raios e descrever estratégias para evitar problemas com
+descargas elétricas.
+·  Descrever como é feita a previsão da ocorrência de raios.
+
+
+                                           3° BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+Trabalho, Potencial e Diferença de Potencial
+ü
+Corrente elétrica
+
+                                               195
+         ü
+
+
+Física
+         Resistores e baterias
+         ü
+         Circuitos elétricos simples: Leis de Kirchoff e associações de resistores
+         ü
+         Potência dissipada em circuitos elétricos simples
+         ü
+         Eficiência energética
+
+                                          COMPETÊNCIAS/HABILIDADES
+
+         ·  Calcular o trabalho realizado pelo campo elétrico sobre uma partícula.
+         ·  Identificar o trabalho realizado sobre a partícula com um processo de transferência de energia do
+         campo para a partícula.
+         ·  Identificar e calcular energia potencial associada ao campo em cada ponto do espaço.
+         ·  Identificar a corrente elétrica como um movimento ordenado de elétrons livres devido à diferença
+         de potencial nos condutores metálicos.
+         ·  Descrever as propriedades dos resistores, bem como, determinar a resistência pelas Leis de Ohm.
+         ·  Calcular a diferença de potencial entre as extremidades de um resistor.
+         ·  Representar associações de resistores elétricos através de diagramas.
+         ·  Descrever os tipos de associação de resistores e identificar a mais adequada em uma instalação
+         residencial.
+         ·  Determinar a corrente elétrica em um circuito em série, em paralelo ou misto.
+         ·  Calcular a potência de aparelhos elétricos.
+         ·  Calcular a energia consumida em um aparelho elétrico a partir de sua potência elétrica nominal e
+         do tempo de uso.
+         ·  Representar circuitos elétricos por meio de diagramas.
+         ·  Descrever a composição de circuitos elétricos simples: fonte de tensão, dispositivos de segurança,
+         manobra e controle, componentes para a conversão de energia elétrica em outros tipos de energia e
+         condutores.
+         ·  Montar circuitos elétricos simples e utilizar medidores de corrente e tensão.
+         ·  Aplicar os princípios de eficiência energética à necessidade de se poupar energia.
+
+
+                                                    4° BIMESTRE
+
+                                                    CONTEÚDOS
+
+         ü
+         O campo magnético e sua representação
+         ü
+         Força de Lorentz
+         ü
+         Movimento de partículas em campos
+         ü
+         Fluxo do campo magnético
+         ü
+         Indução eletromagnética: Leis de Faraday e Lenz
+         ü
+         Usinas de geração de energia elétrica
+
+                                          COMPETÊNCIAS/HABILIDADES
+
+         ·  Descrever as propriedades dos ímãs e os modos para obtenção de ímãs artificiais.
+         ·  Representar as linhas de campo magnético por meio de diagramas.
+         ·  Classificar e quantificar o campo magnético gerado no interior de espiras, bobinas e solenoides.
+         ·  Aplicar a Lei de Faraday e a Lei de Lenz ao cálculo de corrente elétrica em espiras.
+         ·  Identificar as fontes de energia elétrica e explicar porque algumas fontes de energia são
+         renováveis e outras não.
+         ·  Descrever o funcionamento de uma usina hidroelétrica.
+         ·  Descrever os processos de fissão e fusão nuclear, bem como o processo de obtenção de energia
+         elétrica por meio da fissão em usinas nucleares.
+         ·  Identificar os impactos ambientais proveniente das usinas e seus riscos.
+
+                                                        196
+                                            REFERÊNCIAS
+
+
+                                                                                                      Física
+BALTHAZAR, W.F.; OLIVEIRA, A.L. Partículas elementares no Ensino Médio: uma abordagem a
+partir do LHC. 1.ed. São Paulo: Livraria da Física, 2010.
+
+BARRETO FILHO, B.; SILVA, C.X. Física aula por aula. v. 1, 1. ed. São Paulo: FTD, 2010.
+
+______. Física aula por aula. v. 2, 1. ed. São Paulo: FTD, 2010.
+
+______. Física aula por aula. v. 3, 1. ed. São Paulo: FTD, 2010.
+
+CANIATO, R. (Re)Descobrindo a Astronomia. 1.ed. Campinas: Átomo, 2010.
+
+HALLIDAY, D.; RESNICK, R. Física. v. 1, 5. ed. Rio de Janeiro: Livros Técnicos e Científicos, 2002.
+
+______. Física. v. 2, 5. ed. Rio de Janeiro: Livros Técnicos e Científicos, 2002.
+
+______. Física. v. 3, 5. ed. Rio de Janeiro: Livros Técnicos e Científicos, 2002.
+
+______. Física. v. 4, 5. ed. Rio de Janeiro: Livros Técnicos e Científicos, 2002.
+
+LUZ, A.M.R.; ALVAREZ, B.A. Curso de Física. v.1, 6. ed. São Paulo: Scipione Ltda, 2010.
+
+______. Curso de Física. v. 2, 6. ed. São Paulo: Scipione Ltda, 2010.
+
+______. Curso de Física. v. 3, 6. ed. São Paulo: Scipione Ltda, 2010.
+
+MORAIS, A.M.A. Gravitação e Cosmologia – Uma introdução. 1. ed. São Paulo: Livraria da Física,
+2010.
+
+POGIBIN, A.; PIETROCOLA, M.; ANDRADE, R.; ROMERO, T.R. Física em contextos – pessoal –
+social- histórico. v. 1, 1. ed. São Paulo: FTD, 2010.
+
+______. Física em contextos – pessoal – social- histórico. v. 2, 1. ed. São Paulo: FTD, 2010.
+
+______. Física em contextos – pessoal – social- histórico. v. 3, 1 Ed. São Paulo: FTD, 2010.
+
+SANT'ANNA, B.; MARTINI, G.; REIS, H.C.; SPINELLI, W. Conexões com a Física. v. 1, 1. ed. São
+Paulo: Moderna, 2010.
+
+______. Conexões com a Física. v. 2, 1. ed. São Paulo: Moderna, 2010.
+
+______. Conexões com a Física. v. 3, 1. ed. São Paulo: Moderna, 2010.
+
+TORRES, C.M.A.; FERRARO, N.G.; SOARES, P.A.T. Física – Ciência e Tecnologia. v. 1, 2. ed. São
+Paulo: Moderna, 2010.
+
+______. Física – Ciência e Tecnologia. v. 2, 2. ed. São Paulo: Moderna, 2010.
+
+______. Física – Ciência e Tecnologia. v. 3, 2. ed. São Paulo: Moderna, 2010.
+
+VILLAS BOAS, N.; DOCA, R.H.; BISCUOLA, G.J. Física. v. 1, 1. ed. São Paulo: Saraiva, 2010.
+______. Física. v. 2, 1. ed. São Paulo: Saraiva, 2010.
+
+
+
+
+                                                 197
+198
+QUÍMICA
+
+
+
+
+  199
+200
+                                         PRIMEIRO ANO
+
+
+
+                                                                                                       Química
+                                          1º BIMESTRE
+
+                                          CONTEÚDOS
+
+ü
+Introdução ao estudo da Química
+- contexto histórico e atual da química na sociedade
+ü
+Matéria
+- características e transformações
+ü
+Evolução dos modelos atômicos e a identificação dos átomos
+ü
+O  modelo dos orbitais atômicos
+ü
+A  distribuição eletrônica por subníveis
+ü
+Configurações eletrônicas dos elementos ao longo da classificação periódica
+ü
+Propriedades periódicas e aperiódicas dos elementos químicos
+
+                                COMPETÊNCIAS/HABILIDADES
+
+·  Compreender a Química como ciência natural associando-a às construções humanas e
+enfatizando seu papel nos processos de produção e no desenvolvimento econômico e social da
+humanidade.
+·  Compreender as formas pelas quais a química influencia nossa interpretação do mundo atual,
+condicionando formas de pensar e agir.
+·  Compreender que as interações entre matéria e energia provocam modificações na forma ou
+natureza da matéria.
+·  Avaliar os resultados experimentais que apresentam informações relevantes sobre a estrutura dos
+átomos.
+·  Compreender o conceito de orbital atômico.
+·  Efetuar a distribuição eletrônica dos elementos químicos.
+·  Relacionar a configuração eletrônica com a posição do elemento químico na tabela periódica.
+·  Utilizar a tabela periódica para obter informações relacionadas às características dos elementos.
+·  Relacionar os elementos químicos da tabela periódica às suas propriedades, bem como suas
+principais aplicabilidades.
+
+
+                                          2º BIMESTRE
+
+                                          CONTEÚDOS
+
+ü
+As   Ligações Químicas
+ü
+Ligação Iônica, Eletrovalente ou Heteropolar
+- conceitos gerais
+- fórmula de um composto iônico
+ü
+Ligação Covalente, Molecular ou Homopolar
+- conceitos gerais
+- fórmula de um composto covalente
+ü
+Ligação Metálica
+ü
+Interações Intermoleculares e Estrutura Molecular
+- polaridade das ligações
+- ligações polares e apolares
+
+                                COMPETÊNCIAS/HABILIDADES
+
+· Identificar os conceitos gerais que caracterizam os diferentes tipos de ligações químicas.
+· Compreender a relação dos modelos de ligações químicas com semelhanças e diferenças de
+materiais distintos.
+                                              201
+Química
+          ·  Elaborar a fórmula de compostos iônicos baseando-se na distribuição eletrônica e na posição dos
+          elementos na Tabela Periódica.
+          ·  Elaborar a fórmula de compostos moleculares simples baseando-se na distribuição eletrônica e na
+          posição dos elementos na Tabela Periódica.
+          ·  Empregar o conceito de eletronegatividade para prever a polaridade de uma ligação covalente.
+          ·  Identificar as principais interações intermoleculares presentes nas substâncias químicas.
+          ·  Identificar a influência das ligações químicas no comportamento e nas propriedades das
+          substâncias químicas.
+          ·  Propor e utilizar modelos explicativos que favoreçam a compreensão da estrutura das moléculas.
+
+
+                                                       3º BIMESTRE
+
+                                                       CONTEÚDOS
+
+          ü
+          Ácidos
+          - definição
+          - fórmulas dos ácidos
+          - nomenclatura
+          ü
+          Bases
+          - definição
+          - fórmulas das bases
+          - nomenclatura
+          ü
+          Sais
+          - definição
+          - reações de neutralização total e parcial
+          - nomenclatura
+          ü
+          Óxidos
+          - definição
+          - fórmulas
+          - nomenclatura
+          - peróxidos
+
+                                          COMPETÊNCIAS/HABILIDADES
+
+          ·  Identificar os conceitos gerais que caracterizam e diferenciam as funções inorgânicas.
+          ·  Escrever a fórmula dos principais ácidos, bases, sais e óxidos presentes em nossa sociedade.
+          ·  Compreender que uma substância se caracteriza como ácidos ou base relativamente à outra que
+          apresenta um comportamento oposto.
+          ·  Empregar as regras de nomenclatura para dar nome aos principais ácidos, bases, sais e óxidos
+          presentes em nossa sociedade.
+          ·  Equacionar reações de neutralização, total e parcial, entre ácidos e bases.
+          ·  Equacionar reações relevantes de óxidos ácidos e básicos.
+
+
+                                                       4º BIMESTRE
+
+                                                       CONTEÚDOS
+
+          ü
+          Reações Químicas
+          - classificação
+          - equações
+          - balanceamento
+          ü
+          Massa atômica, massa molecular e o conceito de mol
+          ü
+          Cálculo de fórmulas e Estequiometria
+
+                                                         202
+                                COMPETÊNCIAS/HABILIDADES
+
+
+
+
+                                                                                                     Química
+·  Identificar a ocorrência dos diversos tipos de reações químicas em função da modificação entre
+reagentes e produtos.
+·  Equacionar corretamente exemplos simples de reações de adição, decomposição, simples e
+dupla troca.
+·  Conhecer e aplicar os conceitos de massa molecular e quantidade de matéria (mol) na resolução
+de problemas.
+·  Identificar nas transformações dos materiais as relações matemáticas existentes (razão e
+proporção).
+·  Efetuar cálculos de proporcionalidade para descobrir dados quantitativos de uma reação química.
+·  Compreender a importância de cálculos precisos e suas aplicações em diferentes atividades
+industriais.
+
+
+                                        SEGUNDO ANO
+
+                                         1º BIMESTRE
+
+                                         CONTEÚDOS
+
+ü
+Dispersões
+- definição
+- classificação
+- características
+ü
+Soluções
+- conceito
+- curvas de solubilidade
+ü
+Concentração das Soluções
+- concentração comum
+- título ou fração em massa
+- molaridade ou concentração em mols por litro
+ü
+Diluição das Soluções
+ü
+Mistura de Soluções
+- titulação
+
+                                COMPETÊNCIAS/HABILIDADES
+
+·  Identificar a presença das dispersões na composição de diversos produtos usados na sociedade.
+·  Compreender o conceito de uma solução no contexto da Química.
+·  Expressar a concentração de uma solução, de acordo com a unidade mais adequada à situação de
+aplicação.
+·  Executar cálculos para a diluição de uma solução.
+·  Executar cálculos relativos à titulação de uma solução.
+·  Entender que a variação da temperatura influência a solubilidade das substâncias químicas.
+·  Identificar as relações matemáticas entre os diversos tipos de concentração de soluções.
+
+
+                                         2º BIMESTRE
+
+                                         CONTEÚDOS
+
+ü
+Termoquímica
+- conceitos gerais
+- entalpia
+- equação termoquímica
+
+                                             203
+Química
+          - lei de Hess
+          ü
+          Cinética Química
+          - velocidade das reações químicas
+          - energia de ativação
+          - fatores que influenciam a velocidade
+          - efeito da concentração dos reagentes
+          - efeito da temperatura
+          - efeito da superfície de contato
+          - efeito do catalisador
+
+                                          COMPETÊNCIAS/HABILIDADES
+
+          ·  Compreender os principais conceitos para o estudo da termoquímica.
+          ·  Compreender o conceito de variação de entalpia.
+          ·  Extrair informações termoquímicas presentes em gráficos.
+          ·  Diferenciar uma equação termoquímica das demais equações químicas.
+          ·  Utilizar a Lei de Hess para calcular a variação de entalpia de uma reação.
+          ·  Compreender os principais conceitos para o estudo da cinética química.
+          ·  Compreender a relação entre a teoria das colisões e a velocidade das reações químicas.
+          ·  Entender que é possível, quando desejável, acelerar ou retardar a velocidade de certas
+          transformações químicas.
+          ·  Interpretar gráficos com dados de velocidade de reações químicas.
+          ·  Reconhecer os principais fatores que influenciam a velocidade das reações químicas.
+          ·  Relacionar a conservação de alimentos com a velocidade das reações químicas.
+
+
+                                                    3º BIMESTRE
+
+                                                    CONTEÚDOS
+
+          ü
+          Equilíbrios Químicos
+          - reações reversíveis
+          - equilíbrios homogêneos e heterogêneos
+          - constante de equilíbrio
+          ü
+          Deslocamento do Equilíbrio
+          - influência das concentrações
+          - influência da pressão total sobre o sistema
+          - influência da temperatura
+          - influência do catalisador
+          ü
+          Equilíbrios em Meio Aquoso
+          - constante de ionização
+          - equilíbrio iônico da água / pH e pOH
+
+                                          COMPETÊNCIAS/HABILIDADES
+
+          ·  Compreender os conceitos fundamentais relacionados ao equilíbrio químico.
+          ·  Escrever a equação da constante de equilíbrio.
+          ·  Utilizar o Princípio de Le Chatelier para prever o que ocorre com um equilíbrio em função de
+          perturbações.
+          ·  Reconhecer os fatores que influenciam o estado de equilíbrio.
+          ·  Comparar a força de ácidos utilizando os valores de Ka.
+          ·  Calcular a concentração de H+ e de OH- em uma solução aquosa de ácido ou de base e, a
+          partir desses dados, determinar o pH da solução.
+          ·  Comparar a acidez e a basicidade de soluções aquosas por meio dos valores de pH.
+
+
+                                                       204
+                                           4º BIMESTRE
+
+
+
+
+                                                                                                         Química
+                                           CONTEÚDOS
+
+ü
+Eletroquímica
+- conceitos gerais
+- reações de oxi-redução
+- pilha de Daniell
+- eletrodo-padrão de hidrogênio
+- força eletromotriz das pilhas
+ü
+Radioatividade
+- características das radiações alfa, beta e gama
+- leis da radioatividade
+- tempo de meia-vida
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Compreender os conceitos fundamentais para o estudo de eletroquímica.
+·  Determinar o número de oxidação dos elementos presentes em uma substância.
+·  Reconhecer um processo de óxido-redução a partir de sua equação química.
+·  Representar uma cela galvânica como sugerido pela IUPAC (União Internacional de Química Pura
+e Aplicada).
+·  Reconhecer os componentes de uma cela galvânica e sua representação na forma de figura.
+·  Calcular a força eletromotriz de uma pilha a partir dos potenciais padrão de redução das semicelas.
+·  Relacionar o sinal algébrico do potencial de uma cela eletroquímica com a espontaneidade da
+reação.
+·  Compreender os conceitos fundamentais para o estudo das reações nucleares.
+·  Reconhecer a importância atual da radioatividade e o perigo inerente à sua utilização.
+·  Reconhecer as características das radiações alfa, beta e gama.
+·  Compreender e aplicar o conceito de tempo de meia-vida.
+
+
+                                          TERCEIRO ANO
+
+                                           1º BIMESTRE
+
+                                           CONTEÚDOS
+
+ü
+Introdução à Química Orgânica
+- histórico e conceitos gerais
+- características do átomo de carbono
+- classificação dos átomos de carbono
+- tipos de cadeia carbônica
+ü
+Petróleo e Gás Natural - características e aplicações
+- alcanos
+- alcenos
+- alcinos
+- hidrocarbonetos aromáticos
+
+                                 COMPETÊNCIAS/HABILIDADES
+
+·  Compreender a evolução do conceito de Química Orgânica como criação humana inserida na
+história e na sociedade em diferentes épocas.
+·  Representar a cadeia carbônica de um composto orgânico a partir de sua fórmula estrutural.
+·  Classificar uma cadeia carbônica.
+·  Classificar os carbonos em primários, secundários, etc.
+                                               205
+          Reconhecer a origem e importância econômica, política, social e ambiental do petróleo.
+          ·
+
+
+
+Química
+          Nomear os hidrocarbonetos mais simples de acordo com as regras mais recentes da IUPAC.
+          ·
+
+
+                                                  2º BIMESTRE
+
+                                                  CONTEÚDOS
+
+          ü
+          Carboidratos - características e aplicações
+          - álcoois
+          - aldeídos
+          - cetonas
+          ü
+          Lipídeos - características e aplicações
+          - ácidos carboxílicos
+          - ésteres
+          ü
+          Outras Funções Orgânicas Oxigenadas
+          - fenóis
+          - éteres
+          ü
+          Aminoácidos e proteínas
+          - aminas
+          - amidas
+
+                                         COMPETÊNCIAS/HABILIDADES
+
+          ·  Conhecer a estrutura química e as principais características e fontes de obtenção dos
+          carboidratos, lipídeos e aminoácidos.
+          ·  Reconhecer os principais grupos funcionais, oxigenados e nitrogenados, ao observar a fórmula
+          estrutural de compostos orgânicos.
+          ·  Nomear alguns dos compostos, oxigenados e nitrogenados, mais simples e significativos, por
+          meio das regras mais recentes da UPAC.
+
+
+                                                  3º BIMESTRE
+
+                                                  CONTEÚDOS
+
+          ü
+          Isomeria
+          ü
+          Isomeria Plana
+          - isomeria de cadeia
+          - isomeria de posição
+          - isomeria de compensação
+          - isomeria de função
+          - tautomeria
+          ü
+          Estereoisomeria
+          - isomeria geométrica
+          - isomeria óptica
+          ü
+          Noções de acidez e basicidade em compostos orgânicos
+
+                                         COMPETÊNCIAS/HABILIDADES
+
+          · Compreender o conceito de isomeria.
+          · Identificar a isomeria entre compostos, por meio da análise de suas fórmulas estruturais.
+          · Representar os possíveis isômeros de uma determinada fórmula molecular.
+          · Reconhecer os principais grupos funcionais que dão características ácidas e básicas aos
+          compostos orgânicos.
+
+
+
+                                                        206
+                                          4º BIMESTRE
+
+
+
+
+                                                                                                    Química
+                                          CONTEÚDOS
+
+ü
+Reações de Substituição
+ü
+Reações de Adição
+ü
+Óxido-redução, desidratação e esterificação
+ü
+Polímeros Naturais e Sintéticos
+
+                                COMPETÊNCIAS/HABILIDADES
+
+·  Representar o(s) produto(s) esperado(s) em uma reação de substituição.
+·  Representar o(s) produto(s) esperado(s) em uma reação de adição.
+·  Representar os produtos esperados na oxidação de alcoóis.
+·  Diferenciar a desidratação intermolecular e a intramolecular de álcoois, ácidos carboxílicos e
+amidas.
+·  Reconhecer a equação de esterificação e a de hidrólise de ésteres.
+·  Reconhecer os grupos funcionais existentes nos polímeros mais presentes no cotidiano.
+·  Reconhecer o(s) monômero(s) constituinte(s) de um polímero.
+·  Compreender fenômenos envolvendo interações e transformações químicas em compostos
+orgânicos.
+
+
+
+
+                                              207
+                                                   REFERÊNCIAS
+
+
+
+Química
+          BRASIL. Diretrizes Curriculares Nacionais para o Ensino Médio. Parecer n° 5. Brasília:
+          CNE/CEB, 2011.
+
+          ______. Orientações Curriculares para o Ensino Médio: Ciências da Natureza, Matemática e
+          suas Tecnologias. v 2. Secretaria de Educação Básica. Brasília: MEC, 2006.
+
+          ______. PCN+ Ensino Médio: Orientações Educacionais Complementares aos Parâmetros
+          Curriculares Nacionais. Ciências da Natureza, Matemática e suas Tecnologias. Secretaria de
+          Educação Média e Tecnológica. Brasília: MEC; SEMTEC, 2002.
+
+          FONSECA, M. R. M. Química: meio ambiente, cidadania, tecnologia. v. 1, 1. ed. São Paulo: FTD,
+          2010.
+
+          ______. Química: meio ambiente, cidadania, tecnologia. v. 2, 1. ed. São Paulo: FTD, 2010.
+
+          ______. Química: meio ambiente, cidadania, tecnologia. v. 3, 1. ed. São Paulo: FTD, 2010.
+
+          LISBOA, J. C. F. Química. 1° ano: ensino médio, 1. ed. São Paulo: Edições SM, 2010. (Coleção ser
+          protagonista).
+
+          ______. Química. 2° ano: ensino médio, 1. ed. São Paulo: Edições SM, 2010. (Coleção ser
+          protagonista).
+
+          ______. Química. 3° ano: ensino médio, 1. ed. São Paulo: Edições SM, 2010. (Coleção ser
+          protagonista).
+
+          PERUZZO, F. M.; CANTO, E. L. Química na abordagem do cotidiano. v. 1, 4. ed. São Paulo:
+          Moderna, 2010.
+
+          ______. Química na abordagem do cotidiano. v. 2, 4. ed. São Paulo: Moderna, 2010.
+
+          ______. Química na abordagem do cotidiano. v. 3, 4. ed. São Paulo: Moderna, 2010.
+
+          ROMANELLI, L. I.; JUSTI, R. S. Aprendendo química. . Injuí: Unijuí. 1997.
+
+          SANTOS, W. L. P. (et al.). Química Cidadã. v. 1, 1. ed. São Paulo: Nova Geração, 2010.
+
+          ______. Química Cidadã. v. 2, 1. ed. São Paulo: Nova Geração, 2010.
+
+          ______. Química Cidadã. v. 3, 1. ed. São Paulo: Nova Geração, 2010.
+
+          ______. SCHENETZLER, R. P. Educação em Química: compromisso com a cidadania. Injuí:
+          Unijuí. 1997.
+
+
+
+
+                                                        208
+Área do conhecimento
+  CIÊNCIAS
+  HUMANAS
+
+
+
+
+        209
+210
+                                           VISÃO DE ÁREA
+
+
+
+
+                                                                                                            Área do conhecimento: Ciências Humanas
+                                        CIÊNCIAS HUMANAS
+
+
+                             A mente que se abre a uma nova idéia jamais voltará ao seu tamanho original.
+                                                                                          Albert Einstein
+
+
+        O Referencial Curricular de Ciências Humanas do Ensino Médio está organizado com as
+disciplinas de Filosofia, Geografia, História e Sociologia, possibilitando um trabalho integrado nesta
+área.
+        Porém, não devemos nos ater somente com as disciplinas afins, é interessante que os
+professores organizem seus planejamentos concomitante às demais disciplinas que compõem o
+currículo do Ensino Médio, com a análise dos objetivos de cada componente curricular e em busca de
+um diálogo que possibilite uma aprendizagem significativa, firmamos tal propósito.
+
+                         Hoje, mais do que nunca, reafirmamos a importância do diálogo, única condição
+                         possível de eliminação das barreiras entre as disciplinas. Disciplinas dialogam
+                         quando as pessoas se dispõem a isto (...) (FAZENDA, 2003, p.50).
+
+
+        Assim, a proposta apresentada neste Referencial refere-se a uma concepção de
+aprendizagem que contextualize o conhecimento à realidade vivenciada, em que os estudantes
+compreendam os desafios da sociedade contemporânea.
+        No Estado de Mato Grosso do Sul, desde o ano de 2000, a Filosofia e a Sociologia estão
+incluídas na Matriz Curricular do Ensino Médio presentes na disciplina de Ciências Sociais; em 2007,
+com a mudança da matriz curricular, passou-se a oferecer Filosofia e Sociologia como disciplinas
+independentes e obrigatórias, com Filosofia nos primeiros e segundos anos e a Sociologia somente
+nos terceiros anos; em 2009 passam a ser oferecidas nos três anos do ensino médio, em
+cumprimento à Lei Federal n. 11.684/08.
+        O Referencial de Filosofia está estruturado por temas, tais como Política, Ética, Linguagem,
+Teoria do Conhecimento, Lógica, Estética e Filosofia da Ciência, que deverão ser trabalhados de
+maneira histórica, conceitual e seguindo as principais linhas de pensamento filosófico.
+        A Filosofia é de suma importância na construção da cidadania e na formação de indivíduos
+críticos e com autonomia de pensamento, estando em consonância com a Lei de Diretrizes e Bases
+da Educação Nacional (Lei n. 9.394/96, artigo 36, inciso III).
+        Portanto, faz-se fundamental que o professor transmita aos estudantes o contexto sócio-
+histórico da disciplina para melhor compreensão dos conceitos e teorias filosóficas e, ainda, que ele
+utilize metodologias, como debates, trabalhos em grupo, seminários, por meio de obras filosóficas,
+músicas, vídeos e poemas, proporcionando ao estudante maior interação com os temas e facilitando
+o processo de ensino e de aprendizagem.
+        Assim a integração da Filosofia com as demais disciplinas, além de possível, faz-se
+necessária para uma melhor compreensão dos conteúdos, mas para que isso aconteça é preciso
+haver o planejamento em conjunto.
+        Para a disciplina de Sociologia, este Referencial apresenta novas possibilidades para
+                                                 211
+Área do conhecimento: Ciências Humanas
+                                         trabalhar seus conteúdos que colaboram, tanto para que o estudante compreenda a realidade social
+                                         vivenciada em seu cotidiano, entenda fenômenos sociais que levaram a essa realidade, tanto quanto
+                                         possibilitar o efetivo exercício da cidadania.
+                                                Nesse sentido, a partir dessa proposta os conteúdos programáticos estão constituídos a partir
+                                         de teorias e conceitos de autores clássicos e/ou contemporâneos, mesclados com temas que serão
+                                         tratados bimestralmente, como por exemplo: diversidade étnica cultural, desigualdade social,
+                                         movimentos sociais, organização política, trabalho e tecnologia entre outros.
+                                                 A partir dessa proposta, podem-se trabalhar simultaneamente temas, relativos ao contexto
+                                         social, estudos de autores da área e suas respectivas teorias, bem como a releitura dos principais
+                                         conceitos sociológicos.
+                                                Portanto, este formato permitirá ao professor planejar seu trabalho em conjunto com as
+                                         demais disciplinas, sempre que possível, facilitando a contextualização e colaborando com a melhor
+                                         aprendizagem do estudante.
+                                                A disciplina de História, no Ensino Médio, em continuidade à proposta do ensino fundamental,
+                                         deve ser mais que um simples entendimento da história da humanidade por meio de manuseio de
+                                         livros, mas abranger a compreensão de mundo em que o indivíduo participa ativamente.
+                                                Partindo dessa premissa, o professor de História, pesquisador do conhecimento histórico,
+                                         deve apresentar instrumentos que desafiem e auxiliem o estudante a analisar os acontecimentos
+                                         passados e os contemporâneos, transformando-os em conceitos a serem investigados, podendo,
+                                         assim, romper com o ensino alienado de História.
+                                                Dessa forma, a História foi destituída de seu status de consolidadora do passado, tornando-se
+                                         que é de fato uma ciência em construção e, levando-se em consideração que estamos na era da
+                                         informação e tecnologia, muitos professores, ao incorporarem uma visão crítica da disciplina deixam
+                                         de ser meros reprodutores do conhecimento, passando a exigir do estudante maior capacidade crítica
+                                         na interpretação da História, minimizando a memorização dos tradicionais nomes, datas e fatos
+                                         isolados.
+                                                Por sua vez, o estudante, se modificou, deixando também, de ser, apenas o receptor do
+                                         conhecimento para produzi-lo e, assim, ambos exercendo a cidadania nos contextos políticos,
+                                         econômicos e culturais.
+                                                No tocante à metodologia de aula, ressalta-se que o professor, e consequentemente o
+                                         estudante devem interpretar a História por meio de diversas fontes, como jornais, revistas, vídeos,
+                                         teatros, arquivos fotográficos, exposições artísticas entre outras, não se atendo apenas nas aulas
+                                         expositivas e estabelecer com supremacia a articulação com as demais áreas do conhecimento.
+                                                A importância da Geografia no ensino médio, assim como no ensino fundamental, está
+                                         relacionada com as múltiplas possibilidades de ampliação dos conceitos da ciência geográfica
+                                         cumprindo importante papel político pedagógico, sendo um dos componentes de inserção mais
+                                         antiga no currículo escolar.
+                                                A Geografia não é uma disciplina em que os dados sobre a natureza, a economia e a
+                                         população são apresentados a partir de uma sequência linear, como se fossem produtos de uma
+                                         ordem natural, ela transcende a tudo isso. Os conceitos e temas relacionados à disciplina constituem-
+
+                                                                                          212
+                                                                                                       Área do conhecimento: Ciências Humanas
+se em ferramentas importantes para o entendimento da complexa sociedade contemporânea,
+interagindo com as demais áreas do conhecimento.
+       Com as novas tecnologias de informação, com os avanços nas pesquisas científicas e com as
+transformações no território, o ensino de Geografia torna-se fundamental para a percepção do mundo
+atual. Os professores devem, portanto, refletir sua prática e vivências em sala de aula, com a
+mudança e a incorporação de novos temas no cotidiano escolar.
+       Nesse sentido, a Geografia desenvolve um trabalho com a História, na contextualização do
+espaço geográfico nos fatos históricos; com a Sociologia e a Filosofia quando considera como foco de
+estudos as desigualdades sociais; com a Física, Biologia e Química desenvolvendo conhecimentos
+nos processos físicos e naturais que compõem o quadro natural em contínua transformação pelo
+trabalho humano que estão ligados à produção do espaço e ao modo de exploração, degradação e
+conservação do ambiente.
+       A utilização deste Referencial é permeável aos planejamentos e propostas pedagógicas
+desenvolvidas pelas escolas da Rede Estadual de Ensino de Mato Grosso do Sul, podendo ser
+organizado um trabalho que contemple a realidade local.
+
+
+
+
+                                              213
+                                                                                  REFERÊNCIAS
+
+
+
+
+Área do conhecimento: Ciências Humanas
+                                         BRASIL. Lei n. 9.394, de 20 de dezembro de 1996. Estabelece as Diretrizes e Bases da Educação
+                                         Nacional. Brasília: Congresso Nacional, 1996.
+
+                                         ______. Lei n. 11.684, de 2 de junho de 2008. Altera o art. 36 da Lei n. 9.394, de 20 de dezembro de
+                                         1996, que estabelece as diretrizes e bases da educação nacional, para incluir a Filosofia e a
+                                         Sociologia como disciplinas obrigatórias nos currículos do Ensino Médio. Brasília: Congresso
+                                         Nacional, 2008.
+
+                                         ______. Parâmetros Curriculares Nacionais: ensino médio. Parte IV: Ciências Humanas e Suas
+                                         Tecnologias. Secretaria de Educação Média e Tecnológica - Brasília: MEC; SEMTEC, 2002.
+
+                                         FAZENDA, I. C. A., Interdisciplinaridade: qual o sentido? São Paulo: Paulus, 2003.
+
+                                         SPOSITO, E. S. Geografia e Filosofia. Contribuição para a metodologia de ensino do
+                                         pensamento geográfico. São Paulo: UNESP, 2004.
+
+
+
+
+                                                                                       214
