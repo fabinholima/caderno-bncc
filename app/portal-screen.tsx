@@ -1162,7 +1162,8 @@ export default function Home() {
             <button
               type="button"
               aria-label="Sair"
-              className="ml-auto text-slate-400 hover:text-white"
+              title="Sair da conta"
+              className="ml-auto flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
               onClick={() =>
                 apiFetch(`${apiUrl}/api/auth/logout`, { method: 'POST' }).then(
                   () => window.location.reload(),
@@ -1170,6 +1171,7 @@ export default function Home() {
               }
             >
               <LogOut className="size-4" />
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>
