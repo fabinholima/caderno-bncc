@@ -46,6 +46,9 @@ await transaction(async (client) => {
       // O snapshot pode apontar para o usuário de demonstração, inexistente
       // no Render. Vincule questões importadas ao administrador atual.
       if (table === 'questions' && adminId) row[block.columns.indexOf('created_by')] = adminId;
+      // O vínculo curricular pode usar um UUID de uma taxonomia antiga;
+      // mantenha o caminho textual da revisão e deixe o vínculo opcional.
+      if (table === 'question_revisions') row[block.columns.indexOf('pedagogical_topic_id')] = null;
       try {
         await client.query('SAVEPOINT seed_row');
         const result = await client.query(sql, row);
