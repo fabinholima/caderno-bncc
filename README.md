@@ -35,7 +35,7 @@ tela de login. O perfil é escolhido por `DEV_AUTH_BYPASS_ROLE` (`admin`,
 `NODE_ENV=production`; antes da publicação, altere a variável para `false` e
 valide novamente cadastro, login, recuperação de senha e permissões.
 
-Em outro terminal, inicie o portal com `NEXT_PUBLIC_API_URL=http://localhost:8788 pnpm dev`. Para consumir a fila de PDFs, execute `pnpm --filter @caderno/renderer start` em um ambiente com ConTeXt/LuaMetaTeX, `t-basicexam`, `zint` e `rsvg-convert` instalados. O último converte os desenhos químicos SVG produzidos pelo RDKit em PDF vetorial antes da inclusão pelo ConTeXt.
+Em outro terminal, inicie o portal com `NEXT_PUBLIC_API_URL=http://localhost:8788 pnpm dev`. Para consumir a fila de PDFs, execute `pnpm --filter @caderno/renderer start` em um ambiente com ConTeXt/LuaMetaTeX, `t-basicexam`, `zint` e `rsvg-convert` instalados. O worker Docker de produção instala a distribuição oficial LMTX (`cont-lmt.zip`, versão rolling de 2026) em `/opt/context`, em vez do pacote MKIV do Debian. O último converte os desenhos químicos SVG produzidos pelo RDKit em PDF vetorial antes da inclusão pelo ConTeXt.
 
 A importação de provas usa `pdftotext` e `pdftoppm` (Poppler). Para PDFs
 escaneados, instale também Tesseract com os idiomas português e inglês. No Arch
