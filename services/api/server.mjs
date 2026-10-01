@@ -170,17 +170,22 @@ async function readJson(request, maxBytes = 8_500_000) {
 }
 
 function setSessionCookie(response, token) {
+  // Frontend e API ficam em origens diferentes no Render; o cookie precisa
+  // permitir requisições cross-site autenticadas em produção.
+  const sameSite = process.env.NODE_ENV === 'production' ? 'None' : 'Lax';
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   response.setHeader(
     'set-cookie',
-    `caderno_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secure}`,
+    `caderno_session=${encodeURIComponent(token)}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=2592000${secure}`,
   );
 }
 
 function clearSessionCookie(response) {
+  const sameSite = process.env.NODE_ENV === 'production' ? 'None' : 'Lax';
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   response.setHeader(
     'set-cookie',
-    'caderno_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0',
+    `caderno_session=; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=0${secure}`,
   );
 }
 
