@@ -34,16 +34,25 @@ const dump = readCopyBlocks(await fs.readFile(dumpPath, 'utf8'));
 let inserted = 0;
 let skipped = 0;
 await transaction(async (client) => {
+  const admin = await client.query("SELECT id FROM users WHERE portal_admin=true AND active ORDER BY created_at LIMIT 1");
+  const adminId = admin.rows[0]?.id;
   for (const table of tables) {
     const block = dump.get(table);
     if (!block?.rows.length) continue;
     const placeholders = block.columns.map((_, index) => `$${index + 1}`).join(',');
     const sql = `INSERT INTO ${table} (${block.columns.join(',')}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
-    for (const row of block.rows) {
+    for (const sourceRow of block.rows) {
+      const row = [...sourceRow];
+      // O snapshot pode apontar para o usuário de demonstração, inexistente
+      // no Render. Vincule questões importadas ao administrador atual.
+      if (table === 'questions' && adminId) row[block.columns.indexOf('created_by')] = adminId;
       try {
+        await client.query('SAVEPOINT seed_row');
         const result = await client.query(sql, row);
         inserted += result.rowCount || 0;
+        await client.query('RELEASE SAVEPOINT seed_row');
       } catch (error) {
+        await client.query('ROLLBACK TO SAVEPOINT seed_row');
         skipped += 1;
         console.warn(`Ignorado ${table}: ${error instanceof Error ? error.message : error}`);
       }
