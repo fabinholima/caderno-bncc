@@ -18,6 +18,7 @@ const outputRoot = path.resolve(
   process.env.RENDER_OUTPUT_DIR || 'outputs/renders',
 );
 const contextBin = process.env.CONTEXT_BIN || 'context';
+const contextViaMtxrun = process.env.CONTEXT_VIA_MTXRUN === 'true';
 const interval = Number(process.env.RENDER_POLL_MS || 3000);
 const renderTimeout = Number(process.env.RENDER_TIMEOUT_MS || 300_000);
 
@@ -89,9 +90,10 @@ async function claimReportJob() {
 
 export function compile(source, cwd, resultName) {
   return new Promise((resolve, reject) => {
+    const contextArgs = ['--batchmode', `--result=${resultName}`, path.basename(source)];
     const child = spawn(
       contextBin,
-      ['--batchmode', `--result=${resultName}`, path.basename(source)],
+      contextViaMtxrun ? ['--script', 'context', ...contextArgs] : contextArgs,
       {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
