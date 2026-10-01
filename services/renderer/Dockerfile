@@ -5,10 +5,14 @@ ENV TEXMFCACHE=/tmp/tex-cache
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates zint librsvg2-bin curl unzip \
   && mkdir -p /opt/context \
-  # cont-lmt.zip is the official rolling ConTeXt LMTX distribution. It ships
-  # LuaMetaTeX and the matching format files, unlike Debian's MKIV package.
-  && curl -fL --retry 4 --retry-delay 3 https://www.pragma-ade.com/context/latest/cont-lmt.zip -o /tmp/cont-lmt.zip \
-  && unzip -q /tmp/cont-lmt.zip -d /opt/context \
+  # This platform archive contains the Linux LuaMetaTeX binary and installer.
+  # cont-lmt.zip is source-only and does not contain the executable.
+  && curl -fL --retry 4 --retry-delay 3 https://lmtx.pragma-ade.nl/install-lmtx/context-linux-64.zip -o /tmp/context-linux-64.zip \
+  && unzip -q /tmp/context-linux-64.zip -d /opt/context \
+  && chmod +x /opt/context/install.sh \
+  && cd /opt/context \
+  && ./install.sh \
+  && cd / \
   && test -f /opt/context/tex/texmf-linux-64/bin/context \
   && chmod +x /opt/context/tex/texmf-linux-64/bin/context /opt/context/tex/texmf-linux-64/bin/mtxrun /opt/context/tex/texmf-linux-64/bin/luametatex \
   && mkdir -p /usr/local/share/texmf \
@@ -22,7 +26,7 @@ RUN apt-get update \
   && mkdir -p /usr/local/share/texmf/tex/context/modules/mkiv \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/ \
   && cp /usr/local/share/texmf/tex/context/third/basicexam/t-basicexam.mklx /usr/local/share/texmf/tex/context/modules/mkiv/t-basicexam.mkiv \
-  && rm -f /tmp/basicexam.zip /tmp/cont-lmt.zip \
+  && rm -f /tmp/basicexam.zip /tmp/context-linux-64.zip \
   && mkdir -p "$TEXMFCACHE" \
   && /opt/context/tex/texmf-linux-64/bin/mtxrun --generate \
   && rm -rf /var/lib/apt/lists/*
