@@ -19,4 +19,14 @@ docker compose exec -T postgres psql -U caderno -d caderno < database/backups/ca
 
 O arquivo foi gerado com `--clean --if-exists`, portanto a restauração substitui a estrutura e os dados existentes no banco de destino. Faça um backup da base de destino antes de restaurá-lo.
 
+## Importação incremental no Render
+
+Para acrescentar objetos de conhecimento, disciplinas, tópicos, habilidades e questões sem apagar usuários ou configurações do banco de produção, abra o Web Shell da API e execute:
+
+```sh
+node seed-from-backup.mjs
+```
+
+O importador usa `ON CONFLICT DO NOTHING`, registra linhas incompatíveis como ignoradas e informa ao final quantos registros foram inseridos.
+
 Não adicione snapshots de produção a esta pasta. Eles podem conter dados pessoais, segredos ou respostas de alunos.
