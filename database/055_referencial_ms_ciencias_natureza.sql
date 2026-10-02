@@ -258,7 +258,7 @@ SELECT i.id,d.id,NULL,v.topic,v.pos,v.grade,'Referencial Curricular do Ensino M�
 ('Química','3º ano','Conteúdos','Reações de Adição',253),
 ('Química','3º ano','Conteúdos','Óxido-redução, desidratação e esterificação',254),
 ('Química','3º ano','Conteúdos','Polímeros Naturais e Sintéticos',255)
-) v(discipline,grade,topic,subtopic,pos) JOIN institutions i ON i.id=(SELECT id FROM institutions ORDER BY created_at LIMIT 1) JOIN pedagogical_disciplines d ON d.institution_id=i.id AND lower(d.name)=lower(v.discipline) WHERE NOT EXISTS (SELECT 1 FROM pedagogical_topics t WHERE t.discipline_id=d.id AND t.grade_range=v.grade AND t.name=v.topic AND t.parent_id IS NULL);
+) v(discipline,grade,topic,subtopic,pos) JOIN institutions i ON i.id=(SELECT id FROM institutions ORDER BY created_at LIMIT 1) JOIN pedagogical_disciplines d ON d.institution_id=i.id AND lower(d.name)=lower(v.discipline) WHERE NOT EXISTS (SELECT 1 FROM pedagogical_topics t WHERE t.discipline_id=d.id AND t.grade_range=v.grade AND t.name=v.topic AND t.parent_id IS NULL) ON CONFLICT DO NOTHING;
 
 INSERT INTO pedagogical_topics (institution_id,discipline_id,parent_id,name,position,grade_range,source_reference)
 SELECT i.id,d.id,t.id,v.subtopic,v.pos,v.grade,'Referencial Curricular do Ensino Médio de MS (2012)' FROM (VALUES
