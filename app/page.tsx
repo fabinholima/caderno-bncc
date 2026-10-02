@@ -335,6 +335,10 @@ export default function HomePage() {
         </a>
         <p>Mais tempo para ensinar. E para você.</p>
         <a href="/portal">Acessar o portal ↗</a>
+        <nav aria-label="Informações legais" className="flex flex-wrap gap-4 text-sm">
+          <a href="/privacidade">Política de privacidade</a>
+          <a href="/contato">Contato</a>
+        </nav>
       </footer>
     </div>
   );
