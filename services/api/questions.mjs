@@ -547,7 +547,8 @@ export async function listQuestions({
         ON qsd.question_id = qr.question_id AND qsd.revision = qr.revision AND qsd.is_primary
       LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
       LEFT JOIN alternatives a ON a.question_id = qr.question_id AND a.revision = qr.revision
-      WHERE ($1::uuid IS NULL OR q.institution_id = $1)
+      WHERE ($1::uuid IS NULL OR q.institution_id = $1
+             OR q.institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
         AND q.status <> 'archived'
         AND ($2 = '' OR qr.subject = $2)
         AND ($3 = '' OR to_tsvector('portuguese', qr.statement::text) @@ plainto_tsquery('portuguese', $3)
@@ -695,7 +696,8 @@ export async function getQuestion({ institutionId, questionId }) {
            LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
            LEFT JOIN saeb_topics st ON st.id = sd.topic_id
            LEFT JOIN saeb_matrices sm ON sm.id = sd.matrix_id
-           WHERE q.id = $1 AND q.institution_id = $2
+           WHERE q.id = $1 AND ($2::uuid IS NULL OR q.institution_id = $2
+             OR q.institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
            GROUP BY q.id, qr.question_id, qr.revision`,
     values: [questionId, institutionId],
   });
