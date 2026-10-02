@@ -10,7 +10,7 @@ WITH catalog(area_key, subject_name) AS (
 ), owners AS (
   SELECT i.id AS institution_id,
          COALESCE(
-           (SELECT m.user_id FROM memberships m WHERE m.institution_id = i.id ORDER BY m.created_at, m.user_id LIMIT 1),
+           (SELECT m.user_id FROM memberships m WHERE m.institution_id = i.id ORDER BY m.user_id LIMIT 1),
            (SELECT d.created_by FROM pedagogical_disciplines d WHERE d.institution_id = i.id LIMIT 1)
          ) AS user_id
   FROM institutions i
