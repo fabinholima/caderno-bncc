@@ -17,7 +17,7 @@ WITH source_roots AS (
 )
 INSERT INTO pedagogical_topics
   (institution_id, discipline_id, parent_id, name, position, grade_range, source_reference)
-SELECT d.institution_id, d.discipline_id, NULL, s.name, s.position,
+SELECT d.institution_id, x.discipline_id, NULL, s.name, s.position,
        s.grade_range, s.source_reference
 FROM source_roots s
 JOIN targets x ON x.discipline_name = s.discipline_name
