@@ -2,9 +2,9 @@ services:
   - type: web
     name: ufaprova-api
     runtime: docker
-    rootDir: services/api
     dockerfilePath: ./services/api/Dockerfile
     dockerContext: .
+    preDeployCommand: node migrate.mjs
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
