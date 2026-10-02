@@ -1,11 +1,10 @@
 services:
   - type: web
     name: ufaprova-api
-    runtime: node
+    runtime: docker
     rootDir: services/api
-    buildCommand: npm install --omit=dev && cd ../renderer && npm install --omit=dev
-    preDeployCommand: node migrate.mjs
-    startCommand: node server.mjs
+    dockerfilePath: ./services/api/Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
