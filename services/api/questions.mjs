@@ -1020,9 +1020,9 @@ export async function createQuestionRevision({
   const value = createQuestionSchema.parse(input);
   return transaction(async (client) => {
     const question = await client.query(
-      `SELECT id, public_code, current_revision
+      `SELECT id, institution_id, public_code, current_revision
        FROM questions
-       WHERE id = $1 AND institution_id = $2
+       WHERE id = $1 AND (institution_id = $2 OR institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
          AND (created_by = $3 OR $4 IN ('admin','coordinator'))
        FOR UPDATE`,
       [questionId, institutionId, userId, role],
@@ -1036,7 +1036,7 @@ export async function createQuestionRevision({
       client,
       questionId,
       revision,
-      institutionId,
+      institutionId: question.rows[0].institution_id,
       userId,
       value,
     });
@@ -1049,7 +1049,7 @@ export async function createQuestionRevision({
     await client.query(
       `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata)
        VALUES($1,$2,'question.revised','question',$3,$4::jsonb)`,
-      [institutionId, userId, questionId, JSON.stringify({ revision })],
+      [question.rows[0].institution_id, userId, questionId, JSON.stringify({ revision })],
     );
     return {
       id: questionId,
@@ -1319,7 +1319,7 @@ export async function deleteQuestion({
     const result = await client.query(
       `UPDATE questions
        SET status = 'archived', updated_at = now()
-       WHERE id = $1 AND institution_id = $2 AND status <> 'archived'
+       WHERE id = $1 AND (institution_id = $2 OR institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1)) AND status <> 'archived'
          AND (created_by = $3 OR $4 IN ('admin','coordinator'))
        RETURNING id, public_code`,
       [questionId, institutionId, userId, role],
