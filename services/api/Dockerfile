@@ -30,6 +30,7 @@ RUN cd services/api && npm install --omit=dev
 COPY services/api services/api
 COPY services/renderer services/renderer
 COPY lib lib
+COPY database database
 
 ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/context
 ENV CONTEXT_VIA_MTXRUN=false
