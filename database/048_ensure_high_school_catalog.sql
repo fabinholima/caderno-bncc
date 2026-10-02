@@ -14,7 +14,7 @@ SET name = EXCLUDED.name, stage = EXCLUDED.stage;
 
 WITH catalog(area_key, subject_name) AS (
   VALUES
-    ('em-area-lgg','Língua Portuguesa'), ('em-area-lgg','Arte'),
+    ('em-area-lgg','Língua Portuguesa'), ('em-area-lgg','Literatura'), ('em-area-lgg','Arte'),
     ('em-area-lgg','Educação Física'), ('em-area-lgg','Língua Inglesa'),
     ('em-area-mat','Matemática'), ('em-area-cnt','Biologia'),
     ('em-area-cnt','Física'), ('em-area-cnt','Química'),
