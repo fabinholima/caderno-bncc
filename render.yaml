@@ -4,7 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./services/api/Dockerfile
     dockerContext: .
-    preDeployCommand: node migrate.mjs
+    preDeployCommand: node migrate.mjs && node seed-from-backup.mjs
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
