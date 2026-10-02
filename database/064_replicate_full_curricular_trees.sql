@@ -34,7 +34,7 @@ WITH source_children AS (
   WHERE p.parent_id IS NULL AND d.stage = 'Ensino Médio'
   ORDER BY d.name, p.name, t.name, t.id
 ), target_roots AS (
-  SELECT t.id, t.discipline_id, d.name AS discipline_name, t.name,
+  SELECT t.id, t.institution_id, t.discipline_id, d.name AS discipline_name, t.name,
          t.grade_range
   FROM pedagogical_topics t
   JOIN pedagogical_disciplines d ON d.id = t.discipline_id
