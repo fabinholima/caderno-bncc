@@ -1478,4 +1478,4 @@ FROM (VALUES
 JOIN institutions i ON i.id=(SELECT id FROM institutions ORDER BY created_at LIMIT 1)
 JOIN pedagogical_disciplines d ON d.institution_id=i.id AND lower(d.name)=lower(v.discipline)
 JOIN pedagogical_topics t ON t.discipline_id=d.id AND t.grade_range=v.grade AND t.name=v.topic AND t.parent_id IS NULL
-WHERE NOT EXISTS (SELECT 1 FROM pedagogical_topics s WHERE s.parent_id=t.id AND s.name=v.subtopic);
+WHERE length(trim(v.subtopic)) >= 2 AND NOT EXISTS (SELECT 1 FROM pedagogical_topics s WHERE s.parent_id=t.id AND s.name=v.subtopic);
