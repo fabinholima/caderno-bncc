@@ -27,6 +27,8 @@ RUN apt-get update \
 WORKDIR /app
 COPY services/api/package*.json services/api/
 RUN cd services/api && npm install --omit=dev
+COPY services/renderer/package*.json services/renderer/
+RUN cd services/renderer && npm install --omit=dev
 COPY services/api services/api
 COPY services/renderer services/renderer
 COPY lib lib
