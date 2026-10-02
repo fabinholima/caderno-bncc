@@ -1066,12 +1066,8 @@ ALTER TABLE ONLY public.usage_events ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 COPY public.alternatives (id, question_id, revision, stable_key, content, is_correct, "position") FROM stdin;
-b957aa07-424b-4e41-979e-5ff506f1d284	85dc79a4-91d7-4e70-87e2-3ce582ea9913	1	alt-a	[{"code": "\\\\frac{1}{a}", "type": "contextFormula"}]	f	1
-4aa27c7d-e8cd-4303-bcdc-288f972ddcd1	85dc79a4-91d7-4e70-87e2-3ce582ea9913	1	alt-b	[{"tex": "\\\\frac{2}{am^2}", "type": "math", "display": true}]	f	2
-076836f5-6341-472e-8df6-5527b78ffeaf	85dc79a4-91d7-4e70-87e2-3ce582ea9913	1	alt-c	[{"tex": "\\\\frac{a}{2}", "type": "math", "display": true}]	f	3
-a355c480-8fdc-4498-a880-7489588bd7cb	85dc79a4-91d7-4e70-87e2-3ce582ea9913	1	alt-d	[{"tex": "\\\\frac{2}{a}", "type": "math", "display": true}]	t	4
-37eca30a-178d-4804-8280-766ec56b9a29	85dc79a4-91d7-4e70-87e2-3ce582ea9913	1	alt-e	[{"tex": "2am²", "type": "math", "display": true}]	f	5
 \.
+
 
 
 --
@@ -1578,8 +1574,8 @@ e458a90f-e40e-410b-8009-950369fefe7f	10000000-0000-4000-8000-000000000001	e059c8
 --
 
 COPY public.question_revisions (question_id, revision, type, statement, explanation, difficulty, default_points, subject, grade, source_institution, source_license, authored_by, created_at, source_year, knowledge_topic, pedagogical_topic_id) FROM stdin;
-85dc79a4-91d7-4e70-87e2-3ce582ea9913	1	single_choice	[{"text": "Seja $D = \\\\{x \\\\mid x \\\\in (-1,0) \\\\cup (0,1)\\\\}$, $a \\\\in \\\\mathbb{R}^*$ e $f : D \\\\rightarrow \\\\mathbb{R}$, tal que $f(x) = \\\\sum_{k=1}^{\\\\infty} a x^{k-1}$. Então, para $m \\\\in D$, $\\\\frac{f(m) + f(-m)}{f(m)f(-m)}$ é igual a:", "type": "paragraph"}]	\N	hard	1.00	Matemática	1ª série	IME	\N	20000000-0000-4000-8000-000000000001	2026-09-25 22:55:54.383529+00	2025	Funções > Conceito, domínio, imagem e gráficos	771390e2-1960-450b-92a8-ca373078ec70
 \.
+
 
 
 --
@@ -1590,6 +1586,7 @@ COPY public.question_saeb_descriptors (question_id, revision, descriptor_id, is_
 \.
 
 
+
 --
 -- Data for Name: question_skills; Type: TABLE DATA; Schema: public; Owner: -
 --
@@ -1598,13 +1595,14 @@ COPY public.question_skills (question_id, revision, skill_id, is_primary) FROM s
 \.
 
 
+
 --
 -- Data for Name: questions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.questions (id, institution_id, public_code, current_revision, status, created_by, created_at, updated_at, duplicate_of_question_id, duplicate_detected_at, duplicate_reason) FROM stdin;
-85dc79a4-91d7-4e70-87e2-3ce582ea9913	10000000-0000-4000-8000-000000000001	MAT-0001	1	draft	20000000-0000-4000-8000-000000000001	2026-09-25 22:55:54.383529+00	2026-09-25 22:55:54.383529+00	\N	\N	\N
 \.
+
 
 
 --

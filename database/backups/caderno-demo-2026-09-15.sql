@@ -1314,15 +1314,8 @@ ALTER TABLE ONLY public.usage_events ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 COPY public.alternatives (id, question_id, revision, stable_key, content, is_correct, "position") FROM stdin;
-58b43b1a-ab0b-406d-ace3-25a558208d84	b035e370-fe63-4cf5-8695-95a19ab1a3ab	1	alt-a	[{"text": "24", "type": "paragraph"}]	f	1
-16aed871-7a92-4dba-afb2-d4c09ffc98d0	b035e370-fe63-4cf5-8695-95a19ab1a3ab	1	alt-b	[{"text": "36", "type": "paragraph"}]	t	2
-2831d182-5e2b-480c-8eca-9f7b8b73a2b3	b035e370-fe63-4cf5-8695-95a19ab1a3ab	1	alt-c	[{"text": "48", "type": "paragraph"}]	f	3
-f4fdb688-6540-4bb8-b178-a4b1d594c7d7	b035e370-fe63-4cf5-8695-95a19ab1a3ab	1	alt-d	[{"text": "60", "type": "paragraph"}]	f	4
-7b56c7a4-b220-4dd5-814c-edd265dd8d82	c54cfa4b-e151-42a0-91d3-03f5de1d0418	1	alt-a	[{"text": "10 g", "type": "paragraph"}]	f	1
-f48da4a1-0758-4945-acfd-f42f9d2532c9	c54cfa4b-e151-42a0-91d3-03f5de1d0418	1	alt-b	[{"text": "25 g", "type": "paragraph"}]	t	2
-b2746b51-b7a8-47bc-b7a9-997c5e1b317b	c54cfa4b-e151-42a0-91d3-03f5de1d0418	1	alt-c	[{"text": "35 g", "type": "paragraph"}]	f	3
-2649b376-666d-486e-96ab-605e38089270	c54cfa4b-e151-42a0-91d3-03f5de1d0418	1	alt-d	[{"text": "50 g", "type": "paragraph"}]	f	4
 \.
+
 
 
 --
@@ -1579,9 +1572,8 @@ COPY public.pedagogical_topics (id, institution_id, discipline_id, parent_id, na
 --
 
 COPY public.question_revisions (question_id, revision, type, statement, explanation, difficulty, default_points, subject, grade, source_institution, source_license, authored_by, created_at, source_year, knowledge_topic, pedagogical_topic_id) FROM stdin;
-b035e370-fe63-4cf5-8695-95a19ab1a3ab	1	single_choice	[{"text": "Qual é o resultado de 12 multiplicado por 3?", "type": "paragraph"}]	\N	easy	1.00	Matemática	7º ano	\N	\N	20000000-0000-4000-8000-000000000001	2026-09-02 18:14:33.095926+00	\N	\N	\N
-c54cfa4b-e151-42a0-91d3-03f5de1d0418	1	single_choice	[{"text": "Em uma reação química fechada, a massa total dos reagentes é 25 gramas. Qual será a massa total dos produtos?", "type": "paragraph"}]	\N	easy	1.00	Química	1ª série	ENEM	\N	20000000-0000-4000-8000-000000000001	2026-09-03 04:32:05.854827+00	2024	\N	\N
 \.
+
 
 
 --
@@ -1592,14 +1584,14 @@ COPY public.question_saeb_descriptors (question_id, revision, descriptor_id, is_
 \.
 
 
+
 --
 -- Data for Name: question_skills; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.question_skills (question_id, revision, skill_id, is_primary) FROM stdin;
-b035e370-fe63-4cf5-8695-95a19ab1a3ab	1	850ea3dd-3c02-4bdf-ba2a-734dafdd8aac	t
-c54cfa4b-e151-42a0-91d3-03f5de1d0418	1	9fa5a7da-1451-459c-964f-782d72f39132	t
 \.
+
 
 
 --
@@ -1607,9 +1599,8 @@ c54cfa4b-e151-42a0-91d3-03f5de1d0418	1	9fa5a7da-1451-459c-964f-782d72f39132	t
 --
 
 COPY public.questions (id, institution_id, public_code, current_revision, status, created_by, created_at, updated_at, duplicate_of_question_id, duplicate_detected_at, duplicate_reason) FROM stdin;
-b035e370-fe63-4cf5-8695-95a19ab1a3ab	10000000-0000-4000-8000-000000000001	MAT-0001	1	draft	20000000-0000-4000-8000-000000000001	2026-09-02 18:14:33.095926+00	2026-09-02 18:14:33.095926+00	\N	\N	\N
-c54cfa4b-e151-42a0-91d3-03f5de1d0418	10000000-0000-4000-8000-000000000001	QUI-0002	1	draft	20000000-0000-4000-8000-000000000001	2026-09-03 04:32:05.854827+00	2026-09-03 04:32:05.854827+00	\N	\N	\N
 \.
+
 
 
 --
