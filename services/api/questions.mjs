@@ -650,7 +650,7 @@ export async function getQuestionFilterOptions({ institutionId }) {
   };
 }
 
-export async function getQuestion({ institutionId, questionId }) {
+export async function getQuestion({ institutionId, role = 'teacher', questionId }) {
   const result = await pool.query({
     text: `SELECT q.id, q.public_code, q.current_revision, q.status, q.updated_at,
                   q.duplicate_of_question_id, q.duplicate_detected_at,
@@ -696,10 +696,10 @@ export async function getQuestion({ institutionId, questionId }) {
            LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
            LEFT JOIN saeb_topics st ON st.id = sd.topic_id
            LEFT JOIN saeb_matrices sm ON sm.id = sd.matrix_id
-           WHERE q.id = $1 AND ($2::uuid IS NULL OR q.institution_id = $2
+           WHERE q.id = $1 AND ($3 IN ('admin','coordinator') OR $2::uuid IS NULL OR q.institution_id = $2
              OR q.institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
            GROUP BY q.id, qr.question_id, qr.revision`,
-    values: [questionId, institutionId],
+    values: [questionId, institutionId, role],
   });
   if (!result.rowCount) return null;
   const row = result.rows[0];
@@ -1022,10 +1022,10 @@ export async function createQuestionRevision({
     const question = await client.query(
       `SELECT id, institution_id, public_code, current_revision
        FROM questions
-       WHERE id = $1 AND (institution_id = $2 OR institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
+       WHERE id = $1 AND ($5 IN ('admin','coordinator') OR institution_id = $2 OR institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
          AND (created_by = $3 OR $4 IN ('admin','coordinator'))
        FOR UPDATE`,
-      [questionId, institutionId, userId, role],
+      [questionId, institutionId, userId, role, role],
     );
     if (!question.rowCount)
       throw Object.assign(new Error('Questão não encontrada.'), {
@@ -1319,10 +1319,10 @@ export async function deleteQuestion({
     const result = await client.query(
       `UPDATE questions
        SET status = 'archived', updated_at = now()
-       WHERE id = $1 AND (institution_id = $2 OR institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1)) AND status <> 'archived'
+       WHERE id = $1 AND ($5 IN ('admin','coordinator') OR institution_id = $2 OR institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1)) AND status <> 'archived'
          AND (created_by = $3 OR $4 IN ('admin','coordinator'))
        RETURNING id, public_code`,
-      [questionId, institutionId, userId, role],
+      [questionId, institutionId, userId, role, role],
     );
     if (!result.rowCount) return false;
     await client.query(

@@ -935,6 +935,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'GET' && questionMatch) {
       const question = await getQuestion({
         institutionId,
+        role,
         questionId: questionMatch[1],
       });
       if (!question)
