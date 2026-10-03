@@ -137,6 +137,14 @@ const allowedOrigins = new Set(
     .map((origin) => origin.trim())
     .filter(Boolean),
 );
+// O portal também é acessado pelo domínio oficial. Mantemos esses aliases
+// permitidos mesmo quando o CORS_ORIGIN do Render ainda estiver apontando
+// somente para o endereço *.onrender.com.
+for (const origin of [
+  'https://ufaprova.com.br',
+  'https://www.ufaprova.com.br',
+  'https://ufaprova-frontend.onrender.com',
+]) allowedOrigins.add(origin);
 
 function corsHeaders(response) {
   return response.corsOrigin
