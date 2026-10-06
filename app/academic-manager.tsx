@@ -27,6 +27,8 @@ type Student = {
   id: string;
   registration: string;
   name: string;
+  access_code?: string;
+  selfieDataUrl?: string;
   active: boolean;
 };
 type Assessment = { id: string; title: string; grade: string };
@@ -106,6 +108,14 @@ type ScanReview = {
   candidates: ScanReviewCandidate[];
 };
 type ApiBody<T> = { data?: T; error?: string };
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Não foi possível ler a selfie.'));
+    reader.readAsDataURL(file);
+  });
+}
 type ApplicationReport = {
   application: {
     id: string;
@@ -639,16 +649,38 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
         <Panel icon={<UserPlus />} title="Novo aluno">
           <form
             className="space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              post('/api/students', e.currentTarget, (d) => ({
-                registration: d.get('registration'),
-                name: d.get('name'),
-              })).catch((x) => setMessage(x.message));
+              const form = e.currentTarget;
+              try {
+                const data = new FormData(form);
+                const file = data.get('selfie');
+                const selfieDataUrl = file instanceof File && file.size
+                  ? await readImageAsDataUrl(file)
+                  : '';
+                const response = await apiFetch(`${apiUrl}/api/students`, {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({
+                    registration: data.get('registration'),
+                    name: data.get('name'),
+                    selfieDataUrl,
+                  }),
+                });
+                const body = (await response.json()) as ApiBody<{ access_code?: string }>;
+                if (!response.ok) throw new Error(body.error || 'Não foi possível cadastrar o aluno.');
+                form.reset();
+                setMessage(`Aluno cadastrado. Código: ${body.data?.access_code || 'disponível na lista de alunos'}`);
+                await refresh();
+              } catch (error) {
+                setMessage(error instanceof Error ? error.message : 'Não foi possível cadastrar o aluno.');
+              }
             }}
           >
             <Input name="name" required placeholder="Nome completo" />
             <Input name="registration" required placeholder="Matrícula" />
+            <Input name="selfie" type="file" accept="image/png,image/jpeg" />
+            <p className="text-xs text-slate-500">Selfie opcional do aluno (PNG/JPEG até 400 KB).</p>
             <Button type="submit" className="w-full">
               Cadastrar aluno
             </Button>
@@ -974,7 +1006,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
         <header className="border-b p-4 font-semibold">Alunos cadastrados</header>
         {students.length ? students.map((student) => (
           <div key={student.id} className="flex items-center justify-between border-b px-4 py-3 text-sm last:border-0">
-            <span><b>{student.name}</b> · {student.registration}</span>
+            <span><b>{student.name}</b> · {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>
             <Button type="button" variant="outline" size="sm" onClick={() => toggleStudent(student).catch((error) => setMessage(error.message))}>
               {student.active ? 'Inativar' : 'Reativar'}
             </Button>
