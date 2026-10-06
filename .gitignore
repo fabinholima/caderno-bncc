@@ -46,6 +46,9 @@ next-env.d.ts
 /tmp/
 /var/
 
+# Aplicativo móvel mantido em repositório separado
+/mobile/
+
 # ConTeXt generated files
 /basicexam-template.pdf
 /basicexam-template.log
