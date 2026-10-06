@@ -41,25 +41,25 @@ export async function createClass({ institutionId, input }) {
   });
   return { ...r.rows[0], schoolYear: r.rows[0].school_year };
 }
-export async function createStudent({ institutionId, input }) {
+export async function createStudent({ institutionId, userId, input }) {
   await assertInstitutionLimit({ institutionId, kind: 'student' });
   const v = studentSchema.parse(input);
   const r = await pool.query({
-    text: `INSERT INTO students(institution_id,registration,name) VALUES($1,$2,$3) RETURNING id,registration,name,active`,
-    values: [institutionId, v.registration, v.name],
+    text: `INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id,registration,name,access_code,active`,
+    values: [institutionId, v.registration, v.name, userId],
   });
   return r.rows[0];
 }
 export async function listStudents({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT id,registration,name,active FROM students WHERE institution_id=$1 ORDER BY name`,
+    text: `SELECT s.id,s.registration,s.name,s.access_code,s.active,i.name AS school_name,u.display_name AS teacher_name FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id WHERE s.institution_id=$1 ORDER BY s.name`,
     values: [institutionId],
   });
   return result.rows;
 }
 export async function setStudentActive({ institutionId, studentId, active }) {
   const r = await pool.query({
-    text: 'UPDATE students SET active=$3 WHERE id=$1 AND institution_id=$2 RETURNING id,registration,name,active',
+    text: 'UPDATE students SET active=$3 WHERE id=$1 AND institution_id=$2 RETURNING id,registration,name,access_code,active',
     values: [studentId, institutionId, Boolean(active)],
   });
   if (!r.rowCount)
