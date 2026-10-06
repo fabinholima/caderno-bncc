@@ -47,7 +47,7 @@ async function renderPdfCards(pdf, directory) {
   return files.map((file) => path.join(directory, file));
 }
 
-async function processCard(scanId, card, sourcePage, sourcePages) {
+async function processCard(scanId, card, sourcePage, sourcePages, institutionId) {
   try {
     const reviewImage = await readFile(card);
     const result = await run(card);
@@ -61,8 +61,8 @@ async function processCard(scanId, card, sourcePage, sourcePages) {
        JOIN classes c ON c.id = aa.class_id
        LEFT JOIN class_enrollments ce
          ON ce.class_id = c.id AND ce.student_id = s.id
-       WHERE aps.qr_payload=$1`,
-      [result.qrPayload],
+       WHERE aps.qr_payload=$1 AND aa.institution_id=$2 AND aa.status<>'cancelled'`,
+      [result.qrPayload, institutionId],
     );
     if (!a.rowCount) throw new Error('QR desconhecido');
     const assignment = a.rows[0];
@@ -183,7 +183,7 @@ async function tick() {
         );
         scanId = child.rows[0].id;
       }
-      await processCard(scanId, cards[index], index + 1, cards.length);
+      await processCard(scanId, cards[index], index + 1, cards.length, j.institution_id);
     }
   } catch (e) {
     await pool.query(
