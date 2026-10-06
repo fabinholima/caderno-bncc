@@ -1,8 +1,12 @@
 import { z } from 'zod';
+import { createHash, randomUUID } from 'node:crypto';
+import { mobileMutation, assertInstitutionScope } from './mobile-mutations.mjs';
 import { Readable } from 'node:stream';
 import { pool, transaction } from './db.mjs';
 import { gradeSubmission } from './submissions.mjs';
-const schema = z.object({
+export const scanSchema = z.object({
+  clientScanId: z.uuid().optional(),
+  expectedInstitutionId: z.uuid().optional(),
   imageDataUrl: z
     .string()
     .max(8_000_000)
@@ -11,6 +15,8 @@ const schema = z.object({
     ),
 });
 export const reviewSchema = z.object({
+  clientMutationId: z.uuid().optional(),
+  expectedInstitutionId: z.uuid().optional(),
   applicationStudentId: z.uuid(),
   responses: z.array(
     z.object({
@@ -20,7 +26,8 @@ export const reviewSchema = z.object({
   ),
 });
 export async function createScan({ institutionId, userId, input }) {
-  const v = schema.parse(input);
+  const v = scanSchema.parse(input);
+  assertInstitutionScope(institutionId, v.expectedInstitutionId);
   const [, mimeType, data] = v.imageDataUrl.match(
     /^data:(image\/(?:png|jpeg)|application\/pdf);base64,(.+)$/,
   );
@@ -29,20 +36,23 @@ export async function createScan({ institutionId, userId, input }) {
     throw Object.assign(new Error('A digitalização deve ter no máximo 6 MB.'), {
       statusCode: 422,
     });
-  const r = await pool.query({
-    text: `INSERT INTO card_scans(institution_id,uploaded_by,mime_type,image_data) VALUES($1,$2,$3,$4) RETURNING id,status,created_at`,
-    values: [institutionId, userId, mimeType, bytes],
+  const hash = createHash('sha256').update(mimeType).update(bytes).digest('hex');
+  return transaction(async client => {
+    const id = v.clientScanId || randomUUID();
+    const r = await client.query({
+      text: `INSERT INTO card_scans(id,institution_id,uploaded_by,mime_type,image_data,upload_sha256)
+             VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING RETURNING id,status,created_at`,
+      values: [id, institutionId, userId, mimeType, bytes, hash],
+    });
+    if (!r.rowCount) {
+      const existing = await client.query('SELECT id,status,created_at,institution_id,uploaded_by,upload_sha256 FROM card_scans WHERE id=$1', [id]);
+      const row = existing.rows[0];
+      if (!row || row.institution_id !== institutionId || row.uploaded_by !== userId || row.upload_sha256 !== hash) throw Object.assign(new Error('O identificador de envio já foi usado com outros dados.'), { statusCode: 409 });
+      return { id: row.id, status: row.status, created_at: row.created_at };
+    }
+    await client.query(`INSERT INTO usage_events(institution_id,user_id,kind,quantity,metadata) VALUES($1,$2,'omr',1,$3::jsonb)`, [institutionId, userId, JSON.stringify({ scanId: id, bytes: bytes.length })]);
+    return r.rows[0];
   });
-  await pool.query(
-    `INSERT INTO usage_events(institution_id,user_id,kind,quantity,metadata)
-     VALUES($1,$2,'omr',1,$3::jsonb)`,
-    [
-      institutionId,
-      userId,
-      JSON.stringify({ scanId: r.rows[0].id, bytes: bytes.length }),
-    ],
-  );
-  return r.rows[0];
 }
 export async function listScans({ institutionId }) {
   const r = await pool.query({
@@ -81,15 +91,15 @@ export async function listScans({ institutionId }) {
 export async function getScanReview({ institutionId, scanId }) {
   const scan = await pool.query({
     text: `SELECT cs.id,cs.status,cs.result,cs.error_message,
-                  cs.application_student_id,
+                  cs.application_student_id,cs.submission_id,sub.score,sub.max_score,sub.requires_manual_review,sub.revision,
                   (cs.review_image_data IS NOT NULL) image_available
-           FROM card_scans cs WHERE cs.id=$1 AND cs.institution_id=$2`,
+           FROM card_scans cs LEFT JOIN assessment_submissions sub ON sub.id=cs.submission_id WHERE cs.id=$1 AND cs.institution_id=$2`,
     values: [scanId, institutionId],
   });
   if (!scan.rowCount) return null;
   const candidates = await pool.query({
     text: `SELECT aps.id,s.name,s.registration,ce.number,av.code,
-                  a.title,c.name class_name,av.snapshot
+                  a.title,a.id assessment_id,c.id class_id,c.name class_name,av.snapshot
            FROM application_students aps
            JOIN assessment_applications aa ON aa.id=aps.application_id
            JOIN students s ON s.id=aps.student_id
@@ -108,6 +118,11 @@ export async function getScanReview({ institutionId, scanId }) {
     id: row.id,
     status: row.status,
     error: row.error_message,
+    submissionId: row.submission_id,
+    score: row.score == null ? null : Number(row.score),
+    maxScore: row.max_score == null ? null : Number(row.max_score),
+    requiresManualReview: Boolean(row.requires_manual_review),
+    revision: row.revision,
     applicationStudentId: row.application_student_id,
     imageAvailable: row.image_available,
     detectedAnswers: row.result?.answers ?? [],
@@ -117,6 +132,8 @@ export async function getScanReview({ institutionId, scanId }) {
       registration: candidate.registration,
       number: candidate.number,
       versionCode: candidate.code,
+      assessmentId: candidate.assessment_id,
+      classId: candidate.class_id,
       assessmentTitle: candidate.title,
       className: candidate.class_name,
       questions: (candidate.snapshot?.questions ?? []).map((question) => ({
@@ -164,9 +181,10 @@ export async function retryScan({ institutionId, scanId }) {
   return result.rows[0];
 }
 
-export async function confirmScanReview({ institutionId, scanId, input }) {
+export async function confirmScanReview({ institutionId, userId, scanId, input }) {
   const value = reviewSchema.parse(input);
-  return transaction(async (client) => {
+  assertInstitutionScope(institutionId, value.expectedInstitutionId);
+  return transaction(client => mobileMutation(client, { institutionId, userId, requestId: value.clientMutationId, kind: 'scan-confirm', entityId: scanId, input: value }, async () => {
     const assignment = await client.query({
       text: `SELECT aps.id,aps.assessment_version_id,av.snapshot,s.name,
                     ce.number,c.name class_name
@@ -185,7 +203,7 @@ export async function confirmScanReview({ institutionId, scanId, input }) {
         statusCode: 404,
       });
     const scan = await client.query({
-      text: `SELECT id,submission_id FROM card_scans
+      text: `SELECT id,submission_id,status FROM card_scans
              WHERE id=$1 AND institution_id=$2 FOR UPDATE`,
       values: [scanId, institutionId],
     });
@@ -193,6 +211,7 @@ export async function confirmScanReview({ institutionId, scanId, input }) {
       throw Object.assign(new Error('Cartão não encontrado.'), {
         statusCode: 404,
       });
+    if (value.clientMutationId && scan.rows[0].status !== 'review') throw Object.assign(new Error('O cartão não está mais pendente de revisão. Atualize a leitura antes de continuar.'), { statusCode: 409 });
     const selected = assignment.rows[0];
     const grade = gradeSubmission(selected.snapshot, {
       candidate: {
@@ -207,7 +226,7 @@ export async function confirmScanReview({ institutionId, scanId, input }) {
       await client.query(
         `UPDATE assessment_submissions SET assessment_version_id=$2,
            candidate=$3::jsonb,responses=$4::jsonb,result=$5::jsonb,
-           score=$6,max_score=$7,requires_manual_review=$8,submitted_at=now()
+           score=$6,max_score=$7,requires_manual_review=$8,submitted_at=now(),revision=revision+1
          WHERE id=$1`,
         [
           submissionId,
@@ -263,5 +282,5 @@ export async function confirmScanReview({ institutionId, scanId, input }) {
       maxScore: grade.maxScore,
       requiresManualReview: grade.requiresManualReview,
     };
-  });
+  }));
 }

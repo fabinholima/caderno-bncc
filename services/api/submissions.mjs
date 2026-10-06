@@ -166,11 +166,15 @@ export async function createSubmission({ institutionId, versionId, input }) {
   };
 }
 
+export function submissionQuestions(snapshot) {
+  return (snapshot?.questions ?? []).map(question => ({ number: question.number, type: question.type, points: Number(question.points) || 0, statement: question.statement || [], guide: question.answer?.explanation || [] }));
+}
+
 export async function getSubmission({ institutionId, submissionId }) {
   const result = await pool.query({
     text: `SELECT s.id, s.assessment_version_id, s.candidate, s.responses,
                   s.result, s.score, s.max_score, s.requires_manual_review,
-                  s.submitted_at
+                  s.submitted_at,s.revision,av.snapshot
            FROM assessment_submissions s
            JOIN assessment_versions av ON av.id = s.assessment_version_id
            JOIN assessments a ON a.id = av.assessment_id
@@ -181,6 +185,8 @@ export async function getSubmission({ institutionId, submissionId }) {
   const row = result.rows[0];
   return {
     id: row.id,
+    revision: row.revision,
+    questions: submissionQuestions(row.snapshot),
     versionId: row.assessment_version_id,
     candidate: row.candidate,
     responses: row.responses,

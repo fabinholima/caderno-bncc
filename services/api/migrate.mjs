@@ -10,6 +10,7 @@ try {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('ufaprova:schema-migrations',0))");
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
     const files = (await fs.readdir(databaseDir)).filter((file) => /^\d{3}_.*\.sql$/.test(file)).sort();
     const applied = new Set((await client.query('SELECT filename FROM schema_migrations')).rows.map((row) => row.filename));

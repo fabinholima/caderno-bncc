@@ -38,4 +38,4 @@ ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/context
 ENV CONTEXT_VIA_MTXRUN=false
 ENV NODE_ENV=production
 WORKDIR /app/services/api
-CMD ["node", "server.mjs"]
+CMD ["sh", "-c", "node migrate.mjs && exec node server.mjs"]

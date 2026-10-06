@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { authOriginAllowed } from './auth-origin.mjs';
 import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { getEducatorProfile, saveEducatorProfile } from './educator-profile.mjs';
@@ -40,6 +41,7 @@ import {
   renderFontCatalog,
   renderTemplateCatalog,
 } from '../../lib/render-templates.mjs';
+import { saveManualReview } from './manual-review.mjs';
 import {
   createSubmission,
   getSubmission,
@@ -219,7 +221,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'GET' && url.pathname === '/api/auth/config')
       return json(response, 200, { data: { google: googleConfigured(), passwordRecovery: process.env.NODE_ENV !== 'production' && process.env.AUTH_DEV_RESET_TOKENS === 'true' } });
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+      if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
       if (['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/forgot-password', '/api/auth/reset-password'].includes(url.pathname)) {
         if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
@@ -248,8 +250,9 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname === '/api/billing/webhook')
       return json(response, 200, { data: await billingWebhook(request, url, await readJson(request, 64000)) });
     if (request.method === 'GET' && url.pathname === '/health') {
-      await pool.query('SELECT 1');
-      return json(response, 200, { status: 'ok' });
+      const readiness = await pool.query("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename='066_mobile_sync_manual_review.sql') AS mobile_sync_ready");
+      const ready = readiness.rows[0]?.mobile_sync_ready === true;
+      return json(response, ready ? 200 : 503, { status: ready ? 'ok' : 'migration_pending', release: process.env.RENDER_GIT_COMMIT || null, mobileSyncSchemaVersion: ready ? 1 : 0 });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/register') {
       const result = await register(await readJson(request));
@@ -546,6 +549,11 @@ const server = createServer(async (request, response) => {
       });
     if (request.method === 'GET' && url.pathname === '/api/subscription')
       return json(response, 200, { data: await getSubscription(identity) });
+    if (request.method === 'GET' && url.pathname === '/api/mobile-sync') {
+      const ready = await pool.query("SELECT to_regclass('mobile_mutations') AS ledger");
+      if (!ready.rows[0]?.ledger) return json(response, 503, { error: 'A migração de sincronização móvel ainda não foi aplicada.' });
+      return json(response, 200, { data: { version: 1, idempotentUploads: true, manualReview: true, userId, institutionId } });
+    }
     if (request.method === 'GET' && url.pathname === '/api/classes')
       return json(response, 200, {
         data: await listClasses({ institutionId }),
@@ -852,6 +860,7 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await confirmScanReview({
           institutionId,
+          userId,
           scanId: scanConfirmMatch[1],
           input: await readJson(request),
         }),
@@ -1322,6 +1331,8 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
+    const manualReviewMatch = request.method === 'POST' && url.pathname.match(/^\/api\/submissions\/([0-9a-f-]{36})\/manual-review$/i);
+    if (manualReviewMatch) return json(response, 200, { data: await saveManualReview({ institutionId, userId, submissionId: manualReviewMatch[1], input: await readJson(request) }) });
     const submissionMatch =
       request.method === 'GET' &&
       url.pathname.match(/^\/api\/submissions\/([0-9a-f-]{36})$/i);
