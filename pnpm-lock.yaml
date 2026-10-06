@@ -118,7 +118,7 @@ importers:
   services/api:
     dependencies:
       '@aws-sdk/client-s3':
-        specifier: ^3.1131.0
+        specifier: 3.1131.0
         version: 3.1131.0
       '@rdkit/rdkit':
         specifier: 2025.3.4-1.0.0
