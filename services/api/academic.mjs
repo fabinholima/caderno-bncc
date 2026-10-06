@@ -10,6 +10,7 @@ export const classSchema = z.object({
 export const studentSchema = z.object({
   registration: z.string().trim().min(1).max(60),
   name: z.string().trim().min(2).max(160),
+  selfieDataUrl: z.string().max(550000).refine((v) => !v || (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.byteLength(v.split(',')[1], 'base64') <= 400000), 'Use selfie PNG/JPEG de até 400 KB.').default(''),
 });
 export const enrollmentSchema = z.object({
   studentId: z.uuid(),
@@ -45,21 +46,21 @@ export async function createStudent({ institutionId, userId, input }) {
   await assertInstitutionLimit({ institutionId, kind: 'student' });
   const v = studentSchema.parse(input);
   const r = await pool.query({
-    text: `INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id,registration,name,access_code,active`,
-    values: [institutionId, v.registration, v.name, userId],
+    text: `INSERT INTO students(institution_id,registration,name,teacher_id,access_code,selfie_data_url) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)),$5) RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active`,
+    values: [institutionId, v.registration, v.name, userId, v.selfieDataUrl],
   });
   return r.rows[0];
 }
 export async function listStudents({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT s.id,s.registration,s.name,s.access_code,s.active,i.name AS school_name,u.display_name AS teacher_name FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id WHERE s.institution_id=$1 ORDER BY s.name`,
+    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,i.name AS school_name,u.display_name AS teacher_name FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id WHERE s.institution_id=$1 ORDER BY s.name`,
     values: [institutionId],
   });
   return result.rows;
 }
 export async function setStudentActive({ institutionId, studentId, active }) {
   const r = await pool.query({
-    text: 'UPDATE students SET active=$3 WHERE id=$1 AND institution_id=$2 RETURNING id,registration,name,access_code,active',
+    text: 'UPDATE students SET active=$3 WHERE id=$1 AND institution_id=$2 RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active',
     values: [studentId, institutionId, Boolean(active)],
   });
   if (!r.rowCount)
