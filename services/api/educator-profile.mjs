@@ -70,6 +70,7 @@ export const educatorSchema = z
     subjects: list,
     grades: list,
     stages: list,
+    selfieDataUrl: z.string().max(550000).refine((v) => !v || (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.byteLength(v.split(',')[1], 'base64') <= 400000), 'Use selfie PNG/JPEG de até 400 KB.').default(''),
     school: schoolSchema,
   })
   .superRefine((v, ctx) => {
@@ -90,7 +91,7 @@ export const educatorSchema = z
 
 export async function getEducatorProfile(userId) {
   const profile = await pool.query(
-    `SELECT professional_role AS "professionalRole",phone,subjects,grades,stages FROM educator_profiles WHERE user_id=$1`,
+    `SELECT professional_role AS "professionalRole",phone,subjects,grades,stages,selfie_data_url AS "selfieDataUrl" FROM educator_profiles WHERE user_id=$1`,
     [userId],
   );
   const schools = await pool.query(
@@ -152,8 +153,8 @@ export async function saveEducatorProfile(userId, input) {
         statusCode: 404,
       });
     await db.query(
-      `INSERT INTO educator_profiles(user_id,professional_role,phone,subjects,grades,stages) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id) DO UPDATE SET professional_role=$2,phone=$3,subjects=$4,grades=$5,stages=$6,updated_at=now()`,
-      [userId, v.professionalRole, v.phone, v.subjects, v.grades, v.stages],
+      `INSERT INTO educator_profiles(user_id,professional_role,phone,subjects,grades,stages,selfie_data_url) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(user_id) DO UPDATE SET professional_role=$2,phone=$3,subjects=$4,grades=$5,stages=$6,selfie_data_url=$7,updated_at=now()`,
+      [userId, v.professionalRole, v.phone, v.subjects, v.grades, v.stages, v.selfieDataUrl],
     );
     return { id: result.rows[0].id };
   });
