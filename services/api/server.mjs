@@ -160,7 +160,7 @@ function json(response, status, body) {
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     ...corsHeaders(response),
-    'access-control-allow-headers': 'content-type, authorization',
+    'access-control-allow-headers': 'content-type, authorization, x-client',
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
   });
   response.end(JSON.stringify(body));
