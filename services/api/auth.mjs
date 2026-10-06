@@ -207,7 +207,8 @@ export async function authenticate(request) {
     }
   }
   const cookie = request.headers.cookie || '';
-  const token = /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
+  const bearer = /^Bearer\s+(.+)$/i.exec(request.headers.authorization || '')?.[1];
+  const token = bearer || /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
   if (!token) return null;
   const result = await pool.query(
     `SELECT s.id session_id,s.global_bank,u.portal_admin,u.portal_editor,u.id user_id,u.email,u.display_name,u.cpf_hash,
