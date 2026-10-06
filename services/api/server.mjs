@@ -261,6 +261,7 @@ const server = createServer(async (request, response) => {
       const result = await login(await readJson(request));
       setSessionCookie(response, result.token);
       const { token: _token, ...data } = result;
+      if (request.headers['x-client'] === 'mobile') data.token = result.token;
       return json(response, 200, { data });
     }
     if (
