@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { BillingManager } from './billing-manager';
 import { EducatorProfile } from './educator-profile';
+import { MaintenanceManager } from './maintenance-manager';
 import { PortalEditorManager } from './portal-editor-manager';
 
 type Subscription = {
@@ -113,6 +114,7 @@ export function SettingsManager({
         Administração
       </p>
       <h1 className="font-display mt-1 text-3xl font-bold">Configurações</h1>
+      {portalAdmin && <MaintenanceManager apiUrl={apiUrl} />}
       {portalAdmin && <PortalEditorManager apiUrl={apiUrl} />}
       <BillingManager apiUrl={apiUrl} role={role} />
       <EducatorProfile apiUrl={apiUrl} />

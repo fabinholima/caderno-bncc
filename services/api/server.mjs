@@ -1,3 +1,5 @@
+import { requirePortalAdmin } from './portal-admin.mjs';
+import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './maintenance.mjs';
 import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
 import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
@@ -218,6 +220,19 @@ const server = createServer(async (request, response) => {
   if (request.method === 'OPTIONS') return json(response, 204, null);
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
+    if (request.method === 'GET' && url.pathname === '/api/maintenance') {
+      response.setHeader('cache-control','no-store');
+      return json(response,200,{data:await maintenanceStatus()});
+    }
+    // Keep login/recovery, payment callbacks and health available during maintenance.
+    if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/') && url.pathname !== '/api/billing/webhook') {
+      const state = await maintenanceStatus();
+      if (maintenanceBlocks(state,await authenticate(request))) {
+        response.setHeader('retry-after','300');
+        response.setHeader('cache-control','no-store');
+        return json(response,503,{error:state.message,maintenance:true});
+      }
+    }
     if (request.method === 'GET' && url.pathname === '/api/auth/config')
       return json(response, 200, { data: { google: googleConfigured(), passwordRecovery: process.env.NODE_ENV !== 'production' && process.env.AUTH_DEV_RESET_TOKENS === 'true' } });
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
@@ -285,6 +300,17 @@ const server = createServer(async (request, response) => {
     if (!identity)
       return json(response, 401, { error: 'Faça login para continuar.' });
     const { userId } = identity;
+    if (url.pathname === '/api/admin/maintenance') {
+      if (request.method === 'GET') {
+        requirePortalAdmin(identity);
+        return json(response,200,{data:await maintenanceStatus()});
+      }
+      if (request.method === 'POST') {
+        if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
+        return json(response,200,{data:await saveMaintenance(identity,await readJson(request,4096))});
+      }
+    }
+
     if (url.pathname.startsWith('/api/admin/')) response.setHeader('cache-control','no-store');
     if (request.method === 'GET' && url.pathname === '/api/admin/revenue')
       return json(response,200,{data:await revenueReport(identity,{year:url.searchParams.get('year') || new Date().getFullYear()})});
