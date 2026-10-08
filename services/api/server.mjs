@@ -6,6 +6,7 @@ import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashbo
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { getEducatorProfile, saveEducatorProfile } from './educator-profile.mjs';
 import { googleConfigured, startGoogle, finishGoogle } from './google-auth.mjs';
+import { mobileGoogleAuth } from './mobile-google-auth.mjs';
 import { billingStatus, createCheckout, cancelBilling, billingWebhook } from './billing.mjs';
 import { ZodError } from 'zod';
 import { pool } from './db.mjs';
@@ -237,14 +238,29 @@ const server = createServer(async (request, response) => {
       }
     }
     if (request.method === 'GET' && url.pathname === '/api/auth/config')
-      return json(response, 200, { data: { google: googleConfigured(), passwordRecovery: mailConfigured() || developmentMail() } });
+      return json(response, 200, { data: { google: googleConfigured(), googleMobile: googleConfigured(), passwordRecovery: mailConfigured() || developmentMail() } });
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
       if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      if (['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
+      if (['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
         if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
           return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
       }
+    }
+    if (request.method === 'POST' && url.pathname === '/api/auth/google/mobile/start') {
+      response.setHeader('cache-control', 'no-store');
+      return json(response, 200, { data: await mobileGoogleAuth.start(await readJson(request, 4096)) });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/auth/google/mobile/status') {
+      response.setHeader('cache-control', 'no-store');
+      return json(response, 200, { data: await mobileGoogleAuth.status(await readJson(request, 4096)) });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/auth/google/mobile/browser') {
+      if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown')) return json(response, 429, { error: 'Muitas tentativas. Aguarde e tente novamente.' });
+      const result = await mobileGoogleAuth.browser(url.searchParams.get('ticket'));
+      response.setHeader('set-cookie', oauthCookie(result.browser, 600));
+      response.writeHead(303, { location: result.url, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+      return response.end();
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/google/start') {
       const result = await startGoogle(await readJson(request, 4096));
@@ -253,6 +269,14 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'GET' && url.pathname === '/api/auth/google/callback') {
       if (!googleConfigured()) return json(response, 503, { error: 'Login Google não configurado.' });
+      const mobile = await mobileGoogleAuth.callback(url, request.headers.cookie);
+      if (mobile) {
+        response.setHeader('set-cookie', oauthCookie('', 0));
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
+          'referrer-policy': 'no-referrer', 'content-security-policy': "default-src 'none'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff' });
+        const text = mobile.status === 'completed' ? 'Entrada confirmada. Feche esta aba e volte ao aplicativo UFA Prova.' : mobile.message;
+        return response.end(`<!doctype html><html lang="pt-BR"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UFA Prova</title><body><h1>UFA Prova</h1><p>${text}</p></body></html>`);
+      }
       const destination = new URL('/portal', process.env.AUTH_FRONTEND_URL);
       try {
         const result = await finishGoogle(url, request.headers.cookie);
