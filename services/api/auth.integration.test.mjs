@@ -18,8 +18,9 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
   process.env.GOOGLE_REDIRECT_URI = 'http://localhost:8788/api/auth/google/callback';
   process.env.AUTH_FRONTEND_URL = 'http://localhost:3000';
   process.env.NODE_ENV = 'test';
+  process.env.AUTH_DEV_RESET_TOKENS = 'true';
   const { pool } = await import('./db.mjs');
-  const { register,login,authenticate,logout,loginWithGoogle,completeCpf,requestPasswordReset,resetPassword } = await import('./auth.mjs');
+  const { register,login,authenticate,logout,loginWithGoogle,completeCpf,requestPasswordReset,resetPassword,verifyEmail,requestEmailVerification } = await import('./auth.mjs');
   const { cpfFingerprint } = await import('./cpf.mjs');
   const { startGoogle,finishGoogle } = await import('./google-auth.mjs');
   try {
@@ -31,9 +32,27 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
       CREATE TABLE password_reset_tokens(user_id uuid,token_hash text,expires_at timestamptz,used_at timestamptz);
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text DEFAULT 'trialing',period_started_at timestamptz,period_ends_at timestamptz);
       CREATE TABLE audit_log(institution_id uuid,user_id uuid,action text,entity_type text,entity_id text);`);
-    for (const path of ['../../database/042_google_auth.sql','../../database/043_unique_cpf.sql','../../database/044_educator_schools.sql']) await pool.query(await readFile(new URL(path,import.meta.url),'utf8'));
+    for (const path of ['../../database/042_google_auth.sql','../../database/043_unique_cpf.sql','../../database/044_educator_schools.sql','../../database/067_auth_email_verification.sql']) await pool.query(await readFile(new URL(path,import.meta.url),'utf8'));
+    await pool.query('ALTER TABLE educator_profiles ADD COLUMN selfie_data_url text');
     const account = { institutionName:'Test Space',displayName:'Test Teacher',email:'teacher@example.com',password:'TestPassword123!',cpf:'12345678909' };
-    const created = await register(account);
+    const registration = await register(account);
+    assert.equal(registration.verificationRequired,true);
+    assert.equal(registration.token,undefined);
+    await assert.rejects(login(account), /Confirme/);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM user_sessions')).rows[0].n,0);
+    assert.equal((await pool.query('SELECT token_hash FROM email_verification_tokens')).rows[0].token_hash.includes(registration.developmentToken),false);
+    assert.deepEqual(await requestEmailVerification({email:'absent@example.com'}),{accepted:true});
+    assert.deepEqual(await requestEmailVerification({email:account.email}),{accepted:true});
+    await pool.query("UPDATE email_verification_tokens SET expires_at=now()-interval '1 second'");
+    await assert.rejects(verifyEmail({token:registration.developmentToken}), /expirado/);
+    await pool.query("UPDATE email_verification_tokens SET expires_at=now()+interval '24 hours'");
+    await verifyEmail({token:registration.developmentToken});
+    await assert.rejects(verifyEmail({token:registration.developmentToken}), /inválido/);
+    const created = await login(account);
+    // Legacy accounts are allowed without claiming their address was verified.
+    await pool.query('UPDATE users SET email_verification_required=false,email_verified_at=NULL WHERE email=$1',[account.email]);
+    assert.ok((await login(account)).token);
+    await pool.query('UPDATE users SET email_verification_required=true,email_verified_at=now() WHERE email=$1',[account.email]);
     const identity = await authenticate({ headers: { cookie:`caderno_session=${created.token}` } });
     assert.equal(identity.cpfComplete,true);
     assert.equal(identity.profileComplete,false);
@@ -129,12 +148,34 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
     await pool.query('UPDATE users SET portal_editor=false WHERE id=$1',[identity.userId]);
     assert.equal((await authenticate(request)).portalRole,'teacher');
     process.env.AUTH_DEV_RESET_TOKENS='true';
+    assert.deepEqual(await requestPasswordReset({email:'absent@example.com'}),{accepted:true});
     const recovery = await requestPasswordReset({email:account.email});
+    assert.deepEqual(await requestPasswordReset({email:account.email}),{accepted:true});
+    await pool.query("UPDATE password_reset_tokens SET expires_at=now()-interval '1 second'");
+    await assert.rejects(resetPassword({token:recovery.developmentToken,password:'NewTestPassword123!'}),/expirado/);
+    await pool.query("UPDATE password_reset_tokens SET expires_at=now()+interval '30 minutes'");
     await resetPassword({token:recovery.developmentToken,password:'NewTestPassword123!'});
     assert.equal(await authenticate(request),null);
     await assert.rejects(resetPassword({token:recovery.developmentToken,password:'AnotherPassword123!'}),/inválido/);
     await assert.rejects(login({email:account.email,password:account.password}));
     assert.ok((await login({email:account.email,password:'NewTestPassword123!'})).token);
+    // Delivery failures roll back both the account and its proof token.
+    const originalFetch = globalThis.fetch;
+    process.env.AUTH_DEV_RESET_TOKENS='false';
+    process.env.RESEND_API_KEY='test-provider-key';
+    process.env.AUTH_EMAIL_FROM='sender@example.com';
+    globalThis.fetch=async()=>({ok:false});
+    try {
+      const before=(await pool.query('SELECT count(*)::int n FROM institutions')).rows[0].n;
+      await assert.rejects(register({...account,email:'delivery-failure@example.com',cpf:'11144477735'}), /enviar/);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM institutions')).rows[0].n,before);
+      assert.equal((await pool.query("SELECT count(*)::int n FROM users WHERE email='delivery-failure@example.com'")).rows[0].n,0);
+      await pool.query("UPDATE password_reset_tokens SET created_at=now()-interval '2 minutes'");
+      const tokenCount=(await pool.query('SELECT count(*)::int n FROM password_reset_tokens')).rows[0].n;
+      await assert.rejects(requestPasswordReset({email:account.email}), /enviar/);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM password_reset_tokens')).rows[0].n,tokenCount);
+    } finally { globalThis.fetch=originalFetch; }
+
   } finally {
     await pool.end();
     await control.query(`DROP SCHEMA ${schema} CASCADE`);
