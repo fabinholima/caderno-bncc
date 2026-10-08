@@ -27,7 +27,7 @@ Primeiro cadastro com Google: escolher Criar conta e informar CPF, depois Contin
 
 ## Limites antes de produção
 
-- Recuperação por e-mail ainda sem serviço de envio: desativada e sem promessa de e-mail enviado. AUTH_DEV_RESET_TOKENS=true expõe token somente para testes locais; nunca habilitar em ambiente acessível ao público.
-- Cadastro por senha ainda não confirma posse do e-mail. Planejar envio/verificação de e-mail antes do lançamento.
+- Recuperação e confirmação por e-mail implementadas via Resend. Aplicar migração 067 e configurar as variáveis do backend conforme [autenticação por e-mail](autenticacao-email.md). AUTH_DEV_RESET_TOKENS=true é exclusivo para testes locais.
+- Novos cadastros por senha exigem confirmação antes do login. Contas existentes mantêm acesso; contas Google usam o e-mail verificado pelo provedor. Homologar o recebimento real antes do lançamento.
 - Limite local de 30 tentativas por IP a cada 15 minutos nos endpoints de login/cadastro. Em múltiplas instâncias usar limitador compartilhado/reverse proxy confiável; não confiar em X-Forwarded-For fornecido pelo cliente.
 - Finalizar política de privacidade, suporte de recuperação e homologação Google antes da publicação. Nenhum CPF ou segredo deve ser incluído nos testes, logs ou commits; exemplos de teste não representam titular identificado.

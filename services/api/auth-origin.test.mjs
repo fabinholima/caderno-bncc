@@ -12,5 +12,5 @@ test('the mobile header does not permit a disallowed browser origin', () => {
   assert.equal(check('/api/auth/login', 'https://ufaprova-frontend.onrender.com', undefined), true);
 });
 test('registration, logout and profile changes still require approved browser origins', () => {
-  for (const path of ['/api/auth/register', '/api/auth/logout', '/api/auth/complete-cpf', '/api/auth/reset-password']) assert.equal(check(path, undefined, 'mobile'), false);
+  for (const path of ['/api/auth/register', '/api/auth/logout', '/api/auth/complete-cpf', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email']) assert.equal(check(path, undefined, 'mobile'), false);
 });

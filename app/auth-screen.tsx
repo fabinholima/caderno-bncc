@@ -17,7 +17,7 @@ export type AuthIdentity = {
 };
 
 export function AuthScreen({ apiUrl }: { apiUrl: string }) {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'verify' | 'resend'>(
     'login',
   );
   const [resetToken, setResetToken] = useState('');
@@ -27,7 +27,15 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
   const [config, setConfig] = useState({ google: false, passwordRecovery: false });
   useEffect(() => {
     let active = true;
-    const recoveryToken = new URLSearchParams(window.location.hash.slice(1)).get('reset_token');
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const recoveryToken = params.get('reset_token');
+    const verificationToken = params.get('verify_token');
+    if (verificationToken) {
+      setResetToken(verificationToken);
+      setMode('verify');
+      setMessage('Clique em Confirmar e-mail para concluir seu cadastro.');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     if (recoveryToken) {
       setResetToken(recoveryToken);
       setMode('reset');
@@ -66,7 +74,9 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
     setMessage('');
     const data = new FormData(event.currentTarget);
     const path =
-      mode === 'register'
+      mode === 'verify' ? '/api/auth/verify-email'
+        : mode === 'resend' ? '/api/auth/resend-verification'
+        : mode === 'register'
         ? '/api/auth/register'
         : mode === 'forgot'
           ? '/api/auth/forgot-password'
@@ -74,7 +84,9 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
             ? '/api/auth/reset-password'
             : '/api/auth/login';
     const payload =
-      mode === 'register'
+      mode === 'verify' ? { token: resetToken }
+        : mode === 'resend' ? { email: data.get('email') }
+        : mode === 'register'
         ? {
             institutionName: data.get('institutionName'),
             displayName: data.get('displayName'),
@@ -99,7 +111,20 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
       };
       if (!response.ok)
         throw new Error(body.error || 'Não foi possível continuar.');
-      if (mode === 'forgot') {
+      if (mode === 'register' || mode === 'resend') {
+        if (body.data?.developmentToken) {
+          setResetToken(body.data.developmentToken);
+          setMode('verify');
+          setMessage('Modo local: clique em Confirmar e-mail para testar a confirmação.');
+        } else {
+          setMode('login');
+          setMessage(mode === 'register' ? 'Conta criada. Confira seu e-mail e confirme o cadastro antes de entrar.' : 'Se a conta precisar de confirmação, enviaremos um novo link. Confira também a pasta de spam.');
+        }
+      } else if (mode === 'verify') {
+        setResetToken('');
+        setMode('login');
+        setMessage('E-mail confirmado. Entre com sua senha.');
+      } else if (mode === 'forgot') {
         if (body.data?.developmentToken) {
           setResetToken(body.data.developmentToken);
           setMode('reset');
@@ -134,7 +159,9 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
         <h2 className="mt-7 text-2xl font-bold">
-          {mode === 'register'
+          {mode === 'verify' ? 'Confirmar seu e-mail'
+            : mode === 'resend' ? 'Reenviar confirmação'
+            : mode === 'register'
             ? 'Criar sua conta'
             : mode === 'forgot'
               ? 'Recuperar senha'
@@ -165,13 +192,13 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
               <Input name="displayName" required placeholder="Seu nome" aria-label="Seu nome" autoComplete="name" />
             </>
           )}
-          {mode !== 'reset' && (
+          {!['reset', 'verify'].includes(mode) && (
             <Input name="email" type="email" required placeholder="E-mail" aria-label="E-mail" autoComplete="email" />
           )}
           {mode === 'reset' && (
             <input type="hidden" name="token" value={resetToken} />
           )}
-          {!['forgot'].includes(mode) && (
+          {!['forgot', 'verify', 'resend'].includes(mode) && (
             <Input
               name="password"
               type="password"
@@ -185,7 +212,9 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
           <Button className="w-full" disabled={saving} type="submit">
             {saving
               ? 'Aguarde...'
-              : mode === 'register'
+              : mode === 'verify' ? 'Confirmar e-mail'
+                : mode === 'resend' ? 'Reenviar link'
+                : mode === 'register'
                 ? 'Criar conta'
                 : mode === 'forgot'
                   ? 'Solicitar recuperação'
@@ -222,6 +251,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
               >
                 Esqueci minha senha
               </button>
+              <button className="text-slate-500" onClick={() => setMode('resend')}>Reenviar confirmação</button>
             </>
           )}
         </div>

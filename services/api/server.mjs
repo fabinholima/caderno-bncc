@@ -108,7 +108,10 @@ import {
   register,
   requestPasswordReset,
   resetPassword,
+  requestEmailVerification,
+  verifyEmail,
 } from './auth.mjs';
+import { mailConfigured, developmentMail } from './auth-mail.mjs';
 import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
@@ -234,11 +237,11 @@ const server = createServer(async (request, response) => {
       }
     }
     if (request.method === 'GET' && url.pathname === '/api/auth/config')
-      return json(response, 200, { data: { google: googleConfigured(), passwordRecovery: process.env.NODE_ENV !== 'production' && process.env.AUTH_DEV_RESET_TOKENS === 'true' } });
+      return json(response, 200, { data: { google: googleConfigured(), passwordRecovery: mailConfigured() || developmentMail() } });
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
       if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      if (['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/forgot-password', '/api/auth/reset-password'].includes(url.pathname)) {
+      if (['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
         if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
           return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
       }
@@ -271,9 +274,7 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/register') {
       const result = await register(await readJson(request));
-      setSessionCookie(response, result.token);
-      const { token: _token, ...data } = result;
-      return json(response, 201, { data });
+      return json(response, 201, { data: result });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/login') {
       const result = await login(await readJson(request));
@@ -296,6 +297,10 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await resetPassword(await readJson(request)),
       });
+    if (request.method === 'POST' && url.pathname === '/api/auth/resend-verification')
+      return json(response, 202, { data: await requestEmailVerification(await readJson(request, 4096)) });
+    if (request.method === 'POST' && url.pathname === '/api/auth/verify-email')
+      return json(response, 200, { data: await verifyEmail(await readJson(request, 4096)) });
     const identity = await authenticate(request);
     if (!identity)
       return json(response, 401, { error: 'Faça login para continuar.' });
@@ -310,7 +315,6 @@ const server = createServer(async (request, response) => {
         return json(response,200,{data:await saveMaintenance(identity,await readJson(request,4096))});
       }
     }
-
     if (url.pathname.startsWith('/api/admin/')) response.setHeader('cache-control','no-store');
     if (request.method === 'GET' && url.pathname === '/api/admin/revenue')
       return json(response,200,{data:await revenueReport(identity,{year:url.searchParams.get('year') || new Date().getFullYear()})});

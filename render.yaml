@@ -19,6 +19,12 @@ services:
         value: "false"
       - key: CORS_ORIGIN
         sync: false
+      - key: AUTH_FRONTEND_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: AUTH_EMAIL_FROM
+        sync: false
       - key: QR_SIGNING_SECRET
         generateValue: true
       - key: FILE_STORAGE_DIR

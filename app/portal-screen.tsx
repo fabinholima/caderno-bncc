@@ -512,6 +512,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!apiUrl) return;
+    const authParams = new URLSearchParams(window.location.hash.slice(1));
+    if (authParams.has('reset_token') || authParams.has('verify_token')) {
+      setIdentity(null);
+      setAuthReady(true);
+      return;
+    }
     apiFetch(`${apiUrl}/api/auth/me`)
       .then(async (response) => {
         if (!response.ok) return null;

@@ -5,6 +5,7 @@ import { pool, transaction } from './db.mjs';
 import { cpfFingerprint, normalizeCpf } from './cpf.mjs';
 import { resolveUnifiedContext } from './portal-access.mjs';
 import { sessionNetwork } from './admin-dashboard.mjs';
+import { requireMail, sendAuthMail, developmentMail } from './auth-mail.mjs';
 
 const scrypt = promisify(crypto.scrypt);
 const email = z.string().trim().toLowerCase().email().max(254);
@@ -18,12 +19,12 @@ export const registerSchema = z.object({
 });
 export const loginSchema = z.object({ email, password: z.string().max(200) });
 export const forgotSchema = z.object({ email });
-export const resetSchema = z.object({ token: z.string().min(32), password });
+export const resetSchema = z.object({ token: z.string().min(32).max(128), password });
 export const invitationSchema = z.object({
   email,
   role: z.enum(['admin', 'coordinator', 'teacher']),
 });
-export const acceptInvitationSchema = z.object({ token: z.string().min(32) });
+export const acceptInvitationSchema = z.object({ token: z.string().min(32).max(128) });
 
 const tokenHash = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
@@ -70,6 +71,7 @@ async function createSession(client, userId) {
 export async function register(input) {
   const value = registerSchema.parse(input);
   const cpfHash = cpfFingerprint(value.cpf);
+  requireMail();
   return transaction(async (client) => {
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [value.email]);
     const existing = await client.query('SELECT id FROM users WHERE lower(email)=$1', [value.email]);
@@ -79,8 +81,8 @@ export async function register(input) {
       [value.institutionName, slugify(value.institutionName)],
     );
     const user = await client.query(
-      `INSERT INTO users(email,display_name,password_hash,cpf_hash)
-       VALUES($1,$2,$3,$4) RETURNING id,email,display_name`,
+      `INSERT INTO users(email,display_name,password_hash,cpf_hash,email_verification_required)
+       VALUES($1,$2,$3,$4,true) RETURNING id,email,display_name`,
       [value.email, value.displayName, await hashPassword(value.password),cpfHash],
     );
     await client.query(
@@ -92,22 +94,13 @@ export async function register(input) {
        VALUES($1,'trial',now(),now()+interval '7 days')`,
       [institution.rows[0].id],
     );
-    const token = await createSession(client, user.rows[0].id);
+    const verificationToken = await issueVerification(client, user.rows[0].id, value.email);
     await client.query(
       `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id)
        VALUES($1::uuid,$2::uuid,'institution.registered','institution',($1::uuid)::text)`,
       [institution.rows[0].id, user.rows[0].id],
     );
-    return {
-      token,
-      user: {
-        id: user.rows[0].id,
-        email: user.rows[0].email,
-        displayName: user.rows[0].display_name,
-      },
-      institution: institution.rows[0],
-      role: 'admin',
-    };
+    return { verificationRequired: true, ...(developmentMail() ? { developmentToken: verificationToken } : {}) };
   });
 }
 
@@ -123,7 +116,7 @@ export async function loginWithGoogle(profile, cpfHash) {
       if (existing.rowCount) throw Object.assign(new Error('Entre com a senha da conta existente. A vinculação automática ao Google não é permitida.'), { statusCode: 409 });
       const institutionName = `Espaço de ${profile.name || 'Professor'}`;
       const institution = await client.query('INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id', [institutionName,slugify(institutionName)]);
-      user = (await client.query('INSERT INTO users(email,display_name,google_subject,cpf_hash) VALUES($1,$2,$3,$4) RETURNING id,active', [profile.email,profile.name || 'Professor',profile.sub,cpfHash])).rows[0];
+      user = (await client.query('INSERT INTO users(email,display_name,google_subject,cpf_hash,email_verified_at) VALUES($1,$2,$3,$4,now()) RETURNING id,active', [profile.email,profile.name || 'Professor',profile.sub,cpfHash])).rows[0];
       await client.query("INSERT INTO memberships(institution_id,user_id,role) VALUES($1,$2,'admin')", [institution.rows[0].id,user.id]);
       await client.query("INSERT INTO institution_subscriptions(institution_id,plan_id,period_started_at,period_ends_at) VALUES($1,'trial',now(),now()+interval '7 days')", [institution.rows[0].id]);
     }
@@ -138,7 +131,7 @@ export async function loginWithGoogle(profile, cpfHash) {
 export async function login(input) {
   const value = loginSchema.parse(input);
   const result = await pool.query(
-    `SELECT u.id,u.email,u.display_name,u.password_hash,m.institution_id,
+    `SELECT u.id,u.email,u.display_name,u.password_hash,u.email_verification_required,u.email_verified_at,m.institution_id,
             m.role,i.name institution_name
      FROM users u JOIN memberships m ON m.user_id=u.id
      JOIN institutions i ON i.id=m.institution_id
@@ -150,6 +143,8 @@ export async function login(input) {
     throw Object.assign(new Error('E-mail ou senha inválidos.'), {
       statusCode: 401,
     });
+  if (row.email_verification_required && !row.email_verified_at)
+    throw Object.assign(new Error('Confirme seu e-mail antes de entrar. Você pode reenviar o link de confirmação.'), { statusCode: 403 });
   const token = await transaction((client) => createSession(client, row.id));
   await pool.query(
     `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id)
@@ -217,7 +212,7 @@ export async function authenticate(request) {
      FROM user_sessions s JOIN users u ON u.id=s.user_id AND u.active
      JOIN memberships m ON m.user_id=u.id
      JOIN institutions i ON i.id=m.institution_id
-     WHERE s.token_hash=$1 AND s.expires_at>now()
+     WHERE s.token_hash=$1 AND s.expires_at>now() AND (NOT u.email_verification_required OR u.email_verified_at IS NOT NULL)
      ORDER BY m.role='admin' DESC LIMIT 1`,
     [tokenHash(decodeURIComponent(token))],
   );
@@ -245,32 +240,64 @@ export async function logout(sessionId) {
     await pool.query('DELETE FROM user_sessions WHERE id=$1', [sessionId]);
 }
 
-export async function requestPasswordReset(input) {
-  if (process.env.NODE_ENV === 'production' || process.env.AUTH_DEV_RESET_TOKENS !== 'true')
-    throw Object.assign(new Error('O envio de e-mail de recuperação ainda não está configurado. Solicite ao administrador do servidor um link temporário de recuperação.'), { statusCode: 503 });
-  const value = forgotSchema.parse(input);
-  const user = await pool.query(
-    'SELECT id FROM users WHERE email=$1 AND active',
-    [value.email],
-  );
-  if (!user.rowCount) return { accepted: true };
+async function issueVerification(client, userId, recipient) {
   const token = randomToken();
-  await pool.query(
-    `INSERT INTO password_reset_tokens(user_id,token_hash,expires_at)
-     VALUES($1,$2,now()+interval '30 minutes')`,
-    [user.rows[0].id, tokenHash(token)],
-  );
-  return {
-    accepted: true,
-    ...(process.env.NODE_ENV === 'production'
-      ? {}
-      : { developmentToken: token }),
-  };
+  await client.query(`INSERT INTO email_verification_tokens(user_id,token_hash,expires_at)
+    VALUES($1,$2,now()+interval '24 hours')`, [userId,tokenHash(token)]);
+  await sendAuthMail('verify',recipient,token);
+  return token;
+}
+
+export async function requestEmailVerification(input) {
+  const value = forgotSchema.parse(input);
+  requireMail();
+  return transaction(async (client) => {
+    const user = (await client.query('SELECT id,email FROM users WHERE email=$1 AND active AND email_verification_required AND email_verified_at IS NULL FOR UPDATE', [value.email])).rows[0];
+    if (!user) return { accepted: true };
+    const recent = await client.query("SELECT 1 FROM email_verification_tokens WHERE user_id=$1 AND created_at>now()-interval '1 minute' LIMIT 1", [user.id]);
+    if (recent.rowCount) return { accepted: true };
+    const token = await issueVerification(client,user.id,user.email);
+    return { accepted: true, ...(developmentMail() ? { developmentToken: token } : {}) };
+  });
+}
+
+export async function verifyEmail(input) {
+  const value = acceptInvitationSchema.parse(input);
+  return transaction(async (client) => {
+    // Lock the account before consuming tokens, serializing concurrent confirmations.
+    const user = (await client.query(`SELECT u.id FROM users u JOIN email_verification_tokens t ON t.user_id=u.id
+      WHERE t.token_hash=$1 AND u.active FOR UPDATE OF u`, [tokenHash(value.token)])).rows[0];
+    if (!user) throw Object.assign(new Error('Link inválido ou expirado.'), { statusCode: 422 });
+    const used = await client.query(`UPDATE email_verification_tokens SET used_at=now()
+      WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now() RETURNING user_id`, [tokenHash(value.token)]);
+    if (!used.rowCount) throw Object.assign(new Error('Link inválido ou expirado.'), { statusCode: 422 });
+    await client.query('UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1', [user.id]);
+    await client.query('UPDATE email_verification_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL', [user.id]);
+    return { verified: true };
+  });
+}
+
+export async function requestPasswordReset(input) {
+  const value = forgotSchema.parse(input);
+  requireMail();
+  return transaction(async (client) => {
+    const user = (await client.query('SELECT id,email FROM users WHERE email=$1 AND active AND password_hash IS NOT NULL FOR UPDATE', [value.email])).rows[0];
+    if (!user) return { accepted: true };
+    const recent = await client.query("SELECT 1 FROM password_reset_tokens WHERE user_id=$1 AND created_at>now()-interval '1 minute' LIMIT 1", [user.id]);
+    if (recent.rowCount) return { accepted: true };
+    const token = randomToken();
+    await client.query(`INSERT INTO password_reset_tokens(user_id,token_hash,expires_at)
+      VALUES($1,$2,now()+interval '30 minutes')`, [user.id,tokenHash(token)]);
+    await sendAuthMail('reset',user.email,token);
+    return { accepted: true, ...(developmentMail() ? { developmentToken: token } : {}) };
+  });
 }
 
 export async function resetPassword(input) {
   const value = resetSchema.parse(input);
   return transaction(async (client) => {
+    const user = (await client.query(`SELECT u.id FROM users u JOIN password_reset_tokens t ON t.user_id=u.id WHERE t.token_hash=$1 AND u.active FOR UPDATE OF u`, [tokenHash(value.token)])).rows[0];
+    if (!user) throw Object.assign(new Error('Token inválido ou expirado.'), { statusCode: 422 });
     const reset = await client.query(
       `UPDATE password_reset_tokens SET used_at=now()
        WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now()
@@ -281,13 +308,15 @@ export async function resetPassword(input) {
       throw Object.assign(new Error('Token inválido ou expirado.'), {
         statusCode: 422,
       });
-    await client.query('UPDATE users SET password_hash=$2 WHERE id=$1', [
+    await client.query('UPDATE users SET password_hash=$2,email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1', [
       reset.rows[0].user_id,
       await hashPassword(value.password),
     ]);
     await client.query('DELETE FROM user_sessions WHERE user_id=$1', [
       reset.rows[0].user_id,
     ]);
+    await client.query('UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL', [user.id]);
+    await client.query('UPDATE email_verification_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL', [user.id]);
     return { changed: true };
   });
 }
