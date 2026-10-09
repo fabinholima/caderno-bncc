@@ -174,6 +174,10 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
     text: z.string().trim().min(1).max(20_000),
   }),
   z.object({
+    type: z.literal('adoteNote'),
+    text: z.string().trim().min(1).max(5_000),
+  }),
+  z.object({
     type: z.literal('romanList'),
     items: z.array(z.string().trim().min(1).max(2_000)).min(1).max(30),
   }),

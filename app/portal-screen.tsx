@@ -783,6 +783,8 @@ export default function Home() {
         );
     };
     const statementBlocks = parseBlocks('statementBlocks');
+    const adote = formString('adoteNote').trim();
+    if (adote) statementBlocks.push({ type: 'adoteNote', text: adote });
     const answerBlocks = parseBlocks('answerBlocks');
     const plainText = (
       blocks: Array<{ type: string; text?: string }>,
@@ -950,7 +952,12 @@ export default function Home() {
       setImportedQuestion({
         sourceInstitution: question.sourceInstitution,
         sourceYear: String(question.sourceYear),
-        statementBlocks: question.statement,
+        statementBlocks: question.statement.filter(
+          (node: any) => node.type !== 'adoteNote',
+        ),
+        adoteNote:
+          question.statement.find((node: any) => node.type === 'adoteNote')
+            ?.text || '',
         alternatives: Object.fromEntries(
           question.alternatives.map((item: any) => [
             item.stableKey.slice(-1).toUpperCase(),
@@ -2639,6 +2646,17 @@ export default function Home() {
                   initialBlocks={importedQuestion?.statementBlocks}
                   resetKey={importRevision}
                 />
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold">Note e adote (opcional)</span>
+                  <textarea
+                    name="adoteNote"
+                    rows={5}
+                    maxLength={5000}
+                    defaultValue={importedQuestion?.adoteNote || ''}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6"
+                    placeholder="Informações, constantes, hipóteses ou dicas para a questão."
+                  />
+                </label>
                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <summary className="cursor-pointer text-sm font-semibold text-slate-700">
                     Ilustração MetaPost (opcional e avançado)

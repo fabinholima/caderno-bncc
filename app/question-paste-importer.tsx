@@ -15,6 +15,7 @@ export type ParsedQuestion = {
   sourceInstitution: string;
   sourceYear: string;
   statementBlocks: RichContentBlock[];
+  adoteNote?: string;
   alternatives: Record<string, RichContentBlock[]>;
   warnings: string[];
 };
