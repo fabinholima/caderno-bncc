@@ -18,4 +18,4 @@ jobs:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_RENDERER_DEPLOY_HOOK_URL }}
         run: |
           test -n "$RENDER_DEPLOY_HOOK_URL"
-          curl -X POST "$RENDER_DEPLOY_HOOK_URL"
+          curl "$RENDER_DEPLOY_HOOK_URL"
