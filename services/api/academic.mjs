@@ -151,12 +151,14 @@ export async function createApplication({ institutionId, userId, input }) {
 
 export async function listApplications({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.scheduled_at,aa.status,a.title,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 GROUP BY aa.id,a.title,c.name ORDER BY aa.created_at DESC`,
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 GROUP BY aa.id,a.title,c.name ORDER BY aa.created_at DESC`,
     values: [institutionId],
   });
   return result.rows.map((x) => ({
     id: x.id,
     title: x.title,
+    assessmentId: x.assessment_id,
+    classId: x.class_id,
     className: x.class_name,
     scheduledAt: x.scheduled_at,
     status: x.status,
