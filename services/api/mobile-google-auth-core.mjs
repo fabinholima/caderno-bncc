@@ -15,8 +15,8 @@ export function createMobileGoogleAuth(deps) {
       const ticket = randomBytes(32).toString('base64url'), id = randomUUID();
       await pool.query('DELETE FROM mobile_google_login_attempts WHERE expires_at <= now()');
       const result = await pool.query(
-        'INSERT INTO mobile_google_login_attempts(id,ticket_hash,token_hash) VALUES($1,$2,$3) RETURNING expires_at',
-        [id, hash(ticket), input.tokenHash],
+        'INSERT INTO mobile_google_login_attempts(id,ticket_hash,token_hash,account_type) VALUES($1,$2,$3,$4) RETURNING expires_at',
+        [id, hash(ticket), input.tokenHash, input.accountType === 'student' ? 'student' : 'educator'],
       );
       // Build only from the configured OAuth callback, never a client redirect URL.
       const target = new URL('/api/auth/google/mobile/browser', process.env.GOOGLE_REDIRECT_URI);
@@ -27,11 +27,11 @@ export function createMobileGoogleAuth(deps) {
       if (typeof ticket !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(ticket)) throw expired();
       return transaction(async client => {
         const attempt = await client.query(
-          `SELECT id FROM mobile_google_login_attempts WHERE ticket_hash=$1 AND status='pending'
+          `SELECT id,account_type FROM mobile_google_login_attempts WHERE ticket_hash=$1 AND status='pending'
            AND state_hash IS NULL AND expires_at>now() FOR UPDATE`, [hash(ticket)],
         );
         if (!attempt.rowCount) throw expired();
-        const result = await startGoogle();
+        const result = await startGoogle({accountType:attempt.rows[0].account_type});
         const state = new URL(result.url).searchParams.get('state');
         if (!state) throw failure('Não foi possível iniciar a entrada com Google.', 503);
         await client.query('UPDATE mobile_google_login_attempts SET state_hash=$2 WHERE id=$1', [attempt.rows[0].id, hash(state)]);

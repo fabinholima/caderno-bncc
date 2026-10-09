@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ClassInvitePanel } from './class-invite-panel';
 import { apiFetch } from '@/lib/api-client';
 
 type SchoolClass = {
@@ -23,6 +24,7 @@ type SchoolClass = {
   schoolYear: number;
   students: number;
 };
+type ClassInvite = { code: string; classId: string; className: string; active: boolean };
 type Student = {
   id: string;
   registration: string;
@@ -318,6 +320,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
   const [studentProgress, setStudentProgress] =
     useState<StudentProgress | null>(null);
   const [message, setMessage] = useState('');
+  const [inviteClass,setInviteClass]=useState<SchoolClass|null>(null);
   const refresh = async () => {
     if (!apiUrl) return;
     const [c, s, a, ap, sc] = await Promise.all([
@@ -1815,8 +1818,9 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
               <span>
                 <b>{x.name}</b> · {x.grade}
               </span>
-              <span className="text-slate-500">
+              <span className="flex items-center gap-3 text-slate-500">
                 {x.schoolYear} · {x.students} alunos
+                <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setInviteClass(x)}>Convidar alunos</Button>
               </span>
             </div>
           ))
@@ -1826,6 +1830,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
           </p>
         )}
       </section>
+      {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
     </main>
   );
 }

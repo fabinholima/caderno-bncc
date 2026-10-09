@@ -9,11 +9,11 @@ import { apiFetch } from '@/lib/api-client';
 export type AuthIdentity = {
   portalAdmin?: boolean;
   portalEditor?: boolean;
-  portalRole?: 'admin' | 'editor' | 'teacher';
+  portalRole?: 'admin' | 'editor' | 'teacher' | 'student';
   globalBank?: boolean;
   user: { id: string; email: string; displayName: string; cpfComplete?: boolean; profileComplete?: boolean };
   institution: { id: string; name: string };
-  role: 'admin' | 'coordinator' | 'teacher';
+  role: 'admin' | 'coordinator' | 'teacher' | 'student';
 };
 
 export function AuthScreen({ apiUrl }: { apiUrl: string }) {
@@ -23,11 +23,13 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
   const [resetToken, setResetToken] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [accountType, setAccountType] = useState<'educator' | 'student'>('educator');
   const [cpf, setCpf] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [config, setConfig] = useState({ google: false, passwordRecovery: false });
   useEffect(() => {
     let active = true;
+    if(new URLSearchParams(window.location.search).has('invite')) setAccountType('student');
     const params = new URLSearchParams(window.location.hash.slice(1));
     const recoveryToken = params.get('reset_token');
     const verificationToken = params.get('verify_token');
@@ -61,8 +63,8 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
   async function googleLogin() {
     setSaving(true); setMessage('');
     try {
-      if (mode === 'register' && !cpf.trim()) throw new Error('Informe seu CPF para criar a conta.');
-      const response = await apiFetch(`${apiUrl}/api/auth/google/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mode === 'register' ? { cpf } : {}) });
+      if (mode === 'register' && accountType !== 'student' && !cpf.trim()) throw new Error('Informe seu CPF para criar a conta.');
+      const response = await apiFetch(`${apiUrl}/api/auth/google/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({accountType,...(mode === 'register' && accountType !== 'student' ? {cpf} : {})}) });
       const body = await response.json() as { error?: string; data?: { url: string } };
       if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível iniciar o login Google.');
       window.location.assign(body.data.url);
@@ -78,7 +80,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
       mode === 'verify' ? '/api/auth/verify-email'
         : mode === 'resend' ? '/api/auth/resend-verification'
         : mode === 'register'
-        ? '/api/auth/register'
+        ? accountType === 'student' ? '/api/auth/student/register' : '/api/auth/register'
         : mode === 'forgot'
           ? '/api/auth/forgot-password'
           : mode === 'reset'
@@ -89,11 +91,10 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
         : mode === 'resend' ? { email: data.get('email') }
         : mode === 'register'
         ? {
-            institutionName: data.get('institutionName'),
+            ...(accountType === 'student' ? {} : {institutionName:data.get('institutionName'),cpf}),
             displayName: data.get('displayName'),
             email: data.get('email'),
             password: data.get('password'),
-            cpf,
           }
         : mode === 'forgot'
           ? { email: data.get('email') }
@@ -172,8 +173,10 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
                 ? 'Definir nova senha'
                 : 'Entrar'}
         </h2>
-        {mode === 'register' && <p className="mt-2 text-sm text-slate-500">Após criar a conta, cadastre seu perfil de professor ou coordenador e as escolas para o cabeçalho das provas.</p>}
-        {mode === 'register' && <div className="mt-4 space-y-2">
+        {['login','register'].includes(mode) && <fieldset className="mt-4 flex gap-4"><legend className="text-sm font-semibold">Seu acesso</legend><label><input type="radio" name="accountType" checked={accountType==='educator'} onChange={()=>setAccountType('educator')} /> Professor ou gestor</label><label><input type="radio" name="accountType" checked={accountType==='student'} onChange={()=>setAccountType('student')} /> Aluno</label></fieldset>}
+        {mode === 'register' && accountType === 'student' && <p className="mt-2 text-sm text-slate-500">Crie sua conta e solicite entrada com o código da turma. Seu professor aprovará o vínculo.</p>}
+        {mode === 'register' && accountType !== 'student' && <p className="mt-2 text-sm text-slate-500">Após criar a conta, cadastre seu perfil de professor ou coordenador e as escolas para o cabeçalho das provas.</p>}
+        {mode === 'register' && accountType !== 'student' && <div className="mt-4 space-y-2">
           <label htmlFor="auth-cpf" className="text-sm font-semibold">CPF do titular</label>
           <Input id="auth-cpf" value={cpf} onChange={(event) => setCpf(event.target.value)} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" autoComplete="off" />
           <p className="text-xs text-slate-500">Usado para impedir contas duplicadas. Armazenamos uma identificação protegida, não o CPF em texto aberto. Teste por 7 dias, sem cobrança automática.</p>
@@ -186,12 +189,12 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
         <form className="mt-5 space-y-3" onSubmit={submit}>
           {mode === 'register' && (
             <>
-              <Input
+              {accountType !== 'student' && <Input
                 name="institutionName"
                 required
                 placeholder="Nome do seu espaço de avaliações"
                 aria-label="Nome do seu espaço pessoal de avaliações"
-              />
+              />}
               <Input name="displayName" required placeholder="Seu nome" aria-label="Seu nome" autoComplete="name" />
             </>
           )}

@@ -104,26 +104,45 @@ export async function register(input) {
   });
 }
 
-export async function loginWithGoogle(profile, cpfHash) {
+export const studentRegisterSchema = z.object({displayName:z.string().trim().min(2).max(160),email,password}).strict();
+export async function registerStudent(input) {
+  const value=studentRegisterSchema.parse(input);
+  requireMail();
+  return transaction(async client=>{
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[value.email]);
+    if((await client.query('SELECT id FROM users WHERE lower(email)=$1',[value.email])).rowCount)
+      throw Object.assign(new Error('Este e-mail já possui uma conta. Entre ou recupere sua senha.'),{statusCode:409});
+    const user=await client.query("INSERT INTO users(email,display_name,password_hash,account_type,email_verification_required) VALUES($1,$2,$3,'student',true) RETURNING id",[value.email,value.displayName,await hashPassword(value.password)]);
+    const verificationToken=await issueVerification(client,user.rows[0].id,value.email);
+    await client.query("INSERT INTO audit_log(user_id,action) VALUES($1,'student.registered')",[user.rows[0].id]);
+    return {verificationRequired:true,...(developmentMail()?{developmentToken:verificationToken}:{})};
+  });
+}
+
+export async function loginWithGoogle(profile, cpfHash, accountType = 'educator') {
   return transaction(async (client) => {
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [profile.email]);
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`google:${profile.sub}`]);
     let user = (await client.query('SELECT id,active FROM users WHERE google_subject=$1', [profile.sub])).rows[0];
     if (user && !user.active) throw Object.assign(new Error('Conta indisponível.'), { statusCode: 403 });
     if (!user) {
-      if (!cpfHash) throw Object.assign(new Error('Complete o cadastro com CPF antes de criar sua conta Google.'), { statusCode: 428 });
+      if (accountType !== 'student' && !cpfHash) throw Object.assign(new Error('Complete o cadastro com CPF antes de criar sua conta Google.'), { statusCode: 428 });
       const existing = await client.query('SELECT id FROM users WHERE lower(email)=$1', [profile.email]);
       if (existing.rowCount) throw Object.assign(new Error('Entre com a senha da conta existente. A vinculação automática ao Google não é permitida.'), { statusCode: 409 });
+      if(accountType === 'student') {
+        user=(await client.query("INSERT INTO users(email,display_name,google_subject,account_type,email_verified_at) VALUES($1,$2,$3,'student',now()) RETURNING id,active",[profile.email,profile.name || 'Aluno',profile.sub])).rows[0];
+      } else {
       const institutionName = `Espaço de ${profile.name || 'Professor'}`;
       const institution = await client.query('INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id', [institutionName,slugify(institutionName)]);
       user = (await client.query('INSERT INTO users(email,display_name,google_subject,cpf_hash,email_verified_at) VALUES($1,$2,$3,$4,now()) RETURNING id,active', [profile.email,profile.name || 'Professor',profile.sub,cpfHash])).rows[0];
       await client.query("INSERT INTO memberships(institution_id,user_id,role) VALUES($1,$2,'admin')", [institution.rows[0].id,user.id]);
       await client.query("INSERT INTO institution_subscriptions(institution_id,plan_id,period_started_at,period_ends_at) VALUES($1,'trial',now(),now()+interval '7 days')", [institution.rows[0].id]);
+      }
     }
     const membership = await client.query('SELECT institution_id FROM memberships WHERE user_id=$1 LIMIT 1', [user.id]);
-    if (!membership.rowCount) throw Object.assign(new Error('Conta sem instituição vinculada.'), { statusCode: 403 });
+    if (!membership.rowCount && (await client.query('SELECT account_type FROM users WHERE id=$1',[user.id])).rows[0]?.account_type !== 'student') throw Object.assign(new Error('Conta sem instituição vinculada.'), {statusCode:403});
     const token = await createSession(client,user.id);
-    await client.query("INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.google.login')", [membership.rows[0].institution_id,user.id]);
+    await client.query("INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.google.login')", [membership.rows[0]?.institution_id || null,user.id]);
     return { token };
   });
 }
@@ -132,10 +151,10 @@ export async function login(input) {
   const value = loginSchema.parse(input);
   const result = await pool.query(
     `SELECT u.id,u.email,u.display_name,u.password_hash,u.email_verification_required,u.email_verified_at,m.institution_id,
-            m.role,i.name institution_name
-     FROM users u JOIN memberships m ON m.user_id=u.id
-     JOIN institutions i ON i.id=m.institution_id
-     WHERE u.email=$1 AND u.active ORDER BY m.role='admin' DESC LIMIT 1`,
+            m.role,i.name institution_name,u.account_type
+     FROM users u LEFT JOIN memberships m ON m.user_id=u.id
+     LEFT JOIN institutions i ON i.id=m.institution_id
+     WHERE u.email=$1 AND u.active AND (u.account_type='student' OR m.institution_id IS NOT NULL) ORDER BY m.role='admin' DESC LIMIT 1`,
     [value.email],
   );
   const row = result.rows[0];
@@ -154,8 +173,8 @@ export async function login(input) {
   return {
     token,
     user: { id: row.id, email: row.email, displayName: row.display_name },
-    institution: { id: row.institution_id, name: row.institution_name },
-    role: row.role,
+    institution: row.institution_id ? { id: row.institution_id, name: row.institution_name } : null,
+    role: row.account_type === 'student' ? 'student' : row.role,
   };
 }
 
@@ -208,11 +227,11 @@ export async function authenticate(request) {
   const result = await pool.query(
     `SELECT s.id session_id,s.global_bank,u.portal_admin,u.portal_editor,u.id user_id,u.email,u.display_name,u.cpf_hash,
             (EXISTS(SELECT 1 FROM educator_profiles ep WHERE ep.user_id=u.id) AND EXISTS(SELECT 1 FROM educator_schools es WHERE es.user_id=u.id)) profile_complete,
-            m.institution_id,m.role,i.name institution_name
+            m.institution_id,m.role,i.name institution_name,u.account_type
      FROM user_sessions s JOIN users u ON u.id=s.user_id AND u.active
-     JOIN memberships m ON m.user_id=u.id
-     JOIN institutions i ON i.id=m.institution_id
-     WHERE s.token_hash=$1 AND s.expires_at>now() AND (NOT u.email_verification_required OR u.email_verified_at IS NOT NULL)
+     LEFT JOIN memberships m ON m.user_id=u.id
+     LEFT JOIN institutions i ON i.id=m.institution_id
+     WHERE s.token_hash=$1 AND s.expires_at>now() AND (u.account_type='student' OR m.institution_id IS NOT NULL) AND (NOT u.email_verification_required OR u.email_verified_at IS NOT NULL)
      ORDER BY m.role='admin' DESC LIMIT 1`,
     [tokenHash(decodeURIComponent(token))],
   );
@@ -231,7 +250,7 @@ export async function authenticate(request) {
     displayName: row.display_name,
     institutionId: row.institution_id,
     institutionName: row.institution_name,
-    role: row.role,
+    role: row.account_type === 'student' ? 'student' : row.role,
   }, row.global_bank);
 }
 
