@@ -215,17 +215,34 @@ export function AssessmentBuilder({
     GeneratedVersion[]
   >([]);
   const downloadRenderFile = async (url: string, filename: string) => {
-    const response = await apiFetch(url);
-    if (!response.ok) throw new Error('Não foi possível baixar o arquivo.');
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = objectUrl;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(objectUrl);
+    try {
+      const response = await apiFetch(url);
+      if (!response.ok) {
+        let detail = 'Não foi possível baixar o arquivo.';
+        try {
+          const body = (await response.json()) as { error?: string };
+          if (body.error) detail = body.error;
+        } catch {
+          // A resposta pode ser uma página de erro sem JSON.
+        }
+        throw new Error(detail);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Não foi possível baixar o PDF: ${error.message}`
+          : 'Não foi possível baixar o PDF. Verifique sua conexão e tente novamente.',
+      );
+    }
   };
   const [questionTopic, setQuestionTopic] = useState('');
   const [questionSubtopic, setQuestionSubtopic] = useState('');
