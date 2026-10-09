@@ -286,7 +286,7 @@ function paragraphWithScientificInline(text) {
 }
 
 function richText(nodes = []) {
-  const rendered = nodes.map((node) => {
+  const rendered = nodes.filter((node) => node.type !== 'adoteNote').map((node) => {
     if (node.type === 'romanList') {
       const items = Array.isArray(node.items) ? node.items : [];
       if (!items.length || items.length > 30)
@@ -424,6 +424,12 @@ function richText(nodes = []) {
   );
 }
 
+function adoteNote(nodes = []) {
+  const note = nodes.find((node) => node.type === 'adoteNote');
+  if (!note?.text?.trim()) return '';
+  return `\\startframedtext[frame=on,background=color,backgroundcolor=lightgray,width=broad,offset=3mm]\n{\\bf Note e adote:}\n\\blank[small]\n${paragraphWithScientificInline(note.text)}\n\\stopframedtext`;
+}
+
 export function renderAssessment(snapshot) {
   if (snapshot?.schemaVersion !== '1.0' || !Array.isArray(snapshot.questions)) {
     throw new Error('Snapshot de avaliação inválido ou incompatível.');
@@ -466,7 +472,7 @@ export function renderAssessment(snapshot) {
         ? '\\blank[small]'
         : '\\blank[medium]'
       : '';
-    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\\n${questionGap}` : ''}`;
+    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${adoteNote(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\\n${questionGap}` : ''}`;
   };
   const sections =
     Array.isArray(snapshot.sections) && snapshot.sections.length

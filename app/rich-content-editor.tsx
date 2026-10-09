@@ -67,6 +67,7 @@ const contextSymbolSnippets: Record<string, string> = {
 
 export type RichContentBlock =
   | { type: 'paragraph'; text: string }
+  | { type: 'adoteNote'; text: string }
   | { type: 'romanList'; items: string[] }
   | { type: 'math'; tex: string; display: boolean }
   | { type: 'contextFormula'; code: string }

@@ -28,6 +28,22 @@ test('converte o contrato imutável para t-basicexam e escapa conteúdo', async 
   );
 });
 
+test('renderiza Note e adote opcional após o enunciado', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement.push({
+    type: 'adoteNote',
+    text: 'Considere o gás ideal.',
+  });
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /\\startframedtext\[frame=on/);
+  assert.match(tex, /\\bf Note e adote:/);
+  assert.match(tex, /Considere o gás ideal\./);
+});
+
 test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async () => {
   const snapshot = JSON.parse(
     await readFile(
