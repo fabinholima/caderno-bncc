@@ -17,13 +17,11 @@ const outputRoot = path.resolve(
   projectRoot,
   process.env.RENDER_OUTPUT_DIR || 'outputs/renders',
 );
-const configuredContextBin =
-  process.env.CONTEXT_BIN ||
-  '/opt/context/tex/texmf-linux-64/bin/mtxrun';
-const contextBin = configuredContextBin;
-const contextViaMtxrun =
-  String(process.env.CONTEXT_VIA_MTXRUN || '').toLowerCase() === 'true' ||
-  configuredContextBin.includes('mtxrun');
+// O wrapper `context` depende do índice de scripts do mtxrun e falha em
+// caches persistentes recém-criados. Use sempre o mtxrun com o caminho
+// absoluto do script, mesmo se o serviço ainda tiver variáveis antigas.
+const contextViaMtxrun = true;
+const contextBin = '/opt/context/tex/texmf-linux-64/bin/mtxrun';
 const contextScript =
   process.env.CONTEXT_SCRIPT ||
   '/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua';
