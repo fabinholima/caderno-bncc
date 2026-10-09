@@ -1,0 +1,22 @@
+name: Atualizar ConTeXt mensalmente
+
+on:
+  schedule:
+    # Primeiro dia de cada mês, às 03:00 UTC.
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  redeploy-renderer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Solicitar novo build do renderer
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_RENDERER_DEPLOY_HOOK_URL }}
+        run: |
+          test -n "$RENDER_DEPLOY_HOOK_URL"
+          curl --fail-with-body --silent --show-error \
+            --request POST "$RENDER_DEPLOY_HOOK_URL"
