@@ -52,7 +52,6 @@ const plans = [
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);
-  const [selected, setSelected] = useState('');
   return (
     <section
       className="ufa-wrap ufa-section ufa-pricing"
@@ -88,8 +87,8 @@ export default function Pricing() {
         </div>
       </div>
       <p className="ufa-plan-notice">
-        Prévia dos planos de lançamento. Assinaturas e período gratuito ainda
-        não estão disponíveis para ativação.
+        Assinaturas disponíveis. Crie sua conta ou entre no portal para escolher
+        o plano e concluir o pagamento com segurança no Mercado Pago.
       </p>
       <div className="ufa-plan-grid">
         {plans.map((plan, index) => (
@@ -132,14 +131,12 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            <button
+            <a
               className="ufa-cta"
-              type="button"
-              aria-controls="subscription-info"
-              onClick={() => setSelected(plan.name)}
+              href="/portal"
             >
-              {plan.action}
-            </button>
+              {index === 0 ? 'Começar agora' : `Assinar plano ${plan.name}`}
+            </a>
           </article>
         ))}
       </div>
@@ -149,23 +146,11 @@ export default function Pricing() {
         role="status"
         aria-live="polite"
       >
-        {selected ? (
-          <>
-            <strong>Plano {selected}</strong>
-            <p>
-              A contratação deste plano ainda não foi aberta. Nenhuma assinatura
-              foi criada e nenhuma cobrança foi feita. Você pode conhecer o
-              portal local enquanto preparamos a ativação e o pagamento.
-            </p>
-            <a href="/portal">Conhecer o portal →</a>
-          </>
-        ) : (
-          <p>
-            Os três planos incluem classificação BNCC e todos os layouts. A
-            contratação será liberada após a configuração do pagamento e a
-            validação das cotas.
-          </p>
-        )}
+        <p>
+          Os três planos incluem classificação BNCC e todos os layouts. A
+          contratação é concluída dentro do portal, com confirmação segura no
+          Mercado Pago.
+        </p>
       </div>
       <details className="ufa-plan-rules">
         <summary>
