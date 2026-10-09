@@ -24,6 +24,9 @@ const contextBin = configuredContextBin;
 const contextViaMtxrun =
   String(process.env.CONTEXT_VIA_MTXRUN || '').toLowerCase() === 'true' ||
   configuredContextBin.includes('mtxrun');
+const contextScript =
+  process.env.CONTEXT_SCRIPT ||
+  '/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua';
 const interval = Number(process.env.RENDER_POLL_MS || 3000);
 const renderTimeout = Number(process.env.RENDER_TIMEOUT_MS || 300_000);
 
@@ -95,10 +98,17 @@ async function claimReportJob() {
 
 export function compile(source, cwd, resultName) {
   return new Promise((resolve, reject) => {
-    const contextArgs = ['--batchmode', `--result=${resultName}`, path.basename(source)];
+    const contextArgs = [
+      '--autogenerate',
+      '--batchmode',
+      `--result=${resultName}`,
+      path.basename(source),
+    ];
     const child = spawn(
       contextBin,
-      contextViaMtxrun ? ['--script', 'context', ...contextArgs] : contextArgs,
+      contextViaMtxrun
+        ? ['--script', contextScript, ...contextArgs]
+        : contextArgs,
       {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
