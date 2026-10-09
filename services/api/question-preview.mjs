@@ -65,6 +65,13 @@ function snapshotFromQuestion(question) {
 
 export async function createQuestionPdfPreview(input) {
   const previewInput = structuredClone(input);
+  // A prévia pode ser solicitada antes de o usuário preencher os dados de
+  // origem. O cadastro definitivo continua exigindo esses campos, mas eles
+  // não devem impedir a visualização do layout da questão.
+  if (!String(previewInput.sourceInstitution || '').trim())
+    previewInput.sourceInstitution = 'UfaProva';
+  if (!Number.isInteger(previewInput.sourceYear))
+    previewInput.sourceYear = new Date().getFullYear();
   const cacheKey = createHash('sha256')
     .update(JSON.stringify(previewInput))
     .digest('hex');
