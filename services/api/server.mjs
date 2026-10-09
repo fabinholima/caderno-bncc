@@ -78,6 +78,10 @@ import {
   retryApplicationRenders,
 } from './academic.mjs';
 import {
+  createInvite, getInvite, deactivateInvite, inspectInvite, requestJoin,
+  listRequests, listCandidates, decideRequest, myJoinRequests, myActivities,
+} from './class-invites.mjs';
+import {
   confirmScanReview,
   createScan,
   getScanImage,
@@ -107,6 +111,7 @@ import {
   login,
   logout,
   register,
+  registerStudent,
   requestPasswordReset,
   resetPassword,
   requestEmailVerification,
@@ -242,7 +247,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
       if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      if (['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
+      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/google/start', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
         if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
           return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
       }
@@ -296,6 +301,7 @@ const server = createServer(async (request, response) => {
       const ready = readiness.rows[0]?.mobile_sync_ready === true;
       return json(response, ready ? 200 : 503, { status: ready ? 'ok' : 'migration_pending', release: process.env.RENDER_GIT_COMMIT || null, mobileSyncSchemaVersion: ready ? 1 : 0 });
     }
+    if (request.method === 'POST' && url.pathname === '/api/auth/student/register') return json(response,201,{data:await registerStudent(await readJson(request,4096))});
     if (request.method === 'POST' && url.pathname === '/api/auth/register') {
       const result = await register(await readJson(request));
       return json(response, 201, { data: result });
@@ -329,6 +335,36 @@ const server = createServer(async (request, response) => {
     if (!identity)
       return json(response, 401, { error: 'Faça login para continuar.' });
     const { userId } = identity;
+    response.setHeader('cache-control','no-store');
+    if (/^\/api\/(?:class-invites|class-join-requests|classes\/[^/]+\/(?:invite|join-requests|join-candidates))/.test(url.pathname) && !['GET','HEAD'].includes(request.method)) {
+      if(requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response,403,{error:'Origem não autorizada.'});
+    }
+    if(request.method === 'POST' && url.pathname === '/api/class-invites/inspect') {
+      if(!allowAuthAttempt(`invite:${identity.userId}`))return json(response,429,{error:'Muitas tentativas de código. Aguarde 15 minutos.'});
+      return json(response,200,{data:await inspectInvite(identity,await readJson(request,4096))});
+    }
+    // Convites de turma ficam antes das exigências de perfil para permitir que
+    // contas de aluno entrem pelo aplicativo sem preencher dados de professor.
+    const classInviteMatch = url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/invite$/i);
+    if (classInviteMatch && request.method === 'GET') return json(response,200,{data:await getInvite(identity,classInviteMatch[1])});
+    if (classInviteMatch && request.method === 'POST')
+      return json(response, 201, { data: await createInvite(identity, classInviteMatch[1], await readJson(request,4096)) });
+    if (classInviteMatch && request.method === 'DELETE')
+      return json(response, 200, { data: await deactivateInvite(identity, classInviteMatch[1]) });
+    if (request.method === 'POST' && url.pathname === '/api/class-invites/request')
+      { if(!allowAuthAttempt(`invite:${identity.userId}`))return json(response,429,{error:'Muitas tentativas. Aguarde 15 minutos.'}); return json(response, 201, { data: await requestJoin(identity, await readJson(request, 4096)) }); }
+    if (request.method === 'GET' && url.pathname === '/api/class-join-requests/me')
+      return json(response, 200, { data: await myJoinRequests(identity) });
+    const candidatesMatch=url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/join-candidates$/i);
+    if(candidatesMatch && request.method === 'GET')return json(response,200,{data:await listCandidates(identity,candidatesMatch[1])});
+    const classRequestsMatch = url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/join-requests$/i);
+    if (classRequestsMatch && request.method === 'GET')
+      return json(response, 200, { data: await listRequests(identity, classRequestsMatch[1]) });
+    const requestDecisionMatch = url.pathname.match(/^\/api\/class-join-requests\/([0-9a-f-]{36})$/i);
+    if (requestDecisionMatch && request.method === 'POST')
+      return json(response, 200, { data: await decideRequest(identity, requestDecisionMatch[1], await readJson(request, 8192)) });
+    if(request.method==='GET' && url.pathname==='/api/student/activities')return json(response,200,{data:await myActivities(identity)});
+    if(identity.role==='student' && !['/api/auth/me','/api/auth/logout'].includes(url.pathname)) return json(response,403,{error:'Este recurso é exclusivo de professores e gestores.'});
     if (url.pathname === '/api/admin/maintenance') {
       if (request.method === 'GET') {
         requirePortalAdmin(identity);
@@ -363,7 +399,7 @@ const server = createServer(async (request, response) => {
       return json(response,403,{error:'Somente o administrador geral pode gerenciar permissões.'});
     if (request.method === 'POST' && url.pathname === '/api/auth/complete-cpf')
       return json(response, 200, { data: await completeCpf(identity, await readJson(request, 4096)) });
-    if (!identity.portalAdmin && !identity.cpfComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
+    if (identity.role !== 'student' && !identity.portalAdmin && !identity.cpfComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
       return json(response, 428, { error: 'Complete o cadastro com seu CPF para continuar.' });
     if (request.method === 'GET' && url.pathname === '/api/educator-profile')
       return json(response, 200, { data: await getEducatorProfile(userId) });
@@ -371,7 +407,7 @@ const server = createServer(async (request, response) => {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
       return json(response, 200, { data: await saveEducatorProfile(userId, await readJson(request, 650000)) });
     }
-    if (!identity.portalAdmin && !identity.profileComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
+    if (identity.role !== 'student' && !identity.portalAdmin && !identity.profileComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
       return json(response, 428, { error: 'Complete seu perfil e cadastre sua escola para continuar.' });
     if (request.method === 'GET' && url.pathname === '/api/billing')
       return json(response, 200, { data: await billingStatus(identity) });

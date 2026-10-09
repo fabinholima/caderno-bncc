@@ -31,6 +31,7 @@ import { RichContentEditor } from './rich-content-editor';
 import { AcademicManager } from './academic-manager';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
+import { StudentPortal } from './student-portal';
 import { CompleteCpf } from './complete-cpf';
 import { EducatorProfile } from './educator-profile';
 import { SettingsManager } from './settings-manager';
@@ -529,7 +530,7 @@ export default function Home() {
   }, [apiUrl]);
 
   useEffect(() => {
-    if (!apiUrl || !identity) return;
+    if (!apiUrl || !identity || identity.role === 'student') return;
     apiFetch(`${apiUrl}/api/questions`)
       .then((response) => {
         if (!response.ok) throw new Error('API indisponível');
@@ -550,7 +551,7 @@ export default function Home() {
   }, [questions, educationStage]);
 
   useEffect(() => {
-    if (!apiUrl || !identity) return;
+    if (!apiUrl || !identity || identity.role === 'student') return;
     apiFetch(`${apiUrl}/api/curriculum/saeb/matrices`)
       .then((response) => response.json() as Promise<{ data: SaebMatrix[] }>)
       .then((body) => setSaebMatrices(body.data || []))
@@ -584,7 +585,7 @@ export default function Home() {
 
   useEffect(() => {
     // O catálogo depende da sessão e da instituição selecionada.
-    if (!apiUrl || !identity) return;
+    if (!apiUrl || !identity || identity.role === 'student') return;
     let active = true;
     setCatalogError('');
     const requireCatalogResponse = async (response: Response) => {
@@ -626,7 +627,7 @@ export default function Home() {
   }, [apiUrl, identity]);
 
   useEffect(() => {
-    if (!apiUrl || !identity) return;
+    if (!apiUrl || !identity || identity.role === 'student') return;
     apiFetch(`${apiUrl}/api/curriculum`)
       .then((response) =>
         response.ok
@@ -638,7 +639,7 @@ export default function Home() {
   }, [apiUrl, identity]);
 
   useEffect(() => {
-    if (!apiUrl || !identity) return;
+    if (!apiUrl || !identity || identity.role === 'student') return;
     apiFetch(`${apiUrl}/api/question-filters`)
       .then((response) =>
         response.ok
@@ -1101,6 +1102,7 @@ export default function Home() {
       </main>
     );
   if (!identity) return <AuthScreen apiUrl={apiUrl} />;
+  if (identity.role === 'student') return <StudentPortal apiUrl={apiUrl} name={identity.user.displayName} />;
   if (!identity.portalAdmin && !identity.user.cpfComplete) return <CompleteCpf apiUrl={apiUrl} />;
   if (!identity.portalAdmin && !identity.user.profileComplete) return <EducatorProfile apiUrl={apiUrl} onboarding />;
   const canEditCatalog = Boolean(identity.portalAdmin || identity.portalEditor);
@@ -1340,7 +1342,7 @@ export default function Home() {
             }}
           />
         ) : active === 'Configurações' ? (
-          <SettingsManager apiUrl={apiUrl} role={identity.role} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
+          <SettingsManager apiUrl={apiUrl} role={identity.role as 'admin' | 'coordinator' | 'teacher'} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
         ) : active === 'Planejamento' ? (
           <CurriculumManager
             items={curriculum}

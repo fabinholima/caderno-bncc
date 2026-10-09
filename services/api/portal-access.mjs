@@ -15,6 +15,7 @@ export function catalogAccess(identity, method, path) {
 }
 
 export async function resolveUnifiedContext(identity) {
+  if(identity.role === 'student') return {...identity,portalAdmin:false,portalEditor:false,globalBank:false,questionBankId:null,portalRole:'student'};
   const result = await pool.query('SELECT question_bank_id FROM portal_settings WHERE id=1');
   return { ...identity, globalBank:false, questionBankId:result.rows[0]?.question_bank_id || identity.institutionId,
     portalRole:identity.portalAdmin ? 'admin' : identity.portalEditor ? 'editor' : 'teacher' };

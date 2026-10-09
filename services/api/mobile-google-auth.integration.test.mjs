@@ -15,6 +15,7 @@ test('PostgreSQL migration and device-bound Google session lifecycle', {skip: !p
  try {
   const migration = await readFile(new URL('../../database/069_mobile_google_login.sql',import.meta.url),'utf8');
   await pool.query(migration); await pool.query(migration);
+  await pool.query("ALTER TABLE mobile_google_login_attempts ADD COLUMN account_type text DEFAULT 'educator'");
   await pool.query('CREATE TABLE oauth_login_attempts(state_hash text,browser_hash text,expires_at timestamptz); CREATE TABLE user_sessions(id uuid PRIMARY KEY,token_hash text UNIQUE)');
   const state=randomUUID(), browser=randomUUID(), proof='ab'.repeat(32), issued='server-only-session';
   const auth=createMobileGoogleAuth({pool,googleConfigured:()=>true,

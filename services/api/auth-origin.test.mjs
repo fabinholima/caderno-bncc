@@ -19,6 +19,8 @@ test('the mobile header does not permit a disallowed browser origin', () => {
   assert.equal(check('/api/auth/login', 'https://untrusted.example', 'mobile'), false);
   assert.equal(check('/api/auth/login', 'https://ufaprova-frontend.onrender.com', undefined), true);
 });
-test('registration, logout and profile changes still require approved browser origins', () => {
-  for (const path of ['/api/auth/register', '/api/auth/logout', '/api/auth/complete-cpf', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email']) assert.equal(check(path, undefined, 'mobile'), false);
+test('educator registration and sensitive profile changes require approved browser origins', () => {
+  for (const path of ['/api/auth/register', '/api/auth/complete-cpf', '/api/auth/reset-password']) assert.equal(check(path, undefined, 'mobile'), false);
 });
+
+test('native student signup and verification require the mobile header and reject foreign origins',()=>{for(const path of ['/api/auth/student/register','/api/auth/resend-verification','/api/auth/verify-email','/api/auth/logout']){assert.equal(check(path,undefined,'mobile'),true);assert.equal(check(path,undefined,undefined),false);assert.equal(check(path,'https://untrusted.example','mobile'),false);}});

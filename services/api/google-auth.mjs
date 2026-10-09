@@ -26,10 +26,11 @@ export function validateGoogleProfile(profile) {
 
 export async function startGoogle(input = {}) {
   if (!googleConfigured()) throw failure('Login Google ainda não configurado.', 503);
+  const accountType = input.accountType === 'student' ? 'student' : 'educator';
   const state = random(), browser = random(), verifier = random();
   await pool.query('DELETE FROM oauth_login_attempts WHERE expires_at<now()');
   const cpfHash = input.cpf ? cpfFingerprint(input.cpf) : null;
-  await pool.query('INSERT INTO oauth_login_attempts(state_hash,browser_hash,verifier,cpf_hash) VALUES($1,$2,$3,$4)', [hash(state),hash(browser),verifier,cpfHash]);
+  await pool.query('INSERT INTO oauth_login_attempts(state_hash,browser_hash,verifier,cpf_hash,account_type) VALUES($1,$2,$3,$4,$5)', [hash(state),hash(browser),verifier,cpfHash,accountType]);
   const target = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   target.search = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID, redirect_uri: process.env.GOOGLE_REDIRECT_URI,
@@ -44,7 +45,7 @@ export async function finishGoogle(url, cookie, fetcher = fetch) {
   const state = url.searchParams.get('state');
   const browser = /(?:^|;\s*)caderno_oauth=([A-Za-z0-9_-]+)/.exec(cookie || '')?.[1];
   if (!state || state.length > 200 || !browser) throw failure('Tentativa de login inválida ou expirada.');
-  const attempt = await pool.query(`DELETE FROM oauth_login_attempts WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING verifier,cpf_hash`, [hash(state),hash(browser)]);
+  const attempt = await pool.query(`DELETE FROM oauth_login_attempts WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING verifier,cpf_hash,account_type`, [hash(state),hash(browser)]);
   if (!attempt.rowCount) throw failure('Tentativa de login inválida ou expirada.');
   const code = url.searchParams.get('code');
   if (url.searchParams.has('error') || !code || code.length > 4096) throw failure('Autorização Google não concluída.');
@@ -64,5 +65,5 @@ export async function finishGoogle(url, cookie, fetcher = fetch) {
     headers: { Authorization: `Bearer ${token.access_token}` }, signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) throw failure('Não foi possível consultar sua conta Google.');
-  return loginWithGoogle(validateGoogleProfile(await response.json()), attempt.rows[0].cpf_hash);
+  return loginWithGoogle(validateGoogleProfile(await response.json()), attempt.rows[0].cpf_hash,attempt.rows[0].account_type);
 }
