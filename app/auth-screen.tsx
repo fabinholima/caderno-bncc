@@ -1,7 +1,7 @@
 'use client';
 
 import { type SubmitEvent, useEffect, useState } from 'react';
-import { GraduationCap } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
@@ -24,6 +24,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [cpf, setCpf] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [config, setConfig] = useState({ google: false, passwordRecovery: false });
   useEffect(() => {
     let active = true;
@@ -147,8 +148,10 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
     }
   }
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-100 px-5 py-10">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl shadow-slate-200/60">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eef4ff_0%,#f8fafc_48%,#e8f5f1_100%)] px-5 py-10">
+      <div className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-blue-200/30 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -right-20 size-96 rounded-full bg-emerald-200/25 blur-3xl" />
+      <section className="relative w-full max-w-md rounded-[2rem] border border-white/80 bg-white/95 p-7 shadow-2xl shadow-slate-300/40 backdrop-blur sm:p-9">
         <div className="flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-xl bg-[var(--navy)] text-white">
             <GraduationCap />
@@ -199,15 +202,27 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
             <input type="hidden" name="token" value={resetToken} />
           )}
           {!['forgot', 'verify', 'resend'].includes(mode) && (
-            <Input
-              name="password"
-              type="password"
-              minLength={mode !== 'login' ? 10 : undefined}
-              required
-              placeholder="Senha"
-              aria-label="Senha"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            />
+            <div className="relative">
+              <Input
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                minLength={mode !== 'login' ? 10 : undefined}
+                required
+                placeholder="Senha"
+                aria-label="Senha"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                className="pr-12"
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 grid w-12 place-items-center text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Ocultar senha' : 'Visualizar senha'}
+                title={showPassword ? 'Ocultar senha' : 'Visualizar senha'}
+              >
+                {showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}
+              </button>
+            </div>
           )}
           <Button className="w-full" disabled={saving} type="submit">
             {saving
