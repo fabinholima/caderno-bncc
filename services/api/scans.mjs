@@ -6,6 +6,7 @@ import { pool, transaction } from './db.mjs';
 import { gradeSubmission } from './submissions.mjs';
 export const scanSchema = z.object({
   clientScanId: z.uuid().optional(),
+  expectedApplicationId: z.uuid().optional(),
   expectedInstitutionId: z.uuid().optional(),
   imageDataUrl: z
     .string()
@@ -36,13 +37,17 @@ export async function createScan({ institutionId, userId, input }) {
     throw Object.assign(new Error('A digitalização deve ter no máximo 6 MB.'), {
       statusCode: 422,
     });
-  const hash = createHash('sha256').update(mimeType).update(bytes).digest('hex');
+  const hash = createHash('sha256').update(mimeType).update(bytes).update(v.expectedApplicationId ? `:application:${v.expectedApplicationId}` : '').digest('hex');
   return transaction(async client => {
+    if(v.expectedApplicationId) {
+      const application=await client.query("SELECT id FROM assessment_applications WHERE id=$1 AND institution_id=$2 AND status<>'cancelled'",[v.expectedApplicationId,institutionId]);
+      if(!application.rowCount)throw Object.assign(new Error('Aplicação indisponível. Confira a avaliação e a turma no portal.'),{statusCode:422});
+    }
     const id = v.clientScanId || randomUUID();
     const r = await client.query({
-      text: `INSERT INTO card_scans(id,institution_id,uploaded_by,mime_type,image_data,upload_sha256)
-             VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING RETURNING id,status,created_at`,
-      values: [id, institutionId, userId, mimeType, bytes, hash],
+      text: `INSERT INTO card_scans(id,institution_id,uploaded_by,mime_type,image_data,upload_sha256,expected_application_id)
+             VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING RETURNING id,status,created_at`,
+      values: [id, institutionId, userId, mimeType, bytes, hash, v.expectedApplicationId || null],
     });
     if (!r.rowCount) {
       const existing = await client.query('SELECT id,status,created_at,institution_id,uploaded_by,upload_sha256 FROM card_scans WHERE id=$1', [id]);
@@ -91,7 +96,7 @@ export async function listScans({ institutionId }) {
 export async function getScanReview({ institutionId, scanId }) {
   const scan = await pool.query({
     text: `SELECT cs.id,cs.status,cs.result,cs.error_message,
-                  cs.application_student_id,cs.submission_id,sub.score,sub.max_score,sub.requires_manual_review,sub.revision,
+                  cs.application_student_id,cs.expected_application_id,cs.submission_id,sub.score,sub.max_score,sub.requires_manual_review,sub.revision,
                   (cs.review_image_data IS NOT NULL) image_available
            FROM card_scans cs LEFT JOIN assessment_submissions sub ON sub.id=cs.submission_id WHERE cs.id=$1 AND cs.institution_id=$2`,
     values: [scanId, institutionId],
@@ -108,16 +113,16 @@ export async function getScanReview({ institutionId, scanId }) {
            JOIN classes c ON c.id=aa.class_id
            LEFT JOIN class_enrollments ce
              ON ce.class_id=aa.class_id AND ce.student_id=s.id
-           WHERE aa.institution_id=$1 AND aa.status<>'cancelled'
+           WHERE aa.institution_id=$1 AND aa.status<>'cancelled' AND ($2::uuid IS NULL OR aa.id=$2)
            ORDER BY aa.created_at DESC,ce.number NULLS LAST,s.name
            LIMIT 1000`,
-    values: [institutionId],
+    values: [institutionId,scan.rows[0].expected_application_id],
   });
   const row = scan.rows[0];
   return {
     id: row.id,
     status: row.status,
-    error: row.error_message,
+    error: row.error_message || row.result?.reviewReason || null,
     submissionId: row.submission_id,
     score: row.score == null ? null : Number(row.score),
     maxScore: row.max_score == null ? null : Number(row.max_score),
@@ -186,7 +191,7 @@ export async function confirmScanReview({ institutionId, userId, scanId, input }
   assertInstitutionScope(institutionId, value.expectedInstitutionId);
   return transaction(client => mobileMutation(client, { institutionId, userId, requestId: value.clientMutationId, kind: 'scan-confirm', entityId: scanId, input: value }, async () => {
     const assignment = await client.query({
-      text: `SELECT aps.id,aps.assessment_version_id,av.snapshot,s.name,
+      text: `SELECT aps.id,aps.application_id,aps.assessment_version_id,av.snapshot,s.name,
                     ce.number,c.name class_name
              FROM application_students aps
              JOIN assessment_applications aa ON aa.id=aps.application_id
@@ -203,7 +208,7 @@ export async function confirmScanReview({ institutionId, userId, scanId, input }
         statusCode: 404,
       });
     const scan = await client.query({
-      text: `SELECT id,submission_id,status FROM card_scans
+      text: `SELECT id,submission_id,status,expected_application_id FROM card_scans
              WHERE id=$1 AND institution_id=$2 FOR UPDATE`,
       values: [scanId, institutionId],
     });
@@ -213,6 +218,7 @@ export async function confirmScanReview({ institutionId, userId, scanId, input }
       });
     if (value.clientMutationId && scan.rows[0].status !== 'review') throw Object.assign(new Error('O cartão não está mais pendente de revisão. Atualize a leitura antes de continuar.'), { statusCode: 409 });
     const selected = assignment.rows[0];
+    if(scan.rows[0].expected_application_id && scan.rows[0].expected_application_id!==selected.application_id)throw Object.assign(new Error('O aluno não pertence à aplicação selecionada para este cartão.'),{statusCode:409});
     const grade = gradeSubmission(selected.snapshot, {
       candidate: {
         name: selected.name,

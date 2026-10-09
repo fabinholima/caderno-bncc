@@ -642,7 +642,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'GET' && url.pathname === '/api/mobile-sync') {
       const ready = await pool.query("SELECT to_regclass('mobile_mutations') AS ledger");
       if (!ready.rows[0]?.ledger) return json(response, 503, { error: 'A migração de sincronização móvel ainda não foi aplicada.' });
-      return json(response, 200, { data: { version: 1, idempotentUploads: true, manualReview: true, userId, institutionId } });
+      return json(response, 200, { data: { version: 1, idempotentUploads: true, manualReview: true, applicationScopedUploads:true, userId, institutionId } });
     }
     if (request.method === 'GET' && url.pathname === '/api/classes')
       return json(response, 200, {

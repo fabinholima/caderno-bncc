@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from '../api/node_modules/pg/lib/index.js';
+import { reconcileCardReading, assertCardApplication } from './card-reading.mjs';
 import { gradeSubmission } from '../api/submissions.mjs';
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const python =
@@ -47,12 +48,12 @@ async function renderPdfCards(pdf, directory) {
   return files.map((file) => path.join(directory, file));
 }
 
-async function processCard(scanId, card, sourcePage, sourcePages, institutionId) {
+async function processCard(scanId, card, sourcePage, sourcePages, institutionId, expectedApplicationId) {
   try {
     const reviewImage = await readFile(card);
-    const result = await run(card);
+    const raw = await run(card);
     const a = await pool.query(
-      `SELECT aps.id, aps.assessment_version_id, av.snapshot,
+      `SELECT aps.id, aps.application_id, aps.assessment_version_id, av.snapshot,
               s.name, s.registration, ce.number, c.name AS class_name
        FROM application_students aps
        JOIN assessment_versions av ON av.id = aps.assessment_version_id
@@ -62,10 +63,12 @@ async function processCard(scanId, card, sourcePage, sourcePages, institutionId)
        LEFT JOIN class_enrollments ce
          ON ce.class_id = c.id AND ce.student_id = s.id
        WHERE aps.qr_payload=$1 AND aa.institution_id=$2 AND aa.status<>'cancelled'`,
-      [result.qrPayload, institutionId],
+      [raw.qrPayload, institutionId],
     );
     if (!a.rowCount) throw new Error('QR desconhecido');
     const assignment = a.rows[0];
+    assertCardApplication(assignment,expectedApplicationId);
+    const result = reconcileCardReading(assignment.snapshot,raw);
     let submissionId = null;
     let grade = null;
     if (!result.requiresReview) {
@@ -135,7 +138,7 @@ async function tick() {
   try {
     await c.query('BEGIN');
     const r = await c.query(
-      "SELECT id,institution_id,uploaded_by,mime_type,image_data FROM card_scans WHERE status='queued' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
+      "SELECT id,institution_id,uploaded_by,mime_type,image_data,expected_application_id FROM card_scans WHERE status='queued' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
     );
     if (!r.rowCount) {
       await c.query('COMMIT');
@@ -170,8 +173,8 @@ async function tick() {
         const child = await pool.query(
           `INSERT INTO card_scans
              (institution_id,uploaded_by,mime_type,image_data,status,
-              parent_scan_id,source_page,source_pages)
-           VALUES($1,$2,$3,'\\x','processing',$4,$5,$6) RETURNING id`,
+              parent_scan_id,source_page,source_pages,expected_application_id)
+           VALUES($1,$2,$3,'\\x','processing',$4,$5,$6,$7) RETURNING id`,
           [
             j.institution_id,
             j.uploaded_by,
@@ -179,11 +182,12 @@ async function tick() {
             j.id,
             index + 1,
             cards.length,
+            j.expected_application_id,
           ],
         );
         scanId = child.rows[0].id;
       }
-      await processCard(scanId, cards[index], index + 1, cards.length, j.institution_id);
+      await processCard(scanId, cards[index], index + 1, cards.length, j.institution_id,j.expected_application_id);
     }
   } catch (e) {
     await pool.query(

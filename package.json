@@ -10,7 +10,7 @@
     "dev:lan": "vinext dev --hostname 0.0.0.0",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
-    "test:services": "pnpm --filter @caderno/api test && pnpm --filter @caderno/renderer test",
+    "test:services": "pnpm --filter @caderno/api test && pnpm --filter @caderno/renderer test && node --test services/omr/*.test.mjs",
     "test:production-env": "node --test scripts/check-production-env.test.mjs",
     "check:production-env": "node --env-file-if-exists=.env scripts/check-production-env.mjs",
     "start:omr": "node --env-file-if-exists=.env services/omr/worker.mjs",
