@@ -109,9 +109,13 @@ export async function getEducatorProfile(userId) {
 }
 
 export async function saveEducatorProfile(userId, input) {
+  return transaction(db => saveEducatorProfileWithClient(db, userId, input));
+}
+
+export async function saveEducatorProfileWithClient(db, userId, input) {
   const v = educatorSchema.parse(input),
     s = v.school;
-  return transaction(async (db) => {
+
     await db.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [userId]);
     const values = [
       userId,
@@ -157,7 +161,6 @@ export async function saveEducatorProfile(userId, input) {
       [userId, v.professionalRole, v.phone, v.subjects, v.grades, v.stages, v.selfieDataUrl],
     );
     return { id: result.rows[0].id };
-  });
 }
 
 export async function schoolHeader(db, userId, schoolId) {

@@ -160,6 +160,31 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
     await assert.rejects(resetPassword({token:recovery.developmentToken,password:'AnotherPassword123!'}),/inválido/);
     await assert.rejects(login({email:account.email,password:account.password}));
     assert.ok((await login({email:account.email,password:'NewTestPassword123!'})).token);
+    // Native signup saves account, professional profile and school atomically.
+    const testCpf = base => {
+      let digits=base;
+      for(let size=9;size<11;size++) {
+        const sum=[...digits].reduce((total,n,index)=>total+Number(n)*(size+1-index),0);
+        const remainder=sum%11;digits+=remainder<2?'0':String(11-remainder);
+      }
+      return digits;
+    };
+    for(const [index,professionalRole] of ['teacher','coordinator'].entries()) {
+      const input={...account,email:`native-${professionalRole}@example.test`,cpf:testCpf(`84231697${index}`),educatorProfile:{professionalRole,subjects:professionalRole==='teacher'?['Matemática']:[],grades:professionalRole==='teacher'?['6º ano']:[],stages:professionalRole==='coordinator'?['Ensino Médio']:[],school}};
+      const registration=await register(input);
+      assert.equal(registration.verificationRequired,true);assert.equal(registration.token,undefined);
+      await assert.rejects(login(input),/Confirme/);
+      await verifyEmail({token:registration.developmentToken});
+      const session=await login(input);const native=await authenticate({headers:{authorization:`Bearer ${session.token}`}});
+      assert.equal(native.profileComplete,true);assert.equal(native.cpfComplete,true);assert.equal(native.portalAdmin,false);assert.equal(native.portalEditor,false);
+      const profile=await getEducatorProfile(native.userId);assert.equal(profile.profile.professionalRole,professionalRole);assert.equal(profile.schools.length,1);assert.equal(profile.schools[0].name,school.name);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM memberships WHERE user_id=$1',[native.userId])).rows[0].n,1);
+    }
+    const failedEmail='invalid-native-school@example.test';
+    const beforeFailed=(await pool.query('SELECT count(*)::int n FROM institutions')).rows[0].n;
+    await assert.rejects(register({...account,email:failedEmail,cpf:testCpf('842316979'),educatorProfile:{...professional,school:{...school,id:randomUUID()}}}),/não encontrada/);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM institutions')).rows[0].n,beforeFailed);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM users WHERE email=$1',[failedEmail])).rows[0].n,0);
     // Delivery failures roll back both the account and its proof token.
     const originalFetch = globalThis.fetch;
     process.env.AUTH_DEV_RESET_TOKENS='false';
@@ -168,8 +193,10 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
     globalThis.fetch=async()=>({ok:false});
     try {
       const before=(await pool.query('SELECT count(*)::int n FROM institutions')).rows[0].n;
-      await assert.rejects(register({...account,email:'delivery-failure@example.com',cpf:'11144477735'}), /enviar/);
+      const schoolCount=(await pool.query('SELECT count(*)::int n FROM educator_schools')).rows[0].n;
+      await assert.rejects(register({...account,email:'delivery-failure@example.com',cpf:'11144477735',educatorProfile:professional}), /enviar/);
       assert.equal((await pool.query('SELECT count(*)::int n FROM institutions')).rows[0].n,before);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM educator_schools')).rows[0].n,schoolCount);
       assert.equal((await pool.query("SELECT count(*)::int n FROM users WHERE email='delivery-failure@example.com'")).rows[0].n,0);
       await pool.query("UPDATE password_reset_tokens SET created_at=now()-interval '2 minutes'");
       const tokenCount=(await pool.query('SELECT count(*)::int n FROM password_reset_tokens')).rows[0].n;

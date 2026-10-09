@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { educatorSchema, saveEducatorProfileWithClient } from './educator-profile.mjs';
 import { cpfFingerprint, normalizeCpf } from './cpf.mjs';
 import { resolveUnifiedContext } from './portal-access.mjs';
 import { sessionNetwork } from './admin-dashboard.mjs';
@@ -16,6 +17,7 @@ export const registerSchema = z.object({
   displayName: z.string().trim().min(2).max(160),
   email,
   password,
+  educatorProfile: educatorSchema.optional(),
 });
 export const loginSchema = z.object({ email, password: z.string().max(200) });
 export const forgotSchema = z.object({ email });
@@ -94,6 +96,7 @@ export async function register(input) {
        VALUES($1,'trial',now(),now()+interval '7 days')`,
       [institution.rows[0].id],
     );
+    if (value.educatorProfile) await saveEducatorProfileWithClient(client,user.rows[0].id,value.educatorProfile);
     const verificationToken = await issueVerification(client, user.rows[0].id, value.email);
     await client.query(
       `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id)
