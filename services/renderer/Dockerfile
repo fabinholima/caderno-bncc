@@ -46,8 +46,9 @@ COPY services/renderer/package*.json services/renderer/
 RUN cd services/renderer && npm install --omit=dev
 COPY services/renderer services/renderer
 
-ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/context
-ENV CONTEXT_VIA_MTXRUN=false
+ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/mtxrun
+ENV CONTEXT_VIA_MTXRUN=true
+ENV CONTEXT_SCRIPT=/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua
 ENV NODE_ENV=production
 WORKDIR /app/services/renderer
 CMD ["sh", "-c", "mkdir -p \"$TEXMFCACHE\" && /opt/context/tex/texmf-linux-64/bin/mtxrun --generate && exec node worker.mjs"]
