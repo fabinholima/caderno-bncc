@@ -34,8 +34,9 @@ COPY services/renderer services/renderer
 COPY lib lib
 COPY database database
 
-ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/context
-ENV CONTEXT_VIA_MTXRUN=false
+ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/mtxrun
+ENV CONTEXT_VIA_MTXRUN=true
+ENV CONTEXT_SCRIPT=/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua
 ENV NODE_ENV=production
 WORKDIR /app/services/api
-CMD ["sh", "-c", "node migrate.mjs && exec node server.mjs"]
+CMD ["sh", "-c", "mkdir -p \"$TEXMFCACHE\" && /opt/context/tex/texmf-linux-64/bin/mtxrun --generate && node migrate.mjs && exec node server.mjs"]
