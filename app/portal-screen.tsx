@@ -436,6 +436,17 @@ export default function Home() {
     )
       setSelectedSkillCode(availableSkills[0].skill_code || '');
   }, [availableSkills, selectedSkillCode]);
+  useEffect(() => {
+    if (!pedagogicalDiscipline || !availableCompetencies.length) return;
+    if (!availableCompetencies.some((item) => item.competency_id === competencyId)) {
+      const skill = availableSkills.find((item) => item.skill_code === selectedSkillCode);
+      setCompetencyId(
+        skill && 'competency_id' in skill && skill.competency_id
+          ? skill.competency_id
+          : availableCompetencies[0].competency_id,
+      );
+    }
+  }, [pedagogicalDiscipline, availableCompetencies, availableSkills, competencyId, selectedSkillCode]);
   const visible = useMemo(
     () =>
       questions.filter(
@@ -613,14 +624,6 @@ export default function Home() {
           })),
         );
         setPedagogicalTopics(topics.data || []);
-        if (pedagogical.data?.some((item) => item.name === 'Química')) {
-          setKnowledgeObjectId('');
-          setCompetencyId(
-            official.data?.find(
-              (item) => item.area_source_key === 'em-area-cnt',
-            )?.competency_id || '',
-          );
-        }
       })
       .catch((error: unknown) => { if (active) setCatalogError(error instanceof Error ? error.message : 'Falha ao carregar catálogo.'); });
     return () => { active = false; };
