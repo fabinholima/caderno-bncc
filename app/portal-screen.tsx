@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { fundamentalRows, fundamentalYears } from '@/lib/fundamental-curriculum.mjs';
 import {
   BarChart3,
   BookOpenCheck,
@@ -247,6 +248,7 @@ const elementarySubjectAreas: Record<string, string[]> = {
   Matemática: ['Matemática'],
   'Ciências da Natureza': ['Ciências'],
   'Ciências Humanas': ['História', 'Geografia'],
+  'Ensino Religioso': ['Ensino Religioso'],
 };
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -355,6 +357,7 @@ export default function Home() {
     curriculumDemo[0].knowledge_object_id || '',
   );
   const [competencyId, setCompetencyId] = useState('');
+  const [fundamentalGrade, setFundamentalGrade] = useState('6º ano');
   const [competencyInfoOpen, setCompetencyInfoOpen] = useState(false);
   const [selectedSkillCode, setSelectedSkillCode] = useState('');
   const [skillInfoOpen, setSkillInfoOpen] = useState(false);
@@ -369,7 +372,7 @@ export default function Home() {
   const [pedagogicalSubtopicId, setPedagogicalSubtopicId] = useState('');
   const [pedagogicalDetailId, setPedagogicalDetailId] = useState('');
   const pedagogicalDiscipline = pedagogicalDisciplines.find(
-    (item) => item.name === discipline && item.stage === educationStage,
+    (item) => educationStage === 'Ensino Médio' && item.name === discipline && item.stage === educationStage,
   );
   const filterPedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === subject && item.stage === educationStage,
@@ -388,6 +391,9 @@ export default function Home() {
   const selectedCompetencyInfo = availableCompetencies.find(
     (item) => item.competency_id === competencyId,
   );
+  const fundamentalOptions = fundamentalRows(curriculum, discipline, fundamentalGrade);
+  const fundamentalGrades = [...new Set(curriculum.filter(item => item.stage === 'Ensino Fundamental' && item.subject === discipline).flatMap(fundamentalYears))].sort((a,b)=>a-b).map(year=>`${year}º ano`);
+  const fundamentalCompetencies = curriculum.find(item=>item.stage === 'Ensino Fundamental' && item.subject === discipline && item.subject_metadata)?.subject_metadata?.competencies || [];
   const availableSkills = pedagogicalDiscipline
     ? [
         ...new Map(
@@ -400,11 +406,9 @@ export default function Home() {
             .map((item) => [item.skill_code, item]),
         ).values(),
       ].sort((a, b) => a.skill_code.localeCompare(b.skill_code))
-    : curriculum.filter(
-        (item) =>
-          item.knowledge_object_id === knowledgeObjectId &&
-          Boolean(item.skill_code),
-      );
+    : [...new Map((educationStage === 'Ensino Fundamental' ? fundamentalOptions : curriculum).filter(
+        (item) => item.stage === educationStage && item.subject === discipline && item.knowledge_object_id === knowledgeObjectId && Boolean(item.skill_code),
+      ).map(item=>[item.skill_code,item])).values()];
   const selectedSkillInfo =
     availableSkills.find((item) => item.skill_code === selectedSkillCode) ||
     availableSkills[0];
@@ -447,6 +451,16 @@ export default function Home() {
       );
     }
   }, [pedagogicalDiscipline, availableCompetencies, availableSkills, competencyId, selectedSkillCode]);
+  useEffect(() => {
+    if (educationStage !== 'Ensino Fundamental') return;
+    setCompetencyId('');
+    if (fundamentalGrades.length && !fundamentalGrades.includes(fundamentalGrade)) {
+      setFundamentalGrade(fundamentalGrades[0]);
+      return;
+    }
+    if (!fundamentalOptions.some(item => item.knowledge_object_id === knowledgeObjectId))
+      setKnowledgeObjectId(fundamentalOptions[0]?.knowledge_object_id || '');
+  }, [educationStage, fundamentalGrades, fundamentalGrade, fundamentalOptions, knowledgeObjectId]);
   const visible = useMemo(
     () =>
       questions.filter(
@@ -911,6 +925,7 @@ export default function Home() {
       setCompetencyId(competency?.competency_id || '');
       setCompetencyInfoOpen(false);
       setSelectedSkillCode(skillCode);
+      if (question.stage === 'Ensino Fundamental') setFundamentalGrade(question.grade || '6º ano');
       const saebDescriptor = question.saebDescriptors?.[0];
       setSelectedSaebMatrix(saebDescriptor?.matrixId || '');
       setSelectedSaebDescriptor(saebDescriptor?.id || '');
@@ -2100,7 +2115,7 @@ export default function Home() {
                         setDiscipline(next);
                         const pedagogical = pedagogicalDisciplines.find(
                           (item) =>
-                            item.name === next && item.stage === educationStage,
+                            educationStage === 'Ensino Médio' && item.name === next && item.stage === educationStage,
                         );
                         setKnowledgeObjectId(
                           pedagogical
@@ -2247,7 +2262,7 @@ export default function Home() {
                       value={
                         educationStage === 'Ensino Médio'
                           ? pedagogicalGrade
-                          : importedDetails.grade || undefined
+                          : fundamentalGrade
                       }
                       onChange={
                         educationStage === 'Ensino Médio'
@@ -2257,23 +2272,13 @@ export default function Home() {
                               setPedagogicalSubtopicId('');
                               setPedagogicalDetailId('');
                             }
-                          : undefined
+                          : (event) => { setFundamentalGrade(event.target.value); setKnowledgeObjectId(''); setSelectedSkillCode(''); }
                       }
                       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                     >
                       {(educationStage === 'Ensino Médio'
                         ? ['1ª série', '2ª série', '3ª série']
-                        : [
-                            ...new Set(
-                              curriculum
-                                .filter(
-                                  (item) =>
-                                    item.subject === discipline &&
-                                    item.grade_range,
-                                )
-                                .map((item) => item.grade_range as string),
-                            ),
-                          ]
+                        : fundamentalGrades
                       ).map((item) => (
                         <option key={item}>{item}</option>
                       ))}
@@ -2461,7 +2466,7 @@ export default function Home() {
                         className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                       >
                         <option value="">Selecione um objeto cadastrado</option>
-                        {curriculum
+                        {(educationStage === 'Ensino Fundamental' ? fundamentalOptions : curriculum)
                           .filter(
                             (item, index, list) =>
                               item.subject === discipline &&
@@ -2482,6 +2487,13 @@ export default function Home() {
                           ))}
                       </select>
                     </label>
+                  )}
+                  {educationStage === 'Ensino Fundamental' && fundamentalCompetencies.length > 0 && (
+                    <details className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
+                      <summary className="cursor-pointer text-sm font-semibold">Competências de referência do componente e da área</summary>
+                      <p className="mt-2 text-xs text-slate-500">A BNCC do Fundamental não estabelece um vínculo individual entre cada habilidade e estas competências.</p>
+                      {fundamentalCompetencies.map(item=><p key={item.id} className="mt-3 text-sm"><strong>{item.tipo === 'especifica_de_componente' ? 'Componente' : 'Área'} · Competência {item.numero}:</strong> {item.texto}</p>)}
+                    </details>
                   )}
                   <label className="block sm:col-span-2">
                     <span className="mb-2 block text-sm font-semibold">

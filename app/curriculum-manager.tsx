@@ -20,6 +20,9 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 
 export type CurriculumOption = {
+  skill_years?: number[] | null;
+  skill_grade_range?: string | null;
+  subject_metadata?: {competencies?: Array<{id:string;tipo:string;numero:number;texto:string}>} | null;
   subject_id: string;
   subject: string;
   stage: string;
