@@ -1,4 +1,5 @@
 'use client';
+import { normalizeRawContextBlocks } from '@/lib/raw-context-blocks.mjs';
 
 import { useEffect, useState } from 'react';
 import type { ClipboardEvent } from 'react';
@@ -124,7 +125,7 @@ export function RichContentEditor({
   const [blocks, setBlocks] = useState<RichContentBlock[]>(emptyBlocks);
   const [structureLoading, setStructureLoading] = useState<number | null>(null);
   useEffect(() => {
-    setBlocks(initialBlocks?.length ? initialBlocks : emptyBlocks);
+    setBlocks(initialBlocks?.length ? (rawOnly ? normalizeRawContextBlocks(initialBlocks) as RichContentBlock[] : initialBlocks) : emptyBlocks);
   }, [initialBlocks, resetKey, rawOnly]);
   const update = (index: number, patch: Partial<RichContentBlock>) =>
     setBlocks((current) =>
