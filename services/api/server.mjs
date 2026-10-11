@@ -1,3 +1,4 @@
+import {listDrafts,getDraft,saveDraft,completeDraft} from './question-drafts.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
 import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './maintenance.mjs';
 import { createServer } from 'node:http';
@@ -1353,6 +1354,22 @@ const server = createServer(async (request, response) => {
       } finally {
         activePreviewUsers.delete(userId);
         activePreviewCount -= 1;
+      }
+    }
+    if (request.method === 'GET' && url.pathname === '/api/questions/drafts') {
+      if (!canEditCatalog) return json(response,403,{error:'Rascunhos são exclusivos de editores e administradores.'});
+      response.setHeader('cache-control','no-store');
+      return json(response,200,{data:await listDrafts({institutionId,userId})});
+    }
+    const draftMatch=/^\/api\/questions\/drafts\/([0-9a-f-]{36})(\/complete)?$/.exec(url.pathname);
+    if (draftMatch) {
+      if (!canEditCatalog) return json(response,403,{error:'Rascunhos são exclusivos de editores e administradores.'});
+      response.setHeader('cache-control','no-store');
+      const args={institutionId,userId,id:draftMatch[1]};
+      if(request.method==='GET' && !draftMatch[2]) return json(response,200,{data:await getDraft(args)});
+      if(request.method==='POST') {
+        if(!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
+        return json(response,200,{data:draftMatch[2]?await completeDraft(args):await saveDraft({...args,input:await readJson(request)})});
       }
     }
     if (request.method === 'POST' && url.pathname === '/api/questions')
