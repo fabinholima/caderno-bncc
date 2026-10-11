@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { QuestionPasteExample } from './question-paste-example';
 import { QuestionDraftControls, type DraftPayload, type DraftActions } from './question-draft-controls';
 import { fundamentalRows, fundamentalYears } from '@/lib/fundamental-curriculum.mjs';
 import {
@@ -2037,6 +2038,7 @@ export default function Home() {
                   <span className="flex items-center gap-2">
                     <FileInput className="size-4" />
                     Colar e analisar uma questão pronta
+                    <QuestionPasteExample />
                     <span className="font-normal text-blue-600">(opcional)</span>
                   </span>
                   <span className="text-xs text-blue-600 group-open:hidden">Abrir importador</span>
