@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { QuestionDraftControls, type DraftPayload, type DraftActions } from './question-draft-controls';
 import { fundamentalRows, fundamentalYears } from '@/lib/fundamental-curriculum.mjs';
 import {
   BarChart3,
@@ -312,9 +313,11 @@ export default function Home() {
     ],
   });
   const [open, setOpen] = useState(false);
+  const draftActions = useRef<DraftActions|null>(null);
   const [importedQuestion, setImportedQuestion] =
     useState<ParsedQuestion | null>(null);
   const [importRevision, setImportRevision] = useState(0);
+  const [draftMetapostCode, setDraftMetapostCode] = useState('');
   const [importCandidateSource, setImportCandidateSource] = useState<{
     importId: string;
     candidateId: string;
@@ -667,6 +670,29 @@ export default function Home() {
       .catch(() => undefined);
   }, [apiUrl, identity]);
 
+  async function closeQuestionEditor() {
+    if (saving) return;
+    if (draftActions.current && !(await draftActions.current.save())) return;
+    setOpen(false);
+  }
+  function captureQuestionDraft(form: HTMLFormElement): DraftPayload {
+    return {input:questionInputFromForm(new FormData(form)),editor:{educationStage,knowledgeAreaFilter,editingQuestionId,importCandidateSource,pedagogicalGrade,fundamentalGrade,pedagogicalObjectId,pedagogicalSubtopicId,pedagogicalDetailId,selectedSaebMatrix}};
+  }
+  function restoreQuestionDraft(payload: DraftPayload) {
+    const v=payload.input,e=payload.editor;
+    setEducationStage(e.educationStage || 'Ensino Médio');setKnowledgeAreaFilter(e.knowledgeAreaFilter || 'Ciências da Natureza e suas Tecnologias');
+    setEditingQuestionId(e.editingQuestionId || '');setImportCandidateSource(e.importCandidateSource || null);
+    setQuestionType(v.type || 'single_choice');setDiscipline(v.subject || 'Química');
+    setFundamentalGrade(e.fundamentalGrade || '6º ano');setPedagogicalGrade(e.pedagogicalGrade || '1ª série');
+    setKnowledgeObjectId(v.knowledgeObjectId || '');setCompetencyId(v.competencyId || '');setSelectedSkillCode(v.skill || '');
+    setPedagogicalObjectId(e.pedagogicalObjectId || '');setPedagogicalSubtopicId(e.pedagogicalSubtopicId || '');setPedagogicalDetailId(e.pedagogicalDetailId || '');
+    setSelectedSaebMatrix(e.selectedSaebMatrix || '');setSelectedSaebDescriptor(v.saebDescriptorId || '');
+    setImportedDetails({grade:v.grade || '',skill:v.skill || '',knowledgeTopic:v.knowledgeTopic || '',difficulty:v.difficulty || 'Média'});
+    setImportedAnswerBlocks(v.answerBlocks || []);setDraftMetapostCode(v.metapostCode || '');
+    setImportedCorrect((v.alternatives || []).filter((a:any)=>a.isCorrect).map((a:any)=>a.stableKey.slice(-1).toUpperCase()));
+    setImportedQuestion({sourceInstitution:v.sourceInstitution || '',sourceYear:String(v.sourceYear || ''),statementBlocks:(v.statementBlocks || []).filter((b:any)=>b.type!=='adoteNote'),adoteNote:(v.statementBlocks || []).find((b:any)=>b.type==='adoteNote')?.text || '',alternatives:Object.fromEntries((v.alternatives || []).map((a:any)=>[a.stableKey.slice(-1).toUpperCase(),a.contentBlocks || []])),warnings:[]});
+    setImportRevision(n=>n+1);setQuestionPreviewVerified(false);setQuestionPreviewUrl('');
+  }
   async function createQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (importCandidateSource && !questionPreviewVerified) {
@@ -730,6 +756,7 @@ export default function Home() {
             details || body.error || 'Não foi possível salvar a questão.',
           );
         }
+        await draftActions.current?.complete().catch(()=>undefined);
         const refreshed = await apiFetch(`${apiUrl}/api/questions`);
         if (refreshed.ok)
           setQuestions(((await refreshed.json()) as { data: Question[] }).data);
@@ -1083,6 +1110,7 @@ export default function Home() {
   }
 
   function openNewQuestion() {
+    setDraftMetapostCode('');
     setEditingQuestionId('');
     setImportCandidateSource(null);
     setImportedQuestion(null);
@@ -1937,7 +1965,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setOpen(false)}
+                onClick={()=>void closeQuestionEditor()}
                 aria-label="Fechar"
               >
                 <X />
@@ -1945,6 +1973,10 @@ export default function Home() {
             </header>
             <form
               onSubmit={createQuestion}
+              onInvalid={(event)=>{
+                const field=event.target as HTMLInputElement;
+                setNotice(`Não foi possível cadastrar: ${field.validationMessage || 'confira o campo'}${field.name ? ` (${field.name})` : ''}. Você pode salvar como rascunho sem preencher tudo.`);
+              }}
               onInput={() => {
                 if (!questionPreviewVerified) return;
                 setQuestionPreviewUrl((current) => {
@@ -2680,6 +2712,8 @@ export default function Home() {
                   </summary>
                   <textarea
                     name="metapostCode"
+                    key={`metapost-${importRevision}`}
+                    defaultValue={draftMetapostCode}
                     rows={5}
                     spellCheck={false}
                     className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
@@ -2780,11 +2814,13 @@ export default function Home() {
                 <span className="hidden text-xs text-slate-500 sm:block">
                   Confira a prévia para validar fórmulas, imagens e paginação.
                 </span>
+                {notice && <p role="status" className="w-full text-sm text-slate-700">{notice}</p>}
+                <QuestionDraftControls apiUrl={apiUrl} capture={captureQuestionDraft} restore={restoreQuestionDraft} paused={saving} actions={draftActions}/>
                 <div className="flex flex-1 flex-wrap justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setOpen(false)}
+                  onClick={()=>void closeQuestionEditor()}
                 >
                   Cancelar
                 </Button>
@@ -2813,7 +2849,7 @@ export default function Home() {
                       ? 'Gere a prévia para cadastrar'
                       : importCandidateSource
                         ? 'Cadastrar questão revisada'
-                        : 'Salvar rascunho'}
+                        : editingQuestionId ? 'Salvar alterações' : 'Cadastrar questão'}
                 </Button>
                 </div>
               </footer>
