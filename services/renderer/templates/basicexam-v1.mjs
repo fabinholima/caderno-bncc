@@ -99,6 +99,9 @@ ${answerRows}
 \\def\\halfr{\\frac[vfactor=500, method=horizontal]{1}{2}}
 \\setupunittext[liter=L]
 \\setupformulas[align=flushleft]
+\\definemathmatrix[pmatrix][matrix:parentheses][simplecommand=pmatrix]
+\\definemathmatrix[bmatrix][matrix:brackets][simplecommand=bmatrix]
+\\definemathmatrix[determinant][matrix:bars][simplecommand=thedeterminant]
 \\setupquestion[question][option={Cr:num,packed,joinedup,continue}]
 \\setupchoice
   [option={a,packed},
