@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { QuestionStatusControl } from './question-status-control';
 import { QuestionPasteExample } from './question-paste-example';
 import { QuestionDraftControls, type DraftPayload, type DraftActions } from './question-draft-controls';
 import { fundamentalRows, fundamentalYears } from '@/lib/fundamental-curriculum.mjs';
@@ -67,7 +68,9 @@ type Question = {
   saebDescriptorCode?: string;
   saebDescriptorDescription?: string;
   difficulty: 'Fácil' | 'Média' | 'Difícil';
-  status: 'Aprovada' | 'Em revisão' | 'Rascunho' | 'Arquivada';
+  status: 'Aprovada' | 'Em revisão' | 'Precisa de ajustes' | 'Rascunho' | 'Arquivada';
+  createdBy?:string;
+  revision?:number;
   alternatives: number;
   updatedAt: string;
 };
@@ -1299,7 +1302,7 @@ export default function Home() {
         ) : active === 'Avaliações' ? (
           <AssessmentBuilder
             questions={questions.filter(
-              (question) => question.status !== 'Arquivada',
+              (question) => question.status === 'Aprovada',
             )}
             apiUrl={apiUrl}
           />
@@ -1850,12 +1853,10 @@ export default function Home() {
                           </Badge>
                         </td>
                         <td className="px-4 py-4">
-                          <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
-                            <span
-                              className={`size-1.5 rounded-full ${q.status === 'Aprovada' ? 'bg-emerald-500' : q.status === 'Em revisão' ? 'bg-amber-500' : 'bg-slate-400'}`}
-                            />
-                            {q.status}
-                          </span>
+                          <QuestionStatusControl apiUrl={apiUrl} question={q} reviewer={Boolean(identity.portalAdmin)} canManage={Boolean(canEditCatalog && (identity.portalAdmin || q.createdBy===identity.user.id))} onChanged={async()=>{
+                            const r=await apiFetch(`${apiUrl}/api/questions`);if(!r.ok)throw new Error('Status salvo, mas não foi possível atualizar a lista.');setQuestions(((await r.json()) as {data:Question[]}).data);
+                          }}/>
+
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">
                           {q.updatedAt}

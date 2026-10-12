@@ -1,3 +1,4 @@
+import {changeQuestionStatus,workflowSchema} from './question-workflow.mjs';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { pool, transaction } from './db.mjs';
@@ -466,9 +467,7 @@ export const createQuestionSchema = z
     }
   });
 
-export const questionStatusSchema = z.object({
-  status: z.enum(['draft', 'review', 'approved', 'archived']),
-});
+export const questionStatusSchema = workflowSchema;
 
 export const questionDuplicateSchema = z.object({
   duplicateOfQuestionId: z.uuid(),
@@ -493,6 +492,7 @@ export const questionFiltersSchema = z.object({
 const difficultyToDb = { Fácil: 'easy', Média: 'medium', Difícil: 'hard' };
 const difficultyFromDb = { easy: 'Fácil', medium: 'Média', hard: 'Difícil' };
 const statusFromDb = {
+  needs_adjustments: 'Precisa de ajustes',
   draft: 'Rascunho',
   review: 'Em revisão',
   approved: 'Aprovada',
@@ -525,7 +525,7 @@ export async function listQuestions({
   });
   const result = await pool.query({
     text: `
-      SELECT q.id, q.public_code, q.status, q.updated_at,
+      SELECT q.id, q.public_code, q.status, q.updated_at, q.created_by, q.current_revision,
              qr.statement, qr.type, qr.subject, qr.grade, qr.difficulty,
              qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
              COALESCE(cs.stage,
@@ -614,6 +614,8 @@ export async function listQuestions({
     saebDescriptorDescription: row.saeb_descriptor_description,
     difficulty: difficultyFromDb[row.difficulty],
     status: statusFromDb[row.status],
+    createdBy: row.created_by,
+    revision: row.current_revision,
     alternatives: row.alternatives,
     updatedAt: new Intl.DateTimeFormat('pt-BR', {
       dateStyle: 'short',
@@ -1024,7 +1026,7 @@ export async function createQuestionRevision({
   const value = createQuestionSchema.parse(input);
   return transaction(async (client) => {
     const question = await client.query(
-      `SELECT id, institution_id, public_code, current_revision
+      `SELECT id, institution_id, public_code, current_revision, status
        FROM questions
        WHERE id = $1 AND ($5 IN ('admin','coordinator') OR institution_id = $2 OR institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
          AND (created_by = $3 OR $4 IN ('admin','coordinator'))
@@ -1055,6 +1057,9 @@ export async function createQuestionRevision({
        VALUES($1,$2,'question.revised','question',$3,$4::jsonb)`,
       [question.rows[0].institution_id, userId, questionId, JSON.stringify({ revision })],
     );
+    if(question.rows[0].status!=='draft')await client.query(
+      "INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,'question.status_changed','question',$3,$4::jsonb)",
+      [question.rows[0].institution_id,userId,questionId,JSON.stringify({from:question.rows[0].status,status:'draft',reason:'Conteúdo editado; voltou para rascunho e precisa de nova revisão.',revision})]);
     return {
       id: questionId,
       code: question.rows[0].public_code,
@@ -1064,49 +1069,8 @@ export async function createQuestionRevision({
   });
 }
 
-export async function setQuestionStatus({
-  institutionId,
-  userId,
-  role = 'teacher',
-  questionId,
-  input,
-}) {
-  const value = questionStatusSchema.parse(input);
-  if (['approved', 'archived'].includes(value.status) && role === 'teacher')
-    throw Object.assign(
-      new Error(
-        'Somente coordenação ou administração pode aprovar ou arquivar questões.',
-      ),
-      { statusCode: 403 },
-    );
-  return transaction(async (client) => {
-    const result = await client.query(
-      `UPDATE questions
-       SET status = $5, updated_at = now()
-       WHERE id = $1 AND institution_id = $2
-         AND (created_by = $3 OR $4 IN ('admin','coordinator'))
-       RETURNING id, public_code, current_revision, status, updated_at`,
-      [questionId, institutionId, userId, role, value.status],
-    );
-    if (!result.rowCount) return null;
-    await client.query(
-      `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata)
-       VALUES($1,$2,'question.status_changed','question',$3,$4::jsonb)`,
-      [
-        institutionId,
-        userId,
-        questionId,
-        JSON.stringify({ status: value.status }),
-      ],
-    );
-    return {
-      id: result.rows[0].id,
-      code: result.rows[0].public_code,
-      revision: result.rows[0].current_revision,
-      status: result.rows[0].status,
-      updatedAt: result.rows[0].updated_at,
-    };
-  });
+export async function setQuestionStatus(args) {
+  return changeQuestionStatus(args);
 }
 
 export async function markQuestionDuplicate({
