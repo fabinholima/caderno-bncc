@@ -50,3 +50,11 @@ test('valida objetos, subtópicos e alterações do catálogo institucional', ()
   });
   assert.throws(() => updatePedagogicalTopicSchema.parse({}));
 });
+
+test('normaliza a nomenclatura do primeiro ano do Ensino Médio sem aceitar anos fora da etapa', () => {
+  for (const gradeRange of ['1º Ano', '1° ano', '1ª série', ' 1a série ']) {
+    assert.equal(createPedagogicalTopicSchema.parse({ disciplineId: '11111111-1111-4111-8111-111111111111', name: 'Funções', gradeRange }).gradeRange, '1ª série');
+  }
+  assert.equal(updatePedagogicalTopicSchema.parse({ gradeRange: '2º ano' }).gradeRange, '2ª série');
+  assert.throws(() => createPedagogicalTopicSchema.parse({ disciplineId: '11111111-1111-4111-8111-111111111111', name: 'Funções', gradeRange: '11º ano' }));
+});

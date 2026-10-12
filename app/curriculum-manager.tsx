@@ -124,6 +124,7 @@ export function CurriculumManager({
   const [catalogParentId, setCatalogParentId] = useState('');
   const [catalogName, setCatalogName] = useState('');
   const [catalogSaving, setCatalogSaving] = useState(false);
+  const [catalogMessage, setCatalogMessage] = useState('');
   const [selectedChemistrySkills, setSelectedChemistrySkills] = useState<
     Set<string>
   >(new Set());
@@ -207,6 +208,7 @@ export function CurriculumManager({
     if (!catalogDisciplineId || !catalogName.trim()) return;
     setCatalogSaving(true);
     setMessage('');
+    setCatalogMessage('');
     try {
       const response = await apiFetch(
         `${apiUrl}/api/curriculum/pedagogical-topics`,
@@ -217,7 +219,7 @@ export function CurriculumManager({
             disciplineId: catalogDisciplineId,
             parentId: catalogParentId,
             name: catalogName,
-            gradeRange: catalogParentId ? undefined : catalogGrade,
+            gradeRange: catalogGrade,
           }),
         },
       );
@@ -225,9 +227,16 @@ export function CurriculumManager({
       if (!response.ok)
         throw new Error(body.error || 'Não foi possível adicionar o item.');
       setCatalogName('');
-      await refreshPedagogicalTopics();
+      try {
+        await refreshPedagogicalTopics();
+      } catch {
+        setCatalogMessage('Item salvo, mas não foi possível atualizar a lista. Recarregue a página antes de cadastrar novamente.');
+        return;
+      }
+      setCatalogMessage('Item adicionado ao catálogo institucional.');
       setMessage('Item adicionado ao catálogo institucional.');
     } catch (error) {
+      setCatalogMessage(error instanceof Error ? error.message : 'Erro no cadastro.');
       setMessage(error instanceof Error ? error.message : 'Erro no cadastro.');
     } finally {
       setCatalogSaving(false);
@@ -879,6 +888,7 @@ export function CurriculumManager({
                 >
                   <Plus /> {catalogSaving ? 'Salvando...' : 'Adicionar item'}
                 </Button>
+                {catalogMessage && <output className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">{catalogMessage}</output>}
               </form>
               <div>
                 <div className="mb-3 flex flex-wrap gap-2">
