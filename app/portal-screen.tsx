@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
 import { QuestionStatusControl } from './question-status-control';
+import { WorkspaceHome } from './workspace-home';
 import { QuestionPasteExample } from './question-paste-example';
 import { QuestionDraftControls, type DraftPayload, type DraftActions } from './question-draft-controls';
 import { fundamentalRows, fundamentalYears } from '@/lib/fundamental-curriculum.mjs';
@@ -25,6 +26,9 @@ import {
   Trash2,
   Users,
   X,
+  ScanLine,
+  Sprout,
+  Menu,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -233,7 +237,11 @@ const initialQuestions: Question[] = [
 ];
 
 const nav = [
-  ['Visão geral', LayoutDashboard],
+  ['Início', LayoutDashboard],
+  ['Preparar', BookOpenCheck],
+  ['Corrigir', ScanLine],
+  ['Diagnosticar', BarChart3],
+  ['Recuperar', Sprout],
   ['Questões', LibraryBig],
   ['Importar provas', FileInput],
   ['Planejamento', BookOpenCheck],
@@ -347,7 +355,9 @@ export default function Home() {
   const [quickPreviewPdfUrl, setQuickPreviewPdfUrl] = useState('');
   const [quickPreviewLoading, setQuickPreviewLoading] = useState(false);
   const [quickPreviewError, setQuickPreviewError] = useState('');
-  const [active, setActive] = useState('Questões');
+  const [active, setActive] = useState('Início');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [initialApplicationId, setInitialApplicationId] = useState('');
   const [curriculum, setCurriculum] = useState(curriculumDemo);
   const [highSchoolCurriculum, setHighSchoolCurriculum] = useState<
     HighSchoolCurriculumItem[]
@@ -1171,14 +1181,14 @@ export default function Home() {
           </span>
           <div>
             <p className="font-display text-[17px] font-bold leading-tight">
-              Caderno
+              UfaProva
             </p>
             <p className="text-[11px] font-medium tracking-[.12em] text-slate-400">
               AVALIAÇÕES BNCC
             </p>
           </div>
         </div>
-        <nav aria-label="Navegação principal" className="flex-1 px-3 py-6">
+        <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-6">
           <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">
             Espaço de trabalho
           </p>
@@ -1186,7 +1196,7 @@ export default function Home() {
             <button
               key={label}
               type="button"
-              onClick={() => setActive(label)}
+              onClick={() => { setInitialApplicationId(''); setActive(label); }}
               className={`mb-1 flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition ${active === label ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/7 hover:text-white'}`}
             >
               <Icon className="size-[18px]" />
@@ -1242,7 +1252,7 @@ export default function Home() {
         </div>
       </aside>
 
-      <section className="lg:pl-[252px]">
+      <section className="pb-24 lg:pb-0 lg:pl-[252px]">
         <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/90 px-5 backdrop-blur-xl sm:px-8">
           <div className="lg:hidden">
             <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-white">
@@ -1250,7 +1260,7 @@ export default function Home() {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {identity.portalAdmin && <span className="text-sm font-semibold">Administração geral · painel único</span>}
+            {identity.portalAdmin && <span className="hidden text-sm font-semibold sm:inline">Administração geral · painel único</span>}
             <button
               type="button"
               aria-label="Sair da conta"
@@ -1278,16 +1288,16 @@ export default function Home() {
         </header>
         <nav
           aria-label="Navegação principal móvel"
-          className="sticky top-[76px] z-20 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3 lg:hidden"
+          className={`${mobileMenuOpen ? 'flex' : 'hidden'} sticky top-[76px] z-20 flex-wrap gap-2 border-b border-slate-200 bg-white px-4 py-3 lg:hidden`}
         >
           {[
-            ...visibleNav.filter(([label]) => label !== 'Visão geral'),
+            ...visibleNav,
             ...([['Configurações', Settings] as const]),
           ].map(([label, Icon]) => (
             <button
               key={label}
               type="button"
-              onClick={() => setActive(label)}
+              onClick={() => { setInitialApplicationId(''); setActive(label); setMobileMenuOpen(false); }}
               className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${active === label ? 'bg-[var(--navy)] text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
             >
               <Icon className="size-4" />
@@ -1295,7 +1305,13 @@ export default function Home() {
             </button>
           ))}
         </nav>
-        {(active === 'Receitas' || active === 'Assinantes') && identity.portalAdmin ? (
+        {active === 'Início' || active === 'Preparar' || active === 'Recuperar' ? (
+          <WorkspaceHome key={active} apiUrl={apiUrl} name={identity.user.displayName} view={active} canEditCatalog={canEditCatalog}
+            onNavigate={(view) => { setInitialApplicationId(''); setActive(view); }}
+            onNewQuestion={openNewQuestion}
+            onEditQuestion={(id) => { setActive('Questões'); void editQuestion(id); }}
+            onOpenApplication={(id) => { setInitialApplicationId(id); setActive('Diagnosticar'); }} />
+        ) : (active === 'Receitas' || active === 'Assinantes') && identity.portalAdmin ? (
           <AdminDashboard key={active} apiUrl={apiUrl} view={active === 'Receitas' ? 'revenue' : 'subscribers'} />
         ) : active === 'Minhas escolas' ? (
           <div className="mx-auto max-w-5xl p-6"><EducatorProfile apiUrl={apiUrl} /></div>
@@ -1306,8 +1322,8 @@ export default function Home() {
             )}
             apiUrl={apiUrl}
           />
-        ) : active === 'Turmas e alunos' || active === 'Resultados' ? (
-          <AcademicManager apiUrl={apiUrl} />
+        ) : active === 'Turmas e alunos' || active === 'Resultados' || active === 'Corrigir' || active === 'Diagnosticar' ? (
+          <AcademicManager key={active} apiUrl={apiUrl} initialSection={active === 'Corrigir' ? 'correction' : active === 'Diagnosticar' || active === 'Resultados' ? 'reports' : undefined} initialApplicationId={initialApplicationId} />
         ) : active === 'Importar provas' ? (
           <ExamImportManager
             apiUrl={apiUrl}
@@ -1933,6 +1949,10 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      <nav aria-label="Atalhos no celular" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white px-1 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-sm lg:hidden">
+        {([['Início', LayoutDashboard], ['Preparar', BookOpenCheck], ['Corrigir', ScanLine], ['Diagnosticar', BarChart3], ['Menu', Menu]] as const).map(([label, Icon]) => <button key={label} type="button" aria-current={active === label ? 'page' : undefined} aria-expanded={label === 'Menu' ? mobileMenuOpen : undefined} onClick={() => { if (label === 'Menu') { setMobileMenuOpen(value => !value); window.scrollTo({ top: 0 }); } else { setInitialApplicationId(''); setActive(label); setMobileMenuOpen(false); window.scrollTo({ top: 0 }); } }} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${active === label || label === 'Menu' && mobileMenuOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}><Icon className="size-5" aria-hidden="true" />{label === 'Diagnosticar' ? 'Diagnóstico' : label}</button>)}
+      </nav>
 
       {open && (
         <div

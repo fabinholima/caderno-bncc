@@ -296,7 +296,7 @@ type StudentProgress = {
   }>;
 };
 
-export function AcademicManager({ apiUrl }: { apiUrl: string }) {
+export function AcademicManager({ apiUrl, initialSection, initialApplicationId }: { apiUrl: string; initialSection?: 'correction' | 'reports'; initialApplicationId?: string }) {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -378,6 +378,15 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
     setReport(body.data);
     setReportPdf('');
   };
+  useEffect(() => {
+    if (initialApplicationId) {
+      Promise.resolve().then(() => loadReport(initialApplicationId)).catch((error) => setMessage(error.message));
+    }
+  }, [initialApplicationId]);
+  useEffect(() => {
+    const target = initialSection === 'correction' ? 'academic-correction' : initialSection === 'reports' ? (report ? 'academic-report' : 'academic-applications') : '';
+    if (target) document.getElementById(target)?.scrollIntoView({ block: 'start' });
+  }, [initialSection, Boolean(report)]);
   const generateReportPdf = async () => {
     if (!report) return;
     setReportPdfLoading(true);
@@ -610,7 +619,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
         Gestão acadêmica
       </p>
       <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-        Turmas e alunos
+        {initialSection === 'correction' ? 'Correção de cartões' : initialSection === 'reports' ? 'Diagnóstico e resultados' : 'Turmas e alunos'}
       </h1>
       <p className="mt-2 text-sm text-slate-500">
         Organize as turmas, matricule estudantes e associe uma avaliação para
@@ -946,7 +955,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
           </div>
         </section>
       )}
-      <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <section id="academic-applications" className="mt-5 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="border-b p-4 font-semibold">
           Aplicações e PDFs individuais
         </header>
@@ -1125,7 +1134,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
         </section>
       )}
       {report && (
-        <section className="mt-5 rounded-2xl border border-blue-200 bg-white p-5">
+        <section id="academic-report" className="mt-5 scroll-mt-24 rounded-2xl border border-blue-200 bg-white p-5">
           <div className="flex flex-wrap items-center gap-2">
             <BarChart3 className="size-5 text-blue-600" />
             <div>
@@ -1538,7 +1547,7 @@ export function AcademicManager({ apiUrl }: { apiUrl: string }) {
           </div>
         </section>
       )}
-      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+      <section id="academic-correction" className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="font-display text-xl font-bold">
           Corrigir cartão-resposta
         </h2>
