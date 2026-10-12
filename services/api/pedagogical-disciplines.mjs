@@ -21,17 +21,29 @@ export const createPedagogicalTopicSchema = z.object({
   disciplineId: z.uuid(),
   parentId: z.uuid().optional().or(z.literal('')),
   name: z.string().trim().min(2).max(120),
-  gradeRange: z.enum(['1ª série', '2ª série', '3ª série']).optional(),
+  gradeRange: z.preprocess(canonicalTopicGrade, z.enum(['1ª série', '2ª série', '3ª série']).optional()),
 });
 
 export const updatePedagogicalTopicSchema = z
   .object({
     name: z.string().trim().min(2).max(120).optional(),
-    gradeRange: z.enum(['1ª série', '2ª série', '3ª série']).optional(),
+    gradeRange: z.preprocess(canonicalTopicGrade, z.enum(['1ª série', '2ª série', '3ª série']).optional()),
     position: z.number().int().min(1).max(1000).optional(),
     active: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'Informe uma alteração.');
+
+function canonicalTopicGrade(value) {
+  if (typeof value !== 'string') return value;
+  const match = value.trim().match(/^([1-3])\s*[ºª°oa]?\s*(?:ano|s[ée]rie)$/i);
+  return match ? `${match[1]}ª série` : value;
+}
+
+function catalogConflict(error) {
+  if (error.code === '23505' && ['pedagogical_topics_root_unique', 'pedagogical_topics_child_unique'].includes(error.constraint))
+    throw Object.assign(new Error('Já existe um item com esse nome nesse nível do catálogo. Confira os itens cadastrados, inclusive os arquivados.'), { statusCode: 409 });
+  throw error;
+}
 
 export async function listPedagogicalDisciplines({ institutionId }) {
   const result = await pool.query(
@@ -85,7 +97,7 @@ export async function listPedagogicalTopics({
             tree.parent_id, parent.name AS parent_name, tree.grade_range,
             tree.active, tree.depth,
             array_to_string(tree.name_path, ' > ') AS path,
-            pd.name AS discipline,
+            pd.name AS discipline, pd.stage AS discipline_stage,
             COALESCE((
               SELECT jsonb_agg(jsonb_build_object(
                 'id', skill.id, 'code', skill.code,
@@ -101,7 +113,10 @@ export async function listPedagogicalTopics({
      ORDER BY pd.name, tree.grade_range, tree.position_path, tree.name`,
     [institutionId, value.disciplineId || null, value.includeInactive],
   );
-  return result.rows;
+  return result.rows.map((row) => ({
+    ...row,
+    grade_range: row.discipline_stage === 'Ensino Médio' ? canonicalTopicGrade(row.grade_range) : row.grade_range,
+  }));
 }
 
 export async function createPedagogicalTopic({ institutionId, userId, input }) {
@@ -120,18 +135,21 @@ export async function createPedagogicalTopic({ institutionId, userId, input }) {
     if (value.parentId) {
       const parent = await client.query(
         `WITH RECURSIVE ancestry AS (
-           SELECT id,parent_id,grade_range,0 AS depth
+           SELECT id,parent_id,grade_range,active,0 AS depth
            FROM pedagogical_topics
            WHERE id=$1 AND institution_id=$2 AND discipline_id=$3
            UNION ALL
            SELECT parent.id,parent.parent_id,
                   COALESCE(ancestry.grade_range,parent.grade_range),
-                  ancestry.depth+1
+                  parent.active,ancestry.depth+1
            FROM ancestry JOIN pedagogical_topics parent
              ON parent.id=ancestry.parent_id
+           WHERE parent.institution_id=$2 AND parent.discipline_id=$3
          )
-         SELECT grade_range,MAX(depth)::int AS depth
-         FROM ancestry GROUP BY grade_range`,
+         SELECT (array_agg(grade_range ORDER BY depth)
+                   FILTER (WHERE grade_range IS NOT NULL))[1] AS grade_range,
+                MAX(depth)::int AS depth, bool_and(active) AS active
+         FROM ancestry HAVING COUNT(*) > 0`,
         [value.parentId, institutionId, value.disciplineId],
       );
       if (!parent.rowCount)
@@ -143,7 +161,12 @@ export async function createPedagogicalTopic({ institutionId, userId, input }) {
           new Error('A hierarquia aceita objeto, subtópico e detalhamento.'),
           { statusCode: 422 },
         );
-      gradeRange = parent.rows[0].grade_range;
+      if (!parent.rows[0].active)
+        throw Object.assign(new Error('Reative o nível superior antes de adicionar um subtópico.'), { statusCode: 422 });
+      const inheritedGrade = canonicalTopicGrade(parent.rows[0].grade_range);
+      if (value.gradeRange && inheritedGrade && value.gradeRange !== inheritedGrade)
+        throw Object.assign(new Error('O nível superior pertence a outra série. Selecione um objeto da série informada.'), { statusCode: 422 });
+      gradeRange = inheritedGrade || gradeRange;
     }
     if (!gradeRange)
       throw Object.assign(new Error('Informe a série do objeto.'), {
@@ -171,7 +194,7 @@ export async function createPedagogicalTopic({ institutionId, userId, input }) {
       ],
     );
     return created.rows[0];
-  });
+  }).catch(catalogConflict);
 }
 
 export async function updatePedagogicalTopic({
@@ -199,7 +222,7 @@ export async function updatePedagogicalTopic({
       value.active,
       userId,
     ],
-  );
+  ).catch(catalogConflict);
   if (!updated.rowCount)
     throw Object.assign(new Error('Objeto ou subtópico não encontrado.'), {
       statusCode: 404,
