@@ -1,3 +1,4 @@
+import {assertApprovedQuestionSelection} from './question-workflow.mjs';
 import { z } from 'zod';
 import crypto from 'node:crypto';
 import {
@@ -126,6 +127,7 @@ export async function createAssessment({ institutionId, questionBankId = institu
       'SELECT name FROM institutions WHERE id = $1',
       [institutionId],
     );
+    await assertApprovedQuestionSelection(client,[institutionId,questionBankId],questionIds);
     const questions = await client.query({
       text: `SELECT q.id, q.current_revision, qr.type, qr.statement, qr.explanation, qr.default_points,
                     qr.subject, qr.grade,
@@ -141,14 +143,14 @@ export async function createAssessment({ institutionId, questionBankId = institu
              LEFT JOIN question_saeb_descriptors qsd ON qsd.question_id = q.id AND qsd.revision = qr.revision
              LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
              LEFT JOIN saeb_topics st ON st.id = sd.topic_id
-             WHERE q.institution_id = ANY($1::uuid[]) AND q.status <> 'archived'
+             WHERE q.institution_id = ANY($1::uuid[]) AND q.status = 'approved'
                AND q.id = ANY($2::uuid[])
              GROUP BY q.id, qr.question_id, qr.revision`,
       values: [[institutionId, questionBankId], questionIds],
     });
     if (questions.rowCount !== questionIds.length) {
       const error = new Error(
-        'Uma ou mais questões estão arquivadas ou não pertencem à instituição.',
+        'Somente questões aprovadas podem entrar na avaliação. Atualize a seleção de questões.',
       );
       error.statusCode = 422;
       throw error;

@@ -1,3 +1,4 @@
+import {questionStatusHistory} from './question-workflow.mjs';
 import {listDrafts,getDraft,saveDraft,completeDraft} from './question-drafts.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
 import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './maintenance.mjs';
@@ -1076,14 +1077,17 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
+    const historyMatch=request.method==='GET' && url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/status-history$/i);
+    if(historyMatch){response.setHeader('cache-control','no-store');return json(response,200,{data:await questionStatusHistory({institutionId,userId,questionId:historyMatch[1]})});}
     const questionStatusMatch =
       request.method === 'PATCH' &&
       url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/status$/i);
     if (questionStatusMatch) {
+      if(!requestOrigin || !allowedOrigins.has(requestOrigin))return json(response,403,{error:'Origem não autorizada.'});
       const question = await setQuestionStatus({
         institutionId,
         userId,
-        role,
+        role:identity.portalAdmin && !identity.developmentBypass ? 'admin' : 'teacher',
         questionId: questionStatusMatch[1],
         input: await readJson(request),
       });
