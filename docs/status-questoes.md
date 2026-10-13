@@ -11,3 +11,7 @@ A montagem de novas avaliações mostra somente Aprovadas. A API também exige a
 Não se aprovam automaticamente questões existentes. A aprovação deve passar pela revisão humana.
 
 Validação: `node --test services/api/question-workflow.test.mjs services/api/questions.test.mjs services/api/assessments.test.mjs`. Integração: `QUESTION_WORKFLOW_TEST_DATABASE_URL=... node --test services/api/question-workflow.integration.test.mjs`, usando banco de testes com schema descartável.
+
+## Correção da consulta do histórico
+
+O identificador em `audit_log.entity_id` é texto, conforme a migração 019; o identificador em `questions.id` é UUID. A consulta do histórico converte o parâmetro explicitamente para cada tipo, evitando o erro PostgreSQL `uuid = text`. O teste de integração reproduz essa diferença de tipos e verifica histórico vazio, histórico de alterações e isolamento entre instituições.
