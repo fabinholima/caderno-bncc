@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createQuestionSchema } from './questions.mjs';
@@ -14,7 +15,10 @@ const previewRoot = path.join(projectRoot, 'tmp', 'pdfs');
 const previewCache = new Map();
 const previewCacheLimit = 24;
 
-function snapshotFromQuestion(question) {
+export function snapshotFromQuestion(question, mode = 'student') {
+  const explanation = question.answerBlocks?.length
+    ? question.answerBlocks
+    : question.answerGuide ? [{type:'paragraph',text:question.answerGuide}] : [];
   const alternatives = question.alternatives.map((alternative, index) => ({
     stableKey: alternative.stableKey,
     label: String.fromCharCode(65 + index),
@@ -36,7 +40,7 @@ function snapshotFromQuestion(question) {
     alternatives,
     answer: {
       correctStableKeys: question.alternatives.filter((item) => item.isCorrect).map((item) => item.stableKey),
-      explanation: question.answerBlocks || [],
+      explanation: mode === 'answer-key' ? explanation : [],
     },
     points: 1,
     skills: question.skill ? [{ code: question.skill, primary: true }] : [],
@@ -45,7 +49,7 @@ function snapshotFromQuestion(question) {
     schemaVersion: '1.0',
     assessment: {
       id: 'question-preview',
-      title: 'Prévia da questão',
+      title: mode === 'answer-key' ? 'Prévia da resolução' : 'Prévia da questão',
       subject: question.subject,
       grade: question.grade,
       instructions: [],
@@ -57,7 +61,7 @@ function snapshotFromQuestion(question) {
     questions: [renderedQuestion],
     totals: { points: 1, questions: 1 },
     render: {
-      locale: 'pt-BR', paper: 'A4', mode: 'student', template: 'basicexam-v1',
+      locale: 'pt-BR', paper: 'A4', mode, template: 'basicexam-v1',
       font: 'plex', fontSize: 11, showBnccSkills: Boolean(question.skill), previewOnly: true,
     },
   };
@@ -65,6 +69,7 @@ function snapshotFromQuestion(question) {
 
 export async function createQuestionPdfPreview(input) {
   const previewInput = structuredClone(input);
+  const previewMode=z.enum(['student','answer-key']).default('student').parse(previewInput.previewMode);
   // A prévia pode ser solicitada antes de o usuário preencher os dados de
   // origem. O cadastro definitivo continua exigindo esses campos, mas eles
   // não devem impedir a visualização do layout da questão.
@@ -73,19 +78,21 @@ export async function createQuestionPdfPreview(input) {
   if (!Number.isInteger(previewInput.sourceYear))
     previewInput.sourceYear = new Date().getFullYear();
   const cacheKey = createHash('sha256')
-    .update(JSON.stringify(previewInput))
+    .update(JSON.stringify({previewMode,input:previewInput}))
     .digest('hex');
   const cached = previewCache.get(cacheKey);
   if (cached) return cached;
-  if (previewInput.type === 'single_choice' && !previewInput.alternatives?.some((item) => item.isCorrect))
+  if (previewMode === 'student' && previewInput.type === 'single_choice' && !previewInput.alternatives?.some((item) => item.isCorrect))
     previewInput.alternatives[0].isCorrect = true;
-  if (previewInput.type === 'multiple_choice' && previewInput.alternatives?.filter((item) => item.isCorrect).length < 2)
+  if (previewMode === 'student' && previewInput.type === 'multiple_choice' && previewInput.alternatives?.filter((item) => item.isCorrect).length < 2)
     previewInput.alternatives.slice(0, 2).forEach((item) => { item.isCorrect = true; });
   const question = createQuestionSchema.parse(previewInput);
+  if(previewMode==='answer-key'&&!question.answerBlocks?.length&&!question.answerGuide?.trim())
+    throw Object.assign(new Error('Adicione a resolução ou o gabarito comentado antes de gerar esta prévia.'),{statusCode:422});
   await mkdir(previewRoot, { recursive: true });
   const directory = await mkdtemp(path.join(previewRoot, 'questao-'));
   try {
-    const snapshot = await materializeQuestionImages(snapshotFromQuestion(question), directory);
+    const snapshot = await materializeQuestionImages(snapshotFromQuestion(question, previewMode), directory);
     const source = path.join(directory, 'previa.tex');
     const pdf = path.join(directory, 'previa.pdf');
     await writeFile(source, renderAssessment(snapshot), 'utf8');
