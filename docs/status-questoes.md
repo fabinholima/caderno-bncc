@@ -18,6 +18,8 @@ O identificador em `audit_log.entity_id` é texto, conforme a migração 019; o 
 
 ## Aprovação em lote
 
-O administrador pode selecionar questões visíveis em revisão e usar **Aprovar selecionadas**, até 100 por operação. O cabeçalho seleciona até 100 questões elegíveis da lista filtrada. Questões em outros estados e sem revisão carregada não podem ser selecionadas.
+O administrador pode selecionar questões visíveis em Rascunho, Precisa de ajustes ou Em revisão, até 100 por operação. **Enviar selecionadas para revisão** altera somente os rascunhos e itens com ajustes e mantém a seleção. Após conferir as questões, **Aprovar selecionadas** fica habilitado quando todas as selecionadas estão Em revisão. O cabeçalho seleciona até 100 questões elegíveis da lista filtrada. Aprovadas, arquivadas e questões sem revisão carregada não podem ser selecionadas.
 
 `POST /api/questions/status/bulk-approve` recebe `questions: [{id, revision}]` e uma observação opcional. A API exige administrador geral, origem autorizada e identificadores únicos. Cada item usa a mesma transação, validação de revisão e registro de histórico da aprovação individual. Uma questão impedida não cancela as aprovações dos demais itens; o resultado informa o desfecho de cada questão. Não é necessário alterar o esquema do banco.
+
+`POST /api/questions/status/bulk-review` usa o mesmo formato de entrada, exige administrador e registra cada envio à revisão no histórico. A API não permite enviar questões já aprovadas ou arquivadas para revisão por esse atalho. A aprovação direta de rascunhos continua bloqueada.

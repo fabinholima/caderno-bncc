@@ -3,27 +3,33 @@ import {pool,transaction} from './db.mjs';
 import {checkQuestionTransition} from '../../lib/question-workflow.mjs';
 export const workflowSchema=z.object({status:z.enum(['draft','review','needs_adjustments','approved','archived']),reason:z.string().trim().max(1000).default(''),revision:z.number().int().positive().optional()});
 export const bulkApprovalSchema=z.object({questions:z.array(z.object({id:z.uuid(),revision:z.number().int().positive()})).min(1).max(100),reason:z.string().trim().max(1000).default('')}).refine(value=>new Set(value.questions.map(q=>q.id)).size===value.questions.length,'Não repita questões na seleção.');
-export async function approveQuestionsInBulk({institutionId,userId,role='teacher',input}){
- if(role!=='admin')throw Object.assign(new Error('Somente o administrador geral pode aprovar questões em lote.'),{statusCode:403});
+export async function approveQuestionsInBulk(args){
+ const batch=await updateQuestionBatch({...args,status:'approved'});
+ return {approved:batch.updated,rejected:batch.rejected,results:batch.results.map(({updated,...item})=>({...item,approved:updated}))};
+}
+export async function sendQuestionsToReviewInBulk(args){return updateQuestionBatch({...args,status:'review'});}
+async function updateQuestionBatch({institutionId,userId,role='teacher',input,status}){
+ if(role!=='admin')throw Object.assign(new Error('Somente o administrador geral pode alterar questões em lote.'),{statusCode:403});
  const value=bulkApprovalSchema.parse(input);const results=[];
  for(const question of value.questions){
   try{
-   const approved=await changeQuestionStatus({institutionId,userId,role,questionId:question.id,input:{status:'approved',revision:question.revision,reason:value.reason}});
-   results.push(approved?{id:question.id,approved:true,code:approved.code}:{id:question.id,approved:false,error:'Questão não encontrada neste banco.'});
+   const updated=await changeQuestionStatus({institutionId,userId,role,questionId:question.id,allowedFrom:status==='review'?['draft','needs_adjustments']:undefined,input:{status,revision:question.revision,reason:value.reason}});
+   results.push(updated?{id:question.id,updated:true,code:updated.code}:{id:question.id,updated:false,error:'Questão não encontrada neste banco.'});
   }catch(error){
-   if(!error.statusCode)console.error('Falha na aprovação em lote',error);
-   results.push({id:question.id,approved:false,error:error.statusCode?error.message:'Não foi possível aprovar esta questão. Tente novamente.'});
+   if(!error.statusCode)console.error('Falha na alteração em lote',error);
+   results.push({id:question.id,updated:false,error:error.statusCode?error.message:'Não foi possível atualizar esta questão. Tente novamente.'});
   }
  }
- return {approved:results.filter(r=>r.approved).length,rejected:results.filter(r=>!r.approved).length,results};
+ return {updated:results.filter(r=>r.updated).length,rejected:results.filter(r=>!r.updated).length,results};
 }
-export async function changeQuestionStatus({institutionId,userId,role='teacher',questionId,input}){
+export async function changeQuestionStatus({institutionId,userId,role='teacher',questionId,input,allowedFrom}){
  const value=workflowSchema.parse(input),reviewer=role==='admin';
  if(value.status==='approved' && !value.revision)throw Object.assign(new Error('Informe a revisão conferida para aprovar a questão.'),{statusCode:422});
  return transaction(async db=>{
   const previous=await db.query('SELECT id,status,created_by,current_revision FROM questions WHERE id=$1 AND institution_id=$2 FOR UPDATE',[questionId,institutionId]);
   if(!previous.rowCount || (!reviewer && previous.rows[0].created_by!==userId))return null;
   const old=previous.rows[0];
+  if(allowedFrom&&!allowedFrom.includes(old.status))throw Object.assign(new Error('Somente rascunhos ou questões com ajustes podem ser enviados para revisão em lote.'),{statusCode:409});
   if(value.revision && value.revision!==old.current_revision)throw Object.assign(new Error('A questão foi editada. Revise a versão atual antes de alterar o status.'),{statusCode:409});
   checkQuestionTransition(old.status,value.status,reviewer,value.reason);
   const r=await db.query('UPDATE questions SET status=$2,updated_at=now() WHERE id=$1 RETURNING id,public_code,current_revision,status,updated_at',[questionId,value.status]);

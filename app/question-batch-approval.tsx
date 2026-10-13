@@ -12,11 +12,12 @@ type Selection = {
 };
 const Context = createContext<Selection | null>(null);
 type Result = {
-  approved: number;
+  completed: number;
+  status: 'review' | 'approved';
   rejected: number;
   results: Array<{
     id: string;
-    approved: boolean;
+    completed: boolean;
     code?: string;
     error?: string;
   }>;
@@ -41,11 +42,12 @@ export function QuestionBatchApproval({
   const [result, setResult] = useState<Result | null>(null);
   const eligible = questions.filter(
     (q) =>
-      q.status === 'Em revisão' &&
+      ['Rascunho', 'Precisa de ajustes', 'Em revisão'].includes(q.status) &&
       Number.isInteger(q.revision) &&
       Number(q.revision) > 0,
   );
   const selected = eligible.filter((q) => choices[q.id] === q.revision);
+  const pendingReview = selected.filter((q) => q.status !== 'Em revisão');
   function toggle(q: Question) {
     setChoices((current) => {
       const next = Object.fromEntries(
@@ -65,18 +67,19 @@ export function QuestionBatchApproval({
           ),
     );
   }
-  async function approve() {
+  async function applyStatus(status: 'review' | 'approved') {
+    const targets = status === 'review' ? pendingReview : selected;
     setBusy(true);
     setMessage('');
     setResult(null);
     try {
       const response = await apiFetch(
-        `${apiUrl}/api/questions/status/bulk-approve`,
+        `${apiUrl}/api/questions/status/${status === 'review' ? 'bulk-review' : 'bulk-approve'}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            questions: selected.map((q) => ({
+            questions: targets.map((q) => ({
               id: q.id,
               revision: q.revision,
             })),
@@ -84,19 +87,42 @@ export function QuestionBatchApproval({
           }),
         },
       );
-      const body = (await response.json()) as { data?: Result; error?: string };
+      const body = (await response.json()) as {
+        data?: {
+          approved?: number;
+          updated?: number;
+          rejected: number;
+          results: Array<{
+            id: string;
+            approved?: boolean;
+            updated?: boolean;
+            code?: string;
+            error?: string;
+          }>;
+        };
+        error?: string;
+      };
       if (!response.ok || !body.data)
-        throw new Error(body.error || 'Não foi possível aprovar as questões.');
+        throw new Error(
+          body.error || 'Não foi possível atualizar a situação das questões.',
+        );
       setResult({
-        ...body.data,
+        completed: body.data.approved ?? body.data.updated ?? 0,
+        rejected: body.data.rejected,
+        status,
         results: body.data.results.map((item) => ({
           ...item,
+          completed: Boolean(item.approved ?? item.updated),
           code:
             item.code ||
             selected.find((question) => question.id === item.id)?.code,
         })),
       });
-      setChoices({});
+      setChoices(
+        status === 'review'
+          ? Object.fromEntries(selected.map((q) => [q.id, q.revision!]))
+          : {},
+      );
       setReason('');
       try {
         await onChanged();
@@ -107,7 +133,9 @@ export function QuestionBatchApproval({
       }
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Falha na aprovação em lote.',
+        error instanceof Error
+          ? error.message
+          : 'Falha na alteração de situação em lote.',
       );
     } finally {
       setBusy(false);
@@ -118,18 +146,27 @@ export function QuestionBatchApproval({
     <Context.Provider value={{ busy, selected, eligible, toggle, toggleAll }}>
       <div className="border-b border-blue-100 bg-blue-50/50 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <strong className="text-sm text-slate-800">Aprovação em lote</strong>
+          <strong className="text-sm text-slate-800">Situação em lote</strong>
           <span className="text-xs text-slate-600">
-            {selected.length} selecionadas · somente questões visíveis em
-            revisão · até 100 por lote
+            {selected.length} selecionadas · {pendingReview.length} para enviar
+            à revisão · até 100 por lote
           </span>
           <Button
             type="button"
             size="sm"
-            disabled={busy || !selected.length}
-            onClick={() => void approve()}
+            variant="outline"
+            disabled={busy || !pendingReview.length}
+            onClick={() => void applyStatus('review')}
           >
-            {busy ? 'Aprovando…' : 'Aprovar selecionadas'}
+            Enviar selecionadas para revisão
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy || !selected.length || pendingReview.length > 0}
+            onClick={() => void applyStatus('approved')}
+          >
+            {busy ? 'Atualizando…' : 'Aprovar selecionadas'}
           </Button>
           {!!selected.length && (
             <Button
@@ -143,6 +180,11 @@ export function QuestionBatchApproval({
             </Button>
           )}
         </div>
+        <p className="mt-2 text-xs text-slate-600">
+          Selecione os rascunhos e envie para revisão. Depois confira as
+          questões e clique em Aprovar selecionadas. Questões aprovadas ou
+          arquivadas não são selecionáveis.
+        </p>
         {!!selected.length && (
           <label className="mt-3 block max-w-xl text-xs text-slate-600">
             Observação para o histórico (opcional)
@@ -158,7 +200,11 @@ export function QuestionBatchApproval({
         {result && (
           <div className="mt-3 text-sm" aria-live="polite">
             <p>
-              {result.approved} aprovadas; {result.rejected} não aprovadas.
+              {result.completed}{' '}
+              {result.status === 'review'
+                ? 'enviadas para revisão'
+                : 'aprovadas'}
+              ; {result.rejected} não atualizadas.
             </p>
             <details className="mt-2">
               <summary className="cursor-pointer">
@@ -170,7 +216,12 @@ export function QuestionBatchApproval({
                     {r.code ||
                       questions.find((q) => q.id === r.id)?.code ||
                       r.id}
-                    : {r.approved ? 'Aprovada' : r.error}
+                    :{' '}
+                    {r.completed
+                      ? result.status === 'review'
+                        ? 'Em revisão'
+                        : 'Aprovada'
+                      : r.error}
                   </li>
                 ))}
               </ul>
@@ -219,12 +270,12 @@ export function QuestionApprovalCheckbox({
         }
         aria-label={
           question
-            ? `Selecionar ${question.code} para aprovação`
-            : 'Selecionar até 100 questões visíveis em revisão'
+            ? `Selecionar ${question.code} para alterar situação`
+            : 'Selecionar até 100 questões visíveis para revisão ou aprovação'
         }
         title={
           !eligible
-            ? 'Somente questões em revisão podem ser aprovadas'
+            ? 'Questões aprovadas, arquivadas ou sem revisão carregada não são selecionáveis'
             : undefined
         }
         onChange={() =>
