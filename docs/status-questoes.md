@@ -15,3 +15,9 @@ Validação: `node --test services/api/question-workflow.test.mjs services/api/q
 ## Correção da consulta do histórico
 
 O identificador em `audit_log.entity_id` é texto, conforme a migração 019; o identificador em `questions.id` é UUID. A consulta do histórico converte o parâmetro explicitamente para cada tipo, evitando o erro PostgreSQL `uuid = text`. O teste de integração reproduz essa diferença de tipos e verifica histórico vazio, histórico de alterações e isolamento entre instituições.
+
+## Aprovação em lote
+
+O administrador pode selecionar questões visíveis em revisão e usar **Aprovar selecionadas**, até 100 por operação. O cabeçalho seleciona até 100 questões elegíveis da lista filtrada. Questões em outros estados e sem revisão carregada não podem ser selecionadas.
+
+`POST /api/questions/status/bulk-approve` recebe `questions: [{id, revision}]` e uma observação opcional. A API exige administrador geral, origem autorizada e identificadores únicos. Cada item usa a mesma transação, validação de revisão e registro de histórico da aprovação individual. Uma questão impedida não cancela as aprovações dos demais itens; o resultado informa o desfecho de cada questão. Não é necessário alterar o esquema do banco.
