@@ -17,7 +17,7 @@ export async function changeQuestionStatus({institutionId,userId,role='teacher',
  });
 }
 export async function questionStatusHistory({institutionId,questionId}){
- const r=await pool.query("SELECT a.created_at,u.display_name AS changed_by,a.metadata FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.institution_id=$1 AND a.entity_id=$2 AND a.action='question.status_changed' AND EXISTS(SELECT 1 FROM questions q WHERE q.id=$2 AND q.institution_id=$1) ORDER BY a.created_at DESC,a.id DESC LIMIT 50",[institutionId,questionId]);return r.rows;
+ const r=await pool.query("SELECT a.created_at,u.display_name AS changed_by,a.metadata FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.institution_id=$1 AND a.entity_id=$2::text AND a.action='question.status_changed' AND EXISTS(SELECT 1 FROM questions q WHERE q.id=$2::uuid AND q.institution_id=$1) ORDER BY a.created_at DESC,a.id DESC LIMIT 50",[institutionId,questionId]);return r.rows;
 }
 
 export async function assertApprovedQuestionSelection(db,institutionIds,questionIds){
