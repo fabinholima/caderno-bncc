@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
 import { QuestionStatusControl } from './question-status-control';
+import { QuestionBatchApproval, QuestionApprovalCheckbox } from './question-batch-approval';
 import { WorkspaceHome } from './workspace-home';
 import { QuestionPasteExample } from './question-paste-example';
 import { QuestionDraftControls, type DraftPayload, type DraftActions } from './question-draft-controls';
@@ -1809,10 +1810,14 @@ export default function Home() {
                   )}
                 </div>
               </div>
+              <QuestionBatchApproval apiUrl={apiUrl} questions={visible} enabled={Boolean(identity.portalAdmin)} onChanged={async()=>{
+                const response=await apiFetch(`${apiUrl}/api/questions`,{cache:'no-store'});if(!response.ok)throw new Error('Falha ao atualizar a lista.');setQuestions(((await response.json()) as {data:Question[]}).data);
+              }}>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[920px] border-collapse text-left">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-[.08em] text-slate-500">
+                      {identity.portalAdmin && <th className="w-12 px-3 py-3"><QuestionApprovalCheckbox /></th>}
                       <th className="w-[47%] px-5 py-3">Questão</th>
                       <th className="px-4 py-3">BNCC</th>
                       <th className="px-4 py-3">Dificuldade</th>
@@ -1829,6 +1834,7 @@ export default function Home() {
                         key={q.id}
                         className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30"
                       >
+                        {identity.portalAdmin && <td className="px-3 py-4"><QuestionApprovalCheckbox question={q} /></td>}
                         <td className="px-5 py-4">
                           <div className="flex gap-3">
                             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-[10px] font-bold text-slate-500">
@@ -1936,6 +1942,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
+              </QuestionBatchApproval>
               <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-xs text-slate-500">
                 <span>
                   Exibindo {visible.length} de {questions.length} questões desta

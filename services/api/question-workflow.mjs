@@ -2,6 +2,21 @@ import {z} from 'zod';
 import {pool,transaction} from './db.mjs';
 import {checkQuestionTransition} from '../../lib/question-workflow.mjs';
 export const workflowSchema=z.object({status:z.enum(['draft','review','needs_adjustments','approved','archived']),reason:z.string().trim().max(1000).default(''),revision:z.number().int().positive().optional()});
+export const bulkApprovalSchema=z.object({questions:z.array(z.object({id:z.uuid(),revision:z.number().int().positive()})).min(1).max(100),reason:z.string().trim().max(1000).default('')}).refine(value=>new Set(value.questions.map(q=>q.id)).size===value.questions.length,'Não repita questões na seleção.');
+export async function approveQuestionsInBulk({institutionId,userId,role='teacher',input}){
+ if(role!=='admin')throw Object.assign(new Error('Somente o administrador geral pode aprovar questões em lote.'),{statusCode:403});
+ const value=bulkApprovalSchema.parse(input);const results=[];
+ for(const question of value.questions){
+  try{
+   const approved=await changeQuestionStatus({institutionId,userId,role,questionId:question.id,input:{status:'approved',revision:question.revision,reason:value.reason}});
+   results.push(approved?{id:question.id,approved:true,code:approved.code}:{id:question.id,approved:false,error:'Questão não encontrada neste banco.'});
+  }catch(error){
+   if(!error.statusCode)console.error('Falha na aprovação em lote',error);
+   results.push({id:question.id,approved:false,error:error.statusCode?error.message:'Não foi possível aprovar esta questão. Tente novamente.'});
+  }
+ }
+ return {approved:results.filter(r=>r.approved).length,rejected:results.filter(r=>!r.approved).length,results};
+}
 export async function changeQuestionStatus({institutionId,userId,role='teacher',questionId,input}){
  const value=workflowSchema.parse(input),reviewer=role==='admin';
  if(value.status==='approved' && !value.revision)throw Object.assign(new Error('Informe a revisão conferida para aprovar a questão.'),{statusCode:422});
