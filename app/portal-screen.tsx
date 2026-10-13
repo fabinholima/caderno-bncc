@@ -337,6 +337,8 @@ export default function Home() {
   const [previewing, setPreviewing] = useState(false);
   const [questionPreviewUrl, setQuestionPreviewUrl] = useState('');
   const [questionPreviewVerified, setQuestionPreviewVerified] = useState(false);
+  const [questionPreviewMode,setQuestionPreviewMode]=useState<'student'|'answer-key'>('student');
+  const [quickPreviewMode,setQuickPreviewMode]=useState<'student'|'answer-key'>('student');
   const [questionPreviewError, setQuestionPreviewError] = useState('');
   const [notice, setNotice] = useState('');
   const [quickPreviewQuestion, setQuickPreviewQuestion] = useState<any>(null);
@@ -879,15 +881,16 @@ export default function Home() {
     };
   }
 
-  async function previewQuestion(form: HTMLFormElement) {
+  async function previewQuestion(form: HTMLFormElement, previewMode:'student'|'answer-key'='student') {
     setPreviewing(true);
+    setQuestionPreviewUrl(current=>{if(current)URL.revokeObjectURL(current);return '';});
     setNotice('');
     setQuestionPreviewError('');
     try {
       const response = await apiFetch(`${apiUrl}/api/questions/preview`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(questionInputFromForm(new FormData(form))),
+        body: JSON.stringify({...questionInputFromForm(new FormData(form)),previewMode}),
       });
       if (!response.ok) {
         const raw = await response.text();
@@ -915,9 +918,10 @@ export default function Home() {
         if (current) URL.revokeObjectURL(current);
         return nextUrl;
       });
-      setQuestionPreviewVerified(true);
+      setQuestionPreviewMode(previewMode);
+      if(previewMode==='student')setQuestionPreviewVerified(true);
       setNotice(
-        'Prévia gerada. Confira o PDF; se estiver correto, o cadastro da questão está liberado.',
+        previewMode==='answer-key'?'Prévia da resolução gerada. Confira o gabarito comentado.':'Prévia gerada. Confira o PDF; se estiver correto, o cadastro da questão está liberado.',
       );
     } catch (error) {
       const message =
@@ -1029,16 +1033,20 @@ export default function Home() {
     }
   }
 
-  async function previewQuestionInBank(question: Question) {
+  async function previewQuestionInBank(question: Question, previewMode:'student'|'answer-key'='student') {
     if (!apiUrl) return;
     setQuickPreviewLoading(true);
     setQuickPreviewError('');
+    setQuickPreviewMode(previewMode);
+    setQuickPreviewPdfUrl(current=>{if(current)URL.revokeObjectURL(current);return '';});
+    try {
     const response = await apiFetch(`${apiUrl}/api/questions/${question.id}`);
     if (response.ok) {
       const body = (await response.json()) as { data: any };
       const detail = body.data;
       setQuickPreviewQuestion(detail);
       const input = {
+        previewMode,
         type: detail.type,
         statement: detail.statement.map((node: any) => node.text || node.code || node.tex || node.formula || '').join('\n'),
         statementBlocks: detail.statement,
@@ -1082,7 +1090,7 @@ export default function Home() {
     } else {
       throw new Error('Não foi possível carregar a questão.');
     }
-    setQuickPreviewLoading(false);
+    } finally {setQuickPreviewLoading(false);}
   }
 
   async function removeQuestion(question: Question) {
@@ -2818,6 +2826,7 @@ export default function Home() {
                   <Eye className="size-4" />
                   {previewing ? 'Compilando...' : 'Prévia real em PDF'}
                 </Button>
+                <Button type="button" variant="outline" disabled={previewing||!apiUrl} onClick={event=>void previewQuestion(event.currentTarget.form!,'answer-key')}><Eye className="size-4"/>Prévia da resolução</Button>
                 <Button
                   disabled={
                     saving ||
@@ -2840,7 +2849,7 @@ export default function Home() {
                 <section className="m-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:m-6">
                   <div className="flex items-center justify-between">
                     <strong className="text-sm">
-                      PDF compilado pelo ConTeXt
+                      {questionPreviewMode==='answer-key'?'Resolução — PDF compilado pelo ConTeXt':'Questão — PDF compilado pelo ConTeXt'}
                     </strong>
                     <a
                       href={questionPreviewUrl}
@@ -2852,7 +2861,7 @@ export default function Home() {
                     </a>
                   </div>
                   <iframe
-                    title="Prévia real da questão em PDF"
+                    title={questionPreviewMode==='answer-key'?'Prévia real da resolução em PDF':'Prévia real da questão em PDF'}
                     src={questionPreviewUrl}
                     className="h-[620px] w-full rounded-lg border bg-white"
                   />
@@ -2894,9 +2903,14 @@ export default function Home() {
               </div>
               <button type="button" className="text-slate-500 hover:text-slate-900" onClick={() => { setQuickPreviewQuestion(null); setQuickPreviewError(''); if (quickPreviewPdfUrl) URL.revokeObjectURL(quickPreviewPdfUrl); setQuickPreviewPdfUrl(''); }} aria-label="Fechar prévia"><X /></button>
             </div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Button type="button" variant={quickPreviewMode==='student'?'default':'outline'} disabled={quickPreviewLoading} onClick={()=>void previewQuestionInBank(quickPreviewQuestion,'student').catch(error=>setQuickPreviewError(error.message))}>Questão</Button>
+              <Button type="button" variant={quickPreviewMode==='answer-key'?'default':'outline'} disabled={quickPreviewLoading||!quickPreviewQuestion.explanation?.length} onClick={()=>void previewQuestionInBank(quickPreviewQuestion,'answer-key').catch(error=>setQuickPreviewError(error.message))}>Resolução e gabarito</Button>
+              {!quickPreviewQuestion.explanation?.length&&<span className="self-center text-xs text-slate-500">Esta questão ainda não tem resolução cadastrada.</span>}
+            </div>
             {quickPreviewLoading && <p className="text-sm text-slate-500">Compilando prévia com ConTeXt...</p>}
             {quickPreviewError && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-red-950 p-3 text-xs text-red-100">{quickPreviewError}</pre>}
-            {quickPreviewPdfUrl && <iframe title={`Prévia ConTeXt ${quickPreviewQuestion.code}`} src={quickPreviewPdfUrl} className="h-[65vh] w-full rounded-lg border bg-white" />}
+            {quickPreviewPdfUrl && <iframe title={`${quickPreviewMode==='answer-key'?'Resolução':'Questão'} ConTeXt ${quickPreviewQuestion.code}`} src={quickPreviewPdfUrl} className="h-[65vh] w-full rounded-lg border bg-white" />}
           </section>
         </div>
       )}
