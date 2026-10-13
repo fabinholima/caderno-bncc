@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
 import { QuestionStatusControl } from './question-status-control';
 import { QuestionBatchApproval, QuestionApprovalCheckbox } from './question-batch-approval';
 import { WorkspaceHome } from './workspace-home';
+import { WorkspaceNavigation } from './workspace-navigation';
 import { QuestionPasteExample } from './question-paste-example';
 import { QuestionDraftControls, type DraftPayload, type DraftActions } from './question-draft-controls';
 import { fundamentalRows, fundamentalYears } from '@/lib/fundamental-curriculum.mjs';
@@ -28,7 +29,6 @@ import {
   Users,
   X,
   ScanLine,
-  Sprout,
   Menu,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -237,19 +237,6 @@ const initialQuestions: Question[] = [
   },
 ];
 
-const nav = [
-  ['Início', LayoutDashboard],
-  ['Preparar', BookOpenCheck],
-  ['Corrigir', ScanLine],
-  ['Diagnosticar', BarChart3],
-  ['Recuperar', Sprout],
-  ['Questões', LibraryBig],
-  ['Importar provas', FileInput],
-  ['Planejamento', BookOpenCheck],
-  ['Avaliações', FileOutput],
-  ['Turmas e alunos', Users],
-  ['Resultados', BarChart3],
-] as const;
 const highSchoolSubjectAreas: Record<string, string[]> = {
   'Linguagens e suas Tecnologias': ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
   'Matemática e suas Tecnologias': ['Matemática'],
@@ -1167,11 +1154,6 @@ export default function Home() {
   if (!identity.portalAdmin && !identity.user.cpfComplete) return <CompleteCpf apiUrl={apiUrl} />;
   if (!identity.portalAdmin && !identity.user.profileComplete) return <EducatorProfile apiUrl={apiUrl} onboarding />;
   const canEditCatalog = Boolean(identity.portalAdmin || identity.portalEditor);
-  const visibleNav = [
-    ...(canEditCatalog ? nav : nav.filter(([label]) => label !== 'Importar provas')),
-    ['Minhas escolas', BookOpenCheck] as const,
-    ...(identity.portalAdmin ? [['Assinantes', Users] as const, ['Receitas', BarChart3] as const] : []),
-  ];
 
   return (
     <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
@@ -1190,30 +1172,14 @@ export default function Home() {
           </div>
         </div>
         <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-6">
-          <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">
-            Espaço de trabalho
-          </p>
-          {visibleNav.map(([label, Icon]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => { setInitialApplicationId(''); setActive(label); }}
-              className={`mb-1 flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition ${active === label ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/7 hover:text-white'}`}
-            >
-              <Icon className="size-[18px]" />
-              {label}
-              {label === 'Questões' && (
-                <span className="ml-auto rounded-full bg-[var(--lime)] px-2 py-0.5 text-[10px] font-bold text-[var(--navy)]">
-                  {questions.length}
-                </span>
-              )}
-            </button>
-          ))}
+          <WorkspaceNavigation active={active} canEditCatalog={canEditCatalog} portalAdmin={Boolean(identity.portalAdmin)} questionCount={questions.length} onNavigate={view=>{setInitialApplicationId('');setActive(view);window.scrollTo({top:0});}} />
         </nav>
         <div className="border-t border-white/10 p-3">
           {<button
-            onClick={() => setActive('Configurações')}
-            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7"
+            type="button"
+            aria-current={active==='Configurações'?'page':undefined}
+            onClick={() => {setInitialApplicationId('');setActive('Configurações');window.scrollTo({top:0});}}
+            className={`flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm ${active==='Configurações'?'bg-white/12 text-white':'text-slate-300 hover:bg-white/7'}`}
           >
             <Settings className="size-[18px]" />
             Configurações
@@ -1289,22 +1255,9 @@ export default function Home() {
         </header>
         <nav
           aria-label="Navegação principal móvel"
-          className={`${mobileMenuOpen ? 'flex' : 'hidden'} sticky top-[76px] z-20 flex-wrap gap-2 border-b border-slate-200 bg-white px-4 py-3 lg:hidden`}
+          className={`${mobileMenuOpen ? 'block' : 'hidden'} sticky top-[76px] z-20 max-h-[calc(100dvh-160px)] overflow-y-auto border-b border-slate-200 bg-white px-4 py-4 lg:hidden`}
         >
-          {[
-            ...visibleNav,
-            ...([['Configurações', Settings] as const]),
-          ].map(([label, Icon]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => { setInitialApplicationId(''); setActive(label); setMobileMenuOpen(false); }}
-              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${active === label ? 'bg-[var(--navy)] text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
-            >
-              <Icon className="size-4" />
-              {label}
-            </button>
-          ))}
+          <WorkspaceNavigation mobile active={active} canEditCatalog={canEditCatalog} portalAdmin={Boolean(identity.portalAdmin)} questionCount={questions.length} onNavigate={view=>{setInitialApplicationId('');setActive(view);setMobileMenuOpen(false);window.scrollTo({top:0});}} />
         </nav>
         {active === 'Início' || active === 'Preparar' || active === 'Recuperar' ? (
           <WorkspaceHome key={active} apiUrl={apiUrl} name={identity.user.displayName} view={active} canEditCatalog={canEditCatalog}
