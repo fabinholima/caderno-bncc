@@ -1,4 +1,4 @@
-import {questionStatusHistory,approveQuestionsInBulk} from './question-workflow.mjs';
+import {questionStatusHistory,approveQuestionsInBulk,sendQuestionsToReviewInBulk} from './question-workflow.mjs';
 import {listDrafts,getDraft,saveDraft,completeDraft} from './question-drafts.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
 import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './maintenance.mjs';
@@ -1077,9 +1077,9 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
-    if(request.method==='POST' && url.pathname==='/api/questions/status/bulk-approve'){
+    if(request.method==='POST' && ['/api/questions/status/bulk-approve','/api/questions/status/bulk-review'].includes(url.pathname)){
       if(!requestOrigin || !allowedOrigins.has(requestOrigin))return json(response,403,{error:'Origem não autorizada.'});
-      return json(response,200,{data:await approveQuestionsInBulk({institutionId,userId,role:identity.portalAdmin&&!identity.developmentBypass?'admin':'teacher',input:await readJson(request)})});
+      return json(response,200,{data:await (url.pathname.endsWith('bulk-review')?sendQuestionsToReviewInBulk:approveQuestionsInBulk)({institutionId,userId,role:identity.portalAdmin&&!identity.developmentBypass?'admin':'teacher',input:await readJson(request)})});
     }
     const historyMatch=request.method==='GET' && url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/status-history$/i);
     if(historyMatch){response.setHeader('cache-control','no-store');return json(response,200,{data:await questionStatusHistory({institutionId,userId,questionId:historyMatch[1]})});}
