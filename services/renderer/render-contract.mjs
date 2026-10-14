@@ -1,5 +1,5 @@
 import { getRenderTemplate } from './template-registry.mjs';
-import { withoutEmbeddedMetaPost } from '../../lib/embedded-metapost.mjs';
+import { withoutEmbeddedMetaPost, validMetaPost } from '../../lib/embedded-metapost.mjs';
 import {
   DEFAULT_RENDER_FONT,
   isRenderFontId,
@@ -23,9 +23,6 @@ export function escapeContext(value = '') {
     contextEscapes.get(character),
   );
 }
-
-const forbiddenMetaPost =
-  /(?:\\|\^\^|runscript|scantokens|readfrom|write\s|closefrom|closeout|input\s|loadmodule|verbatimtex)/i;
 
 const forbiddenContextFormula =
   /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;
@@ -299,7 +296,7 @@ function richText(nodes = []) {
     }
     if (node.type === 'metapost') {
       const code = String(node.code ?? '').trim();
-      if (!code || code.length > 50_000 || forbiddenMetaPost.test(code)) {
+      if (!code || code.length > 50_000 || !validMetaPost(code)) {
         throw new Error('Bloco MetaPost inválido ou não permitido.');
       }
       return { content: `\\startMPcode\n${code}\n\\stopMPcode`, inline: false };
