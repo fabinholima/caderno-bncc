@@ -1,7 +1,7 @@
 'use client';
 
 import { type SubmitEvent, useEffect, useState } from 'react';
-import { Eye, EyeOff, GraduationCap, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, ShieldCheck, UserPlus, KeyRound, MailCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
@@ -192,7 +192,15 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
           <p className="text-xs text-slate-500">Usado para impedir contas duplicadas. Armazenamos uma identificação protegida, não o CPF em texto aberto. Teste por 7 dias, sem cobrança automática.</p>
         </div>}
         {['login','register'].includes(mode) && <div className="mt-5">
-          <Button type="button" variant="outline" className="h-11 w-full border-slate-200 bg-white font-semibold shadow-sm transition hover:border-blue-300 hover:bg-blue-50/50" disabled={saving || !config.google} onClick={googleLogin}>Continuar com Google</Button>
+          <Button type="button" variant="outline" className="h-11 w-full gap-3 border-slate-200 bg-white font-semibold shadow-sm transition hover:border-blue-300 hover:bg-blue-50/50" disabled={saving || !config.google} onClick={googleLogin}>
+            <svg viewBox="0 0 48 48" className="size-5 shrink-0" aria-hidden="true" focusable="false">
+              <path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24v7.42h11a9.4 9.4 0 0 1-4.08 6.18v5.14h6.6c3.86-3.56 6.09-8.8 6.09-14.82Z" />
+              <path fill="#34A853" d="M24 44c5.5 0 10.12-1.82 13.49-4.72l-6.6-5.14c-1.83 1.23-4.17 1.98-6.89 1.98-5.3 0-9.79-3.58-11.4-8.4H5.8v5.3A20 20 0 0 0 24 44Z" />
+              <path fill="#FBBC05" d="M12.6 27.72a12 12 0 0 1 0-7.44v-5.3H5.8a20 20 0 0 0 0 18.04l6.8-5.3Z" />
+              <path fill="#EA4335" d="M24 11.88c3 0 5.68 1.03 7.8 3.05l5.85-5.85A19.6 19.6 0 0 0 24 4 20 20 0 0 0 5.8 14.98l6.8 5.3C14.21 15.46 18.7 11.88 24 11.88Z" />
+            </svg>
+            Continuar com Google
+          </Button>
           {!config.google && <p className="mt-2 text-xs text-slate-500">Login Google aguardando configuração. Você pode usar e-mail e senha.</p>}
           <div className="mt-4 flex items-center gap-3 text-center text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>ou use e-mail e senha</span><span className="h-px flex-1 bg-slate-200" /></div>
         </div>}
@@ -268,18 +276,18 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
           {mode === 'login' && (
             <>
               <button
-                className="font-semibold text-blue-700"
+                className="inline-flex items-center gap-2 rounded-md font-semibold text-blue-700 transition hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 onClick={() => setMode('register')}
               >
-                Criar conta
+                <UserPlus size={17} aria-hidden="true" /> Criar conta
               </button>
               <button
-                className="text-slate-500"
+                className="inline-flex items-center gap-2 rounded-md text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 onClick={() => setMode('forgot')}
               >
-                Esqueci minha senha
+                <KeyRound size={17} aria-hidden="true" /> Esqueci minha senha
               </button>
-              <button className="text-slate-500" onClick={() => setMode('resend')}>Reenviar confirmação</button>
+              <button className="inline-flex items-center gap-2 rounded-md text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" onClick={() => setMode('resend')}><MailCheck size={17} aria-hidden="true" /> Reenviar confirmação</button>
             </>
           )}
         </div>
