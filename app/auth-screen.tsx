@@ -149,7 +149,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
     }
   }
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eaf1ff_0%,#f8fafc_52%,#e5f7f0_100%)] px-4 py-6 sm:px-6 sm:py-10">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#edf4ff_0%,#f8fafc_52%,#e8f7f2_100%)] px-4 py-5 font-sans sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-blue-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -right-20 size-96 rounded-full bg-emerald-200/25 blur-3xl" />
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur lg:grid-cols-[.9fr_1.1fr]">
@@ -159,15 +159,16 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
         </div>
         <div className="p-6 sm:p-9 lg:p-11">
         <div className="flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-xl bg-[var(--navy)] text-white">
+          <span className="grid size-11 place-items-center rounded-2xl bg-[var(--navy)] text-white shadow-lg shadow-blue-950/15">
             <GraduationCap />
           </span>
           <div>
-            <h1 className="font-display text-xl font-bold">UfaProva</h1>
-            <p className="text-sm text-slate-500">Plataforma de avaliações</p>
+            <h1 className="font-display text-xl font-bold tracking-tight text-slate-950">UfaProva</h1>
+            <p className="text-xs font-medium text-slate-500">Plataforma de avaliações</p>
           </div>
         </div>
-        <h2 className="mt-7 text-2xl font-bold text-slate-950">
+        <p className="mt-7 text-xs font-bold uppercase tracking-[.18em] text-blue-700">Acesso seguro</p>
+        <h2 className="mt-2 text-3xl font-display font-bold tracking-tight text-slate-950">
           {mode === 'verify' ? 'Confirmar seu e-mail'
             : mode === 'resend' ? 'Reenviar confirmação'
             : mode === 'register'
@@ -178,7 +179,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
                 ? 'Definir nova senha'
                 : 'Entrar'}
         </h2>
-        {['login','register'].includes(mode) && <fieldset className="mt-5"><legend className="mb-2 text-sm font-semibold text-slate-700">Tipo de acesso</legend><div className="grid gap-2 sm:grid-cols-2"><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm transition ${accountType==='educator' ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='educator'} onChange={()=>setAccountType('educator')} /> Professor ou gestor</label><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm transition ${accountType==='student' ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='student'} onChange={()=>setAccountType('student')} /> Aluno</label></div></fieldset>}
+        {['login','register'].includes(mode) && <fieldset className="mt-5"><legend className="mb-2 text-sm font-semibold text-slate-700">Tipo de acesso</legend><div className="grid gap-2 sm:grid-cols-2"><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-medium transition ${accountType==='educator' ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='educator'} onChange={()=>setAccountType('educator')} /> Professor ou gestor</label><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-medium transition ${accountType==='student' ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='student'} onChange={()=>setAccountType('student')} /> Aluno</label></div></fieldset>}
         {mode === 'register' && accountType === 'student' && <p className="mt-2 text-sm text-slate-500">Crie sua conta e solicite entrada com o código da turma. Seu professor aprovará o vínculo.</p>}
         {mode === 'register' && accountType !== 'student' && <p className="mt-2 text-sm text-slate-500">Após criar a conta, cadastre seu perfil de professor ou coordenador e as escolas para o cabeçalho das provas.</p>}
         {mode === 'register' && accountType !== 'student' && <div className="mt-4 space-y-2">
@@ -189,7 +190,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
         {['login','register'].includes(mode) && <div className="mt-4">
           <Button type="button" variant="outline" className="w-full" disabled={saving || !config.google} onClick={googleLogin}>Continuar com Google</Button>
           {!config.google && <p className="mt-2 text-xs text-slate-500">Login Google aguardando configuração. Você pode usar e-mail e senha.</p>}
-          <p className="mt-4 text-center text-xs text-slate-500">ou use e-mail e senha</p>
+          <div className="mt-4 flex items-center gap-3 text-center text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>ou use e-mail e senha</span><span className="h-px flex-1 bg-slate-200" /></div>
         </div>}
         <form className="mt-5 space-y-3" onSubmit={submit}>
           {mode === 'register' && (
