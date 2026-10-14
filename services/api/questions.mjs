@@ -16,10 +16,7 @@ export function questionCodePrefix(subject) {
   return prefixes.get(normalized) || 'QST';
 }
 import { prepareChemicalStructureBlocks } from './chemical-structures.mjs';
-import { withoutEmbeddedMetaPost } from '../../lib/embedded-metapost.mjs';
-
-const forbiddenMetaPost =
-  /(?:\\|\^\^|runscript|scantokens|readfrom|write\s|closefrom|closeout|input\s|loadmodule|verbatimtex)/i;
+import { withoutEmbeddedMetaPost, validMetaPost } from '../../lib/embedded-metapost.mjs';
 
 const forbiddenContextFormula =
   /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;
@@ -31,7 +28,7 @@ export const metapostCodeSchema = z
   .trim()
   .max(50_000)
   .refine(
-    (code) => !code || !forbiddenMetaPost.test(code),
+    (code) => !code || validMetaPost(code),
     'O código MetaPost contém um comando não permitido no ambiente seguro.',
   );
 
