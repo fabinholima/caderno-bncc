@@ -1,7 +1,7 @@
 'use client';
 
 import { type SubmitEvent, useEffect, useState } from 'react';
-import { Eye, EyeOff, GraduationCap } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
@@ -167,7 +167,10 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
             <p className="text-xs font-medium text-slate-500">Plataforma de avaliações</p>
           </div>
         </div>
-        <p className="mt-7 text-xs font-bold uppercase tracking-[.18em] text-blue-700">Acesso seguro</p>
+        <div className="mt-8 flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-blue-700">
+          <ShieldCheck size={15} strokeWidth={2.5} aria-hidden="true" />
+          <span>Acesso seguro</span>
+        </div>
         <h2 className="mt-2 text-3xl font-display font-bold tracking-tight text-slate-950">
           {mode === 'verify' ? 'Confirmar seu e-mail'
             : mode === 'resend' ? 'Reenviar confirmação'
@@ -179,6 +182,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
                 ? 'Definir nova senha'
                 : 'Entrar'}
         </h2>
+        {mode === 'login' && <p className="mt-2 text-sm leading-6 text-slate-500">Entre para continuar suas avaliações e acompanhar seus resultados.</p>}
         {['login','register'].includes(mode) && <fieldset className="mt-5"><legend className="mb-2 text-sm font-semibold text-slate-700">Tipo de acesso</legend><div className="grid gap-2 sm:grid-cols-2"><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-medium transition ${accountType==='educator' ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='educator'} onChange={()=>setAccountType('educator')} /> Professor ou gestor</label><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-medium transition ${accountType==='student' ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='student'} onChange={()=>setAccountType('student')} /> Aluno</label></div></fieldset>}
         {mode === 'register' && accountType === 'student' && <p className="mt-2 text-sm text-slate-500">Crie sua conta e solicite entrada com o código da turma. Seu professor aprovará o vínculo.</p>}
         {mode === 'register' && accountType !== 'student' && <p className="mt-2 text-sm text-slate-500">Após criar a conta, cadastre seu perfil de professor ou coordenador e as escolas para o cabeçalho das provas.</p>}
@@ -187,8 +191,8 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
           <Input id="auth-cpf" value={cpf} onChange={(event) => setCpf(event.target.value)} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" autoComplete="off" />
           <p className="text-xs text-slate-500">Usado para impedir contas duplicadas. Armazenamos uma identificação protegida, não o CPF em texto aberto. Teste por 7 dias, sem cobrança automática.</p>
         </div>}
-        {['login','register'].includes(mode) && <div className="mt-4">
-          <Button type="button" variant="outline" className="w-full" disabled={saving || !config.google} onClick={googleLogin}>Continuar com Google</Button>
+        {['login','register'].includes(mode) && <div className="mt-5">
+          <Button type="button" variant="outline" className="h-11 w-full border-slate-200 bg-white font-semibold shadow-sm transition hover:border-blue-300 hover:bg-blue-50/50" disabled={saving || !config.google} onClick={googleLogin}>Continuar com Google</Button>
           {!config.google && <p className="mt-2 text-xs text-slate-500">Login Google aguardando configuração. Você pode usar e-mail e senha.</p>}
           <div className="mt-4 flex items-center gap-3 text-center text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>ou use e-mail e senha</span><span className="h-px flex-1 bg-slate-200" /></div>
         </div>}
