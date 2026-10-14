@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 
 export type BuilderQuestion = {
+  recommendSingleColumn?: boolean;
   id: string;
   code: string;
   statement: string;
@@ -1094,6 +1095,7 @@ export function AssessmentBuilder({
                           </span>
                         )}
                       </div>
+                      {question.recommendSingleColumn && <p className="mb-1 text-xs font-semibold text-blue-700">Recomendada uma coluna · figura ou conteúdo amplo</p>}
                       <p className="text-sm font-medium leading-5 text-slate-800">
                         {question.statement}
                       </p>
@@ -1108,7 +1110,7 @@ export function AssessmentBuilder({
                           onChange={() => toggleFullWidth(question.id)}
                           className="accent-blue-600"
                         />
-                        Usar largura total (1 coluna) para esta questão
+                        {question.recommendSingleColumn ? 'Aplicar sugestão: usar largura total (1 coluna)' : 'Usar largura total (1 coluna) para esta questão'}
                       </label>
                     )}
                 </article>
