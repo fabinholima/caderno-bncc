@@ -27,11 +27,11 @@ test('billing is opt-in and forbidden with development bypass', () => {
 test('prices are server-controlled and input cannot override amount', () => {
   assert.equal(
     checkoutSelection({ plan: 'professor', cycle: 'monthly', amount: 1 }).cents,
-    2990,
+    4990,
   );
   assert.equal(
     checkoutSelection({ plan: 'escola', cycle: 'annual' }).cents,
-    149900,
+    199900,
   );
   assert.throws(() => checkoutSelection({ plan: 'trial', cycle: 'monthly' }));
   assert.throws(() =>
