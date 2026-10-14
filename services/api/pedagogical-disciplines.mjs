@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 
+export function normalizeHighSchoolGrade(value) {
+  const text = String(value ?? '').trim().toLowerCase();
+  const match = text.match(/([123])/);
+  if (!match) return value;
+  if (!/(?:ano|s[ée]rie)/i.test(text)) return value;
+  return `${match[1]}ª série`;
+}
+
 export const createPedagogicalDisciplineSchema = z.object({
   name: z.string().trim().min(2).max(120),
   areaSourceKey: z

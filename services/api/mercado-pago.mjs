@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const billingPlans = [
-  { id: 'professor', name: 'Professor', monthly: 2990, annual: 29900 },
-  { id: 'escola', name: 'Escola', monthly: 14990, annual: 149900 },
+  { id: 'professor', name: 'Professor', monthly: 4990, annual: 49900 },
+  { id: 'escola', name: 'Escola', monthly: 19990, annual: 199900 },
 ];
 export const billingError = (message, statusCode = 422) =>
   Object.assign(new Error(message), { statusCode });

@@ -20,8 +20,8 @@ const plans = [
   },
   {
     name: 'Professor',
-    monthly: 'R$ 29,90',
-    yearly: 'R$ 299',
+    monthly: 'R$ 49,90',
+    yearly: 'R$ 499',
     description: 'Seu acervo e suas provas, do seu jeito.',
     features: [
       '1 professor e suas turmas',
@@ -35,8 +35,8 @@ const plans = [
   },
   {
     name: 'Escola',
-    monthly: 'R$ 149,90',
-    yearly: 'R$ 1.499',
+    monthly: 'R$ 199,90',
+    yearly: 'R$ 1.999',
     description: 'Mais colaboração para toda a equipe.',
     features: [
       'Até 10 professores',

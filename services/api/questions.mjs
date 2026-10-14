@@ -2,6 +2,19 @@ import {changeQuestionStatus,workflowSchema} from './question-workflow.mjs';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { pool, transaction } from './db.mjs';
+
+export function questionCodePrefix(subject) {
+  const normalized = String(subject || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const prefixes = new Map([
+    ['matematica', 'MAT'], ['quimica', 'QUI'], ['fisica', 'FIS'],
+    ['biologia', 'BIO'], ['ciencias', 'CIE'], ['historia', 'HIS'],
+    ['geografia', 'GEO'], ['filosofia', 'FIL'], ['sociologia', 'SOC'],
+    ['lingua portuguesa', 'LP'], ['portugues', 'LP'], ['literatura', 'LIT'],
+    ['lingua inglesa', 'ING'], ['ingles', 'ING'], ['arte', 'ART'],
+    ['educacao fisica', 'EDF'],
+  ]);
+  return prefixes.get(normalized) || 'QST';
+}
 import { prepareChemicalStructureBlocks } from './chemical-structures.mjs';
 
 const forbiddenMetaPost =
@@ -962,16 +975,7 @@ export async function createQuestion({ institutionId, userId, input }) {
       'SELECT COUNT(*)::int + 1 AS next FROM questions WHERE institution_id = $1',
       [institutionId],
     );
-    const prefix =
-      value.subject === 'Matemática'
-        ? 'MAT'
-        : value.subject === 'Química'
-          ? 'QUI'
-          : value.subject === 'Ciências'
-            ? 'CIE'
-            : value.subject === 'História'
-              ? 'HIS'
-              : 'LP';
+    const prefix = questionCodePrefix(value.subject);
     const publicCode = `${prefix}-${String(sequence.rows[0].next).padStart(4, '0')}`;
     const question = await client.query(
       `INSERT INTO questions (institution_id, public_code, created_by) VALUES ($1, $2, $3)

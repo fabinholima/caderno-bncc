@@ -149,10 +149,15 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
     }
   }
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eef4ff_0%,#f8fafc_48%,#e8f5f1_100%)] px-5 py-10">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eaf1ff_0%,#f8fafc_52%,#e5f7f0_100%)] px-4 py-6 sm:px-6 sm:py-10">
       <div className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-blue-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -right-20 size-96 rounded-full bg-emerald-200/25 blur-3xl" />
-      <section className="relative w-full max-w-md rounded-[2rem] border border-white/80 bg-white/95 p-7 shadow-2xl shadow-slate-300/40 backdrop-blur sm:p-9">
+      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur lg:grid-cols-[.9fr_1.1fr]">
+        <div className="hidden flex-col justify-between bg-[var(--navy)] p-10 text-white lg:flex">
+          <div><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-200">UfaProva</p><h2 className="mt-5 font-display text-4xl font-bold leading-tight">Avaliações mais claras para ensinar melhor.</h2><p className="mt-5 max-w-sm text-sm leading-6 text-slate-300">Organize seu banco de questões, monte provas e acompanhe a aprendizagem em um só lugar.</p></div>
+          <div className="space-y-3 text-sm text-slate-300"><p>✓ Banco de questões com BNCC</p><p>✓ Pré-visualização dos seus layouts</p><p>✓ Resultados e histórico por turma</p></div>
+        </div>
+        <div className="p-6 sm:p-9 lg:p-11">
         <div className="flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-xl bg-[var(--navy)] text-white">
             <GraduationCap />
@@ -162,7 +167,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
             <p className="text-sm text-slate-500">Plataforma de avaliações</p>
           </div>
         </div>
-        <h2 className="mt-7 text-2xl font-bold">
+        <h2 className="mt-7 text-2xl font-bold text-slate-950">
           {mode === 'verify' ? 'Confirmar seu e-mail'
             : mode === 'resend' ? 'Reenviar confirmação'
             : mode === 'register'
@@ -173,7 +178,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
                 ? 'Definir nova senha'
                 : 'Entrar'}
         </h2>
-        {['login','register'].includes(mode) && <fieldset className="mt-4 flex gap-4"><legend className="text-sm font-semibold">Seu acesso</legend><label><input type="radio" name="accountType" checked={accountType==='educator'} onChange={()=>setAccountType('educator')} /> Professor ou gestor</label><label><input type="radio" name="accountType" checked={accountType==='student'} onChange={()=>setAccountType('student')} /> Aluno</label></fieldset>}
+        {['login','register'].includes(mode) && <fieldset className="mt-5"><legend className="mb-2 text-sm font-semibold text-slate-700">Tipo de acesso</legend><div className="grid gap-2 sm:grid-cols-2"><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm transition ${accountType==='educator' ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='educator'} onChange={()=>setAccountType('educator')} /> Professor ou gestor</label><label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm transition ${accountType==='student' ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="accountType" className="accent-blue-600" checked={accountType==='student'} onChange={()=>setAccountType('student')} /> Aluno</label></div></fieldset>}
         {mode === 'register' && accountType === 'student' && <p className="mt-2 text-sm text-slate-500">Crie sua conta e solicite entrada com o código da turma. Seu professor aprovará o vínculo.</p>}
         {mode === 'register' && accountType !== 'student' && <p className="mt-2 text-sm text-slate-500">Após criar a conta, cadastre seu perfil de professor ou coordenador e as escolas para o cabeçalho das provas.</p>}
         {mode === 'register' && accountType !== 'student' && <div className="mt-4 space-y-2">
@@ -242,7 +247,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
           </Button>
         </form>
         {message && (
-          <output className="mt-3 block text-sm text-slate-600">
+          <output role="status" className="mt-4 block rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-sm leading-5 text-blue-900">
             {message}
           </output>
         )}
@@ -272,6 +277,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
               <button className="text-slate-500" onClick={() => setMode('resend')}>Reenviar confirmação</button>
             </>
           )}
+        </div>
         </div>
       </section>
     </main>
