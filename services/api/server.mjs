@@ -290,6 +290,11 @@ const server = createServer(async (request, response) => {
         setSessionCookie(response, result.token);
         response.setHeader('set-cookie', [response.getHeader('set-cookie'), oauthCookie('', 0)]);
       } catch (error) {
+        console.error('Google OAuth callback failed', {
+          message: error instanceof Error ? error.message : String(error),
+          code: error?.code || null,
+          statusCode: error?.statusCode || null,
+        });
         destination.searchParams.set('auth_error', error.statusCode === 428 ? 'registration_required' : error.statusCode === 409 || error.code === '23505' ? 'existing_account' : 'google_failed');
         response.setHeader('set-cookie', oauthCookie('', 0));
       }
