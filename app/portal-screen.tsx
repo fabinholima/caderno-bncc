@@ -413,7 +413,7 @@ export default function Home() {
         ...new Map(
           highSchoolCurriculum
             .filter((item) =>
-              pedagogicalDiscipline.skills.some(
+              (educationStage === 'Ensino Médio' && ['Física', 'Biologia', 'Química'].includes(discipline) && item.area_source_key === 'em-area-cnt' && Boolean(item.skill_code)) || pedagogicalDiscipline.skills.some(
                 (skill) => skill.id === item.skill_id,
               ),
             )
