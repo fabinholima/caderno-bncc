@@ -2714,28 +2714,7 @@ export default function Home() {
                   <input type="checkbox" name="recommendSingleColumn" checked={recommendSingleColumn} onChange={(event) => setRecommendSingleColumn(event.target.checked)} className="mt-1 accent-blue-600" />
                   <span><strong>Recomendar uma coluna</strong><span className="mt-1 block text-xs text-slate-500">Indicado para figuras grandes. Na montagem da avaliação, você poderá usar a largura total para esta questão.</span></span>
                 </label>
-                <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-                    Ilustração MetaPost (opcional e avançado)
-                  </summary>
-                  <textarea
-                    name="metapostCode"
-                    key={`metapost-${importRevision}`}
-                    defaultValue={draftMetapostCode}
-                    rows={5}
-                    spellCheck={false}
-                    className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                    placeholder={
-                      'draw fullcircle scaled 2cm;\nlabel("A", origin);'
-                    }
-                  />
-                  <span className="mt-1.5 block text-xs leading-5 text-slate-400">
-                    Insira apenas o desenho, sem startMPcode e stopMPcode.
-                    Rótulos com btex e etex são aceitos. Comandos de
-                    acesso externo, leitura de arquivos e execução de scripts
-                    são bloqueados.
-                  </span>
-                </details>
+                <input type="hidden" name="metapostCode" value={draftMetapostCode} />
               </section>
               {questionType !== 'essay' && (
                 <section id="question-alternatives" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
