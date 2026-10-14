@@ -115,6 +115,13 @@ type PedagogicalTopic = {
   path: string;
   skills?: Array<{ id: string; code: string; description: string }>;
 };
+function normalizeGradeLabel(value: string | null | undefined) {
+  const text = String(value || '').trim().toLowerCase();
+  const match = text.match(/([123])/);
+  return match && /(?:ano|s[ée]rie)/i.test(text)
+    ? `${match[1]}ª série`
+    : value || '';
+}
 type SaebMatrix = {
   id: string;
   stage: 'Ensino Fundamental' | 'Ensino Médio';
@@ -429,7 +436,7 @@ export default function Home() {
     (item) =>
       item.discipline_id === pedagogicalDiscipline?.id &&
       !item.parent_id &&
-      (!item.grade_range || item.grade_range === pedagogicalGrade),
+      (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
   );
   const pedagogicalSubtopicOptions = pedagogicalTopics.filter(
     (item) => item.parent_id === pedagogicalObjectId,
@@ -1579,7 +1586,7 @@ export default function Home() {
                                 filterPedagogicalDiscipline?.id &&
                               !topic.parent_id &&
                               (!gradeFilter ||
-                                topic.grade_range === gradeFilter),
+                                normalizeGradeLabel(topic.grade_range) === gradeFilter),
                           )
                           .map((topic) => (
                             <option key={topic.id} value={topic.name}>
