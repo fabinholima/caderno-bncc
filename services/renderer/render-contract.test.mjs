@@ -199,6 +199,13 @@ test('renderiza MetaPost e questão discursiva sem lista de alternativas', async
   assert.match(tex, /\\blank\[4\*big\]/);
 });
 
+test('preserva rótulos btex e etex e rejeita escapes TeX codificados', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  snapshot.questions[0].statement.push({ type: 'metapost', code: 'label.ulft(btex $B$ etex, origin);' });
+  assert.match(renderAssessment(snapshot), /label.ulft\(btex \$B\$ etex, origin\);/);
+  snapshot.questions[0].statement.at(-1).code = 'label(btex ^^5cinput arquivo etex, origin);';
+  assert.throws(() => renderAssessment(snapshot), /MetaPost inválido/);
+});
 test('rejeita MetaPost com execução de script', async () => {
   const snapshot = JSON.parse(
     await readFile(

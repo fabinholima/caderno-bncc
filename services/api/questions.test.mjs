@@ -238,6 +238,11 @@ test('aceita questão discursiva com orientação de correção', () => {
   assert.equal(parsed.alternatives.length, 0);
 });
 
+test('aceita rótulos MetaPost com btex e etex e bloqueia escapes TeX codificados', () => {
+  const code = 'label.ulft(btex $B$ etex, origin);';
+  assert.equal(createQuestionSchema.parse({ ...baseQuestion, metapostCode: code }).metapostCode, code);
+  assert.throws(() => createQuestionSchema.parse({ ...baseQuestion, metapostCode: 'label(btex ^^5cinput arquivo etex, origin);' }));
+});
 test('bloqueia comandos MetaPost que acessam execução externa', () => {
   assert.throws(() =>
     createQuestionSchema.parse({
