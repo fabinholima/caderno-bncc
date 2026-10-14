@@ -428,7 +428,10 @@ function richText(nodes = []) {
 function adoteNote(nodes = []) {
   const note = nodes.find((node) => node.type === 'adoteNote');
   if (!note?.text?.trim()) return '';
-  return `\\startframedtext[frame=on,background=color,backgroundcolor=lightgray,width=broad,offset=3mm]\n{\\bf Note e adote:}\n\\blank[small]\n${paragraphWithScientificInline(note.text)}\n\\stopframedtext`;
+  const code = note.text.trim();
+  if (code.length > 5_000 || forbiddenContextFormula.test(withoutEmbeddedMetaPost(code)))
+    throw new Error('Note e adote contém código ConTeXt não permitido.');
+  return `\\startframedtext[frame=on,background=color,backgroundcolor=lightgray,width=broad,offset=3mm]\n{\\bf Note e adote:}\n\\blank[small]\n${code}\n\\stopframedtext`;
 }
 
 export function renderAssessment(snapshot) {

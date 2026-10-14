@@ -2701,7 +2701,7 @@ export default function Home() {
                     maxLength={5000}
                     defaultValue={importedQuestion?.adoteNote || ''}
                     className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6"
-                    placeholder="Informações, constantes, hipóteses ou dicas para a questão."
+                    placeholder={'Código ConTeXt: Considere o CO\\low{2} como gás ideal. Volume inicial: V\\low{vin}.'}
                   />
                 </label>
                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
