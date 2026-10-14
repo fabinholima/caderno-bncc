@@ -16,6 +16,7 @@ export function questionCodePrefix(subject) {
   return prefixes.get(normalized) || 'QST';
 }
 import { prepareChemicalStructureBlocks } from './chemical-structures.mjs';
+import { withoutEmbeddedMetaPost } from '../../lib/embedded-metapost.mjs';
 
 const forbiddenMetaPost =
   /(?:\\|\^\^|runscript|scantokens|readfrom|write\s|closefrom|closeout|input\s|loadmodule|verbatimtex)/i;
@@ -275,7 +276,10 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('contextRaw'),
     code: z.string().trim().min(1).max(20_000).refine(
-      (code) => !forbiddenRawContext.test(code),
+      (code) => {
+        try { return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code)); }
+        catch { return false; }
+      },
       'O código ConTeXt contém comando não permitido.',
     ),
   }),

@@ -1,4 +1,5 @@
 import { getRenderTemplate } from './template-registry.mjs';
+import { withoutEmbeddedMetaPost } from '../../lib/embedded-metapost.mjs';
 import {
   DEFAULT_RENDER_FONT,
   isRenderFontId,
@@ -390,7 +391,7 @@ function richText(nodes = []) {
         .replace(/^\s*\\starttext\s*/i, '')
         .replace(/\\stoptext\s*$/i, '')
         .trim();
-      if (!code || code.length > 20_000 || forbiddenContextFormula.test(code))
+      if (!code || code.length > 20_000 || forbiddenContextFormula.test(withoutEmbeddedMetaPost(code)))
         throw new Error('Código ConTeXt inválido ou não permitido.');
       return { content: code, inline: false };
     }
