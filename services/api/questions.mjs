@@ -400,6 +400,7 @@ const richStatement = (text, mathFormula, chemicalFormula, metapostCode) => [
 export const createQuestionSchema = z
   .object({
     type: z.enum(['single_choice', 'multiple_choice', 'essay']),
+    recommendSingleColumn: z.boolean().default(false),
     statement: z.string().trim().min(10).max(20_000),
     statementBlocks: richContentSchema.optional(),
     mathFormula: mathFormulaSchema.optional().or(z.literal('')),
@@ -543,7 +544,7 @@ export async function listQuestions({
   const result = await pool.query({
     text: `
       SELECT q.id, q.public_code, q.status, q.updated_at, q.created_by, q.current_revision,
-             qr.statement, qr.type, qr.subject, qr.grade, qr.difficulty,
+             qr.statement, qr.type, qr.subject, qr.grade, qr.difficulty, qr.recommend_single_column,
              qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
              COALESCE(cs.stage,
                CASE WHEN qr.grade ILIKE '%médio%' OR qr.grade ILIKE '%série%'
@@ -609,6 +610,7 @@ export async function listQuestions({
   return result.rows.map((row) => ({
     id: row.id,
     code: row.public_code,
+    recommendSingleColumn: row.recommend_single_column === true,
     statement: (row.statement || [])
       .map((node) => duplicateNodeText(node))
       .filter(Boolean)
@@ -680,7 +682,7 @@ export async function getQuestion({ institutionId, role = 'teacher', questionId 
                   q.duplicate_reason,
                   (SELECT duplicate.public_code FROM questions duplicate
                    WHERE duplicate.id = q.duplicate_of_question_id) AS duplicate_of_code,
-                  qr.type, qr.statement, qr.explanation, qr.difficulty,
+                  qr.type, qr.statement, qr.explanation, qr.difficulty, qr.recommend_single_column,
                   qr.default_points, qr.subject, qr.grade,
                   qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
                   COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
@@ -740,6 +742,7 @@ export async function getQuestion({ institutionId, role = 'teacher', questionId 
     explanation: row.explanation || [],
     difficulty: row.difficulty,
     defaultPoints: Number(row.default_points),
+    recommendSingleColumn: row.recommend_single_column === true,
     subject: row.subject,
     grade: row.grade,
     sourceInstitution: row.source_institution,
@@ -808,8 +811,8 @@ async function insertRevision({
   }
   await client.query(
     `INSERT INTO question_revisions
-       (question_id, revision, type, statement, explanation, difficulty, subject, grade, source_institution, source_year, authored_by, knowledge_topic, pedagogical_topic_id)
-     VALUES ($1, $2, $3, $4::jsonb, NULLIF($5, '')::jsonb, $6, $7, $8, $9, $10, $11, NULLIF($12, ''), $13)`,
+       (question_id, revision, type, statement, explanation, difficulty, subject, grade, source_institution, source_year, authored_by, knowledge_topic, pedagogical_topic_id, recommend_single_column)
+     VALUES ($1, $2, $3, $4::jsonb, NULLIF($5, '')::jsonb, $6, $7, $8, $9, $10, $11, NULLIF($12, ''), $13, $14)`,
     [
       questionId,
       revision,
@@ -824,6 +827,7 @@ async function insertRevision({
       userId,
       value.knowledgeTopic || '',
       pedagogicalTopicId,
+      value.recommendSingleColumn,
     ],
   );
   for (const alternative of value.alternatives) {
@@ -1008,6 +1012,7 @@ export async function createQuestion({ institutionId, userId, input }) {
       id: question.rows[0].id,
       code: publicCode,
       statement: value.statement,
+      recommendSingleColumn: value.recommendSingleColumn,
       type: value.type,
       subject: value.subject,
       grade: value.grade,

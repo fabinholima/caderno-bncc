@@ -53,6 +53,7 @@ import {
 } from './question-paste-importer';
 
 type Question = {
+  recommendSingleColumn?: boolean;
   id: string;
   code: string;
   statement: string;
@@ -325,6 +326,7 @@ export default function Home() {
     useState<ParsedQuestion | null>(null);
   const [importRevision, setImportRevision] = useState(0);
   const [draftMetapostCode, setDraftMetapostCode] = useState('');
+  const [recommendSingleColumn, setRecommendSingleColumn] = useState(false);
   const [importCandidateSource, setImportCandidateSource] = useState<{
     importId: string;
     candidateId: string;
@@ -693,6 +695,7 @@ export default function Home() {
     const v=payload.input,e=payload.editor;
     setEducationStage(e.educationStage || 'Ensino Médio');setKnowledgeAreaFilter(e.knowledgeAreaFilter || 'Ciências da Natureza e suas Tecnologias');
     setEditingQuestionId(e.editingQuestionId || '');setImportCandidateSource(e.importCandidateSource || null);
+    setRecommendSingleColumn(Boolean(v.recommendSingleColumn));
     setQuestionType(v.type || 'single_choice');setDiscipline(v.subject || 'Química');
     setFundamentalGrade(e.fundamentalGrade || '6º ano');setPedagogicalGrade(e.pedagogicalGrade || '1ª série');
     setKnowledgeObjectId(v.knowledgeObjectId || '');setCompetencyId(v.competencyId || '');setSelectedSkillCode(v.skill || '');
@@ -850,6 +853,7 @@ export default function Home() {
       type: questionType,
       statement: plainText(statementBlocks, 'Conteúdo científico estruturado.'),
       statementBlocks,
+      recommendSingleColumn: formString('recommendSingleColumn') === 'on',
       metapostCode: formString('metapostCode'),
       answerGuide: plainText(answerBlocks, ''),
       answerBlocks:
@@ -950,6 +954,7 @@ export default function Home() {
       if (!response.ok || !body.data)
         throw new Error(body.error || 'Questão não encontrada.');
       const question = body.data;
+      setRecommendSingleColumn(Boolean(question.recommendSingleColumn));
       const skillCode = question.skills?.[0]?.code || '';
       const topicPath = String(question.knowledgeTopic || '').split(/\s*>\s*/);
       if (question.stage === 'Ensino Fundamental' || question.stage === 'Ensino Médio')
@@ -1128,6 +1133,7 @@ export default function Home() {
 
   function openNewQuestion() {
     setDraftMetapostCode('');
+    setRecommendSingleColumn(false);
     setEditingQuestionId('');
     setImportCandidateSource(null);
     setImportedQuestion(null);
@@ -2703,6 +2709,10 @@ export default function Home() {
                     className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6"
                     placeholder={'Código ConTeXt: Considere o CO\\low{2} como gás ideal. Volume inicial: V\\low{vin}.'}
                   />
+                </label>
+                <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-slate-700">
+                  <input type="checkbox" name="recommendSingleColumn" checked={recommendSingleColumn} onChange={(event) => setRecommendSingleColumn(event.target.checked)} className="mt-1 accent-blue-600" />
+                  <span><strong>Recomendar uma coluna</strong><span className="mt-1 block text-xs text-slate-500">Indicado para figuras grandes. Na montagem da avaliação, você poderá usar a largura total para esta questão.</span></span>
                 </label>
                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <summary className="cursor-pointer text-sm font-semibold text-slate-700">
