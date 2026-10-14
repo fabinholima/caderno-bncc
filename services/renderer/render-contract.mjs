@@ -24,7 +24,7 @@ export function escapeContext(value = '') {
 }
 
 const forbiddenMetaPost =
-  /(?:\\|runscript|scantokens|readfrom|write\s|closefrom|closeout|input\s|loadmodule|verbatimtex|btex|etex)/i;
+  /(?:\\|\^\^|runscript|scantokens|readfrom|write\s|closefrom|closeout|input\s|loadmodule|verbatimtex)/i;
 
 const forbiddenContextFormula =
   /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;

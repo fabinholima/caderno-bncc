@@ -2720,7 +2720,8 @@ export default function Home() {
                     }
                   />
                   <span className="mt-1.5 block text-xs leading-5 text-slate-400">
-                    O worker insere este bloco em startMPcode. Comandos de
+                    Insira apenas o desenho, sem startMPcode e stopMPcode.
+                    Rótulos com btex e etex são aceitos. Comandos de
                     acesso externo, leitura de arquivos e execução de scripts
                     são bloqueados.
                   </span>
