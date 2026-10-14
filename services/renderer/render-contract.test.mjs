@@ -36,12 +36,15 @@ test('renderiza Note e adote opcional após o enunciado', async () => {
   );
   snapshot.questions[0].statement.push({
     type: 'adoteNote',
-    text: 'Considere o gás ideal.',
+    text: 'Considere o gás ideal. CO\\low{2}, V\\low{vin}. \\par R = 0,08.',
   });
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\startframedtext\[frame=on/);
   assert.match(tex, /\\bf Note e adote:/);
   assert.match(tex, /Considere o gás ideal\./);
+  assert.ok(tex.includes('CO\\low{2}, V\\low{vin}. \\par R = 0,08.'));
+  snapshot.questions[0].statement.at(-1).text = '\\input arquivo';
+  assert.throws(() => renderAssessment(snapshot), /não permitido/);
 });
 
 test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async () => {

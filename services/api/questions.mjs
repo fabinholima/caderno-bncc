@@ -190,7 +190,10 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('adoteNote'),
-    text: z.string().trim().min(1).max(5_000),
+    text: z.string().trim().min(1).max(5_000).refine((code) => {
+      try { return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code)); }
+      catch { return false; }
+    }, 'O campo Note e adote contém comando ConTeXt não permitido.'),
   }),
   z.object({
     type: z.literal('romanList'),
