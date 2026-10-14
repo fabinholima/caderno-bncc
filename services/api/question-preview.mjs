@@ -36,7 +36,12 @@ export function snapshotFromQuestion(question, mode = 'student') {
     type: question.type,
     statement: question.statementBlocks?.length
       ? question.statementBlocks
-      : [{ type: 'paragraph', text: question.statement }],
+      : [
+          { type: 'paragraph', text: question.statement },
+          ...(question.mathFormula ? [{ type: 'math', tex: question.mathFormula }] : []),
+          ...(question.chemicalFormula ? [{ type: 'chemical', formula: question.chemicalFormula }] : []),
+          ...(question.metapostCode ? [{ type: 'metapost', code: question.metapostCode }] : []),
+        ],
     alternatives,
     answer: {
       correctStableKeys: question.alternatives.filter((item) => item.isCorrect).map((item) => item.stableKey),

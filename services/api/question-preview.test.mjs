@@ -24,6 +24,11 @@ const question = {
     },
   ],
 };
+test('prévia inclui a ilustração MetaPost antes das alternativas', () => {
+  const tex = renderAssessment(snapshotFromQuestion({ ...question, metapostCode: 'draw fullcircle scaled 2cm;' }));
+  assert.match(tex, /\\startMPcode\ndraw fullcircle scaled 2cm;\n\\stopMPcode/);
+  assert.ok(tex.indexOf('draw fullcircle') < tex.indexOf('\\startchoice'));
+});
 test('prévia da questão não revela a resolução; prévia do gabarito inclui resposta correta e comandos matemáticos', () => {
   const student = renderAssessment(snapshotFromQuestion(question));
   const answer = renderAssessment(snapshotFromQuestion(question, 'answer-key'));
