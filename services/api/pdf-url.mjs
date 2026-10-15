@@ -13,12 +13,19 @@ export async function publicPdfTarget(value, resolver = resolve4) {
   if (!addresses.length || addresses.some(ip => isIP(ip)!==4 || blocked.check(ip,'ipv4'))) throw fail('A URL deve apontar para um servidor público.');
   return {url,address:addresses[0]};
 }
-export async function downloadPdfUrl(value, kind, {resolver=resolve4, requester=request}={}) {
+export async function downloadPdfUrl(value, kind, {resolver=resolve4, requester=request, redirects=0}={}) {
   const target = await publicPdfTarget(value,resolver);
   const contents = await new Promise((resolve,reject)=>{
     const req=requester(target.url, {method:'GET',headers:{accept:'application/pdf'},
       lookup:(_host, options, callback)=>callback(null,options?.all ? [{address:target.address,family:4}] : target.address,4)}, res=>{
-      if(res.statusCode!==200) {res.resume();reject(fail('O link deve baixar o PDF diretamente (sem redirecionamento ou login).'));return;}
+      if ([301,302,303,307,308].includes(res.statusCode) && res.headers.location) {
+        res.resume();
+        if (redirects >= 4) { reject(fail('O link do PDF excedeu o limite de redirecionamentos.')); return; }
+        try { resolve({redirect:new URL(res.headers.location,target.url).href}); }
+        catch { reject(fail('O link do PDF retornou um redirecionamento inválido.')); }
+        return;
+      }
+      if(res.statusCode!==200) {res.resume();reject(fail(`O servidor do PDF respondeu HTTP ${res.statusCode}. Use um link de download público, sem login.`));return;}
       if(Number(res.headers['content-length'])>15_000_000) {res.destroy();reject(fail('O PDF da URL excede 15 MB.'));return;}
       const chunks=[];let size=0;
       res.on('data',chunk=>{size+=chunk.length;if(size>15_000_000){res.destroy();reject(fail('O PDF da URL excede 15 MB.'));}else chunks.push(chunk);});
@@ -30,6 +37,7 @@ export async function downloadPdfUrl(value, kind, {resolver=resolve4, requester=
     req.on('error',()=>{clearTimeout(timer);reject(fail('Não foi possível baixar o PDF.'));});
     req.end();
   });
+  if (contents.redirect) return downloadPdfUrl(contents.redirect,kind,{resolver,requester,redirects:redirects+1});
   if(contents.length<100 || contents.subarray(0,5).toString('ascii')!=='%PDF-') throw fail('A URL não retornou um arquivo PDF válido.');
   return {kind,fileName:kind==='exam'?'prova.pdf':'gabarito.pdf',dataUrl:`data:application/pdf;base64,${contents.toString('base64')}`};
 }
