@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { readExamDocument, storeExamDocument } from './exam-import-storage.mjs';
 import { downloadPdfUrl } from './pdf-url.mjs';
-import { extractPdfWithGemini } from './exam-pdf-gemini.mjs';
+import { extractPdfInBatches } from './exam-pdf-batches.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -972,7 +972,9 @@ export async function extractExamImportQuestions({
         await client.query("INSERT INTO exam_ai_daily_admissions(usage_day,exam_import_id) VALUES((now() AT TIME ZONE 'America/Campo_Grande')::date,$1) ON CONFLICT DO NOTHING",[examImportId]);
       });
       await checkpoint('reading_pdf_with_gemini', 55);
-      candidates = await extractPdfWithGemini(await readFile(pdfPath));
+      const {stdout:pdfInfo}=await execFileAsync('pdfinfo',[pdfPath],{maxBuffer:1000000});
+      const pageCount=Number(/^Pages:\s+(\d+)/m.exec(pdfInfo)?.[1]);
+      candidates = await extractPdfInBatches({pdfPath,directory:workingDirectory,pageCount,onProgress:checkpoint});
     }
     if (!useGeminiPdf && (!candidates.length || pageTexts.some(pdfTextNeedsOcr))) {
       await checkpoint('rendering_pages', 45);

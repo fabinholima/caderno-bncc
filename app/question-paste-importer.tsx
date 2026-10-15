@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { normalizeAlternativeLabels } from '@/lib/question-alternative-labels.mjs';
 import Image from 'next/image';
 import {
   AlertTriangle,
@@ -294,7 +295,7 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
 export function parsePastedQuestion(raw: string): ParsedQuestion {
   const warnings: string[] = [];
   const alternatives: Record<string, RichContentBlock[]> = {};
-  const normalized = raw
+  const normalized = normalizeAlternativeLabels(raw)
     .replace(/(?:^|\s)([A-E])\s*\(\s*\)\s*/g, '\n$1) ')
     .replace(/\t+/g, ' ')
     .replace(/[ ]{2,}/g, ' ')
