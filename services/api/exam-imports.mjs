@@ -698,7 +698,7 @@ export async function createExamImport({ institutionId, userId, role, input }) {
   if (value.pastedText.trim()) {
     try { pastedCandidates = parsePastedExam(value.pastedText).map(question => ({
       id:randomUUID(), sourceNumber:question.sourceNumber, rawText:question.rawText,
-      resolution:question.resolution, adoteNote:question.adoteNote, selected:true, status:'review',
+      resolution:question.resolution, adoteNote:question.adoteNote, ...(question.skill ? {skill:question.skill} : {}), selected:true, status:'review',
       questionType:question.correctAnswers.length > 1 ? 'multiple_choice' : Object.keys(question.alternatives).length ? 'single_choice' : 'essay',
       correctAnswers:question.correctAnswers, answerStatus:question.correctAnswers.length ? 'suggested' : 'missing', extractionMethod:'pasted-text',
     })); } catch(error) { throw Object.assign(error,{statusCode:422}); }
@@ -708,6 +708,20 @@ export async function createExamImport({ institutionId, userId, role, input }) {
     contents: decodePdf(document),
   }));
   return transaction(async (client) => {
+    const skillCodes = [...new Set(pastedCandidates.map(candidate => candidate.skill).filter(Boolean))];
+    if (skillCodes.length) {
+      const catalog = await client.query(
+        `SELECT DISTINCT skill.code FROM curriculum_skills skill
+         JOIN pedagogical_discipline_skills relation ON relation.skill_id=skill.id
+         JOIN pedagogical_disciplines discipline ON discipline.id=relation.discipline_id
+         WHERE discipline.institution_id=$1 AND skill.code=ANY($2::text[])
+           AND ($3::text='' OR discipline.name=$3)`,
+        [institutionId,skillCodes,value.subjectMode === 'single' ? value.primarySubject : ''],
+      );
+      const validCodes = new Set(catalog.rows.map(row=>row.code));
+      const invalid = pastedCandidates.find(candidate=>candidate.skill && !validCodes.has(candidate.skill));
+      if (invalid) throw Object.assign(new Error(`Questão ${invalid.sourceNumber}: habilidade ${invalid.skill} não cadastrada para a disciplina desta importação. Confira o código em Planejamento.`),{statusCode:422});
+    }
     const created = await client.query(
       `INSERT INTO exam_imports
          (institution_id,created_by,source_institution,source_year,exam_type,

@@ -4,6 +4,8 @@ No portal, em Importar provas, escolha **Lote por texto / TXT / Markdown**. Pree
 
 Cada questão começa em uma linha própria `QUESTÃO 1`, `QUESTÃO 2` etc. Markdown aceita também `## QUESTÃO 1`. Não repita números no mesmo lote. Enunciados precisam ter ao menos 20 caracteres. Alternativas devem começar em linhas próprias; `(A)`, `(a)`, `A)`, `a)` e `A.` são aceitos. Questões de resposta única precisam de A–E no cadastro, conforme a regra atual do portal.
 
+`HABILIDADE: EM13CNT101` (ou `HABILIDADE BNCC: EM13CNT101`) preenche a habilidade individual da questão. O campo é opcional e deve estar em linha própria, antes da resolução; também aceita `**HABILIDADE:**` no Markdown. O servidor valida o formato e a existência no catálogo da instituição, respeitando a disciplina quando a prova é de disciplina única. Código inválido, desconhecido ou incompatível impede a importação do lote e indica a questão para correção. Não há criação automática de habilidades. Sem o campo, continua valendo a classificação manual ou o padrão do lote.
+
 `GABARITO: C` é opcional. Para respostas múltiplas, use `GABARITO: A, C`. `RESOLUÇÃO:` inicia uma resolução opcional em ConTeXt puro. `NOTE E ADOTE:` separa uma observação opcional. `FIM DA QUESTÃO` pode encerrar o conteúdo. A resolução deve ser a última seção. Não cole títulos ou introduções antes da primeira questão.
 
 ```text
