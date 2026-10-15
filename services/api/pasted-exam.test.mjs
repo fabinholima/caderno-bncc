@@ -176,3 +176,87 @@ test('text batch is persisted atomically for review with no extraction or AI job
     pool.connect = original;
   }
 });
+
+test('imports HABILIDADE as metadata and keeps it out of alternatives and resolution', () => {
+  const text = PASTED_EXAM_EXAMPLE.replace(
+    'HABILIDADE:',
+    '**HABILIDADE BNCC:** em13mat307',
+  );
+  const [q] = parsePastedExam(text);
+  assert.equal(q.skill, 'EM13MAT307');
+  assert.doesNotMatch(q.rawText, /HABILIDADE|EM13MAT307/);
+  assert.doesNotMatch(q.resolution, /HABILIDADE/);
+  assert.throws(
+    () => parsePastedExam(text.replace('em13mat307', 'errado')),
+    /inválido/,
+  );
+  assert.throws(
+    () =>
+      parsePastedExam(
+        text.replace('RESOLUÇÃO:', 'HABILIDADE: EM13MAT307\nRESOLUÇÃO:'),
+      ),
+    /repetido/,
+  );
+});
+
+test('server validates skill in the institution discipline catalog and rolls back unknown codes', async () => {
+  const { pool } = await import('./db.mjs');
+  const { createExamImport } = await import('./exam-imports.mjs');
+  const original = pool.connect,
+    queries = [];
+  let codes = ['EM13MAT307'];
+  pool.connect = async () => ({
+    release() {},
+    async query(sql, args) {
+      queries.push({ sql, args });
+      if (sql.includes('SELECT DISTINCT skill.code'))
+        return { rows: codes.map((code) => ({ code })) };
+      return {
+        rowCount: 1,
+        rows: sql.includes('INSERT INTO exam_imports')
+          ? [{ id: 'batch', status: 'uploaded', created_at: 'today' }]
+          : [],
+      };
+    },
+  });
+  const input = {
+    sourceInstitution: 'UFG',
+    sourceYear: 2025,
+    examType: 'vestibular',
+    subjectMode: 'single',
+    primarySubject: 'Matemática',
+    pastedText: PASTED_EXAM_EXAMPLE.replace(
+      'HABILIDADE:',
+      'HABILIDADE: EM13MAT307',
+    ),
+  };
+  try {
+    await createExamImport({
+      institutionId: 'school',
+      userId: 'user',
+      role: 'teacher',
+      input,
+    });
+    const catalog = queries.find((q) =>
+      q.sql.includes('SELECT DISTINCT skill.code'),
+    );
+    assert.deepEqual(catalog.args, ['school', ['EM13MAT307'], 'Matemática']);
+    const write = queries.find((q) => q.sql.includes('extracted_candidates'));
+    assert.equal(JSON.parse(write.args[2])[0].skill, 'EM13MAT307');
+    codes = [];
+    queries.length = 0;
+    await assert.rejects(
+      createExamImport({
+        institutionId: 'school',
+        userId: 'user',
+        role: 'teacher',
+        input,
+      }),
+      (e) => e.statusCode === 422 && /Questão 1/.test(e.message),
+    );
+    assert.equal(queries.at(-1).sql, 'ROLLBACK');
+    assert(!queries.some((q) => q.sql.includes('INSERT INTO exam_imports')));
+  } finally {
+    pool.connect = original;
+  }
+});

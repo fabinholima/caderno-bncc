@@ -1981,7 +1981,7 @@ export function ExamImportManager({
           </div>
           {importMode === 'text' && <section className="space-y-3 rounded-xl border border-violet-200 p-4">
             <h3 className="font-bold">Importar várias questões em lote</h3>
-            <p className="text-sm text-slate-600">Até 100 questões. Separe com QUESTÃO 1, QUESTÃO 2... Use GABARITO: e RESOLUÇÃO: quando disponíveis. O gabarito exige confirmação na revisão. Nenhuma API de IA é utilizada.</p>
+            <p className="text-sm text-slate-600">Até 100 questões. Separe com QUESTÃO 1, QUESTÃO 2... Use GABARITO:, HABILIDADE: e RESOLUÇÃO: quando disponíveis. O gabarito exige confirmação na revisão. Nenhuma API de IA é utilizada.</p>
             <label className="block text-sm">Arquivo TXT ou Markdown
               <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" className="mt-2 block" onChange={async (event) => {
                 const file = event.target.files?.[0];
@@ -3156,7 +3156,7 @@ function CandidateClassificationFields({
         Classificação desta questão
       </p>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        <SelectField name={`candidate-discipline-${candidate.id}`} label={`Disciplina da questão ${candidate.sourceNumber}`} value={candidate.pedagogicalDisciplineId || ''} onChange={(pedagogicalDisciplineId) => onChange({pedagogicalDisciplineId,pedagogicalTopicId:'',skill:''})} options={[
+        <SelectField name={`candidate-discipline-${candidate.id}`} label={`Disciplina da questão ${candidate.sourceNumber}`} value={candidate.pedagogicalDisciplineId || ''} onChange={(pedagogicalDisciplineId) => onChange({pedagogicalDisciplineId,pedagogicalTopicId:'',skill:disciplines.find(d => d.id === pedagogicalDisciplineId)?.skills?.some(s => s.code === candidate.skill) ? candidate.skill : ''})} options={[
           ['', `Disciplina: usar padrão do lote${batchDiscipline ? ` (${batchDiscipline.name})` : ''}`],
           ...disciplines.filter(d => d.stage === 'Ensino Médio').map(d => [d.id,d.name] as [string,string]),
         ]} />
@@ -3259,6 +3259,7 @@ function CandidateClassificationFields({
           onChange={(skill) => onChange({ skill })}
           options={[
             ['', 'Selecione a habilidade BNCC'],
+            ...(candidate.skill && !availableSkills.some(s => s.code === candidate.skill) ? [[candidate.skill, `${candidate.skill} · informada na importação` ] as [string,string]] : []),
             ...availableSkills.map(
               (skill) =>
                 [skill.code, `${skill.code} · ${skill.description}`] as [
