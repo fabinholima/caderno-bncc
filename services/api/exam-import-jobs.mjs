@@ -41,6 +41,43 @@ async function enqueueJob({ institutionId, userId, examImportId, jobType }) {
       throw Object.assign(new Error('Importação não encontrada.'), {
         statusCode: 404,
       });
+    if (jobType === 'ai_analysis') {
+      // Global lock: a provider project quota is shared by all portal accounts.
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtext('exam-ai-daily-admission'))",
+      );
+      const existing = await client.query(
+        "SELECT id,status,stage,progress,created_at FROM exam_import_jobs WHERE exam_import_id=$1 AND job_type='ai_analysis' AND status IN ('queued','running')",
+        [examImportId],
+      );
+      if (existing.rowCount) return existing.rows[0];
+      const day = (
+        await client.query(
+          "SELECT (now() AT TIME ZONE 'America/Campo_Grande')::date AS day",
+        )
+      ).rows[0].day;
+      const admitted = await client.query(
+        'SELECT 1 FROM exam_ai_daily_admissions WHERE usage_day=$1 AND exam_import_id=$2',
+        [day, examImportId],
+      );
+      if (!admitted.rowCount) {
+        const count = await client.query(
+          'SELECT count(*)::int AS total FROM exam_ai_daily_admissions WHERE usage_day=$1',
+          [day],
+        );
+        if (count.rows[0].total >= 3)
+          throw Object.assign(
+            new Error(
+              'Limite de três provas com IA por dia atingido. Continue a revisão ou tente amanhã.',
+            ),
+            { statusCode: 429 },
+          );
+        await client.query(
+          'INSERT INTO exam_ai_daily_admissions(usage_day,exam_import_id) VALUES($1,$2)',
+          [day, examImportId],
+        );
+      }
+    }
     const pending = await client.query(
       `SELECT count(*)::int AS total,sp.concurrent_imports
        FROM institution_subscriptions subscription
@@ -134,10 +171,6 @@ export async function retryExamImportAnalysis({
   userId,
   examImportId,
 }) {
-  await pool.query(
-    `UPDATE exam_import_jobs SET status='cancelled',finished_at=now(),updated_at=now() WHERE institution_id=$1 AND exam_import_id=$2 AND job_type='ai_analysis' AND status IN ('queued','running')`,
-    [institutionId, examImportId],
-  );
   return enqueueExamImportAnalysis({ institutionId, userId, examImportId });
 }
 
@@ -151,6 +184,7 @@ export async function claimExamImportJob() {
            ON subscription.institution_id=job.institution_id
          JOIN subscription_plans plan ON plan.id=subscription.plan_id
          WHERE job.status='queued'
+           AND job.next_attempt_at <= now()
            AND job.cancellation_requested=false
            AND (SELECT count(*) FROM exam_import_jobs running
                 WHERE running.institution_id=job.institution_id
@@ -230,6 +264,15 @@ export async function processExamImportJob(job) {
         [job.id, result.provider, result.model],
       );
   } catch (error) {
+    if (error?.code === 'AI_QUOTA_EXHAUSTED') {
+      await pool.query(
+        `UPDATE exam_import_jobs SET status=CASE WHEN cancellation_requested THEN 'cancelled' ELSE 'queued' END,
+        stage=CASE WHEN cancellation_requested THEN 'cancelled' ELSE 'waiting_quota' END,
+        next_attempt_at=now()+($2::int * interval '1 second'),error_message=$3,updated_at=now() WHERE id=$1`,
+        [job.id, error.retryAfterSeconds || 3600, error.message],
+      );
+      return;
+    }
     const cancelled = error?.code === 'IMPORT_CANCELLED';
     await pool.query(
       `UPDATE exam_import_jobs SET status=$2,stage=$2,

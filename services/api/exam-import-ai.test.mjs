@@ -6,7 +6,36 @@ import {
   extractResponseText,
   requestExamAnalysis,
   selectCandidatesForAi,
+  validateExamAnalysis,
 } from './exam-import-ai.mjs';
+
+test('conversão exige todas as questões, valida comandos e não inventa gabarito', () => {
+  const candidates = [
+    { id: 'q1', rawText: 'Uma questão para revisão.', questionType: 'essay' },
+  ];
+  const question = createLocalDemoAnalysis({ candidates, catalog: {} })
+    .questions[0];
+  assert.deepEqual(
+    validateExamAnalysis(
+      [{ ...question, correctAnswers: ['A'] }],
+      candidates,
+    )[0].correctAnswers,
+    [],
+  );
+  assert.throws(() => validateExamAnalysis([], candidates), /incompleta/);
+  assert.throws(
+    () => validateExamAnalysis([question, question], candidates),
+    /duplicada/,
+  );
+  assert.throws(
+    () =>
+      validateExamAnalysis(
+        [{ ...question, normalizedText: 'Texto \\input arquivo externo' }],
+        candidates,
+      ),
+    /não permitido/,
+  );
+});
 
 test('o contrato estruturado rejeita propriedades livres', () => {
   assert.equal(examAnalysisJsonSchema.additionalProperties, false);

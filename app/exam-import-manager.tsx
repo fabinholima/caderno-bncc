@@ -85,6 +85,7 @@ type AiReviewField =
   | 'pedagogicalTopicId';
 
 type ExamImportCandidate = {
+  resetAi?: boolean;
   id: string;
   sourceNumber: number;
   rawText: string;
@@ -460,6 +461,14 @@ function candidateReadiness(candidate: ExamImportCandidate) {
   if (candidate.status === 'completed') reasons.push('já cadastrada');
   if (candidate.status === 'duplicate') reasons.push('questão duplicada');
   if (candidate.status === 'ignored') reasons.push('questão ignorada');
+  if (
+    candidate.aiSuggestion &&
+    !(
+      candidate.aiReview?.acceptedFields.includes('rawText') ||
+      candidate.aiReview?.rejectedFields.includes('rawText')
+    )
+  )
+    reasons.push('conversão da IA exige revisão individual');
   if (candidate.questionType === 'essay')
     reasons.push('discursiva exige revisão individual');
   const labels = Object.keys(
@@ -562,7 +571,11 @@ function candidateMatchesReviewFilters(
 function blockPlainText(block: RichContentBlock) {
   if (block.type === 'paragraph') return block.text;
   if (block.type === 'romanList') return block.items.join(' ');
-  if (block.type === 'contextFormula' || block.type === 'contextInline' || block.type === 'contextRaw')
+  if (
+    block.type === 'contextFormula' ||
+    block.type === 'contextInline' ||
+    block.type === 'contextRaw'
+  )
     return block.code;
   if (block.type === 'math') return block.tex;
   if (block.type === 'chemical') return block.formula;
@@ -1241,12 +1254,18 @@ export function ExamImportManager({
   };
 
   const removeFailedImport = async (item: ExamImport) => {
-    if (!window.confirm(`Remover ${item.sourceInstitution} ${item.sourceYear} da fila? Os PDFs e candidatos desta importação serão excluídos.`)) return;
+    if (
+      !window.confirm(
+        `Remover ${item.sourceInstitution} ${item.sourceYear} da fila? Os PDFs e candidatos desta importação serão excluídos.`,
+      )
+    )
+      return;
     const response = await apiFetch(`${apiUrl}/api/exam-imports/${item.id}`, {
       method: 'DELETE',
     });
     const body = (await response.json()) as { error?: string };
-    if (!response.ok) throw new Error(body.error || 'Não foi possível remover a importação.');
+    if (!response.ok)
+      throw new Error(body.error || 'Não foi possível remover a importação.');
     await refresh();
     setMessage('Importação removida da fila.');
   };
@@ -1441,21 +1460,37 @@ export function ExamImportManager({
     event: React.PointerEvent<HTMLDivElement>,
   ) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+    const x = Math.max(
+      0,
+      Math.min(100, ((event.clientX - rect.left) / rect.width) * 100),
+    );
+    const y = Math.max(
+      0,
+      Math.min(100, ((event.clientY - rect.top) / rect.height) * 100),
+    );
     event.currentTarget.setPointerCapture(event.pointerId);
-    setCropPointer({ candidateId, startX: x, startY: y, currentX: x, currentY: y });
+    setCropPointer({
+      candidateId,
+      startX: x,
+      startY: y,
+      currentX: x,
+      currentY: y,
+    });
   };
 
-  const updateCropSelection = (
-    event: React.PointerEvent<HTMLDivElement>,
-  ) => {
+  const updateCropSelection = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!cropPointer) return;
     const rect = event.currentTarget.getBoundingClientRect();
     setCropPointer({
       ...cropPointer,
-      currentX: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
-      currentY: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+      currentX: Math.max(
+        0,
+        Math.min(100, ((event.clientX - rect.left) / rect.width) * 100),
+      ),
+      currentY: Math.max(
+        0,
+        Math.min(100, ((event.clientY - rect.top) / rect.height) * 100),
+      ),
     });
   };
 
@@ -1696,7 +1731,11 @@ export function ExamImportManager({
         <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
           Importar provas
         </h1>
-        <Button type="button" onClick={onNewQuestion} className="bg-[var(--blue)] text-white hover:bg-blue-700">
+        <Button
+          type="button"
+          onClick={onNewQuestion}
+          className="bg-[var(--blue)] text-white hover:bg-blue-700"
+        >
           <Plus /> Inserir questão
         </Button>
       </div>
@@ -1704,15 +1743,32 @@ export function ExamImportManager({
         Cadastre a fonte e envie os PDFs. Os documentos ficam em preparação e
         nenhuma questão entra no banco público sem revisão e aprovação.
       </p>
-      <nav aria-label="Etapas da importação" className="mt-6 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-3">
+      <nav
+        aria-label="Etapas da importação"
+        className="mt-6 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-3"
+      >
         {[
           ['01', 'Enviar documentos', 'Fonte, prova e gabarito'],
           ['02', 'Extrair e revisar', 'Texto, imagens e classificação'],
           ['03', 'Cadastrar questões', 'Aprovação editorial no acervo'],
         ].map(([number, title, description], index) => (
-          <div key={number} className={`flex items-center gap-3 rounded-xl px-3 py-3 ${index === 0 ? 'bg-violet-50' : 'bg-slate-50'}`}>
-            <span className={`grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold ${index === 0 ? 'bg-violet-700 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>{number}</span>
-            <span className="min-w-0"><span className="block text-sm font-bold text-[var(--navy)]">{title}</span><span className="block truncate text-xs text-slate-500">{description}</span></span>
+          <div
+            key={number}
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 ${index === 0 ? 'bg-violet-50' : 'bg-slate-50'}`}
+          >
+            <span
+              className={`grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold ${index === 0 ? 'bg-violet-700 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}
+            >
+              {number}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-[var(--navy)]">
+                {title}
+              </span>
+              <span className="block truncate text-xs text-slate-500">
+                {description}
+              </span>
+            </span>
           </div>
         ))}
       </nav>
@@ -1810,11 +1866,17 @@ export function ExamImportManager({
           <div className="flex items-center gap-2">
             <FileUp className="size-5 text-violet-700" />
             <div>
-              <h2 className="font-display text-xl font-bold">Nova importação</h2>
-              <p className="mt-1 text-xs text-slate-500">Comece pelos dados da fonte e anexe os documentos originais.</p>
+              <h2 className="font-display text-xl font-bold">
+                Nova importação
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Comece pelos dados da fonte e anexe os documentos originais.
+              </p>
             </div>
           </div>
-          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">Etapa 1 de 3</span>
+          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">
+            Etapa 1 de 3
+          </span>
         </div>
         <form onSubmit={submit} className="mt-5 space-y-5">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1944,8 +2006,12 @@ export function ExamImportManager({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="grid size-8 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">02</span>
-              <h2 className="font-display text-xl font-bold">Revisão das importações</h2>
+              <span className="grid size-8 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                02
+              </span>
+              <h2 className="font-display text-xl font-bold">
+                Revisão das importações
+              </h2>
             </div>
             <p className="text-sm text-slate-500">
               Documentos aguardando extração, classificação e aprovação.
@@ -2329,7 +2395,9 @@ export function ExamImportManager({
                           <div>
                             <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
                               Análise assistida ·{' '}
-                              {item.aiJob.stage.replaceAll('_', ' ')}
+                              {item.aiJob.stage === 'waiting_quota'
+                                ? 'Aguardando cota da IA · retomada automática'
+                                : item.aiJob.stage.replaceAll('_', ' ')}
                             </p>
                             <p className="mt-1 text-xs text-slate-600">
                               Tentativa {item.aiJob.attempts} ·{' '}
@@ -2433,7 +2501,8 @@ export function ExamImportManager({
                                 )
                               }
                             >
-                              <Sparkles /> Analisar próximo lote com IA
+                              <Sparkles /> Converter próximo lote para ConTeXt
+                              com IA
                             </Button>
                           )}
                           {item.documents.some(
@@ -2458,11 +2527,14 @@ export function ExamImportManager({
                           {item.error}
                         </p>
                       )}
-                      {!item.candidates?.length && item.status === 'needs_review' && (
-                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                          <strong>Revisão manual necessária.</strong> A prova foi mantida. Abra a prévia do PDF, selecione a página e crie cada questão por recorte.
-                        </div>
-                      )}
+                      {!item.candidates?.length &&
+                        item.status === 'needs_review' && (
+                          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                            <strong>Revisão manual necessária.</strong> A prova
+                            foi mantida. Abra a prévia do PDF, selecione a
+                            página e crie cada questão por recorte.
+                          </div>
+                        )}
                       {Boolean(item.candidates?.length) && (
                         <BulkRegistrationPanel
                           item={item}
@@ -2571,6 +2643,35 @@ export function ExamImportManager({
                                 ),
                               )}
                             </div>
+                            {candidate.aiSuggestion &&
+                              !['completed', 'duplicate', 'ignored'].includes(
+                                candidate.status,
+                              ) && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="mt-3"
+                                  disabled={['queued', 'running'].includes(
+                                    item.aiJob?.status || '',
+                                  )}
+                                  onClick={() =>
+                                    updateCandidate(item.id, candidate.id, {
+                                      resetAi: true,
+                                    })
+                                      .then(() =>
+                                        setMessage(
+                                          'Questão selecionada para nova conversão. Use Converter próximo lote para reprocessá-la.',
+                                        ),
+                                      )
+                                      .catch((error) =>
+                                        setMessage(error.message),
+                                      )
+                                  }
+                                >
+                                  Preparar nova conversão desta questão
+                                </Button>
+                              )}
                             {candidate.aiSuggestion && (
                               <AiSuggestionReview
                                 candidate={candidate}
@@ -2615,7 +2716,8 @@ export function ExamImportManager({
                                       src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
                                       className="block max-h-[620px] w-full object-contain"
                                     />
-                                    {cropPointer?.candidateId === candidate.id && (
+                                    {cropPointer?.candidateId ===
+                                      candidate.id && (
                                       <div
                                         className="pointer-events-none absolute border-2 border-violet-600 bg-violet-300/20"
                                         style={{
@@ -2628,7 +2730,9 @@ export function ExamImportManager({
                                     )}
                                   </div>
                                   <p className="mt-2 text-xs text-slate-500">
-                                    Arraste o mouse sobre a página para selecionar o gráfico, tabela ou trecho da questão.
+                                    Arraste o mouse sobre a página para
+                                    selecionar o gráfico, tabela ou trecho da
+                                    questão.
                                   </p>
                                   <div className="mt-3 grid gap-2 sm:grid-cols-4">
                                     {[
