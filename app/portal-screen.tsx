@@ -1331,6 +1331,14 @@ export default function Home() {
                 candidateId: candidate.candidateId,
               });
               setQuestionType(candidate.questionType);
+              if (candidate.subject) {
+                setDiscipline(candidate.subject);
+                setEducationStage('Ensino Médio');
+                setKnowledgeObjectId('');
+                setCompetencyId('');
+                const area = Object.entries(highSchoolSubjectAreas).find(([,subjects]) => subjects.includes(candidate.subject!));
+                if (area) setKnowledgeAreaFilter(area[0]);
+              }
               setImportedCorrect(candidate.correctAnswers || []);
               setImportedAnswerBlocks(candidate.resolution ? [{type:'paragraph',text:candidate.resolution}] : []);
               const importedTopic = pedagogicalTopics.find(
