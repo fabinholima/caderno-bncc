@@ -72,10 +72,7 @@ export const decodePdf = (document) => {
 
 export function splitExamQuestions(text) {
   const normalized = repairExtractedQuestionText(
-    String(text).replace(
-      /^(\d{1,2})2\s+QUEST(?:ÃO|AO)\b/gim,
-      '$1 QUESTÃO',
-    ),
+    String(text).replace(/^(\d{1,2})2\s+QUEST(?:ÃO|AO)\b/gim, '$1 QUESTÃO'),
   )
     .replace(/\r/g, '')
     .replace(/\u00a0/g, ' ')
@@ -105,7 +102,8 @@ export function splitExamQuestions(text) {
         const end = matches[index + 1]?.index ?? normalized.length;
         const rawText = normalized.slice(match.index, end).trim();
         const alternativeCount = (
-          rawText.match(/(?:^|\s)(?:\(\s*)?[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g) || []
+          rawText.match(/(?:^|\s)(?:\(\s*)?[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g) ||
+          []
         ).length;
         return {
           id: randomUUID(),
@@ -257,7 +255,9 @@ export function parsePdfQuestionRegions(xml) {
       text: decodeXmlText(match[5].replace(/<[^>]+>/g, '')),
     }));
     const numericMarkers = words
-      .filter((word) => /^(?:quest(?:ão|ao)\s*)?\d{1,3}[.)]?$/.test(word.text.trim()))
+      .filter((word) =>
+        /^(?:quest(?:ão|ao)\s*)?\d{1,3}[.)]?$/.test(word.text.trim()),
+      )
       .map((word) => ({
         sourceNumber: Number(word.text.match(/\d+/)?.[0]),
         xMin: word.xMin,
@@ -265,7 +265,9 @@ export function parsePdfQuestionRegions(xml) {
         yMin: word.yMin,
         yMax: word.yMax,
       }))
-      .filter((marker) => marker.sourceNumber > 0 && marker.sourceNumber < 1000);
+      .filter(
+        (marker) => marker.sourceNumber > 0 && marker.sourceNumber < 1000,
+      );
     const explicitMarkers = [];
     for (let index = 0; index < words.length - 1; index += 1) {
       const label = words[index].text.trim();
@@ -282,7 +284,8 @@ export function parsePdfQuestionRegions(xml) {
     }
     // Prefer the explicit QUESTÃO N marker when present. Numeric-only markers
     // are retained for layouts such as Fuvest that print only "01", "02".
-    const markers = explicitMarkers.length >= 2 ? explicitMarkers : numericMarkers;
+    const markers =
+      explicitMarkers.length >= 2 ? explicitMarkers : numericMarkers;
     const deduped = [];
     for (const marker of markers) {
       const duplicate = deduped.some(
@@ -315,8 +318,8 @@ export function parsePdfQuestionRegions(xml) {
             word.yMin < (next?.yMin ?? height) - 2,
         );
         const lines = [];
-        for (const word of regionWords.sort((a, b) =>
-          a.yMin - b.yMin || a.xMin - b.xMin,
+        for (const word of regionWords.sort(
+          (a, b) => a.yMin - b.yMin || a.xMin - b.xMin,
         )) {
           let line = lines.at(-1);
           if (!line || Math.abs(line.y - word.yMin) > 3) {
@@ -509,6 +512,7 @@ const aiReviewSchema = z
   });
 
 export const candidateUpdateSchema = z.object({
+  resetAi: z.boolean().optional(),
   rawText: z.string().trim().min(20).max(30_000).optional(),
   selected: z.boolean().optional(),
   questionType: z
@@ -584,6 +588,43 @@ export async function updateExamImportCandidate({
       throw Object.assign(new Error('Questão extraída não encontrada.'), {
         statusCode: 404,
       });
+    if (value.resetAi) {
+      const running = await client.query(
+        "SELECT 1 FROM exam_import_jobs WHERE exam_import_id=$1 AND job_type='ai_analysis' AND status IN ('queued','running')",
+        [examImportId],
+      );
+      if (running.rowCount)
+        throw Object.assign(
+          new Error(
+            'Aguarde ou cancele a análise atual antes de reprocessar a questão.',
+          ),
+          { statusCode: 409 },
+        );
+      if (
+        ['completed', 'duplicate', 'ignored'].includes(candidates[index].status)
+      )
+        throw Object.assign(
+          new Error('Somente questões pendentes podem ser reprocessadas.'),
+          { statusCode: 409 },
+        );
+      const previous = candidates[index];
+      candidates[index] = {
+        ...previous,
+        aiSuggestion: undefined,
+        aiReview: undefined,
+        selected: true,
+        aiAnalysisHistory: [
+          ...(previous.aiAnalysisHistory || []).slice(-9),
+          {
+            suggestion: previous.aiSuggestion,
+            review: previous.aiReview,
+            resetBy: userId,
+            resetAt: new Date().toISOString(),
+          },
+        ],
+      };
+      delete value.resetAi;
+    }
     const reviewedAt = value.aiReview ? new Date().toISOString() : null;
     const reviewHistory = candidates[index].aiReview?.history || [];
     candidates[index] = {
@@ -874,9 +915,8 @@ export async function extractExamImportQuestions({
       const regionCandidates = regions
         .map((region) => {
           const alternatives = (
-            region.rawText.match(
-              /(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g,
-            ) || []
+            region.rawText.match(/(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g) ||
+            []
           ).length;
           return {
             id: randomUUID(),
@@ -901,9 +941,8 @@ export async function extractExamImportQuestions({
           (candidate) =>
             candidate.rawText.length >= 40 &&
             (candidate.questionType === 'essay' ||
-              candidate.rawText.match(
-                /(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g,
-              )?.length >= 2),
+              candidate.rawText.match(/(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g)
+                ?.length >= 2),
         );
       if (regionCandidates.length >= 2) candidates = regionCandidates;
     } catch {
@@ -1175,8 +1214,7 @@ export async function cropExamImportCandidateImage({
       );
       cropText = repairExtractedQuestionText(stdout);
     } catch (error) {
-      if (error.code === 'ENOENT')
-        cropText = '';
+      if (error.code === 'ENOENT') cropText = '';
     }
     const rawText = cropText
       ? `${candidate.rawText}\n\n[Texto extraído do recorte]\n${cropText}`
