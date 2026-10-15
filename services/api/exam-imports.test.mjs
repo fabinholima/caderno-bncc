@@ -122,7 +122,7 @@ test('atribui baixa confiança quando há poucas respostas aparentes', () => {
   assert.equal(parsed.confidence, 0.45);
 });
 
-test('exige exatamente um PDF de prova', () => {
+test('exige uma fonte de prova PDF ou texto', () => {
   assert.throws(
     () =>
       examImportSchema.parse({
@@ -132,7 +132,7 @@ test('exige exatamente um PDF de prova', () => {
         subjectMode: 'multidisciplinary',
         documents: [{ ...document, kind: 'answer_key' }],
       }),
-    /Envie exatamente um PDF da prova/,
+    /Escolha PDF ou texto colado/,
   );
 });
 
