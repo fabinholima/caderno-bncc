@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { resolveImportClassification } from '@/lib/import-classification.mjs';
 import { CONTEXT_PASTE_MARKER, PASTED_EXAM_EXAMPLE, parsePastedExam } from '@/lib/pasted-exam.mjs';
 import type { FormEvent } from 'react';
 import {
@@ -115,6 +116,7 @@ type ExamImportCandidate = {
   aiSuggestion?: {
     normalizedText: string;
     questionType: ExamImportCandidate['questionType'];
+    subject?: string;
     subject?: string | null;
     grade?: string | null;
     difficulty?: BulkSettings['difficulty'] | null;
@@ -1139,22 +1141,14 @@ export function ExamImportManager({
           throw new Error(body.error || 'Falha ao carregar as disciplinas.');
         const disciplines = body.data || [];
         setPedagogicalDisciplines(disciplines);
-        const chemistry = disciplines.find(
-          (discipline) =>
-            discipline.name === 'Química' &&
-            discipline.stage === 'Ensino Médio',
-        );
-        if (!chemistry) return;
-        const topicsResponse = await apiFetch(
-          `${apiUrl}/api/curriculum/pedagogical-topics?disciplineId=${chemistry.id}`,
-        );
+        const topicsResponse = await apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics`);
         const topicsBody = (await topicsResponse.json()) as {
           data?: PedagogicalTopic[];
           error?: string;
         };
         if (!topicsResponse.ok)
           throw new Error(
-            topicsBody.error || 'Falha ao carregar os conteúdos de Química.',
+            topicsBody.error || 'Falha ao carregar os conteúdos das disciplinas.',
           );
         setPedagogicalTopics(topicsBody.data || []);
       })
@@ -1572,12 +1566,6 @@ export function ExamImportManager({
 
   const registerSelectedCandidates = async (item: ExamImport) => {
     const settings = bulkSettings[item.id] || defaultBulkSettings;
-    if (!item.primarySubject?.trim()) {
-      setMessage(
-        'Defina uma disciplina para a prova antes do cadastro em lote.',
-      );
-      return;
-    }
     const readyCandidates = item.candidates.filter(
       (candidate) => candidateReadiness(candidate).ready,
     );
@@ -1587,12 +1575,9 @@ export function ExamImportManager({
       );
       return;
     }
-    const defaultTopicId =
-      settings.detailId || settings.topicId || settings.objectId;
     const unclassified = readyCandidates.filter(
       (candidate) =>
-        !(candidate.grade || settings.grade).trim() ||
-        !(candidate.pedagogicalTopicId || defaultTopicId),
+        !resolveImportClassification({candidate,settings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics}).topicId,
     );
     if (unclassified.length) {
       setMessage(
@@ -1601,7 +1586,7 @@ export function ExamImportManager({
       return;
     }
     const invalidSkill = readyCandidates.find((candidate) => {
-      const skill = candidate.skill ?? settings.skill;
+      const skill = resolveImportClassification({candidate,settings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics}).skill;
       return skill && !/^[A-Z]{2}[0-9A-Z]{4,12}$/.test(skill);
     });
     if (invalidSkill) {
@@ -1615,6 +1600,7 @@ export function ExamImportManager({
     const failures: string[] = [];
     for (const candidate of readyCandidates) {
       try {
+        const classification = resolveImportClassification({candidate,settings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics});
         const parsed = parsePastedQuestion(candidate.rawText);
         const statementBlocks: RichContentBlock[] = [
           ...parsed.statementBlocks,
@@ -1641,15 +1627,13 @@ export function ExamImportManager({
             metapostCode: '',
             answerGuide: candidate.resolution || '',
             ...(candidate.adoteNote ? {statementBlocks:[...statementBlocks,{type:'adoteNote',text:candidate.adoteNote}]} : {}),
-            subject: item.primarySubject,
-            grade: (candidate.grade || settings.grade).trim(),
+            subject: classification.subject,
+            grade: classification.grade,
             sourceInstitution: item.sourceInstitution,
             sourceYear: item.sourceYear,
-            skill: (candidate.skill ?? settings.skill).trim(),
-            pedagogicalDisciplineId:
-              candidate.pedagogicalDisciplineId ||
-              settings.pedagogicalDisciplineId,
-            pedagogicalTopicId: candidate.pedagogicalTopicId || defaultTopicId,
+            skill: classification.skill.trim(),
+            pedagogicalDisciplineId: classification.discipline?.id || '',
+            pedagogicalTopicId: classification.topicId,
             difficulty: candidate.difficulty || settings.difficulty,
             alternatives: candidate.questionType === 'essay' ? [] : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
               const contentBlocks = parsed.alternatives[letter];
@@ -2895,6 +2879,8 @@ export function ExamImportManager({
                               )}
                             <CandidateClassificationFields
                               candidate={candidate}
+                              item={item}
+                              settings={bulkSettings[item.id] || defaultBulkSettings}
                               disciplines={pedagogicalDisciplines}
                               topics={pedagogicalTopics}
                               onChange={(changes) =>
@@ -3029,6 +3015,7 @@ export function ExamImportManager({
                                   candidate.status === 'ignored'
                                 }
                                 onClick={() => {
+                                  const classification = resolveImportClassification({candidate,settings:bulkSettings[item.id] || defaultBulkSettings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics});
                                   updateCandidate(item.id, candidate.id, {
                                     status: 'review',
                                   }).catch((error) =>
@@ -3046,13 +3033,12 @@ export function ExamImportManager({
                                     imageDataUrl: candidate.imageDataUrl,
                                     imageAlt: candidate.imageAlt,
                                     correctAnswers: candidate.correctAnswers,
-                                    grade: candidate.grade,
+                                    grade: classification.grade,
+                                    subject: classification.subject,
                                     difficulty: candidate.difficulty,
-                                    skill: candidate.skill,
-                                    pedagogicalDisciplineId:
-                                      candidate.pedagogicalDisciplineId,
-                                    pedagogicalTopicId:
-                                      candidate.pedagogicalTopicId,
+                                    skill: classification.skill,
+                                    pedagogicalDisciplineId: classification.discipline?.id,
+                                    pedagogicalTopicId: classification.topicId,
                                   });
                                 }}
                               >
@@ -3116,21 +3102,23 @@ function SelectField({
 
 function CandidateClassificationFields({
   candidate,
+  item,
+  settings,
   disciplines,
   topics,
   onChange,
 }: {
   candidate: ExamImportCandidate;
+  item: ExamImport;
+  settings: BulkSettings;
   disciplines: PedagogicalDiscipline[];
   topics: PedagogicalTopic[];
   onChange: (changes: Partial<ExamImportCandidate>) => void;
 }) {
-  const chemistry = disciplines.find(
-    (discipline) =>
-      discipline.name === 'Química' && discipline.stage === 'Ensino Médio',
-  );
+  const batchDiscipline = resolveImportClassification({settings,item,disciplines,topics}).discipline;
+  const {discipline,grade} = resolveImportClassification({candidate,settings,item,disciplines,topics});
   const selected = topics.find(
-    (topic) => topic.id === candidate.pedagogicalTopicId,
+    (topic) => topic.id === candidate.pedagogicalTopicId && topic.discipline_id === discipline?.id && topic.grade_range === grade,
   );
   const selectedDetail = selected?.depth === 2 ? selected : undefined;
   const selectedSubtopic =
@@ -3149,8 +3137,8 @@ function CandidateClassificationFields({
   const objects = topics.filter(
     (topic) =>
       !topic.parent_id &&
-      topic.discipline_id === chemistry?.id &&
-      topic.grade_range === candidate.grade,
+      topic.discipline_id === discipline?.id &&
+      topic.grade_range === grade,
   );
   const subtopics = topics.filter(
     (topic) => topic.parent_id === selectedObject?.id,
@@ -3160,7 +3148,7 @@ function CandidateClassificationFields({
   );
   const availableSkills = selected?.skills?.length
     ? selected.skills
-    : chemistry?.skills || [];
+    : discipline?.skills || [];
 
   return (
     <section className="mt-3 rounded-lg border border-violet-200 bg-violet-50/60 p-3">
@@ -3168,6 +3156,10 @@ function CandidateClassificationFields({
         Classificação desta questão
       </p>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <SelectField name={`candidate-discipline-${candidate.id}`} label={`Disciplina da questão ${candidate.sourceNumber}`} value={candidate.pedagogicalDisciplineId || ''} onChange={(pedagogicalDisciplineId) => onChange({pedagogicalDisciplineId,pedagogicalTopicId:'',skill:''})} options={[
+          ['', `Disciplina: usar padrão do lote${batchDiscipline ? ` (${batchDiscipline.name})` : ''}`],
+          ...disciplines.filter(d => d.stage === 'Ensino Médio').map(d => [d.id,d.name] as [string,string]),
+        ]} />
         <SelectField
           name={`candidate-grade-${candidate.id}`}
           label={`Série da questão ${candidate.sourceNumber}`}
@@ -3175,7 +3167,7 @@ function CandidateClassificationFields({
           onChange={(grade) =>
             onChange({
               grade,
-              pedagogicalDisciplineId: chemistry?.id || '',
+              pedagogicalDisciplineId: discipline?.id || '',
               pedagogicalTopicId: '',
               skill: '',
             })
@@ -3193,7 +3185,7 @@ function CandidateClassificationFields({
           value={selectedObject?.id || ''}
           onChange={(pedagogicalTopicId) =>
             onChange({
-              pedagogicalDisciplineId: chemistry?.id || '',
+              pedagogicalDisciplineId: discipline?.id || '',
               pedagogicalTopicId,
               skill: '',
             })
@@ -3307,14 +3299,11 @@ function BulkRegistrationPanel({
   const ready = selected.filter(
     (candidate) => candidateReadiness(candidate).ready,
   );
-  const chemistry = disciplines.find(
-    (discipline) =>
-      discipline.name === 'Química' && discipline.stage === 'Ensino Médio',
-  );
+  const {discipline} = resolveImportClassification({settings,item,disciplines,topics});
   const objects = topics.filter(
     (topic) =>
       !topic.parent_id &&
-      topic.discipline_id === chemistry?.id &&
+      topic.discipline_id === discipline?.id &&
       topic.grade_range === settings.grade,
   );
   const subtopics = topics.filter(
@@ -3328,11 +3317,11 @@ function BulkRegistrationPanel({
   const defaultTopic = topics.find((topic) => topic.id === defaultTopicId);
   const availableSkills = defaultTopic?.skills?.length
     ? defaultTopic.skills
-    : chemistry?.skills || [];
+    : discipline?.skills || [];
   const classifiable = ready.every(
     (candidate) =>
       Boolean((candidate.grade || settings.grade).trim()) &&
-      Boolean(candidate.pedagogicalTopicId || defaultTopicId),
+      Boolean(resolveImportClassification({candidate,settings,item,disciplines,topics}).topicId),
   );
   return (
     <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/50 p-4">
@@ -3357,13 +3346,20 @@ function BulkRegistrationPanel({
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <SelectField name={`bulk-discipline-${item.id}`} label="Disciplina padrão do lote" value={discipline?.id || ''} onChange={(value) => {
+          onSettingChange('pedagogicalDisciplineId',value);
+          onSettingChange('objectId',''); onSettingChange('topicId',''); onSettingChange('detailId',''); onSettingChange('skill','');
+        }} options={[
+          ['', 'Selecione a disciplina'],
+          ...disciplines.filter(d => d.stage === 'Ensino Médio').map(d => [d.id,d.name] as [string,string]),
+        ]} />
         <SelectField
           name={`bulk-grade-${item.id}`}
           label="Série do Ensino Médio"
           value={settings.grade}
           onChange={(value) => {
             onSettingChange('grade', value);
-            onSettingChange('pedagogicalDisciplineId', chemistry?.id || '');
+            onSettingChange('pedagogicalDisciplineId', discipline?.id || '');
             onSettingChange('objectId', '');
             onSettingChange('topicId', '');
             onSettingChange('detailId', '');
@@ -3382,7 +3378,7 @@ function BulkRegistrationPanel({
           value={settings.objectId}
           onChange={(value) => {
             onSettingChange('objectId', value);
-            onSettingChange('pedagogicalDisciplineId', chemistry?.id || '');
+            onSettingChange('pedagogicalDisciplineId', discipline?.id || '');
             onSettingChange('topicId', '');
             onSettingChange('detailId', '');
             onSettingChange('skill', '');
