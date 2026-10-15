@@ -1153,22 +1153,27 @@ export function ExamImportManager({
     const data = new FormData(form);
     const exam = data.get('examPdf');
     const answerKey = data.get('answerKeyPdf');
-    if (!(exam instanceof File) || !exam.size)
-      return setMessage('Selecione o PDF da prova.');
+    const examPdfUrl = String(data.get('examPdfUrl') || '').trim();
+    const answerKeyPdfUrl = String(data.get('answerKeyPdfUrl') || '').trim();
+    const examFile = exam instanceof File && exam.size ? exam : null;
+    const keyFile = answerKey instanceof File && answerKey.size ? answerKey : null;
+    if ((!examFile && !examPdfUrl) || (examFile && examPdfUrl))
+      return setMessage('Informe um arquivo ou uma URL para a prova.');
+    if (keyFile && answerKeyPdfUrl) return setMessage('Informe arquivo ou URL para o gabarito, apenas uma opção.');
     const files = [
-      exam,
-      ...(answerKey instanceof File && answerKey.size ? [answerKey] : []),
+      ...(examFile ? [{file:examFile,kind:'exam'}] : []),
+      ...(keyFile ? [{file:keyFile,kind:'answer_key'}] : []),
     ];
-    if (files.some((file) => file.type !== 'application/pdf'))
+    if (files.some(({file}) => file.type !== 'application/pdf'))
       return setMessage('Envie somente arquivos PDF.');
-    if (files.some((file) => file.size > 15_000_000))
+    if (files.some(({file}) => file.size > 15_000_000))
       return setMessage('Cada PDF deve ter no máximo 15 MB.');
     setBusy(true);
     setMessage('Enviando os documentos para a área de preparação...');
     try {
       const documents = await Promise.all(
-        files.map(async (file, index) => ({
-          kind: index === 0 ? 'exam' : 'answer_key',
+        files.map(async ({file,kind}) => ({
+          kind,
           fileName: file.name,
           dataUrl: await fileToDataUrl(file),
         })),
@@ -1186,6 +1191,8 @@ export function ExamImportManager({
               ? String(data.get('primarySubject') || '')
               : '',
           sourceUrl: String(data.get('sourceUrl') || ''),
+          examPdfUrl,
+          answerKeyPdfUrl,
           rightsStatus: String(data.get('rightsStatus')),
           documents,
         }),
@@ -1950,7 +1957,6 @@ export function ExamImportManager({
             <PdfField
               name="examPdf"
               title="PDF da prova"
-              required
               onFileSelected={(file) => updatePreview(file, setExamPreview)}
             />
             <PdfField
@@ -1960,6 +1966,10 @@ export function ExamImportManager({
                 updatePreview(file, setAnswerKeyPreview)
               }
             />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF da prova<Input name="examPdfUrl" type="url" placeholder="https://instituicao.br/prova.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
+            <label className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
           </div>
           {(examPreview || answerKeyPreview) && (
             <section aria-labelledby="pdf-preview-title">

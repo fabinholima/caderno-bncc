@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { readExamDocument, storeExamDocument } from './exam-import-storage.mjs';
+import { downloadPdfUrl } from './pdf-url.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -27,6 +28,8 @@ export const examImportSchema = z
     subjectMode: z.enum(['single', 'multidisciplinary']),
     primarySubject: z.string().trim().max(120).default(''),
     sourceUrl: z.union([z.url().max(2_000), z.literal('')]).default(''),
+    examPdfUrl: z.union([z.url().max(2000), z.literal('')]).default(''),
+    answerKeyPdfUrl: z.union([z.url().max(2000), z.literal('')]).default(''),
     rightsStatus: z
       .enum([
         'pending_review',
@@ -37,12 +40,16 @@ export const examImportSchema = z
         'blocked',
       ])
       .default('pending_review'),
-    documents: z.array(pdfDocumentSchema).min(1).max(2),
+    documents: z.array(pdfDocumentSchema).max(2).default([]),
   })
   .refine(
     (value) =>
-      value.documents.filter((item) => item.kind === 'exam').length === 1,
+      value.documents.filter((item) => item.kind === 'exam').length + Number(Boolean(value.examPdfUrl)) === 1,
     'Envie exatamente um PDF da prova.',
+  )
+  .refine(
+    value => !(value.answerKeyPdfUrl && value.documents.some(item => item.kind === 'answer_key')),
+    'Escolha arquivo ou URL para o gabarito.',
   )
   .refine(
     (value) =>
@@ -678,6 +685,8 @@ export async function createExamImport({ institutionId, userId, role, input }) {
       ),
       { statusCode: 403 },
     );
+  if (value.examPdfUrl) value.documents.push(await downloadPdfUrl(value.examPdfUrl, 'exam'));
+  if (value.answerKeyPdfUrl) value.documents.push(await downloadPdfUrl(value.answerKeyPdfUrl, 'answer_key'));
   const documents = value.documents.map((document) => ({
     ...document,
     contents: decodePdf(document),
