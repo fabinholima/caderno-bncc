@@ -898,6 +898,7 @@ export function ExamImportManager({
   onOpenQuestion: (questionId: string) => void;
 }) {
   const [imports, setImports] = useState<ExamImport[]>([]);
+  const [aiProviders, setAiProviders] = useState<Record<string, string>>({});
   const [selectedImportId, setSelectedImportId] = useState('');
   const [subjectMode, setSubjectMode] = useState('single');
   const [busy, setBusy] = useState(false);
@@ -1284,7 +1285,7 @@ export function ExamImportManager({
     const suffix = action === 'start' ? 'analyze' : `analyze/${action}`;
     const response = await apiFetch(
       `${apiUrl}/api/exam-imports/${item.id}/${suffix}`,
-      { method: 'POST' },
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: aiProviders[item.id] || 'gemini' }) },
     );
     const body = (await response.json()) as { error?: string };
     if (!response.ok)
@@ -2498,6 +2499,14 @@ export function ExamImportManager({
                                 ? 'Extrair novamente'
                                 : 'Extrair questões'}
                           </Button>
+                          <label className="flex items-center gap-2 text-sm text-slate-700">
+                            IA para conversão
+                            <select aria-label="IA para conversão" className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={aiProviders[item.id] || 'gemini'} disabled={['queued', 'running'].includes(item.aiJob?.status || '')} onChange={(event) => setAiProviders((current) => ({ ...current, [item.id]: event.target.value }))}>
+                              <option value="gemini">Gemini</option>
+                              <option value="deepseek">DeepSeek</option>
+                              <option value="openai">ChatGPT (OpenAI)</option>
+                            </select>
+                          </label>
                           {Boolean(item.candidates?.length) && (
                             <Button
                               type="button"

@@ -22,16 +22,23 @@ export async function enqueueExamImportAnalysis({
   institutionId,
   userId,
   examImportId,
+  provider,
 }) {
   return enqueueJob({
     institutionId,
     userId,
     examImportId,
     jobType: 'ai_analysis',
+    provider,
   });
 }
 
-async function enqueueJob({ institutionId, userId, examImportId, jobType }) {
+async function enqueueJob({ institutionId, userId, examImportId, jobType, provider }) {
+  if (jobType === 'ai_analysis') {
+    provider ||= process.env.EXAM_AI_PROVIDER || 'openai';
+    if (!['gemini', 'deepseek', 'openai', 'local_demo'].includes(provider))
+      throw Object.assign(new Error('Provedor de IA inválido.'), {statusCode:400});
+  }
   return transaction(async (client) => {
     const source = await client.query(
       `SELECT id FROM exam_imports WHERE id=$1 AND institution_id=$2`,
@@ -99,8 +106,8 @@ async function enqueueJob({ institutionId, userId, examImportId, jobType }) {
       );
     const created = await client.query(
       `INSERT INTO exam_import_jobs
-         (institution_id,exam_import_id,requested_by,job_type,prompt_version)
-       VALUES($1,$2,$3,$4,$5)
+         (institution_id,exam_import_id,requested_by,job_type,prompt_version,ai_provider)
+       VALUES($1,$2,$3,$4,$5,$6)
        ON CONFLICT (exam_import_id,job_type)
          WHERE status IN ('queued','running')
        DO UPDATE SET updated_at=now()
@@ -111,6 +118,7 @@ async function enqueueJob({ institutionId, userId, examImportId, jobType }) {
         userId,
         jobType,
         jobType === 'ai_analysis' ? EXAM_AI_PROMPT_VERSION : null,
+        provider || null,
       ],
     );
     if (jobType === 'extract')
@@ -170,8 +178,9 @@ export async function retryExamImportAnalysis({
   institutionId,
   userId,
   examImportId,
+  provider,
 }) {
-  return enqueueExamImportAnalysis({ institutionId, userId, examImportId });
+  return enqueueExamImportAnalysis({ institutionId, userId, examImportId, provider });
 }
 
 export async function claimExamImportJob() {
@@ -227,6 +236,7 @@ export async function processExamImportJob(job) {
     const result = await operation({
       institutionId: job.institution_id,
       examImportId: job.exam_import_id,
+      provider: job.ai_provider || undefined,
       onProgress: (stage, progress) => updateJob(job.id, { stage, progress }),
       shouldCancel: async () => {
         const state = await pool.query(
