@@ -1,6 +1,6 @@
 # Extração assistida para ConTeXt — piloto
 
-O importador existente extrai texto e recorta figuras do PDF. O worker analisa pequenos lotes de questões selecionadas com Gemini e devolve sugestões de ConTeXt editável. PDFs digitalizados continuam usando o OCR existente. Esta entrega não reconstrói figuras em MetaPost nem envia páginas ou imagens ao Gemini: a conversão recebe o texto extraído. Confira fórmulas e figuras no original antes de cadastrar.
+O importador existente extrai texto e recorta figuras do PDF. O worker analisa pequenos lotes de questões selecionadas com Gemini e devolve sugestões de ConTeXt editável. PDFs digitalizados continuam usando o OCR existente. Quando a extração local não reconhece questões ou identifica páginas sem texto, o worker envia o PDF diretamente ao Gemini, se o provedor e a chave estiverem configurados. As questões retornam em revisão, sem gabarito inventado e com referência à página original. Esta entrega não reconstrói figuras em MetaPost. Confira fórmulas e figuras no original antes de cadastrar.
 
 ## Ativar no Render
 
@@ -50,3 +50,7 @@ Todos exigem autenticação e autorização da instituição:
 Testes com respostas simuladas verificam o contrato Gemini, chave no cabeçalho, timeout, cota sem fallback pago, resposta truncada, identificadores duplicados/ausentes, bloqueio de comandos externos e preservação de gabarito confirmado. O teste da admissão usa um cliente de banco simulado; concorrência real deve ser conferida em PostgreSQL na homologação.
 
 Uma chamada real e um teste de prova de ponta a ponta dependem da configuração da chave no worker. Não foram efetuados durante a implementação.
+
+## Alternativa ao OCR local
+
+A leitura direta usa PDF inline (até 15 MB), saída estruturada limitada a 200 questões e timeout de três minutos. Preserva o limite global de três provas por dia; respostas truncadas são rejeitadas. Depende das cotas de tokens e da disponibilidade do modelo. Como o PDF inteiro é enviado ao Google, use documentos que possam ser processados pelo provedor e revise todas as fórmulas e figuras. O recorte automático continua podendo exigir ajuste manual.

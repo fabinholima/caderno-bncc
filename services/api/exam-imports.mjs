@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { readExamDocument, storeExamDocument } from './exam-import-storage.mjs';
 import { downloadPdfUrl } from './pdf-url.mjs';
+import { extractPdfWithGemini } from './exam-pdf-gemini.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -959,7 +960,21 @@ export async function extractExamImportQuestions({
       // remains valid for those documents.
     }
     await checkpoint('extracting_text', 35);
-    if (!candidates.length || pageTexts.some(pdfTextNeedsOcr)) {
+    const useGeminiPdf = process.env.EXAM_AI_PROVIDER === 'gemini' && Boolean(process.env.GEMINI_API_KEY)
+      && (!candidates.length || pageTexts.some(pdfTextNeedsOcr));
+    if (useGeminiPdf) {
+      await transaction(async client => {
+        await client.query("SELECT pg_advisory_xact_lock(hashtext('exam-ai-daily-admission'))");
+        const allowed = await client.query(`SELECT EXISTS(SELECT 1 FROM exam_ai_daily_admissions WHERE usage_day=(now() AT TIME ZONE 'America/Campo_Grande')::date AND exam_import_id=$1) AS admitted,
+          (SELECT count(*)::int FROM exam_ai_daily_admissions WHERE usage_day=(now() AT TIME ZONE 'America/Campo_Grande')::date) AS total`,[examImportId]);
+        if (!allowed.rows[0].admitted && allowed.rows[0].total >= 3)
+          throw Object.assign(new Error('Limite de três provas com IA por dia atingido. A extração aguardará uma nova tentativa.'),{code:'AI_QUOTA_EXHAUSTED',retryAfterSeconds:3600});
+        await client.query("INSERT INTO exam_ai_daily_admissions(usage_day,exam_import_id) VALUES((now() AT TIME ZONE 'America/Campo_Grande')::date,$1) ON CONFLICT DO NOTHING",[examImportId]);
+      });
+      await checkpoint('reading_pdf_with_gemini', 55);
+      candidates = await extractPdfWithGemini(await readFile(pdfPath));
+    }
+    if (!useGeminiPdf && (!candidates.length || pageTexts.some(pdfTextNeedsOcr))) {
       await checkpoint('rendering_pages', 45);
       const imagePrefix = join(workingDirectory, 'pagina');
       await execFileAsync(
@@ -1083,7 +1098,7 @@ export async function extractExamImportQuestions({
       [
         institutionId,
         examImportId,
-        error.code === 'IMPORT_CANCELLED' ? 'cancelled' : 'failed',
+        error.code === 'IMPORT_CANCELLED' ? 'cancelled' : error.code === 'AI_QUOTA_EXHAUSTED' ? 'queued' : 'failed',
         error.message || 'Falha na extração.',
       ],
     );

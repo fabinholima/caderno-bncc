@@ -93,7 +93,7 @@ type ExamImportCandidate = {
   questionType: 'single_choice' | 'multiple_choice' | 'essay';
   status: 'complete' | 'review' | 'completed' | 'duplicate' | 'ignored';
   pageNumber?: number;
-  extractionMethod?: 'text' | 'ocr';
+  extractionMethod?: 'text' | 'ocr' | 'gemini-pdf';
   imageDataUrl?: string;
   imageAlt?: string;
   imageExtractionMethod?: 'automatic_page_region';
@@ -2640,6 +2640,7 @@ export function ExamImportManager({
                                   Texto obtido por OCR
                                 </span>
                               )}
+                              {candidate.extractionMethod === 'gemini-pdf' && <span className="text-xs font-semibold text-violet-700">PDF lido diretamente pelo Gemini · revisão obrigatória</span>}
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               {candidateEditorialChecks(candidate).map(
