@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { restoreQuestionClassification } from '@/lib/question-editor-classification.mjs';
 import { QuestionStatusControl } from './question-status-control';
 import { QuestionBatchApproval, QuestionApprovalCheckbox } from './question-batch-approval';
 import { WorkspaceHome } from './workspace-home';
@@ -426,8 +427,7 @@ export default function Home() {
         (item) => item.stage === educationStage && item.subject === discipline && item.knowledge_object_id === knowledgeObjectId && Boolean(item.skill_code),
       ).map(item=>[item.skill_code,item])).values()];
   const selectedSkillInfo =
-    availableSkills.find((item) => item.skill_code === selectedSkillCode) ||
-    availableSkills[0];
+    availableSkills.find((item) => item.skill_code === selectedSkillCode);
   const compatibleSaebMatrices = saebMatrices.filter(
     (item) => item.stage === educationStage && item.subject === discipline,
   );
@@ -449,34 +449,6 @@ export default function Home() {
   const selectedPedagogicalTopicId =
     pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId;
 
-  useEffect(() => {
-    if (
-      availableSkills.length &&
-      !availableSkills.some((item) => item.skill_code === selectedSkillCode)
-    )
-      setSelectedSkillCode(availableSkills[0].skill_code || '');
-  }, [availableSkills, selectedSkillCode]);
-  useEffect(() => {
-    if (!pedagogicalDiscipline || !availableCompetencies.length) return;
-    if (!availableCompetencies.some((item) => item.competency_id === competencyId)) {
-      const skill = availableSkills.find((item) => item.skill_code === selectedSkillCode);
-      setCompetencyId(
-        skill && 'competency_id' in skill && skill.competency_id
-          ? skill.competency_id
-          : availableCompetencies[0].competency_id,
-      );
-    }
-  }, [pedagogicalDiscipline, availableCompetencies, availableSkills, competencyId, selectedSkillCode]);
-  useEffect(() => {
-    if (educationStage !== 'Ensino Fundamental') return;
-    setCompetencyId('');
-    if (fundamentalGrades.length && !fundamentalGrades.includes(fundamentalGrade)) {
-      setFundamentalGrade(fundamentalGrades[0]);
-      return;
-    }
-    if (!fundamentalOptions.some(item => item.knowledge_object_id === knowledgeObjectId))
-      setKnowledgeObjectId(fundamentalOptions[0]?.knowledge_object_id || '');
-  }, [educationStage, fundamentalGrades, fundamentalGrade, fundamentalOptions, knowledgeObjectId]);
   const visible = useMemo(
     () =>
       questions.filter(
@@ -520,24 +492,6 @@ export default function Home() {
       difficultyFilter,
     ],
   );
-
-  useEffect(() => {
-    if (!pedagogicalDiscipline || !pedagogicalTopicOptions.length) return;
-    if (
-      !pedagogicalTopicOptions.some(
-        (item) => item.id === pedagogicalObjectId,
-      )
-    ) {
-      setPedagogicalObjectId(pedagogicalTopicOptions[0].id);
-      setPedagogicalSubtopicId('');
-      setPedagogicalDetailId('');
-    }
-  }, [
-    pedagogicalDiscipline,
-    pedagogicalTopicOptions,
-    pedagogicalObjectId,
-    pedagogicalGrade,
-  ]);
 
   useEffect(() => {
     const fallback = `${window.location.protocol}//${window.location.hostname}:8788`;
@@ -955,10 +909,10 @@ export default function Home() {
         throw new Error(body.error || 'Questão não encontrada.');
       const question = body.data;
       setRecommendSingleColumn(Boolean(question.recommendSingleColumn));
-      const skillCode = question.skills?.[0]?.code || '';
-      const topicPath = String(question.knowledgeTopic || '').split(/\s*>\s*/);
-      if (question.stage === 'Ensino Fundamental' || question.stage === 'Ensino Médio')
-        setEducationStage(question.stage);
+      const restored = restoreQuestionClassification(question,{disciplines:pedagogicalDisciplines,topics:pedagogicalTopics,highSchoolAreas:highSchoolSubjectAreas,elementaryAreas:elementarySubjectAreas});
+      const skillCode = restored.skill;
+      setEducationStage(restored.stage);
+      setKnowledgeAreaFilter(restored.area);
       const competency = highSchoolCurriculum.find(
         (item) => item.skill_code === skillCode,
       );
@@ -966,35 +920,19 @@ export default function Home() {
       setImportCandidateSource(null);
       setQuestionType(question.type);
       setDiscipline(question.subject);
-      setKnowledgeObjectId(question.skills?.[0]?.knowledgeObjectId || '');
+      setKnowledgeObjectId(restored.knowledgeObjectId);
       setCompetencyId(competency?.competency_id || '');
       setCompetencyInfoOpen(false);
       setSelectedSkillCode(skillCode);
-      if (question.stage === 'Ensino Fundamental') setFundamentalGrade(question.grade || '6º ano');
+      if (restored.stage === 'Ensino Fundamental') setFundamentalGrade(question.grade || '6º ano');
       const saebDescriptor = question.saebDescriptors?.[0];
       setSelectedSaebMatrix(saebDescriptor?.matrixId || '');
       setSelectedSaebDescriptor(saebDescriptor?.id || '');
       setSaebInfoOpen(false);
-      const editedDiscipline = pedagogicalDisciplines.find(
-        (item) => item.name === question.subject,
-      );
-      if (editedDiscipline) {
-        setPedagogicalGrade(question.grade || '1ª série');
-        const pathTopics = topicPath.map((name: string) =>
-          pedagogicalTopics.find(
-            (topic) =>
-              topic.discipline_id === editedDiscipline.id &&
-              topic.name === name,
-          ),
-        );
-        setPedagogicalObjectId(pathTopics[0]?.id || '');
-        setPedagogicalSubtopicId(pathTopics[1]?.id || '');
-        setPedagogicalDetailId(pathTopics[2]?.id || '');
-      } else {
-        setPedagogicalObjectId('');
-        setPedagogicalSubtopicId('');
-        setPedagogicalDetailId('');
-      }
+      setPedagogicalGrade(question.grade || '1ª série');
+      setPedagogicalObjectId(restored.objectId);
+      setPedagogicalSubtopicId(restored.subtopicId);
+      setPedagogicalDetailId(restored.detailId);
       setImportedCorrect(
         question.alternatives
           .filter((item: any) => item.isCorrect)
@@ -2200,6 +2138,7 @@ export default function Home() {
                     >
                       {[
                         ...new Set([
+                          discipline,
                           ...(educationStage === 'Ensino Médio'
                             ? highSchoolSubjectAreas[knowledgeAreaFilter] || []
                             : elementarySubjectAreas[knowledgeAreaFilter] || curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject)),
@@ -2348,7 +2287,7 @@ export default function Home() {
                           value={pedagogicalDiscipline.id}
                         />
                         <select
-                          required={availableCompetencies.length > 0}
+                          required={!editingQuestionId && availableCompetencies.length > 0}
                           name="competencyId"
                           value={competencyId}
                           onChange={(event) => {
@@ -2413,7 +2352,7 @@ export default function Home() {
                               Tópico
                             </span>
                             <select
-                              required
+                              required={!editingQuestionId}
                               value={pedagogicalObjectId}
                               onChange={(event) => {
                                 setPedagogicalObjectId(event.target.value);
@@ -2423,6 +2362,7 @@ export default function Home() {
                               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                             >
                               <option value="">Selecione o tópico</option>
+                              {pedagogicalObjectId && !pedagogicalTopicOptions.some(topic => topic.id === pedagogicalObjectId) && <option value={pedagogicalObjectId}>Vínculo atual da questão</option>}
                               {pedagogicalTopicOptions.map((topic) => (
                                 <option key={topic.id} value={topic.id}>
                                   {topic.name}
@@ -2511,6 +2451,7 @@ export default function Home() {
                         className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                       >
                         <option value="">Selecione um objeto cadastrado</option>
+                        {knowledgeObjectId && !(educationStage === 'Ensino Fundamental' ? fundamentalOptions : curriculum).some(item => item.knowledge_object_id === knowledgeObjectId) && <option value={knowledgeObjectId}>Objeto vinculado à questão</option>}
                         {(educationStage === 'Ensino Fundamental' ? fundamentalOptions : curriculum)
                           .filter(
                             (item, index, list) =>
@@ -2545,7 +2486,6 @@ export default function Home() {
                       Habilidade BNCC
                     </span>
                     <select
-                      required={availableSkills.length > 0}
                       name="skill"
                       value={selectedSkillCode}
                       onChange={(event) => {
@@ -2561,6 +2501,7 @@ export default function Home() {
                       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                     >
                       <option value="">Não vinculada</option>
+                      {selectedSkillCode && !availableSkills.some(item => item.skill_code === selectedSkillCode) && <option value={selectedSkillCode}>{selectedSkillCode} · vínculo atual</option>}
                       {availableSkills.map((item) => (
                         <option
                           key={item.skill_code || 'skill'}
