@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { readExamDocument, storeExamDocument } from './exam-import-storage.mjs';
+import { parsePastedExam } from '../../lib/pasted-exam.mjs';
 import { downloadPdfUrl } from './pdf-url.mjs';
 import { extractPdfInBatches } from './exam-pdf-batches.mjs';
 
@@ -41,12 +42,13 @@ export const examImportSchema = z
         'blocked',
       ])
       .default('pending_review'),
+    pastedText: z.string().max(1_000_000).default(''),
     documents: z.array(pdfDocumentSchema).max(2).default([]),
   })
   .refine(
     (value) =>
-      value.documents.filter((item) => item.kind === 'exam').length + Number(Boolean(value.examPdfUrl)) === 1,
-    'Envie exatamente um PDF da prova.',
+      value.documents.filter((item) => item.kind === 'exam').length + Number(Boolean(value.examPdfUrl)) + Number(Boolean(value.pastedText.trim())) === 1 && !(value.pastedText.trim() && (value.documents.length || value.answerKeyPdfUrl)),
+    'Escolha PDF ou texto colado para a prova, sem misturar as fontes.',
   )
   .refine(
     value => !(value.answerKeyPdfUrl && value.documents.some(item => item.kind === 'answer_key')),
@@ -521,6 +523,9 @@ const aiReviewSchema = z
 
 export const candidateUpdateSchema = z.object({
   resetAi: z.boolean().optional(),
+  resolution: z.string().max(20000).optional(),
+  editorialReviewed: z.boolean().optional(),
+  adoteNote: z.string().max(8000).optional(),
   rawText: z.string().trim().min(20).max(30_000).optional(),
   selected: z.boolean().optional(),
   questionType: z
@@ -638,6 +643,7 @@ export async function updateExamImportCandidate({
     candidates[index] = {
       ...candidates[index],
       ...value,
+      ...((value.rawText !== undefined || value.resolution !== undefined || value.adoteNote !== undefined) ? {editorialReviewed:false} : {}),
       ...(value.aiReview
         ? {
             aiReview: {
@@ -688,6 +694,15 @@ export async function createExamImport({ institutionId, userId, role, input }) {
     );
   if (value.examPdfUrl) value.documents.push(await downloadPdfUrl(value.examPdfUrl, 'exam'));
   if (value.answerKeyPdfUrl) value.documents.push(await downloadPdfUrl(value.answerKeyPdfUrl, 'answer_key'));
+  let pastedCandidates = [];
+  if (value.pastedText.trim()) {
+    try { pastedCandidates = parsePastedExam(value.pastedText).map(question => ({
+      id:randomUUID(), sourceNumber:question.sourceNumber, rawText:question.rawText,
+      resolution:question.resolution, adoteNote:question.adoteNote, selected:true, status:'review',
+      questionType:question.correctAnswers.length > 1 ? 'multiple_choice' : Object.keys(question.alternatives).length ? 'single_choice' : 'essay',
+      correctAnswers:question.correctAnswers, answerStatus:question.correctAnswers.length ? 'suggested' : 'missing', extractionMethod:'pasted-text',
+    })); } catch(error) { throw Object.assign(error,{statusCode:422}); }
+  }
   const documents = value.documents.map((document) => ({
     ...document,
     contents: decodePdf(document),
@@ -710,6 +725,10 @@ export async function createExamImport({ institutionId, userId, role, input }) {
         value.sourceUrl,
         value.rightsStatus,
       ],
+    );
+    if (pastedCandidates.length) await client.query(
+      `UPDATE exam_imports SET status='needs_review',detected_questions=$2,extracted_candidates=$3::jsonb WHERE id=$1`,
+      [created.rows[0].id,pastedCandidates.length,JSON.stringify(pastedCandidates)],
     );
     for (const document of documents) {
       const stored = await storeExamDocument(
@@ -760,7 +779,7 @@ export async function createExamImport({ institutionId, userId, role, input }) {
     );
     return {
       id: created.rows[0].id,
-      status: created.rows[0].status,
+      status: pastedCandidates.length ? 'needs_review' : created.rows[0].status,
       createdAt: created.rows[0].created_at,
     };
   });

@@ -1310,6 +1310,7 @@ export default function Home() {
                 ...parsed,
                 sourceInstitution: candidate.sourceInstitution,
                 sourceYear: String(candidate.sourceYear),
+                adoteNote: candidate.adoteNote || parsed.adoteNote,
                 statementBlocks: candidate.imageDataUrl
                   ? [
                       ...parsed.statementBlocks,
@@ -1331,7 +1332,7 @@ export default function Home() {
               });
               setQuestionType(candidate.questionType);
               setImportedCorrect(candidate.correctAnswers || []);
-              setImportedAnswerBlocks([]);
+              setImportedAnswerBlocks(candidate.resolution ? [{type:'paragraph',text:candidate.resolution}] : []);
               const importedTopic = pedagogicalTopics.find(
                 (topic) => topic.id === candidate.pedagogicalTopicId,
               );

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { normalizeAlternativeLabels } from '@/lib/question-alternative-labels.mjs';
 import Image from 'next/image';
+import { CONTEXT_PASTE_MARKER, parseContextQuestion } from '@/lib/pasted-exam.mjs';
 import {
   AlertTriangle,
   ClipboardPaste,
@@ -293,6 +294,14 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
 }
 
 export function parsePastedQuestion(raw: string): ParsedQuestion {
+  if (raw.startsWith(CONTEXT_PASTE_MARKER)) {
+    try {
+      const parsed = parseContextQuestion(raw);
+      return {sourceInstitution:'', sourceYear:'', warnings:[], statementBlocks:[{type:'paragraph',text:parsed.statement}], alternatives:Object.fromEntries(Object.entries(parsed.alternatives).map(([key,text])=>[key,[{type:'paragraph',text}]]))};
+    } catch (error) {
+      return {sourceInstitution:'',sourceYear:'',warnings:[error instanceof Error ? error.message : 'Confira os blocos ConTeXt.'],statementBlocks:[{type:'paragraph',text:raw.slice(CONTEXT_PASTE_MARKER.length).trim()}],alternatives:{}};
+    }
+  }
   const warnings: string[] = [];
   const alternatives: Record<string, RichContentBlock[]> = {};
   const normalized = normalizeAlternativeLabels(raw)

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { CONTEXT_PASTE_MARKER, PASTED_EXAM_EXAMPLE, parsePastedExam } from '@/lib/pasted-exam.mjs';
 import type { FormEvent } from 'react';
 import {
   ArrowRight,
@@ -89,11 +90,14 @@ type ExamImportCandidate = {
   id: string;
   sourceNumber: number;
   rawText: string;
+  resolution?: string;
+  adoteNote?: string;
+  editorialReviewed?: boolean;
   selected: boolean;
   questionType: 'single_choice' | 'multiple_choice' | 'essay';
   status: 'complete' | 'review' | 'completed' | 'duplicate' | 'ignored';
   pageNumber?: number;
-  extractionMethod?: 'text' | 'ocr' | 'gemini-pdf';
+  extractionMethod?: 'text' | 'ocr' | 'gemini-pdf' | 'pasted-text';
   imageDataUrl?: string;
   imageAlt?: string;
   imageExtractionMethod?: 'automatic_page_region';
@@ -203,6 +207,7 @@ type DuplicateQuestion = {
 };
 
 type ImportedQuestionFields = {
+  preserveContext?: boolean;
   statement: string;
   alternatives: Record<'A' | 'B' | 'C' | 'D' | 'E', string>;
 };
@@ -233,6 +238,7 @@ function editableTextFromBlocks(blocks: RichContentBlock[]) {
 function splitImportedQuestion(rawText: string): ImportedQuestionFields {
   const parsed = parsePastedQuestion(rawText);
   return {
+    preserveContext: rawText.startsWith(CONTEXT_PASTE_MARKER),
     statement: editableTextFromBlocks(parsed.statementBlocks),
     alternatives: Object.fromEntries(
       alternativeLetters.map((letter) => [
@@ -245,9 +251,10 @@ function splitImportedQuestion(rawText: string): ImportedQuestionFields {
 
 function joinImportedQuestion(fields: ImportedQuestionFields) {
   return [
+    ...(fields.preserveContext ? [CONTEXT_PASTE_MARKER] : []),
     fields.statement.trim(),
     ...alternativeLetters.map(
-      (letter) => `${letter}) ${fields.alternatives[letter].trim()}`,
+      (letter) => fields.preserveContext && !fields.alternatives[letter].trim() ? '' : `${letter}) ${fields.alternatives[letter].trim()}`,
     ),
   ]
     .filter(Boolean)
@@ -469,7 +476,8 @@ function candidateReadiness(candidate: ExamImportCandidate) {
     )
   )
     reasons.push('conversão da IA exige revisão individual');
-  if (candidate.questionType === 'essay')
+  if (candidate.extractionMethod === 'pasted-text' && !candidate.editorialReviewed) reasons.push('confirme a revisão desta questão');
+  if (candidate.questionType === 'essay' && candidate.extractionMethod !== 'pasted-text')
     reasons.push('discursiva exige revisão individual');
   const labels = Object.keys(
     parsePastedQuestion(candidate.rawText).alternatives,
@@ -483,6 +491,7 @@ function candidateReadiness(candidate: ExamImportCandidate) {
     candidate.answerStatus !== 'confirmed'
   )
     reasons.push('gabarito não confirmado');
+  if (candidate.questionType === 'essay' && !candidate.resolution?.trim()) reasons.push('informe a resolução ou resposta esperada');
   const answerCount = candidate.correctAnswers?.length || 0;
   if (candidate.questionType === 'single_choice' && answerCount !== 1)
     reasons.push('selecione uma resposta correta');
@@ -883,6 +892,8 @@ export function ExamImportManager({
     importId: string;
     candidateId: string;
     rawText: string;
+    resolution?: string;
+    adoteNote?: string;
     sourceInstitution: string;
     sourceYear: number;
     questionType: ExamImportCandidate['questionType'];
@@ -901,6 +912,8 @@ export function ExamImportManager({
   const [aiProviders, setAiProviders] = useState<Record<string, string>>({});
   const [selectedImportId, setSelectedImportId] = useState('');
   const [subjectMode, setSubjectMode] = useState('single');
+  const [importMode, setImportMode] = useState('pdf');
+  const [pastedText, setPastedText] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [examPreview, setExamPreview] = useState<PdfPreview | null>(null);
@@ -1158,10 +1171,13 @@ export function ExamImportManager({
     const answerKeyPdfUrl = String(data.get('answerKeyPdfUrl') || '').trim();
     const examFile = exam instanceof File && exam.size ? exam : null;
     const keyFile = answerKey instanceof File && answerKey.size ? answerKey : null;
-    if ((!examFile && !examPdfUrl) || (examFile && examPdfUrl))
+    if (importMode === 'text') {
+      try { parsePastedExam(pastedText); } catch (error) { return setMessage(error instanceof Error ? error.message : 'Lote inválido.'); }
+    }
+    if (importMode === 'pdf' && ((!examFile && !examPdfUrl) || (examFile && examPdfUrl)))
       return setMessage('Informe um arquivo ou uma URL para a prova.');
-    if (keyFile && answerKeyPdfUrl) return setMessage('Informe arquivo ou URL para o gabarito, apenas uma opção.');
-    const files = [
+    if (importMode === 'pdf' && keyFile && answerKeyPdfUrl) return setMessage('Informe arquivo ou URL para o gabarito, apenas uma opção.');
+    const files = importMode === 'text' ? [] : [
       ...(examFile ? [{file:examFile,kind:'exam'}] : []),
       ...(keyFile ? [{file:keyFile,kind:'answer_key'}] : []),
     ];
@@ -1192,10 +1208,11 @@ export function ExamImportManager({
               ? String(data.get('primarySubject') || '')
               : '',
           sourceUrl: String(data.get('sourceUrl') || ''),
-          examPdfUrl,
-          answerKeyPdfUrl,
+          examPdfUrl: importMode === 'pdf' ? examPdfUrl : '',
+          answerKeyPdfUrl: importMode === 'pdf' ? answerKeyPdfUrl : '',
+          pastedText: importMode === 'text' ? pastedText : '',
           rightsStatus: String(data.get('rightsStatus')),
-          documents,
+          documents: importMode === 'pdf' ? documents : [],
         }),
       });
       const body = (await response.json()) as { error?: string };
@@ -1205,9 +1222,8 @@ export function ExamImportManager({
       setSubjectMode('single');
       setExamPreview(null);
       setAnswerKeyPreview(null);
-      setMessage(
-        'Prova recebida. Ela permanece isolada até a revisão editorial.',
-      );
+      setPastedText('');
+      setMessage(importMode === 'text' ? 'Lote separado em questões e salvo para revisão. Confirme os gabaritos, classifique e cadastre as selecionadas.' : 'Prova recebida. Ela permanece isolada até a revisão editorial.');
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Erro no envio.');
@@ -1426,7 +1442,7 @@ export function ExamImportManager({
               ...item,
               candidates: item.candidates.map((candidate) =>
                 candidate.id === candidateId
-                  ? { ...candidate, rawText, status: 'review' }
+                  ? { ...candidate, rawText, editorialReviewed:false, status: 'review' }
                   : candidate,
               ),
             }
@@ -1623,7 +1639,8 @@ export function ExamImportManager({
             statement: statementBlocks.map(blockPlainText).join(' ').trim(),
             statementBlocks,
             metapostCode: '',
-            answerGuide: '',
+            answerGuide: candidate.resolution || '',
+            ...(candidate.adoteNote ? {statementBlocks:[...statementBlocks,{type:'adoteNote',text:candidate.adoteNote}]} : {}),
             subject: item.primarySubject,
             grade: (candidate.grade || settings.grade).trim(),
             sourceInstitution: item.sourceInstitution,
@@ -1634,7 +1651,7 @@ export function ExamImportManager({
               settings.pedagogicalDisciplineId,
             pedagogicalTopicId: candidate.pedagogicalTopicId || defaultTopicId,
             difficulty: candidate.difficulty || settings.difficulty,
-            alternatives: ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
+            alternatives: candidate.questionType === 'essay' ? [] : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
               const contentBlocks = parsed.alternatives[letter];
               return {
                 stableKey: `alt-${letter.toLowerCase()}`,
@@ -1886,6 +1903,10 @@ export function ExamImportManager({
             Etapa 1 de 3
           </span>
         </div>
+        <div className="mt-5 flex gap-2" aria-label="Origem da importação">
+          <Button type="button" variant={importMode === 'pdf' ? 'default' : 'outline'} onClick={() => setImportMode('pdf')}>PDF</Button>
+          <Button type="button" variant={importMode === 'text' ? 'default' : 'outline'} onClick={() => setImportMode('text')}>Lote por texto / TXT / Markdown</Button>
+        </div>
         <form onSubmit={submit} className="mt-5 space-y-5">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Input
@@ -1954,6 +1975,7 @@ export function ExamImportManager({
               }
             />
           </div>
+          <div hidden={importMode !== 'pdf'}>
           <div className="grid gap-4 lg:grid-cols-2">
             <PdfField
               name="examPdf"
@@ -1972,7 +1994,24 @@ export function ExamImportManager({
             <label className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF da prova<Input name="examPdfUrl" type="url" placeholder="https://instituicao.br/prova.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
             <label className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
           </div>
-          {(examPreview || answerKeyPreview) && (
+          </div>
+          {importMode === 'text' && <section className="space-y-3 rounded-xl border border-violet-200 p-4">
+            <h3 className="font-bold">Importar várias questões em lote</h3>
+            <p className="text-sm text-slate-600">Até 100 questões. Separe com QUESTÃO 1, QUESTÃO 2... Use GABARITO: e RESOLUÇÃO: quando disponíveis. O gabarito exige confirmação na revisão. Nenhuma API de IA é utilizada.</p>
+            <label className="block text-sm">Arquivo TXT ou Markdown
+              <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" className="mt-2 block" onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (!/\.(txt|md|markdown)$/i.test(file.name) || file.size > 2_000_000) { setMessage('Escolha TXT ou Markdown em UTF-8, até 2 MB.'); return; }
+                try { setPastedText(await file.text()); setMessage('Arquivo carregado. Confira o texto e envie o lote para revisão.'); } catch { setMessage('Não foi possível ler o arquivo.'); }
+              }} />
+            </label>
+            <label className="block text-sm font-semibold">Texto do lote
+              <textarea aria-label="Texto do lote" value={pastedText} onChange={(event) => setPastedText(event.target.value)} rows={16} maxLength={1_000_000} spellCheck={false} className="mt-2 w-full rounded-lg border p-3 font-mono text-sm" placeholder={PASTED_EXAM_EXAMPLE} />
+            </label>
+            <Button type="button" variant="outline" onClick={() => { setPastedText(PASTED_EXAM_EXAMPLE); }}>Usar modelo de exemplo</Button>
+          </section>}
+          {importMode === 'pdf' && (examPreview || answerKeyPreview) && (
             <section aria-labelledby="pdf-preview-title">
               <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
                 <div>
@@ -2481,7 +2520,7 @@ export function ExamImportManager({
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <Button
+                          {Boolean(item.documents?.some(document => document.kind === 'exam')) && <Button
                             type="button"
                             variant="outline"
                             disabled={
@@ -2498,7 +2537,7 @@ export function ExamImportManager({
                               : item.candidates?.length
                                 ? 'Extrair novamente'
                                 : 'Extrair questões'}
-                          </Button>
+                          </Button>}
                           <label className="flex items-center gap-2 text-sm text-slate-700">
                             IA para conversão
                             <select aria-label="IA para conversão" className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={aiProviders[item.id] || 'gemini'} disabled={['queued', 'running'].includes(item.aiJob?.status || '')} onChange={(event) => setAiProviders((current) => ({ ...current, [item.id]: event.target.value }))}>
@@ -2971,6 +3010,14 @@ export function ExamImportManager({
                                     .join(' · ')}
                                 </p>
                               )}
+                            <label className="mt-4 block text-sm font-semibold text-slate-700">Resolução em ConTeXt (opcional)
+                              <textarea aria-label={`Resolução da questão ${candidate.sourceNumber}`} key={`${candidate.id}-resolution`} defaultValue={candidate.resolution || ''} maxLength={20000} rows={6} spellCheck={false} disabled={['completed', 'duplicate'].includes(candidate.status)} onBlur={(event) => { if(event.target.value !== (candidate.resolution || '')) updateCandidate(item.id, candidate.id, {resolution:event.target.value}).catch(error => setMessage(error.message)); }} className="mt-2 w-full rounded-lg border border-slate-300 p-3 font-mono text-sm" />
+                            </label>
+                            <p className="mt-1 text-xs text-slate-500">Use Editar, gerar prévia e cadastrar para conferir a resolução no gabarito comentado.</p>
+                            {candidate.extractionMethod === 'pasted-text' && <label className="mt-3 flex items-center gap-2 text-sm font-semibold">
+                              <input type="checkbox" checked={Boolean(candidate.editorialReviewed)} disabled={['completed','duplicate'].includes(candidate.status)} onChange={(event) => updateCandidate(item.id,candidate.id,{editorialReviewed:event.target.checked}).catch(error => setMessage(error.message))} />
+                              Revisei o enunciado, as alternativas e a resolução desta questão
+                            </label>}
                             <div className="mt-3 flex justify-end">
                               <Button
                                 type="button"
@@ -2991,6 +3038,8 @@ export function ExamImportManager({
                                     importId: item.id,
                                     candidateId: candidate.id,
                                     rawText: candidate.rawText,
+                                    resolution: candidate.resolution,
+                                    adoteNote: candidate.adoteNote,
                                     sourceInstitution: item.sourceInstitution,
                                     sourceYear: item.sourceYear,
                                     questionType: candidate.questionType,
