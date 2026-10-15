@@ -89,3 +89,11 @@ test('rejects absent key, truncated output and provider errors without leaking i
     /HTTP 403/,
   );
 });
+
+test('simplifies provider schema while retaining required fields and reports safe 400 diagnostics', async()=>{
+  let body;
+  await requestGeminiAnalysis({...options,schema:{$schema:'draft',type:'object',properties:{questions:{type:'array',maxItems:200,items:{type:'string',maxLength:30000}}},required:['questions']},fetchImpl:async(url,init)=>{body=JSON.parse(init.body);return {ok:true,json:async()=>({candidates:[{finishReason:'STOP',content:{parts:[{text:'{"questions":[]}'}]}}]})};}});
+  const schema=body.generationConfig.responseJsonSchema;
+  assert.equal(schema.$schema,undefined);assert.equal(schema.properties.questions.maxItems,undefined);assert.equal(schema.properties.questions.items.maxLength,undefined);assert.deepEqual(schema.required,['questions']);
+  await assert.rejects(requestGeminiAnalysis({...options,fetchImpl:async()=>({ok:false,status:400,json:async()=>({error:{status:'INVALID_ARGUMENT',message:'Schema too complex; private-test-key'}})})}),e=>e.message.includes('formato estruturado')&&!e.message.includes('private-test-key'));
+});

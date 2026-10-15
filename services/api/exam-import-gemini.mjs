@@ -1,3 +1,12 @@
+// Keep provider schemas small; detailed size/range validation happens locally.
+export function geminiResponseSchema(value) {
+  if (Array.isArray(value)) return value.map(geminiResponseSchema);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !['$schema', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minimum', 'maximum'].includes(key))
+    .map(([key, child]) => [key, geminiResponseSchema(child)]));
+}
+
 export async function requestGeminiAnalysis({
   candidates,
   catalog,
@@ -55,7 +64,7 @@ export async function requestGeminiAnalysis({
         ],
         generationConfig: {
           responseMimeType: 'application/json',
-          responseJsonSchema: schema,
+          responseJsonSchema: geminiResponseSchema(schema),
           maxOutputTokens: pdfContents ? 65536 : 16384,
         },
       }),
@@ -76,10 +85,21 @@ export async function requestGeminiAnalysis({
       },
     );
   }
-  if (!response.ok)
-    throw new Error(
-      `Gemini respondeu HTTP ${response.status}. Confira a chave, o modelo e as permissões no AI Studio.`,
-    );
+  if (!response.ok) {
+    const failure = await Promise.resolve().then(() => response.json()).catch(() => ({}));
+    const message = String(failure?.error?.message || '');
+    const category = /api.?key|credential/i.test(message) ? 'Chave de API inválida ou sem autorização.'
+      : /schema|constraint|state|complex/i.test(message) ? 'O Gemini rejeitou o formato estruturado da resposta.'
+      : /max.?output|output.?token/i.test(message) ? 'O limite de saída solicitado não é aceito pelo modelo.'
+      : /location|country|region/i.test(message) ? 'O projeto ou a região não está habilitado para este serviço.'
+      : /pdf|document|mime|page/i.test(message) ? 'O Gemini rejeitou o PDF; confira se está legível e sem senha.'
+      : /model|not found/i.test(message) ? 'O modelo configurado não está disponível para esta chave.'
+      : 'A requisição foi rejeitada pelo provedor.';
+    // Log only predefined diagnostics, never the raw provider body or credentials.
+    const status = /^[A-Z_]{1,80}$/.test(failure?.error?.status || '') ? failure.error.status : 'UNKNOWN';
+    console.error('Gemini request rejected', {httpStatus:response.status,status,model,category});
+    throw new Error(`Gemini HTTP ${response.status} (${status}): ${category}`);
+  }
   const body = await response.json();
   const candidate = body.candidates?.[0];
   if (candidate?.finishReason !== 'STOP')
