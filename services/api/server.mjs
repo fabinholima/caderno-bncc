@@ -189,7 +189,7 @@ async function readJson(request, maxBytes = 8_500_000) {
     if (size > maxBytes) throw new Error('Payload muito grande');
     chunks.push(chunk);
   }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
 function setSessionCookie(response, token) {
@@ -521,6 +521,7 @@ const server = createServer(async (request, response) => {
           institutionId,
           userId,
           examImportId: examImportAnalyzeMatch[1],
+          provider: (await readJson(request, 4096)).provider,
         }),
       });
     const examImportAnalyzeCancelMatch =
@@ -548,6 +549,7 @@ const server = createServer(async (request, response) => {
           institutionId,
           userId,
           examImportId: examImportAnalyzeRetryMatch[1],
+          provider: (await readJson(request, 4096)).provider,
         }),
       });
     const examImportCancelMatch =

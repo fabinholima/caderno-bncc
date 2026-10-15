@@ -203,10 +203,11 @@ export async function requestExamAnalysis({
   candidates,
   catalog,
   fetchImpl = fetch,
+  provider = process.env.EXAM_AI_PROVIDER || 'openai',
 }) {
-  if (process.env.EXAM_AI_PROVIDER === 'local_demo')
+  if (provider === 'local_demo')
     return createLocalDemoAnalysis({ candidates, catalog });
-  if (process.env.EXAM_AI_PROVIDER === 'gemini')
+  if (provider === 'gemini')
     return requestGeminiAnalysis({
       candidates,
       catalog,
@@ -214,7 +215,26 @@ export async function requestExamAnalysis({
       schema: examAnalysisJsonSchema,
       fetchImpl,
     });
-  if (process.env.EXAM_AI_PROVIDER && process.env.EXAM_AI_PROVIDER !== 'openai')
+  if (provider === 'deepseek') {
+    if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY não configurada no worker de importação.');
+    const model = process.env.DEEPSEEK_EXAM_MODEL || 'deepseek-flash';
+    const response = await fetchImpl('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`, 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(180_000),
+      body: JSON.stringify({ model, max_tokens: 16384, response_format: { type: 'json_object' }, messages: [
+        { role: 'system', content: contextInstructions + '\nResponda apenas JSON conforme este schema: ' + JSON.stringify(examAnalysisJsonSchema) },
+        { role: 'user', content: JSON.stringify({ catalog, questions: candidates.map(({id, sourceNumber, rawText, pageNumber}) => ({candidateId:id, sourceNumber, rawText:rawText.slice(0,30000), pageNumber})) }) },
+      ] }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(`DeepSeek respondeu HTTP ${response.status}. Confira a chave, saldo e modelo.`);
+    if (body.choices?.[0]?.finish_reason !== 'stop') throw new Error('DeepSeek não concluiu a resposta. Tente um lote menor.');
+    const parsed = JSON.parse(body.choices[0].message.content);
+    if (!Array.isArray(parsed.questions)) throw new Error('Resposta estruturada sem questões.');
+    return { questions: parsed.questions, provider, model:body.model || model, responseId:body.id, usage:body.usage || {} };
+  }
+  if (provider !== 'openai')
     throw new Error('Provedor de análise de provas inválido.');
   if (!process.env.OPENAI_API_KEY)
     throw new Error('OPENAI_API_KEY não configurada no worker de importação.');
@@ -277,6 +297,7 @@ export async function analyzeExamImport({
   examImportId,
   onProgress = async () => {},
   shouldCancel = async () => false,
+  provider,
 }) {
   const source = await pool.query(
     'SELECT extracted_candidates FROM exam_imports WHERE id=$1 AND institution_id=$2',
@@ -325,6 +346,7 @@ export async function analyzeExamImport({
     });
   await onProgress('analyzing_with_ai', 30);
   const analysis = await requestExamAnalysis({
+    provider,
     candidates,
     catalog: { topics: catalogResult.rows, skills: skillsResult.rows },
   });

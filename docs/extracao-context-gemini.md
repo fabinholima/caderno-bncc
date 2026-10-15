@@ -54,3 +54,11 @@ Uma chamada real e um teste de prova de ponta a ponta dependem da configuração
 ## Alternativa ao OCR local
 
 A leitura direta usa PDF inline (até 15 MB), saída estruturada limitada a 200 questões e timeout de três minutos. Preserva o limite global de três provas por dia; respostas truncadas são rejeitadas. Depende das cotas de tokens e da disponibilidade do modelo. Como o PDF inteiro é enviado ao Google, use documentos que possam ser processados pelo provedor e revise todas as fórmulas e figuras. O recorte automático continua podendo exigir ajuste manual.
+
+## Escolha da IA para conversão
+
+Em cada importação, o seletor “IA para conversão” permite Gemini, DeepSeek ou ChatGPT (OpenAI). A escolha é enviada em `POST /api/exam-imports/:id/analyze` e `/analyze/retry` como JSON `{"provider":"deepseek"}` (também aceita `gemini` e `openai`). O lote guarda o provedor em `exam_import_jobs.ai_provider`; não há fallback pago automático. Jobs antigos usam o padrão do worker.
+
+No worker, configure as chaves correspondentes: `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`. Modelos opcionais: `GEMINI_EXAM_MODEL`, `DEEPSEEK_EXAM_MODEL` (padrão `deepseek-flash`), `OPENAI_EXAM_MODEL`. Chaves permanecem somente no servidor. DeepSeek usa Chat Completions com JSON; as sugestões passam pela mesma validação e revisão humana.
+
+O seletor controla a conversão dos candidatos extraídos; a leitura direta de PDF continua no Gemini. O limite global de três provas por dia permanece para todos os provedores. Aplique a migração 083 antes de iniciar o worker atualizado.
