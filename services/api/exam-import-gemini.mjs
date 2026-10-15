@@ -5,6 +5,7 @@ export async function requestGeminiAnalysis({
   schema,
   fetchImpl = fetch,
   env = process.env,
+  pdfContents,
 }) {
   if (!env.GEMINI_API_KEY)
     throw new Error('GEMINI_API_KEY não configurada no worker de importação.');
@@ -19,13 +20,23 @@ export async function requestGeminiAnalysis({
         'x-goog-api-key': env.GEMINI_API_KEY,
         'content-type': 'application/json',
       },
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(pdfContents ? 180_000 : 120_000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: instructions }] },
         contents: [
           {
             role: 'user',
             parts: [
+              ...(pdfContents
+                ? [
+                    {
+                      inlineData: {
+                        mimeType: 'application/pdf',
+                        data: pdfContents.toString('base64'),
+                      },
+                    },
+                  ]
+                : []),
               {
                 text: JSON.stringify({
                   catalog,
@@ -45,7 +56,7 @@ export async function requestGeminiAnalysis({
         generationConfig: {
           responseMimeType: 'application/json',
           responseJsonSchema: schema,
-          maxOutputTokens: 16384,
+          maxOutputTokens: pdfContents ? 65536 : 16384,
         },
       }),
     },
