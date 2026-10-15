@@ -5,7 +5,8 @@ const pdf = Buffer.from('%PDF-1.4\n' + 'x'.repeat(100));
 const question = {
   sourceNumber: 1,
   pageNumber: 2,
-  rawText: 'Considere o gráfico da questão. A) 10 B) 20',
+  statement: 'Considere o gráfico da questão.',
+  alternatives: [{label:'A',text:'10'},{label:'B',text:'20'}],
   questionType: 'single_choice',
 };
 function options(questions, seen = () => {}) {
