@@ -1931,7 +1931,7 @@ export function ExamImportManager({
             <Input
               name="sourceUrl"
               type="url"
-              placeholder="URL oficial de origem (opcional)"
+              placeholder="Página de referência (opcional; não baixa o PDF)"
             />
             <SelectField
               name="rightsStatus"
