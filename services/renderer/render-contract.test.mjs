@@ -714,3 +714,18 @@ test('permite exibir o descritor SAEB antes do enunciado', async () => {
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\DescritorSAEB\{D20\}\\quad/);
 });
+
+test('separa questões com quebra de linha real sem imprimir n em todos os layouts', async () => {
+  const sample = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json',import.meta.url)));
+  for (const template of ['basicexam-v1','simulado-v1','caderno-duas-colunas-v1']) {
+    for (const mode of ['student','answer-key']) {
+      const snapshot=structuredClone(sample);
+      snapshot.render={...snapshot.render,template,mode};
+      snapshot.questions.push({...structuredClone(snapshot.questions[0]),number:2,id:'second-question'});
+      snapshot.sections=[{title:'',columns:2,questions:snapshot.questions}];
+      const tex=renderAssessment(snapshot);
+      assert.doesNotMatch(tex,/\\stopquestion\\n/);
+      if(mode==='student') assert.match(tex,/\\stopquestion\n\\blank\[(?:medium|small)\]/);
+    }
+  }
+});

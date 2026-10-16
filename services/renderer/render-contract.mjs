@@ -473,7 +473,7 @@ export function renderAssessment(snapshot) {
         ? '\\blank[small]'
         : '\\blank[medium]'
       : '';
-    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${adoteNote(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\\n${questionGap}` : ''}`;
+    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${adoteNote(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\n${questionGap}` : ''}`;
   };
   const sections =
     Array.isArray(snapshot.sections) && snapshot.sections.length
