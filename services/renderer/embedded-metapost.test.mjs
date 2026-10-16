@@ -25,3 +25,17 @@ test('accepts Greek math in textext and btex without permitting other TeX comman
   for (const name of ['omegainput','omegafoo','input','ctxlua','def','csname'])
     assert.equal(validMetaPost(`label(textext("$\\${name}$"), origin);`),false);
 });
+
+test('accepts native font commands in beam load labels without accepting executable commands',()=>{
+  const beam = String.raw`u:=3cm; yd:=-1.8cm;
+  vardef load(expr x,s) =
+    drawarrow (x,1.6cm)--(x,0) withpen pencircle scaled 1.4pt;
+    label.top(textext(s),(x,1.65cm));
+  enddef;
+  load(0.9u,"\bf 75 kN");
+  load(3.3u,"\bf 30 kN");`;
+  assert.ok(validMetaPost(beam));
+  assert.doesNotThrow(()=>withoutEmbeddedMetaPost(`\\startMPcode\n${beam}\n\\stopMPcode`));
+  for(const command of ['bf','rm','it','sl','tt','tf','bold','italic']) assert.ok(validMetaPost(`label(textext("\\${command} Carga"),origin);`));
+  for(const command of ['bfinput','boldinput','input','directlua','def','csname']) assert.equal(validMetaPost(`label(textext("\\${command} x"),origin);`),false);
+});
