@@ -39,3 +39,18 @@ test('accepts native font commands in beam load labels without accepting executa
   for(const command of ['bf','rm','it','sl','tt','tf','bold','italic']) assert.ok(validMetaPost(`label(textext("\\${command} Carga"),origin);`));
   for(const command of ['bfinput','boldinput','input','directlua','def','csname']) assert.equal(validMetaPost(`label(textext("\\${command} x"),origin);`),false);
 });
+
+test('accepts ConTeXt font sizes in thermal-source label concatenation',()=>{
+ const code=String.raw`vardef fonte(expr x,w,t,extra) =
+   if length(extra)>0:
+     label(textext("Fonte"),(x,0.65cm));
+     label(textext(t),(x,0.05cm));
+     label(textext("\tfx " & extra),(x,-0.5cm));
+   fi;
+ enddef;
+ fonte(9.8cm,3.4cm,"Temperatura $T_2$","(desconhecida)");`;
+ assert.ok(validMetaPost(code));
+ assert.doesNotThrow(()=>withoutEmbeddedMetaPost(`\\startMPcode\n${code}\n\\stopMPcode`));
+ for(const command of ['tf','tfx','tfxx','tfa','tfb','tfc','tfd']) assert.ok(validMetaPost(`label(textext("\\${command} texto"),origin);`));
+ for(const command of ['tfxinput','tfxxinput','tfainput','directlua','input']) assert.equal(validMetaPost(`label(textext("\\${command} x"),origin);`),false);
+});
