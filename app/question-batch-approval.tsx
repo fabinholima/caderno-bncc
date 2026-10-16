@@ -144,7 +144,7 @@ export function QuestionBatchApproval({
   if (!enabled) return children;
   return (
     <Context.Provider value={{ busy, selected, eligible, toggle, toggleAll }}>
-      <div className="border-b border-blue-100 bg-blue-50/50 p-4">
+      {(selected.length > 0 || result || message) && <div className="sticky top-0 z-10 border-b border-blue-100 bg-blue-50 p-4">
         <div className="flex flex-wrap items-center gap-3">
           <strong className="text-sm text-slate-800">Situação em lote</strong>
           <span className="text-xs text-slate-600">
@@ -233,7 +233,7 @@ export function QuestionBatchApproval({
             {message}
           </p>
         )}
-      </div>
+      </div>}
       {children}
     </Context.Provider>
   );

@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
 import { restoreQuestionClassification } from '@/lib/question-editor-classification.mjs';
-import { QuestionStatusControl } from './question-status-control';
+import { QuestionBankDrawer } from './question-bank-drawer';
+import { questionBankSummary } from '@/lib/question-bank-summary.mjs';
 import { QuestionBatchApproval, QuestionApprovalCheckbox } from './question-batch-approval';
 import { WorkspaceHome } from './workspace-home';
 import { WorkspaceNavigation } from './workspace-navigation';
@@ -35,6 +36,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from '@/components/ui/dropdown-menu';
 import { AssessmentBuilder } from './assessment-builder';
 import { CurriculumManager, type CurriculumOption } from './curriculum-manager';
 import { RichContentEditor } from './rich-content-editor';
@@ -55,6 +57,7 @@ import {
 
 type Question = {
   recommendSingleColumn?: boolean;
+  hasResolution?: boolean;
   id: string;
   code: string;
   statement: string;
@@ -269,30 +272,6 @@ function difficultyClass(value: Question['difficulty']) {
   return 'border-amber-200 bg-amber-50 text-amber-700';
 }
 
-function readableStatement(value: string) {
-  return value
-    .replace(/\$\$?/g, '')
-    .replace(/\\mathbb\{R\}/g, 'ℝ')
-    .replace(/\\infty/g, '∞')
-    .replace(/\\in\b/g, '∈')
-    .replace(/\\cup/g, '∪')
-    .replace(/\\cap/g, '∩')
-    .replace(/\\mid/g, '∣')
-    .replace(/\\rightarrow/g, '→')
-    .replace(/\\leq/g, '≤')
-    .replace(/\\geq/g, '≥')
-    .replace(/\\neq/g, '≠')
-    .replace(/\\times/g, '×')
-    .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
-    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
-    .replace(/\\sum_\{([^{}]+)\}\^\{([^{}]+)\}/g, 'Σ ($1 → $2)')
-    .replace(/\{([^{}]+)\}/g, '$1')
-    .replace(/\\([A-Za-z]+)/g, '$1')
-    .replace(/_/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 export default function Home() {
   const [apiUrl, setApiUrl] = useState('');
   const [identity, setIdentity] = useState<AuthIdentity | null>(null);
@@ -348,13 +327,10 @@ export default function Home() {
   const [questionPreviewUrl, setQuestionPreviewUrl] = useState('');
   const [questionPreviewVerified, setQuestionPreviewVerified] = useState(false);
   const [questionPreviewMode,setQuestionPreviewMode]=useState<'student'|'answer-key'>('student');
-  const [quickPreviewMode,setQuickPreviewMode]=useState<'student'|'answer-key'>('student');
   const [questionPreviewError, setQuestionPreviewError] = useState('');
   const [notice, setNotice] = useState('');
-  const [quickPreviewQuestion, setQuickPreviewQuestion] = useState<any>(null);
-  const [quickPreviewPdfUrl, setQuickPreviewPdfUrl] = useState('');
-  const [quickPreviewLoading, setQuickPreviewLoading] = useState(false);
-  const [quickPreviewError, setQuickPreviewError] = useState('');
+  const [bankQuestionId,setBankQuestionId]=useState('');
+  const [statusFilter,setStatusFilter]=useState('');
   const [active, setActive] = useState('Início');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [initialApplicationId, setInitialApplicationId] = useState('');
@@ -457,6 +433,7 @@ export default function Home() {
             .toLowerCase()
             .includes(query.toLowerCase()) &&
           q.stage === educationStage &&
+          (!statusFilter || q.status === statusFilter) &&
           (!gradeFilter || q.grade === gradeFilter) &&
           (subject === 'Todas' || q.subject === subject) &&
           (!knowledgeObjectFilter ||
@@ -478,6 +455,7 @@ export default function Home() {
       ),
     [
       questions,
+      statusFilter,
       query,
       educationStage,
       gradeFilter,
@@ -983,66 +961,6 @@ export default function Home() {
     }
   }
 
-  async function previewQuestionInBank(question: Question, previewMode:'student'|'answer-key'='student') {
-    if (!apiUrl) return;
-    setQuickPreviewLoading(true);
-    setQuickPreviewError('');
-    setQuickPreviewMode(previewMode);
-    setQuickPreviewPdfUrl(current=>{if(current)URL.revokeObjectURL(current);return '';});
-    try {
-    const response = await apiFetch(`${apiUrl}/api/questions/${question.id}`);
-    if (response.ok) {
-      const body = (await response.json()) as { data: any };
-      const detail = body.data;
-      setQuickPreviewQuestion(detail);
-      const input = {
-        previewMode,
-        type: detail.type,
-        statement: detail.statement.map((node: any) => node.text || node.code || node.tex || node.formula || '').join('\n'),
-        statementBlocks: detail.statement,
-        subject: detail.subject,
-        grade: detail.grade,
-        sourceInstitution: detail.sourceInstitution,
-        sourceYear: detail.sourceYear,
-        skill: detail.skills?.[0]?.code || '',
-        pedagogicalTopicId: detail.pedagogicalTopicId || '',
-        knowledgeTopic: detail.knowledgeTopic || '',
-        difficulty: detail.difficulty === 'hard' ? 'Difícil' : detail.difficulty === 'easy' ? 'Fácil' : 'Média',
-        alternatives: detail.alternatives.map((alternative: any) => ({
-          stableKey: alternative.stableKey,
-          content: alternative.content.map((node: any) => node.text || node.code || node.tex || node.formula || '').join(' '),
-          contentBlocks: alternative.content,
-          isCorrect: alternative.isCorrect,
-          position: alternative.position,
-        })),
-        ...(detail.explanation?.length
-          ? { answerBlocks: detail.explanation }
-          : {}),
-      };
-      const preview = await apiFetch(`${apiUrl}/api/questions/preview`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!preview.ok) {
-        const error: unknown = await preview.json().catch(() => ({}));
-        throw new Error(
-          error && typeof error === 'object' && 'error' in error && typeof error.error === 'string'
-            ? error.error
-            : 'Não foi possível compilar a prévia.',
-        );
-      }
-      const nextUrl = URL.createObjectURL(await preview.blob());
-      setQuickPreviewPdfUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return nextUrl;
-      });
-    } else {
-      throw new Error('Não foi possível carregar a questão.');
-    }
-    } finally {setQuickPreviewLoading(false);}
-  }
-
   async function removeQuestion(question: Question) {
     if (
       !window.confirm(
@@ -1353,6 +1271,8 @@ export default function Home() {
                   e prepare questões para qualquer formato de avaliação.
                 </p>
               </div>
+              <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="lg" onClick={() => setActive('Importar provas')}><FileInput/> Importar questões</Button>
               <Button
                 onClick={openNewQuestion}
                 disabled={!canEditCatalog}
@@ -1362,6 +1282,7 @@ export default function Home() {
                 <Plus />
                 Nova questão
               </Button>
+              </div>
             </div>
             {notice && (
               <div
@@ -1434,7 +1355,7 @@ export default function Home() {
                 </article>
               ))}
             </div>
-            <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
+            <section className="relative mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
               <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center">
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -1478,24 +1399,11 @@ export default function Home() {
                       </option>
                     ))}
                   </select>
+                  <select aria-label="Série ou ano" value={gradeFilter} onChange={event => {setGradeFilter(event.target.value);setTopicGroupFilter('');setSubtopicFilter('');setTopicDetailFilter('');}} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as séries</option>{[...new Set(questions.filter(q=>q.stage===educationStage).map(q=>q.grade))].sort().map(grade=><option key={grade}>{grade}</option>)}</select>
+                  <select aria-label="Situação das questões" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{['Rascunho','Em revisão','Precisa de ajustes','Aprovada','Arquivada'].map(status=><option key={status}>{status}</option>)}</select>
+                  <details className="relative"><summary className="flex h-10 cursor-pointer items-center rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700">Mais filtros ▾</summary><div className="absolute right-0 z-20 mt-2 grid max-h-[70vh] w-[min(85vw,28rem)] gap-3 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
                   {filterPedagogicalDiscipline && educationStage === 'Ensino Médio' ? (
                     <>
-                      <select
-                        aria-label={`Série de ${subject}`}
-                        value={gradeFilter}
-                        onChange={(event) => {
-                          setGradeFilter(event.target.value);
-                          setTopicGroupFilter('');
-                          setSubtopicFilter('');
-                          setTopicDetailFilter('');
-                        }}
-                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                      >
-                        <option value="">Todas as séries</option>
-                        <option value="1ª série">1ª série</option>
-                        <option value="2ª série">2ª série</option>
-                        <option value="3ª série">3ª série</option>
-                      </select>
                       <select
                         aria-label="Competência específica"
                         value={competencyFilter}
@@ -1704,7 +1612,8 @@ export default function Home() {
                       </option>
                     ))}
                   </select>
-                  {(subject !== 'Todas' ||
+                  </div></details>
+                  {(query || statusFilter || gradeFilter || competencyFilter || topicDetailFilter || subject !== 'Todas' ||
                     knowledgeObjectFilter ||
                     topicGroupFilter ||
                     subtopicFilter ||
@@ -1715,6 +1624,7 @@ export default function Home() {
                       variant="outline"
                       className="h-10 px-3"
                       onClick={() => {
+                        setQuery('');setStatusFilter('');setGradeFilter('');setCompetencyFilter('');
                         setSubject('Todas');
                         setKnowledgeObjectFilter('');
                         setTopicGroupFilter('');
@@ -1740,7 +1650,7 @@ export default function Home() {
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-[.08em] text-slate-500">
                       {identity.portalAdmin && <th className="w-12 px-3 py-3"><QuestionApprovalCheckbox /></th>}
                       <th className="w-[47%] px-5 py-3">Questão</th>
-                      <th className="px-4 py-3">BNCC</th>
+                      <th className="px-4 py-3">Classificação</th>
                       <th className="px-4 py-3">Dificuldade</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Atualização</th>
@@ -1773,9 +1683,9 @@ export default function Home() {
                                   {q.sourceInstitution} {q.sourceYear}
                                 </span>
                               </div>
-                              <p className="max-w-2xl text-sm font-medium leading-5 text-slate-800">
-                                {readableStatement(q.statement)}
-                              </p>
+                              <button type="button" onClick={() => setBankQuestionId(q.id)} className="block max-w-xl text-left text-sm font-medium leading-5 text-slate-800 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`Abrir detalhes de ${q.code}`}><span className="line-clamp-2">{questionBankSummary(q.statement)}</span></button>
+                              {/\\startMPcode|\\externalfigure/.test(q.statement) && <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-500"><Eye className="size-3"/> Com ilustração</span>}
+                              {q.hasResolution && <span className="ml-2 mt-1 inline-flex items-center gap-1 text-[11px] text-slate-500"><BookOpenCheck className="size-3"/> Com resolução</span>}
                             </div>
                           </div>
                         </td>
@@ -1784,7 +1694,7 @@ export default function Home() {
                             variant="outline"
                             className="border-violet-200 bg-violet-50 font-mono text-violet-700"
                           >
-                            {q.skill}
+                            {q.skill || 'Não vinculada'}
                           </Badge>
                         </td>
                         <td className="px-4 py-4">
@@ -1796,10 +1706,7 @@ export default function Home() {
                           </Badge>
                         </td>
                         <td className="px-4 py-4">
-                          <QuestionStatusControl apiUrl={apiUrl} question={q} reviewer={Boolean(identity.portalAdmin)} canManage={Boolean(canEditCatalog && (identity.portalAdmin || q.createdBy===identity.user.id))} onChanged={async()=>{
-                            const r=await apiFetch(`${apiUrl}/api/questions`);if(!r.ok)throw new Error('Status salvo, mas não foi possível atualizar a lista.');setQuestions(((await r.json()) as {data:Question[]}).data);
-                          }}/>
-
+                          <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${q.status==='Aprovada'?'bg-emerald-50 text-emerald-700':q.status==='Precisa de ajustes'?'bg-rose-50 text-rose-700':q.status==='Em revisão'?'bg-blue-50 text-blue-700':'bg-slate-100 text-slate-600'}`}>{q.status}</span>
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">
                           {q.updatedAt}
@@ -1811,40 +1718,14 @@ export default function Home() {
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`Visualizar ${q.code}`}
-                              onClick={() =>
-                                previewQuestionInBank(q).catch((error) => {
-                                  setQuickPreviewError(
-                                    error instanceof Error
-                                      ? error.message
-                                      : 'Erro ao compilar a prévia.',
-                                  );
-                                  setQuickPreviewLoading(false);
-                                })
-                              }
+                              onClick={() => setBankQuestionId(q.id)}
                             >
                               <Eye />
                             </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Editar ${q.code}`}
-                              disabled={!canEditCatalog}
-                              onClick={() => editQuestion(q.id)}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                              aria-label={`Excluir ${q.code}`}
-                              disabled={!canEditCatalog}
-                              onClick={() => removeQuestion(q)}
-                            >
-                              <Trash2 />
-                            </Button>
+                            <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Mais ações para ${q.code}`}/>}>⋯</DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-40">
+                              <DropdownMenuItem disabled={!canEditCatalog} onClick={()=>void editQuestion(q.id)}><Pencil/> Editar questão</DropdownMenuItem>
+                              <DropdownMenuItem disabled={!canEditCatalog} variant="destructive" onClick={()=>void removeQuestion(q)}><Trash2/> Excluir questão</DropdownMenuItem>
+                            </DropdownMenuContent></DropdownMenu>
                           </div>
                         </td>
                       </tr>
@@ -1866,12 +1747,9 @@ export default function Home() {
               </QuestionBatchApproval>
               <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-xs text-slate-500">
                 <span>
-                  Exibindo {visible.length} de {questions.length} questões desta
-                  demonstração
+                  Exibindo {visible.length} de {questions.length} questões do acervo
                 </span>
-                <Button variant="ghost" size="sm">
-                  Ver acervo completo
-                </Button>
+
               </footer>
             </section>
           </div>
@@ -2840,27 +2718,11 @@ export default function Home() {
           </section>
         </div>
       )}
-      {quickPreviewQuestion && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4" role="dialog" aria-modal="true">
-          <section className="max-h-[85vh] w-full max-w-3xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <p className="font-mono text-xs font-semibold text-blue-700">{quickPreviewQuestion.code}</p>
-                <p className="text-xs text-slate-500">{quickPreviewQuestion.subject} · {quickPreviewQuestion.grade}</p>
-              </div>
-              <button type="button" className="text-slate-500 hover:text-slate-900" onClick={() => { setQuickPreviewQuestion(null); setQuickPreviewError(''); if (quickPreviewPdfUrl) URL.revokeObjectURL(quickPreviewPdfUrl); setQuickPreviewPdfUrl(''); }} aria-label="Fechar prévia"><X /></button>
-            </div>
-            <div className="mb-4 flex flex-wrap gap-2">
-              <Button type="button" variant={quickPreviewMode==='student'?'default':'outline'} disabled={quickPreviewLoading} onClick={()=>void previewQuestionInBank(quickPreviewQuestion,'student').catch(error=>setQuickPreviewError(error.message))}>Questão</Button>
-              <Button type="button" variant={quickPreviewMode==='answer-key'?'default':'outline'} disabled={quickPreviewLoading||!quickPreviewQuestion.explanation?.length} onClick={()=>void previewQuestionInBank(quickPreviewQuestion,'answer-key').catch(error=>setQuickPreviewError(error.message))}>Resolução e gabarito</Button>
-              {!quickPreviewQuestion.explanation?.length&&<span className="self-center text-xs text-slate-500">Esta questão ainda não tem resolução cadastrada.</span>}
-            </div>
-            {quickPreviewLoading && <p className="text-sm text-slate-500">Compilando prévia com ConTeXt...</p>}
-            {quickPreviewError && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-red-950 p-3 text-xs text-red-100">{quickPreviewError}</pre>}
-            {quickPreviewPdfUrl && <iframe title={`${quickPreviewMode==='answer-key'?'Resolução':'Questão'} ConTeXt ${quickPreviewQuestion.code}`} src={quickPreviewPdfUrl} className="h-[65vh] w-full rounded-lg border bg-white" />}
-          </section>
-        </div>
-      )}
+      {bankQuestionId && questions.some(q=>q.id===bankQuestionId) && (() => {
+        const selected = questions.find(q=>q.id===bankQuestionId)!;
+        return <QuestionBankDrawer key={selected.id} question={selected} apiUrl={apiUrl} reviewer={Boolean(identity.portalAdmin)} canManage={Boolean(canEditCatalog && (identity.portalAdmin || selected.createdBy===identity.user.id))} canEdit={canEditCatalog} onClose={()=>setBankQuestionId('')} onEdit={()=>{setBankQuestionId('');void editQuestion(selected.id);}} onChanged={async()=>{const r=await apiFetch(`${apiUrl}/api/questions`,{cache:'no-store'});if(!r.ok)throw new Error('Falha ao atualizar as questões.');setQuestions(((await r.json()) as {data:Question[]}).data);}}/>;
+      })()}
+
     </main>
   );
 }

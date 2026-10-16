@@ -545,6 +545,7 @@ export async function listQuestions({
     text: `
       SELECT q.id, q.public_code, q.status, q.updated_at, q.created_by, q.current_revision,
              qr.statement, qr.type, qr.subject, qr.grade, qr.difficulty, qr.recommend_single_column,
+             (jsonb_array_length(COALESCE(qr.explanation,'[]'::jsonb)) > 0) AS has_resolution,
              qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
              COALESCE(cs.stage,
                CASE WHEN qr.grade ILIKE '%médio%' OR qr.grade ILIKE '%série%'
@@ -616,6 +617,7 @@ export async function listQuestions({
       .filter(Boolean)
       .join(' '),
     type: row.type,
+    hasResolution: row.has_resolution === true,
     subject: row.subject,
     grade: row.grade,
     stage: row.stage,
