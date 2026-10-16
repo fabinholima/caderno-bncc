@@ -729,3 +729,21 @@ test('separa questões com quebra de linha real sem imprimir n em todos os layou
     }
   }
 });
+
+test('Note e adote respeita a largura local e permite quebra e hifenização em todos os layouts',async()=>{
+ const base=JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json',import.meta.url)));
+ const note=String.raw`\startitemize[packed]
+\item Experimentalmente estima-se que a força à qual o projétil é submetido, em Newtons, é numericamente igual a 45 vezes o produto entre o campo magnético produzido pela circulação da corrente no interior do solenoide e o campo magnético produzido pelo ímã (ambos em Tesla).
+\stopitemize`;
+ for(const template of ['basicexam-v1','simulado-v1','caderno-duas-colunas-v1']) {
+  for(const columns of [1,2]) {
+   const snapshot=structuredClone(base);
+   snapshot.render.template=template;
+   snapshot.questions[0].statement.push({type:'adoteNote',text:note});
+   snapshot.sections=[{title:'',columns,questions:snapshot.questions}];
+   const tex=renderAssessment(snapshot);
+   assert.match(tex,/\\startframedtext\[[^\]]*width=\\hsize,align=\{normal,hyphenated,verytolerant,stretch\},offset=3mm\]/);
+   assert.ok(tex.includes(note));
+  }
+ }
+});
