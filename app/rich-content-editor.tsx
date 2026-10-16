@@ -1,7 +1,8 @@
 'use client';
 import { normalizeRawContextBlocks } from '@/lib/raw-context-blocks.mjs';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { nextImageReference, assignImageReferences } from '@/lib/context-image-references.mjs';
 import type { ClipboardEvent } from 'react';
 import type { ReactNode } from 'react';
 import Image from 'next/image';
@@ -96,7 +97,7 @@ export type RichContentBlock =
       originalDataUrl?: string;
       svgDataUrl?: string;
     }
-  | { type: 'image'; dataUrl: string; alt: string; caption: string };
+  | { type: 'image'; dataUrl: string; alt: string; caption: string; referenceId?: string };
 
 export function RichContentEditor({
   name,
@@ -123,9 +124,11 @@ export function RichContentEditor({
     ? ([{ type: 'contextRaw', code: '' }] as RichContentBlock[])
     : ([{ type: 'paragraph', text: '' }] as RichContentBlock[]);
   const [blocks, setBlocks] = useState<RichContentBlock[]>(emptyBlocks);
+  const rawEditors = useRef<Record<number, HTMLTextAreaElement | null>>({});
+  const activeRawIndex = useRef<number | null>(null);
   const [structureLoading, setStructureLoading] = useState<number | null>(null);
   useEffect(() => {
-    setBlocks(initialBlocks?.length ? (rawOnly ? normalizeRawContextBlocks(initialBlocks) as RichContentBlock[] : initialBlocks) : emptyBlocks);
+    setBlocks(initialBlocks?.length ? assignImageReferences(rawOnly ? normalizeRawContextBlocks(initialBlocks) : initialBlocks) as RichContentBlock[] : emptyBlocks);
   }, [initialBlocks, resetKey, rawOnly]);
   const update = (index: number, patch: Partial<RichContentBlock>) =>
     setBlocks((current) =>
@@ -254,11 +257,14 @@ export function RichContentEditor({
   const insertRawSnippet = (index: number, snippet: string) => {
     const block = blocks[index];
     if (block?.type !== 'contextRaw') return;
-    const next = `${block.code}${block.code && !block.code.endsWith('\n') ? '\n' : ''}${snippet}`;
-    update(index, { code: next });
+    const target = rawEditors.current[index];
+    const start = target?.selectionStart ?? block.code.length;
+    const end = target?.selectionEnd ?? start;
+    update(index,{code:block.code.slice(0,start)+snippet+block.code.slice(end)});
+    requestAnimationFrame(()=>{target?.focus();target?.setSelectionRange(start+snippet.length,start+snippet.length);});
   };
 
-  const uploadRawImage = (file?: File) => {
+  const uploadRawImage = (file?: File, index?: number) => {
     if (!file) return;
     if (
       !['image/png', 'image/jpeg'].includes(file.type) ||
@@ -267,27 +273,30 @@ export function RichContentEditor({
       window.alert('Escolha uma imagem PNG ou JPEG de até 400 KB.');
       return;
     }
+    const target = index === undefined ? null : rawEditors.current[index];
+    const start = target?.selectionStart;
+    const end = target?.selectionEnd;
     const reader = new FileReader();
-    reader.onload = () =>
-      setBlocks((current) => [
-        ...current,
-        {
-          type: 'image',
-          dataUrl: typeof reader.result === 'string' ? reader.result : '',
-          alt: file.name.replace(/\.[^.]+$/, ''),
-          caption: '',
-        },
-      ]);
+    reader.onload = () => setBlocks(current => {
+      const referenceId = nextImageReference(current);
+      const snippet = `\n\\externalfigure[${referenceId}][width=8cm]\n`;
+      const next = current.map((block,position) => {
+        if (position !== index || block.type !== 'contextRaw') return block;
+        const cursor = start ?? block.code.length;
+        return {...block,code:block.code.slice(0,cursor)+snippet+block.code.slice(end ?? cursor)};
+      });
+      return [...next,{type:'image',referenceId,dataUrl:typeof reader.result === 'string' ? reader.result : '',alt:file.name.replace(/\.[^.]+$/,''),caption:''}];
+    });
     reader.readAsDataURL(file);
   };
 
-  const pasteRawImage = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+  const pasteRawImage = (index: number, event: ClipboardEvent<HTMLTextAreaElement>) => {
     const file = Array.from(event.clipboardData.files).find((item) =>
       ['image/png', 'image/jpeg'].includes(item.type),
     );
     if (!file) return;
     event.preventDefault();
-    uploadRawImage(file);
+    uploadRawImage(file,index);
   };
 
   return (
@@ -459,7 +468,7 @@ export function RichContentEditor({
                     label: 'Imagem',
                     icon: ImageIcon,
                     snippet:
-                      '\\externalfigure[imagens/figura.png][width=\\textwidth]',
+                      '\\externalfigure[imagem1][width=8cm]',
                   },
                   {
                     label: 'Lista I, II',
@@ -563,7 +572,7 @@ export function RichContentEditor({
                     accept="image/png,image/jpeg"
                     className="sr-only"
                     onChange={(event) => {
-                      uploadRawImage(event.target.files?.[0]);
+                      uploadRawImage(event.target.files?.[0],index);
                       event.currentTarget.value = '';
                     }}
                   />
@@ -571,7 +580,9 @@ export function RichContentEditor({
               </div>
               <textarea
                 value={block.code}
-                onPaste={pasteRawImage}
+                ref={element => {rawEditors.current[index]=element;}}
+                onFocus={() => {activeRawIndex.current=index;}}
+                onPaste={event => pasteRawImage(index,event)}
                 onChange={(event) =>
                   update(index, {
                     code: event.target.value
@@ -759,6 +770,15 @@ export function RichContentEditor({
               onPaste={(event) => pasteImage(index, event)}
               title="Você também pode colar uma imagem aqui (Ctrl+V)."
             >
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-950">
+                <p className="font-semibold">Posicionar no ConTeXt</p>
+                <code className="mt-1 block break-all font-mono text-xs">{`\\externalfigure[${block.referenceId || `imagem${blocks.slice(0,index+1).filter(b=>b.type==='image').length}`}][width=8cm]`}</code>
+                <p className="mt-2 text-xs">Use esta referência na posição desejada e ajuste a largura. Quando referenciada, a imagem não será repetida no final.</p>
+                <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => {
+                  const rawIndex=activeRawIndex.current ?? blocks.findIndex(b=>b.type==='contextRaw');
+                  if(rawIndex>=0) insertRawSnippet(rawIndex,`\n\\externalfigure[${block.referenceId || `imagem${blocks.slice(0,index+1).filter(b=>b.type==='image').length}`}][width=8cm]\n`);
+                }}>Inserir referência no texto</Button>
+              </div>
               {block.dataUrl && (
                 <Image
                   src={block.dataUrl}

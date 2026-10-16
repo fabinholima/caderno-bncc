@@ -284,7 +284,7 @@ function paragraphWithScientificInline(text) {
 }
 
 function richText(nodes = []) {
-  const rendered = nodes.filter((node) => node.type !== 'adoteNote').map((node) => {
+  const rendered = nodes.filter((node) => node.type !== 'adoteNote' && !(node.type === 'image' && node.inlineReference)).map((node) => {
     if (node.type === 'romanList') {
       const items = Array.isArray(node.items) ? node.items : [];
       if (!items.length || items.length > 30)

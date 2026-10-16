@@ -273,3 +273,10 @@ test('valida filtros combináveis do banco de questões', () => {
     questionFiltersSchema.parse({ difficulty: 'muito-dificil' }),
   );
 });
+
+test('preserva a referência da imagem no cadastro e rejeita nomes que pareçam caminhos',()=>{
+ const image={type:'image',referenceId:'imagem1',dataUrl:'data:image/png;base64,iVBORw0KGgo=',alt:'Figura',caption:''};
+ const parsed=createQuestionSchema.shape.statementBlocks.parse([image]);
+ assert.equal(parsed[0].referenceId,'imagem1');
+ assert.throws(()=>createQuestionSchema.shape.statementBlocks.parse([{...image,referenceId:'../arquivo'}]));
+});
