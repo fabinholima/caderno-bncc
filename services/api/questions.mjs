@@ -325,6 +325,7 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
     }),
   z.object({
     type: z.literal('image'),
+    referenceId: z.string().regex(/^imagem(?:[1-9][0-9]*|-[a-f0-9-]{36})$/).optional(),
     dataUrl: z
       .string()
       .max(550_000)
