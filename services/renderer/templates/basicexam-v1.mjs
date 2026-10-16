@@ -118,6 +118,7 @@ ${answerCardHeaderPreamble}
 \\setuppagenumbering[location={footer,right},style=\\tfx]
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
 
+\\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 ${header ? `${header}\\blank[medium]` : ''}
 ${
