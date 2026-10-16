@@ -142,6 +142,7 @@ export function renderClassReport(snapshot) {
 \\setuplayout[topspace=14mm,backspace=16mm,width=middle,height=middle]
 \\definecolor[lightgray][s=.92]
 \\setupinteraction[state=start]
+\\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 \\midaligned{\\tfc Relatório pedagógico da turma}
 \\blank[small]
@@ -210,6 +211,7 @@ export function renderStudentReport(snapshot) {
 \\setupbodyfont[plex,10pt]
 \\setuplayout[topspace=14mm,backspace=16mm,width=middle,height=middle]
 \\definecolor[lightgray][s=.92]
+\\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 \\midaligned{\\tfc Relatório individual de aprendizagem}
 \\blank[small]

@@ -116,6 +116,7 @@ ${answerHeader}
 \\setupfootertexts[\\ModelThreeFooterLeft][\\ModelThreeFooterRight]
 \\setuppagenumbering[location=]
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
+\\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 ${mode === 'answer-key' ? `\\setupheadertexts[]\\midaligned{\\tfb\\bold{${title}}}\\blank[medium]` : ''}
 ${content}

@@ -167,6 +167,7 @@ ${answerCardHeaderPreamble}
 \\setuplayout[topspace=13mm,backspace=14mm,width=middle,height=middle]
 \\setuppagenumbering[location={footer,right},style=\\tfx]
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
+\\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 ${cover}
 ${examHeader}
