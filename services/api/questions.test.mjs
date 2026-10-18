@@ -111,6 +111,26 @@ test('aceita conteúdo científico em enunciado, alternativa e resolução', () 
   assert.equal(parsed.alternatives[0].contentBlocks[0].display, false);
 });
 
+test('aceita MetaPost ConTeXt puro dentro de uma alternativa', () => {
+  const parsed = createQuestionSchema.parse({
+    ...baseQuestion,
+    alternatives: baseQuestion.alternatives.map((item, index) => ({
+      ...item,
+      contentBlocks: index === 0
+        ? [{
+            type: 'contextRaw',
+            code: String.raw`\startMPcode
+draw (0,0)--(2cm,0);
+label(btex $A$ etex, origin);
+\stopMPcode`,
+          }]
+        : [{ type: 'paragraph', text: item.content }],
+    })),
+  });
+  assert.equal(parsed.alternatives[0].contentBlocks[0].type, 'contextRaw');
+  assert.match(parsed.alternatives[0].contentBlocks[0].code, /\\startMPcode/);
+});
+
 test('aceita fórmula ConTeXt segura com chemical e unit', () => {
   const parsed = createQuestionSchema.parse({
     ...baseQuestion,

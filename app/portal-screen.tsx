@@ -2599,6 +2599,7 @@ export default function Home() {
                           name={`alternative_${letter}`}
                           compact
                           allowRawContext
+                          rawOnly
                           required
                           initialBlocks={importedQuestion?.alternatives[letter]}
                           resetKey={importRevision}
