@@ -99,7 +99,8 @@ export async function listPedagogicalTopics({
               tree.position_path || child.position
        FROM pedagogical_topics child
        JOIN topic_tree tree ON tree.id = child.parent_id
-       WHERE child.institution_id = $1 AND ($3 OR child.active)
+       WHERE child.institution_id = $1
+         AND child.discipline_id = tree.discipline_id AND ($3 OR child.active)
      )
      SELECT tree.id, tree.name, tree.position, tree.discipline_id,
             tree.parent_id, parent.name AS parent_name, tree.grade_range,

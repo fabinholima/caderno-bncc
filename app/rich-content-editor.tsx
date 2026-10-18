@@ -75,6 +75,7 @@ export type RichContentBlock =
   | { type: 'contextFormula'; code: string }
   | { type: 'contextInline'; code: string }
   | { type: 'contextRaw'; code: string }
+  | { type: 'metapost'; code: string }
   | {
       type: 'chemical';
       formula: string;
@@ -158,6 +159,8 @@ export function RichContentEditor({
                 ? { type, code: '\\chemical{H_2}' }
                 : type === 'contextRaw'
                   ? { type, code: '' }
+                  : type === 'metapost'
+                    ? { type, code: '' }
                   : type === 'math'
                     ? { type, tex: '', display: true }
                     : type === 'chemical'
@@ -320,7 +323,9 @@ export function RichContentEditor({
                       ? 'ConTeXt da fórmula'
                       : block.type === 'contextInline'
                         ? 'ConTeXt em linha'
-                        : block.type === 'contextRaw'
+                        : block.type === 'metapost'
+                          ? 'Figura MetaPost'
+                          : block.type === 'contextRaw'
                           ? 'ConTeXt puro'
                           : block.type === 'math'
                             ? 'Matemática'
@@ -446,6 +451,22 @@ export function RichContentEditor({
                 Inserido na mesma linha dos blocos de texto vizinhos. Aceita
                 apenas comandos científicos seguros.
               </p>
+            </div>
+          )}
+          {block.type === 'metapost' && (
+            <div className="space-y-2">
+              <textarea
+                required
+                value={block.code}
+                onChange={(event) => update(index, { code: event.target.value })}
+                rows={compact ? 8 : 12}
+                spellCheck={false}
+                className="min-h-48 w-full rounded-lg bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none ring-1 ring-slate-700 focus:ring-blue-400"
+                placeholder="\startMPcode
+draw fullcircle scaled 2cm;
+\stopMPcode"
+              />
+              <p className="text-xs text-slate-500">Cole o código da figura MetaPost, com ou sem os delimitadores startMPcode/stopMPcode.</p>
             </div>
           )}
           {block.type === 'contextRaw' && (
@@ -835,6 +856,7 @@ export function RichContentEditor({
               'thermochemicalEquation',
               'contextFormula',
               'contextInline',
+              'metapost',
               ...(allowRawContext ? (['contextRaw'] as const) : []),
               'math',
               'chemical',
@@ -862,15 +884,17 @@ export function RichContentEditor({
                         ? 'ConTeXt da fórmula'
                         : type === 'contextInline'
                           ? 'ConTeXt em linha'
-                          : type === 'contextRaw'
-                            ? 'ConTeXt puro'
-                            : type === 'math'
-                              ? 'Fórmula'
-                              : type === 'chemical'
-                                ? 'Química'
-                                : type === 'chemicalStructure'
-                                  ? 'Estrutura'
-                                  : 'Imagem'}
+                          : type === 'metapost'
+                            ? 'Figura MetaPost'
+                            : type === 'contextRaw'
+                              ? 'ConTeXt puro'
+                              : type === 'math'
+                                ? 'Fórmula'
+                                : type === 'chemical'
+                                  ? 'Química'
+                                  : type === 'chemicalStructure'
+                                    ? 'Estrutura'
+                                    : 'Imagem'}
               </Button>
             ))}
         </div>
