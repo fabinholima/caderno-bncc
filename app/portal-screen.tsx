@@ -557,9 +557,9 @@ export default function Home() {
   }, [apiUrl, selectedSaebMatrix]);
 
   useEffect(() => {
-    // O catálogo depende da sessão e da instituição selecionada.
+    // Recarrega ao trocar de tela para refletir os itens editados no Planejamento/configurações.
     if (!apiUrl || !identity || identity.role === 'student') return;
-    let active = true;
+    let catalogActive = true;
     setCatalogError('');
     const requireCatalogResponse = async (response: Response) => {
       if (!response.ok) throw new Error('Não foi possível carregar o catálogo curricular. Atualize a página e confira sua sessão.');
@@ -577,7 +577,7 @@ export default function Home() {
       ),
     ])
       .then(([official, pedagogical, topics]) => {
-        if (!active) return;
+        if (!catalogActive) return;
         setHighSchoolCurriculum(official.data || []);
         setPedagogicalDisciplines(
           (pedagogical.data || []).map((item) => ({
@@ -587,9 +587,9 @@ export default function Home() {
         );
         setPedagogicalTopics(topics.data || []);
       })
-      .catch((error: unknown) => { if (active) setCatalogError(error instanceof Error ? error.message : 'Falha ao carregar catálogo.'); });
-    return () => { active = false; };
-  }, [apiUrl, identity]);
+      .catch((error: unknown) => { if (catalogActive) setCatalogError(error instanceof Error ? error.message : 'Falha ao carregar catálogo.'); });
+    return () => { catalogActive = false; };
+  }, [apiUrl, identity, active]);
 
   useEffect(() => {
     if (!apiUrl || !identity || identity.role === 'student') return;
@@ -907,7 +907,7 @@ export default function Home() {
       setSelectedSaebMatrix(saebDescriptor?.matrixId || '');
       setSelectedSaebDescriptor(saebDescriptor?.id || '');
       setSaebInfoOpen(false);
-      setPedagogicalGrade(question.grade || '1ª série');
+      setPedagogicalGrade(restored.grade || '1ª série');
       setPedagogicalObjectId(restored.objectId);
       setPedagogicalSubtopicId(restored.subtopicId);
       setPedagogicalDetailId(restored.detailId);

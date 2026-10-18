@@ -77,3 +77,29 @@ test('multidisciplinary import can classify each question without a source subje
     'bt',
   );
 });
+
+test('chemistry imports retain subtopics with inherited grades and equivalent year labels', () => {
+  const input = {
+    disciplines,
+    topics: [
+      { id: 'qr', discipline_id: 'q', grade_range: '2ª série' },
+      { id: 'qs', discipline_id: 'q', parent_id: 'qr', grade_range: null },
+    ],
+    settings: {
+      pedagogicalDisciplineId: 'q',
+      grade: '2ª série',
+      topicId: 'qs',
+      skill: 'EM13CNT101',
+    },
+    candidate: { grade: '2º ano' },
+  };
+  const result = resolveImportClassification(input);
+  assert.equal(result.topicId, 'qs');
+  assert.equal(result.grade, '2ª série');
+  assert.equal(result.skill, 'EM13CNT101');
+  assert.equal(
+    resolveImportClassification({ ...input, candidate: { grade: '3ª série' } })
+      .topicId,
+    '',
+  );
+});
