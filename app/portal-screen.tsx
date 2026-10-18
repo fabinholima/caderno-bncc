@@ -417,10 +417,10 @@ export default function Home() {
       (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
   );
   const pedagogicalSubtopicOptions = pedagogicalTopics.filter(
-    (item) => item.parent_id === pedagogicalObjectId && item.discipline_id === pedagogicalDiscipline?.id && (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
+    (item) => item.parent_id === pedagogicalObjectId && item.discipline_id === pedagogicalDiscipline?.id,
   );
   const pedagogicalDetailOptions = pedagogicalTopics.filter(
-    (item) => item.parent_id === pedagogicalSubtopicId && item.discipline_id === pedagogicalDiscipline?.id && (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
+    (item) => item.parent_id === pedagogicalSubtopicId && item.discipline_id === pedagogicalDiscipline?.id,
   );
   const selectedPedagogicalTopicId =
     pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId;
