@@ -97,7 +97,7 @@ export async function importPedagogicalTopicCatalog({
           throw new Error(`Pai deve aparecer antes do filho: ${topic.sourceKey}`);
         const conflict = parentId
           ? 'ON CONFLICT (parent_id, lower(name)) WHERE parent_id IS NOT NULL'
-          : 'ON CONFLICT (discipline_id, lower(name)) WHERE parent_id IS NULL';
+          : "ON CONFLICT (discipline_id, lower(name), COALESCE(grade_range, '')) WHERE parent_id IS NULL";
         const row = await client.query(
           `INSERT INTO pedagogical_topics
              (institution_id, discipline_id, parent_id, name, grade_range, position, updated_by)

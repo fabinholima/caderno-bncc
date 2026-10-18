@@ -889,7 +889,7 @@ export function CurriculumManager({
                 >
                   <Plus /> {catalogSaving ? 'Salvando...' : 'Adicionar item'}
                 </Button>
-                {catalogMessage && <output className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">{catalogMessage}</output>}
+                {catalogMessage && <output role="status" className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">{catalogMessage}</output>}
               </form>
               <div>
                 <div className="mb-3 flex flex-wrap gap-2">
