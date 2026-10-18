@@ -121,7 +121,7 @@ test('aceita MetaPost ConTeXt puro dentro de uma alternativa', () => {
             type: 'contextRaw',
             code: String.raw`\startMPcode
 draw (0,0)--(2cm,0);
-label(btex $A$ etex, origin);
+label.urt(textext("V \unit{meter per second}"), origin);
 \stopMPcode`,
           }]
         : [{ type: 'paragraph', text: item.content }],

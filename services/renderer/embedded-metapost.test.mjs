@@ -54,3 +54,12 @@ test('accepts ConTeXt font sizes in thermal-source label concatenation',()=>{
  for(const command of ['tf','tfx','tfxx','tfa','tfb','tfc','tfd']) assert.ok(validMetaPost(`label(textext("\\${command} texto"),origin);`));
  for(const command of ['tfxinput','tfxxinput','tfainput','directlua','input']) assert.equal(validMetaPost(`label(textext("\\${command} x"),origin);`),false);
 });
+
+test('accepts ConTeXt unit labels inside MetaPost while keeping external input blocked', () => {
+  const code = String.raw`u := 1cm;
+  drawarrow (0,0)*u -- (4.2,0)*u;
+  label.urt(textext("V \unit{meter per second}"), (0,2.0)*u);`;
+  assert.ok(validMetaPost(code));
+  assert.equal(withoutEmbeddedMetaPost(`\\startMPcode\n${code}\n\\stopMPcode`), '');
+  assert.equal(validMetaPost(String.raw`label(textext("\input arquivo"), origin);`), false);
+});
