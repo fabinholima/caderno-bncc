@@ -29,6 +29,22 @@ test('prévia inclui a ilustração MetaPost antes das alternativas', () => {
   assert.match(tex, /\\startMPcode\ndraw fullcircle scaled 2cm;\n\\stopMPcode/);
   assert.ok(tex.indexOf('draw fullcircle') < tex.indexOf('\\startchoice'));
 });
+test('renderiza MetaPost escrito em ConTeXt puro dentro da alternativa', () => {
+  const tex = renderAssessment(snapshotFromQuestion({
+    ...question,
+    alternatives: question.alternatives.map((alternative, index) => ({
+      ...alternative,
+      contentBlocks: index === 0
+        ? [{ type: 'contextRaw', code: String.raw`\startMPcode
+draw (0,0)--(2cm,0);
+label(btex $A$ etex, origin);
+\stopMPcode` }]
+        : [{ type: 'paragraph', text: alternative.content }],
+    })),
+  }));
+  assert.match(tex, /\\startMPcode\ndraw \(0,0\)--\(2cm,0\);/);
+  assert.match(tex, /\\stopMPcode \\stopcitem/);
+});
 test('prévia da questão não revela a resolução; prévia do gabarito inclui resposta correta e comandos matemáticos', () => {
   const student = renderAssessment(snapshotFromQuestion(question));
   const answer = renderAssessment(snapshotFromQuestion(question, 'answer-key'));
