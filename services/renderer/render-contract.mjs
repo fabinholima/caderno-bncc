@@ -1,5 +1,5 @@
 import { getRenderTemplate } from './template-registry.mjs';
-import { withoutEmbeddedMetaPost, validMetaPost } from '../../lib/embedded-metapost.mjs';
+import { withoutEmbeddedMetaPost, validMetaPost, normalizeMetaPost } from '../../lib/embedded-metapost.mjs';
 import {
   DEFAULT_RENDER_FONT,
   isRenderFontId,
@@ -295,7 +295,7 @@ function richText(nodes = []) {
       };
     }
     if (node.type === 'metapost') {
-      const code = String(node.code ?? '').trim();
+      const code = normalizeMetaPost(node.code);
       if (!code || code.length > 50_000 || !validMetaPost(code)) {
         throw new Error('Bloco MetaPost inválido ou não permitido.');
       }

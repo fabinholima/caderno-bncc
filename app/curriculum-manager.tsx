@@ -881,9 +881,10 @@ export function CurriculumManager({
                   />
                 </Field>
                 <Button
+                  type="submit"
                   className="w-full"
                   disabled={
-                    role === 'teacher' || catalogSaving || !catalogName.trim()
+                    role === 'teacher' || catalogSaving || !catalogDisciplineId || !catalogName.trim()
                   }
                 >
                   <Plus /> {catalogSaving ? 'Salvando...' : 'Adicionar item'}
@@ -1283,6 +1284,7 @@ export function CurriculumManager({
               </>
             )}
             <Button
+              type="submit"
               disabled={
                 role === 'teacher' ||
                 saving ||

@@ -98,3 +98,47 @@ test('saved topic id survives even if its catalog has not loaded yet', () => {
   assert.equal(r.objectId, 'saved-topic');
   assert.equal(r.skill, 'EM13CNT101');
 });
+
+test('chemistry saved subtopic is restored even when its grade differs from the catalog', () => {
+  const chemistry = {
+    disciplines: [{ id: 'q', name: 'Química', stage: 'Ensino Médio' }],
+    topics: [
+      {
+        id: 'root',
+        discipline_id: 'q',
+        name: 'Termoquímica',
+        grade_range: '2ª série',
+      },
+      {
+        id: 'child',
+        discipline_id: 'q',
+        name: 'Lei de Hess',
+        parent_id: 'root',
+        grade_range: '2ª série',
+      },
+    ],
+  };
+  for (const grade of ['2º ano', 'Ensino Médio (sem seriação)', '1ª série']) {
+    const result = restoreQuestionClassification(
+      {
+        subject: 'Química',
+        grade,
+        pedagogicalTopicId: 'child',
+      },
+      chemistry,
+    );
+    assert.equal(result.stage, 'Ensino Médio');
+    assert.equal(result.objectId, 'root');
+    assert.equal(result.subtopicId, 'child');
+  }
+  const legacy = restoreQuestionClassification(
+    {
+      subject: 'Química',
+      grade: '2º ano',
+      knowledgeTopic: 'Termoquímica > Lei de Hess',
+    },
+    chemistry,
+  );
+  assert.equal(legacy.grade, '2ª série');
+  assert.equal(legacy.subtopicId, 'child');
+});
