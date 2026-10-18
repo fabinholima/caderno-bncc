@@ -3308,10 +3308,10 @@ function BulkRegistrationPanel({
       topic.grade_range === settings.grade,
   );
   const subtopics = topics.filter(
-    (topic) => topic.parent_id === settings.objectId,
+    (topic) => topic.parent_id === settings.objectId && topic.discipline_id === discipline?.id && (!topic.grade_range || topic.grade_range === settings.grade),
   );
   const details = topics.filter(
-    (topic) => topic.parent_id === settings.topicId,
+    (topic) => topic.parent_id === settings.topicId && topic.discipline_id === discipline?.id && (!topic.grade_range || topic.grade_range === settings.grade),
   );
   const defaultTopicId =
     settings.detailId || settings.topicId || settings.objectId;

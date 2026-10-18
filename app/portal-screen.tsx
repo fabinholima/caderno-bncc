@@ -417,10 +417,10 @@ export default function Home() {
       (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
   );
   const pedagogicalSubtopicOptions = pedagogicalTopics.filter(
-    (item) => item.parent_id === pedagogicalObjectId,
+    (item) => item.parent_id === pedagogicalObjectId && item.discipline_id === pedagogicalDiscipline?.id && (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
   );
   const pedagogicalDetailOptions = pedagogicalTopics.filter(
-    (item) => item.parent_id === pedagogicalSubtopicId,
+    (item) => item.parent_id === pedagogicalSubtopicId && item.discipline_id === pedagogicalDiscipline?.id && (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
   );
   const selectedPedagogicalTopicId =
     pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId;
@@ -1475,7 +1475,7 @@ export default function Home() {
                                   !root.parent_id &&
                                   root.discipline_id ===
                                     filterPedagogicalDiscipline?.id &&
-                                  root.name === topicGroupFilter,
+                                  root.name === topicGroupFilter && (!gradeFilter || normalizeGradeLabel(root.grade_range) === gradeFilter),
                               )?.id,
                           )
                           .map((topic) => (
@@ -1489,6 +1489,8 @@ export default function Home() {
                           topic.parent_id ===
                           pedagogicalTopics.find(
                             (parent) =>
+                              parent.discipline_id === filterPedagogicalDiscipline?.id &&
+                              (!gradeFilter || normalizeGradeLabel(parent.grade_range) === gradeFilter) &&
                               parent.name === subtopicFilter &&
                               parent.parent_name === topicGroupFilter,
                           )?.id,
@@ -1508,6 +1510,8 @@ export default function Home() {
                                 topic.parent_id ===
                                 pedagogicalTopics.find(
                                   (parent) =>
+                                    parent.discipline_id === filterPedagogicalDiscipline?.id &&
+                                    (!gradeFilter || normalizeGradeLabel(parent.grade_range) === gradeFilter) &&
                                     parent.name === subtopicFilter &&
                                     parent.parent_name === topicGroupFilter,
                                 )?.id,
@@ -2595,7 +2599,6 @@ export default function Home() {
                           name={`alternative_${letter}`}
                           compact
                           allowRawContext
-                          rawOnly
                           required
                           initialBlocks={importedQuestion?.alternatives[letter]}
                           resetKey={importRevision}

@@ -275,6 +275,10 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
       }, 'O trecho em linha contém um comando ConTeXt não permitido.'),
   }),
   z.object({
+    type: z.literal('metapost'),
+    code: metapostCodeSchema.refine((code) => Boolean(code.trim()), 'Informe o código da figura MetaPost.'),
+  }),
+  z.object({
     type: z.literal('contextRaw'),
     code: z.string().trim().min(1).max(20_000).refine(
       (code) => {
