@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { resolveImportClassification } from '@/lib/import-classification.mjs';
-import { CONTEXT_PASTE_MARKER, PASTED_EXAM_EXAMPLE, parsePastedExam } from '@/lib/pasted-exam.mjs';
+import { CONTEXT_PASTE_MARKER, parsePastedExam } from '@/lib/pasted-exam.mjs';
 import type { FormEvent } from 'react';
 import {
   ArrowRight,
@@ -182,6 +182,12 @@ type PedagogicalDiscipline = {
   stage: string;
   skills?: Array<{ id: string; code: string; description: string }>;
 };
+
+function orderedHighSchoolDisciplines(disciplines: PedagogicalDiscipline[]) {
+  return disciplines
+    .filter((discipline) => discipline.stage === 'Ensino Médio')
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
 
 type PedagogicalTopic = {
   id: string;
@@ -445,11 +451,6 @@ function ImportedQuestionTextEditor({
           ))}
         </div>
       </div>
-      <p className="mt-2 text-xs text-slate-500">
-        Exemplos aceitos: <code>\\m{'{\\rm E^o_{Zn/Zn^{2+}}}'}</code>,{' '}
-        <code>\\chemical{'{C\\ell_{2}}'}</code>,{' '}
-        <code>\\unit{'{10 gram}'}</code> e <code>\\bold{'{texto}'}</code>.
-      </p>
     </section>
   );
 }
@@ -1928,11 +1929,27 @@ export function ExamImportManager({
               ]}
             />
             {subjectMode === 'single' && (
-              <Input
-                name="primarySubject"
-                required
-                placeholder="Disciplina: Química"
-              />
+              <label className="block">
+                <span className="sr-only">Disciplina da prova</span>
+                <Input
+                  name="primarySubject"
+                  required
+                  list="exam-import-disciplines"
+                  placeholder="Disciplina da prova"
+                  autoComplete="off"
+                />
+                <datalist id="exam-import-disciplines">
+                  {[
+                    ...new Set(
+                      orderedHighSchoolDisciplines(pedagogicalDisciplines).map(
+                        (discipline) => discipline.name,
+                      ),
+                    ),
+                  ].map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </label>
             )}
             <Input
               name="sourceUrl"
@@ -1979,22 +1996,55 @@ export function ExamImportManager({
             <label className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
           </div>
           </div>
-          {importMode === 'text' && <section className="space-y-3 rounded-xl border border-violet-200 p-4">
-            <h3 className="font-bold">Importar várias questões em lote</h3>
-            <p className="text-sm text-slate-600">Até 100 questões. Separe com QUESTÃO 1, QUESTÃO 2... Use GABARITO:, HABILIDADE: e RESOLUÇÃO: quando disponíveis. O gabarito exige confirmação na revisão. Nenhuma API de IA é utilizada.</p>
-            <label className="block text-sm">Arquivo TXT ou Markdown
-              <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" className="mt-2 block" onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                if (!/\.(txt|md|markdown)$/i.test(file.name) || file.size > 2_000_000) { setMessage('Escolha TXT ou Markdown em UTF-8, até 2 MB.'); return; }
-                try { setPastedText(await file.text()); setMessage('Arquivo carregado. Confira o texto e envie o lote para revisão.'); } catch { setMessage('Não foi possível ler o arquivo.'); }
-              }} />
-            </label>
-            <label className="block text-sm font-semibold">Texto do lote
-              <textarea aria-label="Texto do lote" value={pastedText} onChange={(event) => setPastedText(event.target.value)} rows={16} maxLength={1_000_000} spellCheck={false} className="mt-2 w-full rounded-lg border p-3 font-mono text-sm" placeholder={PASTED_EXAM_EXAMPLE} />
-            </label>
-            <Button type="button" variant="outline" onClick={() => { setPastedText(PASTED_EXAM_EXAMPLE); }}>Usar modelo de exemplo</Button>
-          </section>}
+          {importMode === 'text' && (
+            <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-slate-900">Importar questões em lote</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Cole o texto da prova ou carregue um arquivo. Você poderá revisar cada questão antes de cadastrar.
+                  </p>
+                </div>
+                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  <FileUp className="size-4" />
+                  Carregar TXT ou Markdown
+                  <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" className="sr-only" onChange={async (event) => {
+                    const input = event.currentTarget;
+                    const file = input.files?.[0];
+                    if (!file) return;
+                    if (!/\.(txt|md|markdown)$/i.test(file.name) || file.size > 2_000_000) { setMessage('Escolha TXT ou Markdown em UTF-8, até 2 MB.'); return; }
+                    try { setPastedText(await file.text()); setMessage('Arquivo carregado. Confira o texto e envie o lote para revisão.'); } catch { setMessage('Não foi possível ler o arquivo.'); }
+                    input.value = '';
+                  }} />
+                </label>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700">
+                Texto do lote
+                <textarea aria-label="Texto do lote" value={pastedText} onChange={(event) => setPastedText(event.target.value)} rows={12} maxLength={1_000_000} spellCheck={false} className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="Cole aqui o texto das questões..." />
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  TXT ou Markdown, até 2 MB. O lote pode conter até 100 questões.
+                </span>
+              </label>
+              <details className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                  Ver exemplo do formato de importação
+                </summary>
+                <pre className="mt-3 overflow-x-auto rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+{`QUESTÃO 1
+Enunciado da questão.
+(A) Primeira alternativa
+(B) Segunda alternativa
+(C) Terceira alternativa
+(D) Quarta alternativa
+(E) Quinta alternativa
+GABARITO: B`}
+                </pre>
+                <p className="mt-2 text-xs text-slate-500">
+                  Este exemplo é apenas uma referência e não será inserido no campo.
+                </p>
+              </details>
+            </section>
+          )}
           {importMode === 'pdf' && (examPreview || answerKeyPreview) && (
             <section aria-labelledby="pdf-preview-title">
               <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
@@ -3158,7 +3208,7 @@ function CandidateClassificationFields({
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
         <SelectField name={`candidate-discipline-${candidate.id}`} label={`Disciplina da questão ${candidate.sourceNumber}`} value={candidate.pedagogicalDisciplineId || ''} onChange={(pedagogicalDisciplineId) => onChange({pedagogicalDisciplineId,pedagogicalTopicId:'',skill:disciplines.find(d => d.id === pedagogicalDisciplineId)?.skills?.some(s => s.code === candidate.skill) ? candidate.skill : ''})} options={[
           ['', `Disciplina: usar padrão do lote${batchDiscipline ? ` (${batchDiscipline.name})` : ''}`],
-          ...disciplines.filter(d => d.stage === 'Ensino Médio').map(d => [d.id,d.name] as [string,string]),
+          ...orderedHighSchoolDisciplines(disciplines).map(d => [d.id,d.name] as [string,string]),
         ]} />
         <SelectField
           name={`candidate-grade-${candidate.id}`}
@@ -3352,7 +3402,7 @@ function BulkRegistrationPanel({
           onSettingChange('objectId',''); onSettingChange('topicId',''); onSettingChange('detailId',''); onSettingChange('skill','');
         }} options={[
           ['', 'Selecione a disciplina'],
-          ...disciplines.filter(d => d.stage === 'Ensino Médio').map(d => [d.id,d.name] as [string,string]),
+          ...orderedHighSchoolDisciplines(disciplines).map(d => [d.id,d.name] as [string,string]),
         ]} />
         <SelectField
           name={`bulk-grade-${item.id}`}
