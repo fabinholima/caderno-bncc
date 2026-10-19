@@ -38,6 +38,7 @@ export const updatePedagogicalTopicSchema = z
     gradeRange: z.preprocess(canonicalTopicGrade, z.enum(['1ª série', '2ª série', '3ª série']).optional()),
     position: z.number().int().min(1).max(1000).optional(),
     active: z.boolean().optional(),
+    move: z.enum(['up', 'down']).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'Informe uma alteração.');
 
@@ -85,18 +86,18 @@ export async function listPedagogicalTopics({
   const result = await pool.query(
     `WITH RECURSIVE topic_tree AS (
        SELECT topic.id, topic.name, topic.position, topic.discipline_id,
-              topic.parent_id, topic.grade_range, topic.active, 0 AS depth,
+              topic.parent_id, topic.grade_range, topic.active, topic.active AS effective_active, 0 AS depth,
               ARRAY[topic.name] AS name_path,
-              ARRAY[topic.position] AS position_path
+              ARRAY[lpad(topic.position::text,10,'0') || topic.name || topic.id::text] AS position_path
        FROM pedagogical_topics topic
        WHERE topic.parent_id IS NULL AND topic.institution_id = $1
          AND ($2::uuid IS NULL OR topic.discipline_id = $2::uuid)
          AND ($3 OR topic.active)
        UNION ALL
        SELECT child.id, child.name, child.position, child.discipline_id,
-              child.parent_id, COALESCE(child.grade_range, tree.grade_range),
-              child.active, tree.depth + 1, tree.name_path || child.name,
-              tree.position_path || child.position
+              child.parent_id, COALESCE(tree.grade_range, child.grade_range),
+              child.active, child.active AND tree.effective_active, tree.depth + 1, tree.name_path || child.name,
+              tree.position_path || (lpad(child.position::text,10,'0') || child.name || child.id::text)
        FROM pedagogical_topics child
        JOIN topic_tree tree ON tree.id = child.parent_id
        WHERE child.institution_id = $1
@@ -104,7 +105,7 @@ export async function listPedagogicalTopics({
      )
      SELECT tree.id, tree.name, tree.position, tree.discipline_id,
             tree.parent_id, parent.name AS parent_name, tree.grade_range,
-            tree.active, tree.depth,
+            tree.active, tree.effective_active, tree.depth,
             array_to_string(tree.name_path, ' > ') AS path,
             pd.name AS discipline, pd.stage AS discipline_stage,
             COALESCE((
@@ -119,7 +120,7 @@ export async function listPedagogicalTopics({
      FROM topic_tree tree
      JOIN pedagogical_disciplines pd ON pd.id = tree.discipline_id
      LEFT JOIN pedagogical_topics parent ON parent.id = tree.parent_id
-     ORDER BY pd.name, tree.grade_range, tree.position_path, tree.name`,
+     ORDER BY pd.name, tree.grade_range, tree.position_path, tree.name_path, tree.id`,
     [institutionId, value.disciplineId || null, value.includeInactive],
   );
   return result.rows.map((row) => ({
@@ -213,7 +214,19 @@ export async function updatePedagogicalTopic({
   input,
 }) {
   const value = updatePedagogicalTopicSchema.parse(input);
-  const updated = await pool.query(
+  return transaction(async (client) => {
+    // Serialize catalog changes with creation and imports for this discipline.
+    const owner = await client.query(
+      `SELECT discipline_id FROM pedagogical_topics WHERE id=$1 AND institution_id=$2`,
+      [topicId, institutionId],
+    );
+    if (!owner.rowCount) throw Object.assign(new Error('Objeto ou subtópico não encontrado.'), {statusCode: 404});
+    await client.query('SELECT id FROM pedagogical_disciplines WHERE id=$1 AND institution_id=$2 FOR UPDATE', [owner.rows[0].discipline_id, institutionId]);
+    if (value.gradeRange) {
+      const topic = await client.query('SELECT parent_id FROM pedagogical_topics WHERE id=$1 AND institution_id=$2', [topicId, institutionId]);
+      if (topic.rows[0]?.parent_id) throw Object.assign(new Error('Altere a série no tópico superior. Os subtópicos acompanham a mesma série.'), {statusCode: 422});
+    }
+    const updated = await client.query(
     `UPDATE pedagogical_topics
      SET name=COALESCE($3,name),
          grade_range=CASE WHEN parent_id IS NULL
@@ -231,12 +244,46 @@ export async function updatePedagogicalTopic({
       value.active,
       userId,
     ],
-  ).catch(catalogConflict);
+  );
   if (!updated.rowCount)
     throw Object.assign(new Error('Objeto ou subtópico não encontrado.'), {
       statusCode: 404,
     });
-  return updated.rows[0];
+    if (value.move) {
+      const siblings = await client.query(
+        `SELECT sibling.id FROM pedagogical_topics sibling
+         JOIN pedagogical_topics topic ON topic.id=$1 AND topic.institution_id=$2
+         WHERE sibling.institution_id=$2 AND sibling.discipline_id=topic.discipline_id
+           AND sibling.parent_id IS NOT DISTINCT FROM topic.parent_id
+           AND (topic.parent_id IS NOT NULL OR sibling.grade_range IS NOT DISTINCT FROM topic.grade_range)
+         ORDER BY sibling.position,sibling.name,sibling.id`, [topicId,institutionId]);
+      const ids = siblings.rows.map(row => row.id);
+      const index = ids.indexOf(topicId);
+      const target = index + (value.move === 'up' ? -1 : 1);
+      if (index >= 0 && target >= 0 && target < ids.length) {
+        [ids[index],ids[target]] = [ids[target],ids[index]];
+        await client.query(
+          `UPDATE pedagogical_topics topic SET position=ordered.position::int,updated_by=$3,updated_at=now()
+           FROM unnest($1::uuid[]) WITH ORDINALITY AS ordered(id,position)
+           WHERE topic.id=ordered.id AND topic.institution_id=$2`, [ids,institutionId,userId]);
+        updated.rows[0].position = target + 1;
+      }
+    }
+    if (value.gradeRange) {
+      await client.query(
+        `WITH RECURSIVE descendants AS (
+           SELECT id FROM pedagogical_topics WHERE parent_id=$1 AND institution_id=$2 AND discipline_id=$5
+           UNION
+           SELECT child.id FROM pedagogical_topics child JOIN descendants parent ON child.parent_id=parent.id
+           WHERE child.institution_id=$2 AND child.discipline_id=$5
+         )
+         UPDATE pedagogical_topics SET grade_range=$3,updated_by=$4,updated_at=now()
+         WHERE id IN (SELECT id FROM descendants) AND institution_id=$2`,
+        [topicId,institutionId,value.gradeRange,userId,owner.rows[0].discipline_id],
+      );
+    }
+    return updated.rows[0];
+  }).catch(catalogConflict);
 }
 
 export async function createPedagogicalDiscipline({
