@@ -11,6 +11,7 @@ import {
   Layers3,
   Pencil,
   Plus,
+  RefreshCw,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
@@ -126,6 +127,7 @@ export function CurriculumManager({
   const [catalogName, setCatalogName] = useState('');
   const [catalogSaving, setCatalogSaving] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState('');
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [selectedChemistrySkills, setSelectedChemistrySkills] = useState<
     Set<string>
   >(new Set());
@@ -156,17 +158,24 @@ export function CurriculumManager({
 
   const refreshPedagogicalTopics = async () => {
     if (!apiUrl) return;
-    const response = await apiFetch(
-      `${apiUrl}/api/curriculum/pedagogical-topics?includeInactive=true`,
-    );
-    const body = (await response.json()) as {
-      data?: PedagogicalTopic[];
-      error?: string;
-    };
-    if (!response.ok)
-      throw new Error(body.error || 'Não foi possível carregar o catálogo.');
-    setPedagogicalTopics(body.data || []);
+    setCatalogLoading(true);
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/curriculum/pedagogical-topics?includeInactive=true`,
+        { cache: 'no-store' },
+      );
+      const body = (await response.json()) as {
+        data?: PedagogicalTopic[];
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(body.error || 'Não foi possível carregar o catálogo.');
+      setPedagogicalTopics(body.data || []);
+    } finally {
+      setCatalogLoading(false);
+    }
   };
+
   useEffect(() => {
     if (!apiUrl) return;
     apiFetch(`${apiUrl}/api/curriculum/high-school`)
@@ -201,7 +210,18 @@ export function CurriculumManager({
   }, [apiUrl, selectedSaebMatrix]);
   useEffect(() => {
     refreshPedagogicalDisciplines().catch(() => undefined);
-    refreshPedagogicalTopics().catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshPedagogicalTopics().catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
+      }
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [apiUrl]);
 
   useEffect(() => {
@@ -814,9 +834,20 @@ export function CurriculumManager({
                   Itens usados por questões podem ser arquivados com segurança.
                 </p>
               </div>
-              {role === 'teacher' && (
-                <Badge variant="outline">Consulta para professor</Badge>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" size="sm"
+                  disabled={catalogLoading || catalogSaving}
+                  onClick={() => {
+                    setCatalogMessage('');
+                    void refreshPedagogicalTopics()
+                      .then(() => setCatalogMessage('Catálogo atualizado.'))
+                      .catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
+                  }}>
+                  <RefreshCw className={catalogLoading ? 'animate-spin' : ''} />
+                  {catalogLoading ? 'Atualizando...' : 'Atualizar catálogo'}
+                </Button>
+                {role === 'teacher' && <Badge variant="outline">Consulta para professor</Badge>}
+              </div>
             </div>
             <div className="mt-5 grid gap-5 lg:grid-cols-[360px_1fr]">
               <form
