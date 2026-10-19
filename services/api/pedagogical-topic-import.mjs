@@ -32,19 +32,23 @@ export const pedagogicalTopicCatalogSchema = z.object({
     .min(1),
 });
 
-function flattenTopics(topics, parent = null, result = [], seen = new Set()) {
+function flattenTopics(topics, parent = null, result = [], seen = new Set(), depth = 0) {
+  if (depth > 2 && topics.length) throw new Error('A hierarquia aceita tópico, subtópico e detalhamento.');
   for (const [position, topic] of topics.entries()) {
     if (seen.has(topic.sourceKey))
       throw new Error(`sourceKey de tópico duplicado: ${topic.sourceKey}`);
     seen.add(topic.sourceKey);
-    result.push({
+    if (parent?.gradeRange && topic.gradeRange && parent.gradeRange !== topic.gradeRange)
+      throw new Error(`A série do subtópico ${topic.name} deve acompanhar o tópico superior.`);
+    const normalized = {
       sourceKey: topic.sourceKey,
       name: topic.name,
       gradeRange: topic.gradeRange || parent?.gradeRange || null,
       parentSourceKey: parent?.sourceKey || null,
       position: position + 1,
-    });
-    flattenTopics(topic.subtopics, topic, result, seen);
+    };
+    result.push(normalized);
+    flattenTopics(topic.subtopics, normalized, result, seen, depth + 1);
   }
   return result;
 }

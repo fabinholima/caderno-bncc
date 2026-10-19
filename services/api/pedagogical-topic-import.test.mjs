@@ -33,3 +33,15 @@ test('rejeita sourceKey duplicado', () => {
     subjects: [{ ...catalog.subjects[0], topics: [{ ...catalog.subjects[0].topics[0], subtopics: [{ sourceKey: 'termoquimica', name: 'Outro' }] }] }],
   }), /duplicado/);
 });
+
+test('detalhamento herda a série do avô e rejeita série divergente ou quarto nível', () => {
+  const root = structuredClone(catalog);
+  const child = root.subjects[0].topics[0].subtopics[0];
+  child.subtopics = [{sourceKey:'calculo',name:'Cálculo de entalpia'}];
+  assert.equal(normalizePedagogicalTopicCatalog(root).subjects[0].topics[2].gradeRange,'2ª série');
+  child.subtopics[0].gradeRange = '1ª série';
+  assert.throws(()=>normalizePedagogicalTopicCatalog(root),/acompanhar/);
+  delete child.subtopics[0].gradeRange;
+  child.subtopics[0].subtopics = [{sourceKey:'quarto',name:'Quarto nível'}];
+  assert.throws(()=>normalizePedagogicalTopicCatalog(root),/hierarquia/);
+});

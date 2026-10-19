@@ -67,6 +67,7 @@ type PedagogicalTopic = {
   depth: number;
   path: string;
   active: boolean;
+  effective_active?: boolean;
   skills?: Array<{ id: string; code: string; description: string }>;
 };
 
@@ -200,8 +201,24 @@ export function CurriculumManager({
   }, [apiUrl, selectedSaebMatrix]);
   useEffect(() => {
     refreshPedagogicalDisciplines().catch(() => undefined);
-    refreshPedagogicalTopics().catch(() => undefined);
+    refreshPedagogicalTopics().catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
   }, [apiUrl]);
+
+  useEffect(() => {
+    const disciplines = pedagogicalDisciplines.filter(item => item.stage === educationStage);
+    if (!disciplines.some(item => item.id === catalogDisciplineId)) {
+      setCatalogDisciplineId(disciplines[0]?.id || '');
+      setCatalogParentId('');
+    }
+  }, [pedagogicalDisciplines, educationStage, catalogDisciplineId]);
+
+  useEffect(() => {
+    if (catalogParentId && !pedagogicalTopics.some(topic =>
+      topic.id === catalogParentId && topic.discipline_id === catalogDisciplineId &&
+      topic.grade_range === catalogGrade && (topic.effective_active ?? topic.active))) {
+      setCatalogParentId('');
+    }
+  }, [pedagogicalTopics, catalogParentId, catalogDisciplineId, catalogGrade]);
 
   async function createCatalogTopic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -267,9 +284,9 @@ export function CurriculumManager({
     try {
       await patchCatalogTopic(topic.id, { name });
       await refreshPedagogicalTopics();
-      setMessage('Nome atualizado.');
+      setCatalogMessage('Nome atualizado.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Erro na edição.');
+      setCatalogMessage(error instanceof Error ? error.message : 'Erro na edição.');
     } finally {
       setCatalogSaving(false);
     }
@@ -280,33 +297,22 @@ export function CurriculumManager({
     try {
       await patchCatalogTopic(topic.id, { active: !topic.active });
       await refreshPedagogicalTopics();
-      setMessage(topic.active ? 'Item arquivado.' : 'Item reativado.');
+      setCatalogMessage(topic.active ? 'Item arquivado.' : 'Item reativado.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Erro na alteração.');
+      setCatalogMessage(error instanceof Error ? error.message : 'Erro na alteração.');
     } finally {
       setCatalogSaving(false);
     }
   }
 
   async function moveCatalogTopic(topic: PedagogicalTopic, direction: -1 | 1) {
-    const siblings = pedagogicalTopics
-      .filter(
-        (item) =>
-          item.discipline_id === topic.discipline_id &&
-          item.parent_id === topic.parent_id &&
-          item.grade_range === topic.grade_range,
-      )
-      .sort((a, b) => a.position - b.position);
-    const index = siblings.findIndex((item) => item.id === topic.id);
-    const other = siblings[index + direction];
-    if (!other) return;
     setCatalogSaving(true);
     try {
-      await patchCatalogTopic(topic.id, { position: other.position });
-      await patchCatalogTopic(other.id, { position: topic.position });
+      await patchCatalogTopic(topic.id, { move: direction === -1 ? 'up' : 'down' });
       await refreshPedagogicalTopics();
+      setCatalogMessage('Ordem atualizada.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Erro na ordenação.');
+      setCatalogMessage(error instanceof Error ? error.message : 'Erro na ordenação.');
     } finally {
       setCatalogSaving(false);
     }
@@ -846,11 +852,11 @@ export function CurriculumManager({
                     onChange={(event) => setCatalogParentId(event.target.value)}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                   >
-                    <option value="">Nenhum — criar objeto</option>
+                    <option value="">Nenhum — criar tópico</option>
                     {pedagogicalTopics
                       .filter(
                         (topic) =>
-                          topic.active &&
+                          (topic.effective_active ?? topic.active) &&
                           topic.discipline_id === catalogDisciplineId &&
                           topic.grade_range === catalogGrade &&
                           topic.depth < 2,
@@ -871,6 +877,7 @@ export function CurriculumManager({
                   }
                 >
                   <Input
+                    id="catalog-topic-name"
                     value={catalogName}
                     onChange={(event) => setCatalogName(event.target.value)}
                     required
@@ -926,6 +933,8 @@ export function CurriculumManager({
                         <ChevronRight className="size-4 shrink-0 text-blue-500" />
                         <span className="min-w-0 flex-1 text-sm font-medium">
                           {topic.name}
+                          <small className="ml-2 font-normal text-slate-500">{['Tópico', 'Subtópico', 'Detalhamento'][topic.depth]}</small>
+                          {topic.active && topic.effective_active === false && <small className="ml-2 text-amber-700">Nível superior arquivado</small>}
                           {!topic.active && (
                             <small className="ml-2 text-slate-500">
                               Arquivado
@@ -934,6 +943,11 @@ export function CurriculumManager({
                         </span>
                         {role !== 'teacher' && (
                           <div className="flex shrink-0 gap-1">
+                            {topic.depth < 2 && (topic.effective_active ?? topic.active) && <Button
+                              type="button" size="icon" variant="ghost" disabled={catalogSaving}
+                              aria-label={`Adicionar ${topic.depth === 0 ? 'subtópico' : 'detalhamento'} em ${topic.name}`}
+                              onClick={() => { setCatalogParentId(topic.id); document.getElementById('catalog-topic-name')?.focus(); }}
+                            ><Plus /></Button>}
                             <Button
                               type="button"
                               size="icon"
