@@ -16,3 +16,11 @@ test('personal records and assessments never use catalog context',()=>{
   assert.equal(sharedCatalogRoute('/api/curriculum/pedagogical-topics'),true);
   assert.equal(catalogAccess({portalEditor:true,developmentBypass:true},'GET','/api/questions'),false);
 });
+
+test('exclusão de tópicos exige permissão no catálogo compartilhado',()=>{
+  const path='/api/curriculum/pedagogical-topics/11111111-1111-4111-8111-111111111111';
+  for(const identity of [{role:'teacher'},{role:'admin'},{role:'coordinator'},{portalEditor:true,developmentBypass:true}])
+    assert.throws(()=>catalogAccess(identity,'DELETE',path),{statusCode:403});
+  for(const identity of [{portalAdmin:true},{portalEditor:true}])
+    assert.equal(catalogAccess(identity,'DELETE',path),true);
+});

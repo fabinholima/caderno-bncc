@@ -389,3 +389,41 @@ export async function setPedagogicalDisciplineSkills({
     return { id: disciplineId, skillCount: uniqueIds.length };
   });
 }
+
+export const deletePedagogicalTopicSchema = z.object({
+  expectedTopicIds: z.array(z.uuid()).min(1).max(2000),
+});
+
+export async function deletePedagogicalTopic({institutionId, topicId, input}) {
+  const value = deletePedagogicalTopicSchema.parse(input);
+  topicId = z.uuid().parse(topicId).toLowerCase();
+  institutionId = z.uuid().parse(institutionId).toLowerCase();
+  return transaction(async client => {
+    // JSON drafts/imports have no FK: protect their checks as well as revision FKs.
+    await client.query(`LOCK TABLE pedagogical_topics, question_revisions,
+      question_editor_drafts, exam_imports, pedagogical_topic_skills IN SHARE ROW EXCLUSIVE MODE`);
+    const subtree = await client.query(`WITH RECURSIVE subtree AS (
+      SELECT id,institution_id,discipline_id FROM pedagogical_topics WHERE id=$1 AND institution_id=$2
+      UNION
+      SELECT child.id,child.institution_id,child.discipline_id FROM pedagogical_topics child
+      JOIN subtree parent ON child.parent_id=parent.id
+    ) SELECT * FROM subtree`, [topicId,institutionId]);
+    if (!subtree.rowCount) throw Object.assign(new Error('Tópico ou subtópico não encontrado.'),{statusCode:404});
+    const disciplineId = subtree.rows.find(row=>row.id===topicId).discipline_id;
+    if (subtree.rows.some(row=>row.institution_id!==institutionId || row.discipline_id!==disciplineId))
+      throw Object.assign(new Error('A hierarquia contém vínculos inconsistentes. Revise o catálogo antes de excluir.'),{statusCode:409});
+    const ids = subtree.rows.map(row=>row.id).sort();
+    const expected = [...new Set(value.expectedTopicIds.map(id=>id.toLowerCase()))].sort();
+    if (ids.length!==expected.length || ids.some((id,index)=>id!==expected[index]))
+      throw Object.assign(new Error('O tópico foi alterado. Atualize o catálogo e confirme a exclusão novamente.'),{statusCode:409});
+    const used = await client.query(`SELECT
+      EXISTS(SELECT 1 FROM question_revisions WHERE pedagogical_topic_id=ANY($1::uuid[])) OR
+      EXISTS(SELECT 1 FROM question_editor_drafts draft CROSS JOIN unnest($1::uuid[]) AS topic(id)
+        WHERE draft.completed_at IS NULL AND lower(draft.payload::text) LIKE '%' || topic.id::text || '%') OR
+      EXISTS(SELECT 1 FROM exam_imports imported CROSS JOIN unnest($1::uuid[]) AS topic(id)
+        WHERE lower(imported.extracted_candidates::text) LIKE '%' || topic.id::text || '%') AS linked`,[ids]);
+    if (used.rows[0].linked) throw Object.assign(new Error('Este item ou um de seus subtópicos está vinculado a questões, rascunhos ou importações. Arquive o item para preservar os vínculos.'),{statusCode:409});
+    await client.query('DELETE FROM pedagogical_topics WHERE institution_id=$1 AND id=ANY($2::uuid[])',[institutionId,ids]);
+    return {id:topicId,deletedCount:ids.length};
+  });
+}
