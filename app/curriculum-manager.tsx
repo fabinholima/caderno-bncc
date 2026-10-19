@@ -394,7 +394,7 @@ export function CurriculumManager({
   const pedagogicalObjectCount = pedagogicalTopics.filter(
     (item) => item.active && item.depth === 0,
   ).length;
-  const hideArchivedCatalogTopics = ['Matemática', 'Química', 'Física'].includes(
+  const hideArchivedCatalogTopics = ['Matemática', 'Química', 'Física', 'Biologia'].includes(
     pedagogicalDisciplines.find(item => item.id === catalogDisciplineId)?.name || '',
   );
   const visibleCatalogTopics = pedagogicalTopics.filter(topic =>
