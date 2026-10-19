@@ -394,6 +394,13 @@ export function CurriculumManager({
   const pedagogicalObjectCount = pedagogicalTopics.filter(
     (item) => item.active && item.depth === 0,
   ).length;
+  const hideArchivedCatalogTopics = ['Matemática', 'Química', 'Física'].includes(
+    pedagogicalDisciplines.find(item => item.id === catalogDisciplineId)?.name || '',
+  );
+  const visibleCatalogTopics = pedagogicalTopics.filter(topic =>
+    topic.discipline_id === catalogDisciplineId && topic.grade_range === catalogGrade &&
+    (!hideArchivedCatalogTopics || (topic.effective_active ?? topic.active)),
+  );
   const metrics: Array<{ value: number; label: string; icon: LucideIcon }> = [
     {
       value:
@@ -918,13 +925,7 @@ export function CurriculumManager({
                   )}
                 </div>
                 <div className="space-y-2">
-                  {pedagogicalTopics
-                    .filter(
-                      (topic) =>
-                        topic.discipline_id === catalogDisciplineId &&
-                        topic.grade_range === catalogGrade,
-                    )
-                    .map((topic) => (
+                  {visibleCatalogTopics.map((topic) => (
                       <article
                         key={topic.id}
                         className={`flex items-center gap-2 rounded-lg border p-3 ${topic.active ? 'border-slate-200 bg-white' : 'border-dashed border-slate-300 bg-slate-50 opacity-60'}`}
