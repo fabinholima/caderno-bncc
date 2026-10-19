@@ -64,6 +64,7 @@ import {
   listPedagogicalTopics,
   setPedagogicalDisciplineSkills,
   updatePedagogicalTopic,
+  deletePedagogicalTopic,
 } from './pedagogical-disciplines.mjs';
 import { importPedagogicalTopicCatalog } from './pedagogical-topic-import.mjs';
 import {
@@ -1240,7 +1241,7 @@ const server = createServer(async (request, response) => {
       });
     }
     const pedagogicalTopicMatch =
-      request.method === 'PATCH' &&
+      ['PATCH', 'DELETE'].includes(request.method) &&
       url.pathname.match(
         /^\/api\/curriculum\/pedagogical-topics\/([0-9a-f-]{36})$/i,
       );
@@ -1250,6 +1251,9 @@ const server = createServer(async (request, response) => {
           error:
             'Somente coordenação e administração podem alterar o catálogo.',
         });
+      if (request.method === 'DELETE') return json(response, 200, {
+        data: await deletePedagogicalTopic({institutionId,topicId:pedagogicalTopicMatch[1],input:await readJson(request)}),
+      });
       return json(response, 200, {
         data: await updatePedagogicalTopic({
           institutionId,

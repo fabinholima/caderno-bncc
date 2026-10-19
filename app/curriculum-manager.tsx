@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Trash2,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
@@ -128,6 +129,7 @@ export function CurriculumManager({
   const [catalogSaving, setCatalogSaving] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState('');
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogShowArchived, setCatalogShowArchived] = useState(false);
   const [selectedChemistrySkills, setSelectedChemistrySkills] = useState<
     Set<string>
   >(new Set());
@@ -325,6 +327,34 @@ export function CurriculumManager({
     }
   }
 
+  async function deleteCatalogTopic(topic: PedagogicalTopic) {
+    const expectedTopicIds = new Set([topic.id]);
+    let previousSize = 0;
+    while (previousSize !== expectedTopicIds.size) {
+      previousSize = expectedTopicIds.size;
+      for (const item of pedagogicalTopics) {
+        if (item.parent_id && expectedTopicIds.has(item.parent_id)) expectedTopicIds.add(item.id);
+      }
+    }
+    const descendants = expectedTopicIds.size - 1;
+    if (!window.confirm(`Excluir definitivamente “${topic.name}”${descendants ? ` e seus ${descendants} subtópico(s)/detalhamento(s)` : ''}? Esta ação não pode ser desfeita. Itens vinculados a questões não serão excluídos.`)) return;
+    setCatalogSaving(true);
+    setCatalogMessage('');
+    try {
+      const response = await apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics/${topic.id}`, {
+        method:'DELETE',headers:{'content-type':'application/json'},
+        body:JSON.stringify({expectedTopicIds:[...expectedTopicIds]}),
+      });
+      const body = await response.json() as {error?:string};
+      if (!response.ok) throw new Error(body.error || 'Não foi possível excluir o item.');
+      setPedagogicalTopics(current=>current.filter(item=>!expectedTopicIds.has(item.id)));
+      if (expectedTopicIds.has(catalogParentId)) setCatalogParentId('');
+      setCatalogMessage('Item excluído do catálogo.');
+    } catch (error) {
+      setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível excluir o item.');
+    } finally { setCatalogSaving(false); }
+  }
+
   async function moveCatalogTopic(topic: PedagogicalTopic, direction: -1 | 1) {
     setCatalogSaving(true);
     try {
@@ -414,12 +444,9 @@ export function CurriculumManager({
   const pedagogicalObjectCount = pedagogicalTopics.filter(
     (item) => item.active && item.depth === 0,
   ).length;
-  const hideArchivedCatalogTopics = ['Matemática', 'Química', 'Física', 'Biologia'].includes(
-    pedagogicalDisciplines.find(item => item.id === catalogDisciplineId)?.name || '',
-  );
   const visibleCatalogTopics = pedagogicalTopics.filter(topic =>
     topic.discipline_id === catalogDisciplineId && topic.grade_range === catalogGrade &&
-    (!hideArchivedCatalogTopics || (topic.effective_active ?? topic.active)),
+    (catalogShowArchived || (topic.effective_active ?? topic.active)),
   );
   const metrics: Array<{ value: number; label: string; icon: LucideIcon }> = [
     {
@@ -937,6 +964,10 @@ export function CurriculumManager({
                 {catalogMessage && <output role="status" className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">{catalogMessage}</output>}
               </form>
               <div>
+                {role !== 'teacher' && <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" checked={catalogShowArchived} onChange={event=>setCatalogShowArchived(event.target.checked)} />
+                  Mostrar arquivados
+                </label>}
                 <div className="mb-3 flex flex-wrap gap-2">
                   {(['1ª série', '2ª série', '3ª série'] as const).map(
                     (grade) => (
@@ -1019,6 +1050,12 @@ export function CurriculumManager({
                               onClick={() => toggleCatalogTopic(topic)}
                             >
                               <EyeOff />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                              aria-label={`Excluir ${topic.name}`} title="Excluir definitivamente"
+                              disabled={catalogSaving} onClick={()=>void deleteCatalogTopic(topic)}>
+                              <Trash2 />
                             </Button>
                           </div>
                         )}
