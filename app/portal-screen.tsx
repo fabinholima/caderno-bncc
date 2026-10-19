@@ -1879,9 +1879,18 @@ export default function Home() {
                   <QuestionPasteImporter
                     onConfirm={(parsed) => {
                       setImportedQuestion(parsed);
+                      setImportedCorrect(parsed.correctAnswers || []);
+                      setImportedAnswerBlocks(parsed.answerBlocks || []);
+                      if (parsed.skill) {
+                        setSelectedSkillCode(parsed.skill);
+                        setImportedDetails(current => ({...current, skill: parsed.skill || ''}));
+                        const skill = availableSkills.find(item => item.skill_code === parsed.skill);
+                        if (skill && 'competency_id' in skill) setCompetencyId(skill.competency_id || '');
+                      }
+                      if (parsed.correctAnswers?.length) setQuestionType(parsed.correctAnswers.length > 1 ? 'multiple_choice' : 'single_choice');
                       setImportRevision((value) => value + 1);
                       setNotice(
-                        'Análise aplicada. Revise os campos e selecione a resposta correta antes de salvar.',
+                        'Análise aplicada. Confira o gabarito, a resolução e a classificação curricular antes de salvar.',
                       );
                     }}
                   />

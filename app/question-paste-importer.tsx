@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { normalizeAlternativeLabels } from '@/lib/question-alternative-labels.mjs';
 import Image from 'next/image';
-import { CONTEXT_PASTE_MARKER, parseContextQuestion } from '@/lib/pasted-exam.mjs';
+import { CONTEXT_PASTE_MARKER, PASTED_EXAM_EXAMPLE, parseSinglePastedQuestion } from '@/lib/pasted-exam.mjs';
 import {
   AlertTriangle,
   ClipboardPaste,
@@ -18,6 +18,9 @@ export type ParsedQuestion = {
   sourceYear: string;
   statementBlocks: RichContentBlock[];
   adoteNote?: string;
+  correctAnswers?: string[];
+  skill?: string;
+  answerBlocks?: RichContentBlock[];
   alternatives: Record<string, RichContentBlock[]>;
   warnings: string[];
 };
@@ -211,6 +214,7 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
     <article className="rounded-lg border border-slate-300 bg-white p-5 text-slate-950 shadow-sm">
       <div className="space-y-3 font-serif text-[15px] leading-7">
         {value.statementBlocks.map((block, index) => {
+          if (block.type === 'contextRaw') return <pre key={index} className="whitespace-pre-wrap font-mono text-xs">{block.code}</pre>;
           if (block.type === 'paragraph')
             return (
               <p key={index}>
@@ -283,7 +287,7 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
             <li key={label} className="ml-6 pl-1">
               {blocks.map((block, index) => (
                 <span key={index}>
-                  {block.type === 'paragraph' ? unitPreview(block.text) : ''}
+                  {block.type === 'contextRaw' ? block.code : block.type === 'paragraph' ? unitPreview(block.text) : ''}
                 </span>
               ))}
             </li>
@@ -294,13 +298,18 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
 }
 
 export function parsePastedQuestion(raw: string): ParsedQuestion {
-  if (raw.startsWith(CONTEXT_PASTE_MARKER)) {
-    try {
-      const parsed = parseContextQuestion(raw);
-      return {sourceInstitution:'', sourceYear:'', warnings:[], statementBlocks:[{type:'paragraph',text:parsed.statement}], alternatives:Object.fromEntries(Object.entries(parsed.alternatives).map(([key,text])=>[key,[{type:'paragraph',text}]]))};
-    } catch (error) {
-      return {sourceInstitution:'',sourceYear:'',warnings:[error instanceof Error ? error.message : 'Confira os blocos ConTeXt.'],statementBlocks:[{type:'paragraph',text:raw.slice(CONTEXT_PASTE_MARKER.length).trim()}],alternatives:{}};
-    }
+  if (/^\s*(?:#{1,6}\s+)?(?:\*\*)?QUEST[ÃA]O\s+\d+|^\s*\([A-Ea-e]\)\s+/im.test(raw) || raw.startsWith(CONTEXT_PASTE_MARKER) || /\\[a-zA-Z]+|^\s*(?:GABARITO|HABILIDADE(?: BNCC)?|RESOLU[ÇC][ÃA]O)\s*:/im.test(raw)) {
+    const parsed = parseSinglePastedQuestion(raw.replace(CONTEXT_PASTE_MARKER, '').trim());
+    const blocks = (code: string): RichContentBlock[] => code ? [{type:'contextRaw', code}] : [];
+    return {
+      sourceInstitution: '', sourceYear: '',
+      statementBlocks: blocks(parsed.statement),
+      alternatives: Object.fromEntries(Object.entries(parsed.alternatives).map(([key, text]) => [key, blocks(text as string)])),
+      adoteNote: parsed.adoteNote,
+      correctAnswers: parsed.correctAnswers, skill: parsed.skill,
+      answerBlocks: blocks(parsed.resolution),
+      warnings: ['Revise a classificação curricular e confira a prévia em PDF antes de salvar.'],
+    };
   }
   const warnings: string[] = [];
   const alternatives: Record<string, RichContentBlock[]> = {};
@@ -521,7 +530,7 @@ export function QuestionPasteImporter({
     <section className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
       <div>
         <strong>Colar questão → Analisar → Confirmar</strong>
-        <p className="text-xs text-slate-500">Nada será salvo nesta etapa.</p>
+        <p className="text-xs text-slate-500">Mesmo formato da importação por texto: enunciado, alternativas, GABARITO, HABILIDADE e RESOLUÇÃO. Os comandos ConTeXt são preservados. Nada será salvo nesta etapa.</p>
       </div>
       <textarea
         value={text}
@@ -543,12 +552,12 @@ export function QuestionPasteImporter({
         }}
         rows={9}
         className="w-full rounded-lg border bg-white p-3 text-sm"
-        placeholder="Cole aqui o texto completo da questão. Depois, cole uma imagem do clipboard na prévia..."
+        placeholder={PASTED_EXAM_EXAMPLE}
       />
       <div className="flex gap-2">
         <Button
           type="button"
-          onClick={() => setPreview(parsePastedQuestion(text))}
+          onClick={() => { try { setPreview(parsePastedQuestion(text)); } catch (error) { setPreview(null); window.alert(error instanceof Error ? error.message : 'Confira o texto da questão.'); } }}
           disabled={text.trim().length < 20}
         >
           <WandSparkles className="size-4" />
@@ -584,6 +593,8 @@ export function QuestionPasteImporter({
             />
           </div>
           <QuestionPreview value={preview} />
+          <p>Gabarito: {preview.correctAnswers?.join(', ') || 'não identificado'} · Habilidade: {preview.skill || 'não identificada'}</p>
+          {preview.answerBlocks?.length ? <details><summary>Resolução importada</summary><pre className="whitespace-pre-wrap text-xs">{preview.answerBlocks.map(block => block.type === 'contextRaw' ? block.code : '').join('\n')}</pre></details> : null}
           {preview.warnings.map((warning) => (
             <p key={warning} className="flex gap-2 text-amber-700">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -591,7 +602,7 @@ export function QuestionPasteImporter({
             </p>
           ))}
           <p className="text-xs text-slate-500">
-            A prévia aproxima a impressão. A confirmação abre todos os blocos
+            Esta conferência mostra o conteúdo importado. Use a prévia em PDF para conferir a impressão. A confirmação abre todos os blocos
             para ajustes antes de salvar.
           </p>
           <Button
