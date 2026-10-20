@@ -63,3 +63,20 @@ test('accepts ConTeXt unit labels inside MetaPost while keeping external input b
   assert.equal(withoutEmbeddedMetaPost(`\\startMPcode\n${code}\n\\stopMPcode`), '');
   assert.equal(validMetaPost(String.raw`label(textext("\input arquivo"), origin);`), false);
 });
+
+test('accepts escaped percentages in chart labels, including bold and negative values', () => {
+  const chart = String.raw`u := 1.5cm;
+  numeric cx[], h[], g[];
+  cx1 := 0.90; h1 := 1.80; g1 := 0.60;
+  for i=1 upto 1:
+    fill unitsquare scaled u withcolor g[i]*white;
+    label.bot(textext("M$_" & decimal i & "$"), (cx[i]*u,-0.1u));
+  endfor;
+  label(textext("20\%"), origin);
+  label(textext("$-$20\%"), (u,u));
+  label(textext("\bold{25\%}"), (2u,2u));`;
+  assert.ok(validMetaPost(chart));
+  assert.doesNotThrow(()=>withoutEmbeddedMetaPost(`\\startMPcode\n${chart}\n\\stopMPcode`));
+  for (const command of ['input arquivo','directlua{os.exit()}','csname input\\endcsname'])
+    assert.equal(validMetaPost(String.raw`label(textext("20\%"), origin);` + `\nlabel(textext("\\${command}"),origin);`),false);
+});
