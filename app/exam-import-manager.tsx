@@ -225,6 +225,7 @@ const alternativeLetters = ['A', 'B', 'C', 'D', 'E'] as const;
 function editableTextFromBlocks(blocks: RichContentBlock[]) {
   return blocks
     .map((block) => {
+      if (block.type === 'contextRaw') return block.code;
       if (block.type === 'paragraph') return block.text;
       if (block.type === 'contextFormula')
         return `\\startformula\n${block.code}\n\\stopformula`;
@@ -274,11 +275,13 @@ function ContextTextField({
   value,
   rows,
   onChange,
+  showContextTools = true,
 }: {
   label: string;
   value: string;
   rows: number;
   onChange: (value: string) => void;
+  showContextTools?: boolean;
 }) {
   const editor = useRef<HTMLTextAreaElement>(null);
   const insert = (command: 'm' | 'chemical' | 'unit' | 'bold') => {
@@ -316,9 +319,9 @@ function ContextTextField({
   };
   return (
     <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className={`mb-2 flex flex-wrap items-center justify-between gap-2${showContextTools ? '' : ' min-h-0'}`}>
         <label className="text-xs font-bold text-slate-700">{label}</label>
-        <div className="flex flex-wrap gap-1">
+        {showContextTools && <div className="flex flex-wrap gap-1">
           {(['m', 'chemical', 'unit', 'bold'] as const).map((command) => (
             <Button
               key={command}
@@ -343,7 +346,7 @@ function ContextTextField({
           >
             \\startformula
           </Button>
-        </div>
+        </div>}
       </div>
       <textarea
         ref={editor}
@@ -441,6 +444,7 @@ function ImportedQuestionTextEditor({
               label={`Alternativa ${letter}`}
               value={fields.alternatives[letter]}
               rows={4}
+              showContextTools={false}
               onChange={(value) =>
                 updateFields({
                   ...fields,
