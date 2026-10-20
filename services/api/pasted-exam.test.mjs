@@ -32,6 +32,30 @@ test('Markdown headings and alternative formats are accepted without rewriting c
   assert.equal(result[0].correctAnswers[0], 'A');
   assert.equal(result[0].resolution, '\\m{10/100} sem alteração.');
 });
+test('Markdown files with titled question headings and formatted list alternatives import as a batch', () => {
+  const result = parsePastedExam(
+    [
+      '## **Questão 12 — Movimento**',
+      'Enunciado suficientemente longo para testar a importação em Markdown.',
+      '- **(A)** Primeira alternativa',
+      '- **(B)** Segunda alternativa',
+      '- **(C)** Terceira alternativa',
+      '- **(D)** Quarta alternativa',
+      '- **(E)** Quinta alternativa',
+      '**GABARITO:** C',
+      '',
+      '## Questão 13: Energia',
+      'Outro enunciado suficientemente longo para o lote.',
+      '**A)** Primeira alternativa',
+      '**B)** Segunda alternativa',
+      'GABARITO: A',
+    ].join('\n'),
+  );
+  assert.deepEqual(result.map((question) => question.sourceNumber), [12, 13]);
+  assert.equal(result[0].alternatives.A, 'Primeira alternativa');
+  assert.deepEqual(result[0].correctAnswers, ['C']);
+  assert.equal(result[1].alternatives.B, 'Segunda alternativa');
+});
 test('invalid boundaries, duplicates, answer labels and oversized batches fail', () => {
   assert.throws(() => parsePastedExam('sem marcador'), /Comece/);
   assert.throws(
