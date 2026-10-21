@@ -522,6 +522,8 @@ const aiReviewSchema = z
   });
 
 export const candidateUpdateSchema = z.object({
+  registeredQuestionId: z.uuid().optional(),
+  registeredQuestionCode: z.string().regex(/^[A-Z]{2,4}-\d{4}$/).optional(),
   resetAi: z.boolean().optional(),
   resolution: z.string().max(20000).optional(),
   editorialReviewed: z.boolean().optional(),
@@ -601,6 +603,18 @@ export async function updateExamImportCandidate({
       throw Object.assign(new Error('Questão extraída não encontrada.'), {
         statusCode: 404,
       });
+    const previous = candidates[index];
+    if ((previous.status === 'completed' || previous.registeredQuestionId) && value.status && value.status !== 'completed')
+      throw Object.assign(new Error('A importação já foi cadastrada. A questão permanece disponível no banco e no histórico de concluídas.'),{statusCode:409});
+    if (value.status === 'completed' && previous.status !== 'completed' && !value.registeredQuestionId && !previous.registeredQuestionId)
+      throw Object.assign(new Error('Cadastre a questão no banco antes de concluir a importação.'),{statusCode:422});
+    if (value.registeredQuestionId) {
+      const question = await client.query('SELECT id,public_code FROM questions WHERE id=$1 AND institution_id=$2',[value.registeredQuestionId,institutionId]);
+      if (!question.rowCount) throw Object.assign(new Error('Questão cadastrada não encontrada nesta instituição.'),{statusCode:422});
+      value.registeredQuestionCode = question.rows[0].public_code;
+      value.status = 'completed';
+      value.selected = false;
+    }
     if (value.resetAi) {
       const running = await client.query(
         "SELECT 1 FROM exam_import_jobs WHERE exam_import_id=$1 AND job_type='ai_analysis' AND status IN ('queued','running')",
@@ -643,6 +657,7 @@ export async function updateExamImportCandidate({
     candidates[index] = {
       ...candidates[index],
       ...value,
+      ...(value.registeredQuestionId ? {registeredAt: previous.registeredAt || new Date().toISOString()} : {}),
       ...((value.rawText !== undefined || value.resolution !== undefined || value.adoteNote !== undefined) ? {editorialReviewed:false} : {}),
       ...(value.aiReview
         ? {
