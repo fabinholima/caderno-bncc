@@ -712,7 +712,7 @@ export default function Home() {
             {
               method: 'PATCH',
               headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ status: 'completed' }),
+              body: JSON.stringify({ status: 'completed', selected:false, registeredQuestionId:body.data.id, registeredQuestionCode:body.data.code }),
             },
           );
           if (!candidateResponse.ok)

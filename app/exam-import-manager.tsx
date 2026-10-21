@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { importReviewGroup } from '@/lib/import-review-queue.mjs';
 import { resolveImportClassification } from '@/lib/import-classification.mjs';
 import { CONTEXT_PASTE_MARKER, parsePastedExam } from '@/lib/pasted-exam.mjs';
 import type { FormEvent } from 'react';
@@ -111,6 +112,9 @@ type ExamImportCandidate = {
   skill?: string;
   pedagogicalDisciplineId?: string;
   pedagogicalTopicId?: string;
+  registeredQuestionId?: string;
+  registeredQuestionCode?: string;
+  registeredAt?: string;
   duplicateQuestionId?: string;
   duplicateQuestionCode?: string;
   aiSuggestion?: {
@@ -433,6 +437,7 @@ function ImportedQuestionTextEditor({
       <div className="mt-4 space-y-4" onBlur={save}>
         <ContextTextField
           label={`Enunciado da questão ${candidate.sourceNumber}`}
+          showContextTools={false}
           value={fields.statement}
           rows={12}
           onChange={(statement) => updateFields({ ...fields, statement })}
@@ -954,6 +959,7 @@ export function ExamImportManager({
     topicId: '',
   });
   const [batchActionBusy, setBatchActionBusy] = useState(false);
+  const [reviewTab, setReviewTab] = useState<'pending' | 'completed' | 'discarded'>('pending');
   const [cropDraft, setCropDraft] = useState({
     x: 10,
     y: 20,
@@ -1076,7 +1082,7 @@ export function ExamImportManager({
 
   const visibleCandidates = (item: ExamImport) =>
     item.candidates.filter((candidate) =>
-      candidateMatchesReviewFilters(
+      importReviewGroup(candidate) === reviewTab && candidateMatchesReviewFilters(
         candidate,
         item,
         reviewFilters,
@@ -1653,6 +1659,7 @@ export function ExamImportManager({
           }),
         });
         const body = (await response.json()) as {
+          data?: {id:string;code:string};
           error?: string;
           issues?: Array<{ message: string }>;
           duplicateQuestionId?: string;
@@ -1673,7 +1680,7 @@ export function ExamImportManager({
               'falha no cadastro',
           );
         }
-        await updateCandidate(item.id, candidate.id, { status: 'completed' });
+        await updateCandidate(item.id, candidate.id, { status: 'completed', selected:false, registeredQuestionId:body.data?.id, registeredQuestionCode:body.data?.code });
         registered += 1;
       } catch (error) {
         failures.push(
@@ -2126,6 +2133,15 @@ GABARITO: B`}
             </div>
           ))}
         </div>
+        <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Fila de revisão das importações">
+          {([['pending','Pendentes'],['completed','Concluídas'],['discarded','Descartadas']] as const).map(([group,label])=>(
+            <Button key={group} type="button" role="tab" aria-selected={reviewTab===group}
+              variant={reviewTab===group?'default':'outline'}
+              onClick={()=>{setReviewTab(group);setReviewFilters(current=>({...current,status:''}));}}>
+              {label} ({imports.flatMap(item=>item.candidates).filter(candidate=>importReviewGroup(candidate)===group).length})
+            </Button>
+          ))}
+        </div>
         <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
             <Input
@@ -2148,12 +2164,7 @@ GABARITO: B`}
               }
               options={[
                 ['', 'Todas as situações'],
-                ['complete', 'Completa'],
-                ['pending', 'Pendente'],
-                ['review', 'Em revisão'],
-                ['duplicate', 'Duplicada'],
-                ['ignored', 'Ignorada'],
-                ['completed', 'Concluída'],
+                ...((reviewTab === 'pending' ? [['complete','Completa'],['pending','Pendente'],['review','Em revisão']] : reviewTab === 'discarded' ? [['duplicate','Duplicada'],['ignored','Descartada']] : [['completed','Concluída']]) as Array<[string,string]>),
               ]}
             />
             <SelectField
@@ -2244,7 +2255,7 @@ GABARITO: B`}
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy}
+                disabled={batchActionBusy || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('select')}
               >
                 Selecionar visíveis
@@ -2253,7 +2264,7 @@ GABARITO: B`}
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy}
+                disabled={batchActionBusy || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('unselect')}
               >
                 Desmarcar visíveis
@@ -2262,7 +2273,7 @@ GABARITO: B`}
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy}
+                disabled={batchActionBusy || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('confirm')}
               >
                 Confirmar gabaritos sugeridos
@@ -2271,24 +2282,27 @@ GABARITO: B`}
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy}
+                disabled={batchActionBusy || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('ignore')}
               >
-                Ignorar visíveis
+                Descartar visíveis
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy}
+                disabled={batchActionBusy || reviewTab !== 'discarded'}
                 onClick={() => applyVisibleAction('restore')}
               >
-                Restaurar ignoradas
+                Restaurar descartadas
               </Button>
             </div>
           </div>
         </section>
         <div className="mt-4 space-y-3">
+          {imports.length > 0 && !imports.some(item => visibleCandidates(item).length || (reviewTab === 'pending' && !item.candidates.length)) && (
+            <p className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">Nenhuma questão nesta aba com os filtros atuais.</p>
+          )}
           {!imports.length && (
             <p className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
               Nenhuma prova foi enviada ainda.
@@ -2297,7 +2311,7 @@ GABARITO: B`}
           {imports
             .filter(
               (item) =>
-                visibleCandidates(item).length > 0 || !item.candidates.length,
+                visibleCandidates(item).length > 0 || (reviewTab === 'pending' && !item.candidates.length),
             )
             .map((item) => (
               <article
@@ -2631,7 +2645,7 @@ GABARITO: B`}
                             página e crie cada questão por recorte.
                           </div>
                         )}
-                      {Boolean(item.candidates?.length) && (
+                      {Boolean(item.candidates?.length) && reviewTab === 'pending' && (
                         <BulkRegistrationPanel
                           item={item}
                           settings={
@@ -2648,7 +2662,21 @@ GABARITO: B`}
                       )}
                       <div className="mt-3 space-y-3">
                         {visibleCandidates(item).map((candidate) => (
-                          <article
+                          reviewTab !== 'pending' ? <article key={candidate.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="font-semibold">Questão {candidate.sourceNumber} · {reviewTab==='completed'?'Concluída':candidate.status==='duplicate'?'Duplicada':'Descartada'}</p>
+                              {(candidate.registeredQuestionId || candidate.duplicateQuestionId) && <Button type="button" size="sm" variant="outline"
+                                onClick={()=>onOpenQuestion((candidate.registeredQuestionId || candidate.duplicateQuestionId)!)}>
+                                Abrir {candidate.registeredQuestionCode || candidate.duplicateQuestionCode || 'questão no banco'} <ArrowRight />
+                              </Button>}
+                              {candidate.status==='ignored' && <Button type="button" size="sm" variant="outline"
+                                onClick={()=>updateCandidate(item.id,candidate.id,{status:'review',selected:true}).catch(error=>setMessage(error.message))}>Restaurar para pendentes</Button>}
+                            </div>
+                            {candidate.registeredAt && <p className="mt-1 text-xs text-slate-500">Cadastrada em {new Date(candidate.registeredAt).toLocaleString('pt-BR')}</p>}
+                            <details className="mt-3"><summary className="cursor-pointer text-sm">Ver conteúdo importado</summary><pre className="mt-2 whitespace-pre-wrap text-xs">{candidate.rawText}</pre>
+                              {candidate.resolution && <pre className="mt-2 whitespace-pre-wrap text-xs">Resolução: {candidate.resolution}</pre>}
+                            </details>
+                          </article> : <article
                             key={candidate.id}
                             className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                           >
