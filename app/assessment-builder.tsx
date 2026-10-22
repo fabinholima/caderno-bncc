@@ -1,4 +1,6 @@
 'use client';
+import { isCompactTemplate, isJudgmentTemplate } from '@/lib/compact-assessment.mjs';
+import { assertAssessmentQuestionStyle, renderTemplateCatalog } from '@/lib/render-templates.mjs';
 import type { EducatorData, School } from './educator-profile';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -23,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 
 export type BuilderQuestion = {
+  type?: string;
   recommendSingleColumn?: boolean;
   id: string;
   code: string;
@@ -93,15 +96,7 @@ type AssessmentPreset = {
   };
 };
 
-const fallbackTemplates: RenderTemplate[] = [
-  {
-    id: 'basicexam-v1',
-    label: 'Caderno clássico',
-    description: 'Layout escolar limpo, com t-basicexam e gabarito separado.',
-    engine: 'ConTeXt / LuaMetaTeX',
-    version: 1,
-  },
-];
+const fallbackTemplates: RenderTemplate[] = renderTemplateCatalog.map(item => ({ ...item }));
 
 const fallbackFonts: RenderFont[] = [
   { id: 'plex', label: 'IBM Plex' },
@@ -140,7 +135,7 @@ export function AssessmentBuilder({
         startOnNewPage: false,
         selected: new Set(
           questions
-            .filter((question) => question.subject === subject)
+            .filter((question) => question.subject === subject && question.type !== 'true_false')
             .slice(0, 2)
             .map((question) => question.id),
         ),
@@ -255,7 +250,9 @@ export function AssessmentBuilder({
     (section) => section.id === activeSectionId,
   );
   const questionsInActiveSubject = questions.filter(
-    (question) => question.subject === activeSection?.subject,
+    (question) => question.subject === activeSection?.subject &&
+      ((question.type === 'true_false') === isJudgmentTemplate(template)) &&
+      (template !== 'compacto-10-v1' || question.type === 'single_choice'),
   );
   const topicParts = (question: BuilderQuestion) => {
     const path = (question.knowledgeTopic || '')
@@ -461,6 +458,8 @@ export function AssessmentBuilder({
   }, [apiUrl, generated, generatedVersions]);
 
   function toggle(id: string) {
+    if (isCompactTemplate(template) && chosen.length >= 10 && !chosen.some(question => question.id === id))
+      return setMessage('O modelo compacto aceita no máximo 10 questões.');
     setGenerated(false);
     setSections((current) =>
       current.map((section) => {
@@ -674,6 +673,9 @@ export function AssessmentBuilder({
     );
     if (!configuredSections.length)
       return setMessage('Selecione pelo menos uma questão.');
+    try { assertAssessmentQuestionStyle(chosen, template); }
+    catch (error) { return setMessage(error instanceof Error ? error.message : 'Seleção incompatível com o modelo.'); }
+    if (isCompactTemplate(template) && paper !== 'A4') return setMessage('O modelo compacto usa papel A4.');
     setSaving(true);
     setMessage('');
     try {
@@ -1381,7 +1383,7 @@ export function AssessmentBuilder({
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                 >
                   <option value="A4">A4</option>
-                  <option value="A5">A5</option>
+                  <option value="A5" disabled={isCompactTemplate(template)}>A5</option>
                 </select>
               </label>
             </div>
@@ -1391,7 +1393,15 @@ export function AssessmentBuilder({
               </span>
               <select
                 value={template}
-                onChange={(event) => setTemplate(event.target.value)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (next !== template && (isJudgmentTemplate(next) !== isJudgmentTemplate(template) || isCompactTemplate(next))) {
+                    setSections(current => current.map(section => ({ ...section, selected: new Set<string>(), fullWidth: new Set<string>() })));
+                    setMessage('Estilo alterado. Selecione as questões compatíveis com a prova.');
+                  }
+                  if (isCompactTemplate(next)) setPaper('A4');
+                  setTemplate(next);
+                }}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
               >
                 {templates.map((item) => (
@@ -1560,8 +1570,9 @@ export function AssessmentBuilder({
                     Embaralhamento determinístico
                   </p>
                   <p className="mt-1 text-xs leading-5 text-violet-700">
-                    Cada versão recebe ordem própria de questões e alternativas,
-                    preservando o gabarito por chave estável.
+                    {isJudgmentTemplate(template)
+                      ? 'Cada versão recebe ordem própria de questões. As opções permanecem C e E.'
+                      : 'Cada versão recebe ordem própria de questões e alternativas, preservando o gabarito por chave estável.'}
                   </p>
                 </div>
               </div>

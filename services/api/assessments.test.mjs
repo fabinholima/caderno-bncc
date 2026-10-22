@@ -1,3 +1,4 @@
+import { assertAssessmentQuestionStyle } from '../../lib/render-templates.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAssessmentSchema, seededShuffle } from './assessments.mjs';
@@ -140,4 +141,11 @@ test('embaralhamento é determinístico por semente', () => {
     seededShuffle([1, 2, 3, 4], 42),
     seededShuffle([1, 2, 3, 4], 43),
   );
+});
+
+
+test('prova de Certo/Errado exige seleção exclusiva e rejeita a mistura', () => {
+  assert.doesNotThrow(() => assertAssessmentQuestionStyle([{type: 'true_false'}], 'certo-errado-v1'));
+  assert.throws(() => assertAssessmentQuestionStyle([{type: 'true_false'}, {type: 'single_choice'}], 'certo-errado-v1'), /somente questões/);
+  assert.throws(() => assertAssessmentQuestionStyle([{type: 'true_false'}], 'basicexam-v1'), /não podem ser mescladas/);
 });

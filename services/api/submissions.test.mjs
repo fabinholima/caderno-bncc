@@ -82,8 +82,8 @@ test('rejeita resposta para questão fora da versão', () => {
 });
 
  test('corrige verdadeiro ou falso e não pontua resposta vazia ou dupla', () => {
-  const exam = { questions: [{ ...snapshot.questions[0], type: 'true_false' }] };
-  for (const [selectedLabels, score] of [[['B'], 1], [['A'], 0], [[], 0], [['A', 'B'], 0]]) {
+  const exam = { questions: [{ ...snapshot.questions[0], type: 'true_false', alternatives: [{ stableKey: 'alt-a', label: 'C' }, { stableKey: 'alt-b', label: 'E' }] }] };
+  for (const [selectedLabels, score] of [[['E'], 1], [['C'], 0], [[], 0], [['C', 'E'], 0]]) {
     const graded = gradeSubmission(exam, {
       candidate: { name: 'Ana Souza' },
       responses: [{ questionNumber: 1, selectedLabels }],

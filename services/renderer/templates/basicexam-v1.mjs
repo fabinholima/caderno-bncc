@@ -28,6 +28,10 @@ export const basicExamV1 = Object.freeze({
     subjects,
     content,
     previewOnly = false,
+    omitAnswerSheet = false,
+    headerQr = true,
+    compactLayout = false,
+    answerLabels = ['A', 'B', 'C', 'D', 'E'],
   }) {
     const classicHeader = logoFileName
       ? `\\startcombination[2*1]
@@ -57,7 +61,7 @@ export const basicExamV1 = Object.freeze({
 \\hskip3mm\\blackrule[width=.5pt,height=16mm,color=normalheaderrule]\\hskip3mm
 \\vbox to 16mm{\\hsize=\\dimexpr\\hsize-84mm\\relax\\vfil\\leftaligned{\\tfa\\bold{${title}}}\\blank[1mm]\\leftaligned{\\tfx ${subjects || grade} · Versão ${version}}\\vfil}
 \\hfill
-\\vbox to 16mm{\\hsize=18mm\\vfil\\rightaligned{${qr}}\\vfil}}
+\\vbox to 16mm{\\hsize=18mm\\vfil\\rightaligned{${headerQr ? qr : ''}}\\vfil}}
 \\blank[1mm]
 \\blackrule[width=\\textwidth,height=.5pt,color=normalheaderrule]
 \\blank[1mm]
@@ -76,16 +80,16 @@ export const basicExamV1 = Object.freeze({
     const answerRows = Array.from(
       { length: Number(questionCount) || 0 },
       (_, index) =>
-        `\\NC ${String(index + 1).padStart(2, '0')} \\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{A} \\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{B} \\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{C} \\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{D} \\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{E} \\NC\\NR`,
+        `\\NC ${String(index + 1).padStart(2, '0')} ${answerLabels.map(label => `\\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{${label}}`).join(' ')} \\NC\\NR`,
     ).join('\n');
     const answerSheet =
-      mode === 'student' && qrPayload
+      mode === 'student' && qrPayload && !omitAnswerSheet
         ? `\\page
 \\noindent\\blackrule[width=8mm,height=8mm]\\hfill\\blackrule[width=8mm,height=8mm]
 \\blank[small]
 ${answerCardHeader}
 \\blank[medium]
-\\starttabulate[|c|c|c|c|c|c|]
+\\starttabulate[|c|${answerLabels.map(() => 'c|').join('')}]
 ${answerRows}
 \\stoptabulate
 \\vfill
@@ -114,7 +118,7 @@ ${answerRows}
 ${answerCardHeaderPreamble}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=13mm,backspace=18mm,width=middle,height=middle]
+\\setuplayout[topspace=13mm,backspace=18mm,width=middle,height=middle${compactLayout ? ',header=0mm,headerdistance=0mm,footer=6mm,footerdistance=4mm' : ''}]
 \\setuppagenumbering[location={footer,right},style=\\tfx]
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
 

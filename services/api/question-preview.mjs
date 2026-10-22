@@ -21,7 +21,7 @@ export function snapshotFromQuestion(question, mode = 'student') {
     : question.answerGuide ? [{type:'paragraph',text:question.answerGuide}] : [];
   const alternatives = question.alternatives.map((alternative, index) => ({
     stableKey: alternative.stableKey,
-    label: String.fromCharCode(65 + index),
+    label: question.type === 'true_false' ? (alternative.stableKey === 'alt-a' ? 'C' : 'E') : String.fromCharCode(65 + index),
     content: alternative.contentBlocks?.length
       ? alternative.contentBlocks
       : [{ type: 'paragraph', text: alternative.content }],
@@ -66,7 +66,7 @@ export function snapshotFromQuestion(question, mode = 'student') {
     questions: [renderedQuestion],
     totals: { points: 1, questions: 1 },
     render: {
-      locale: 'pt-BR', paper: 'A4', mode, template: 'basicexam-v1',
+      locale: 'pt-BR', paper: 'A4', mode, template: question.type === 'true_false' ? 'certo-errado-v1' : 'basicexam-v1',
       font: 'plex', fontSize: 11, showBnccSkills: Boolean(question.skill), previewOnly: true,
     },
   };

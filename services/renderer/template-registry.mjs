@@ -6,7 +6,13 @@ import { basicExamV1 } from './templates/basicexam-v1.mjs';
 import { simulatedExamV1 } from './templates/simulado-v1.mjs';
 import { twoColumnExamV1 } from './templates/caderno-duas-colunas-v1.mjs';
 
+import { compactExamV1, compactJudgmentExamV1 } from './templates/compacto-10-v1.mjs';
+import { judgmentExamV1 } from './templates/certo-errado-v1.mjs';
+
 const templates = new Map([
+  [compactExamV1.id, compactExamV1],
+  [compactJudgmentExamV1.id, compactJudgmentExamV1],
+  [judgmentExamV1.id, judgmentExamV1],
   [basicExamV1.id, basicExamV1],
   [simulatedExamV1.id, simulatedExamV1],
   [twoColumnExamV1.id, twoColumnExamV1],

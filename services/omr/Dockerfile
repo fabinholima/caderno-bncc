@@ -15,6 +15,7 @@ RUN /opt/venv-omr/bin/pip install --no-cache-dir -r /app/services/omr/requiremen
 
 COPY services/api /app/services/api
 COPY services/omr /app/services/omr
+COPY lib /app/lib
 
 ENV OMR_PYTHON=/opt/venv-omr/bin/python
 ENV NODE_ENV=production

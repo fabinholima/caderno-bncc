@@ -1,8 +1,10 @@
+import { isCompactTemplate } from '../../lib/compact-assessment.mjs';
 import {assertApprovedQuestionSelection} from './question-workflow.mjs';
 import { z } from 'zod';
 import crypto from 'node:crypto';
 import {
   DEFAULT_RENDER_TEMPLATE,
+  assertAssessmentQuestionStyle,
   DEFAULT_RENDER_FONT,
   renderFontIds,
   renderTemplateIds,
@@ -65,6 +67,7 @@ export const createAssessmentSchema = z
       .default([]),
   })
   .superRefine((value, context) => {
+    if (isCompactTemplate(value.template) && value.paper !== 'A4') context.addIssue({code: 'custom', path: ['paper'], message: 'Os modelos compactos de 10 questões usam papel A4.'});
     const questionIds = value.sections.flatMap(
       (section) => section.questionIds,
     );
@@ -155,6 +158,7 @@ export async function createAssessment({ institutionId, questionBankId = institu
       error.statusCode = 422;
       throw error;
     }
+    assertAssessmentQuestionStyle(questions.rows, value.template);
     const questionById = new Map(
       questions.rows.map((question) => [question.id, question]),
     );
@@ -220,7 +224,7 @@ export async function createAssessment({ institutionId, questionBankId = institu
             knowledgeTopic: question.knowledge_topic,
             alternatives: alternatives.map((answer, answerIndex) => ({
               stableKey: answer.stableKey,
-              label: String.fromCharCode(65 + answerIndex),
+              label: question.type === 'true_false' ? (answer.stableKey === 'alt-a' ? 'C' : 'E') : String.fromCharCode(65 + answerIndex),
               content: answer.content,
             })),
             answer: {

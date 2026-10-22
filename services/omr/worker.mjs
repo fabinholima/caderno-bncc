@@ -1,3 +1,4 @@
+import { compactCardProfile } from '../../lib/compact-assessment.mjs';
 import { mkdtemp, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -28,7 +29,7 @@ const runCommand = (command, args) =>
         : no(new Error(e || `${command} terminou com código ${c}`)),
     );
   });
-const run = async (f) => JSON.parse(await runCommand(python, [script, f]));
+const run = async (f, profile) => JSON.parse(await runCommand(python, [script, f, typeof profile === 'string' ? profile : JSON.stringify(profile)]));
 
 async function renderPdfCards(pdf, directory) {
   const info = await runCommand('pdfinfo', [pdf]);
@@ -51,7 +52,7 @@ async function renderPdfCards(pdf, directory) {
 async function processCard(scanId, card, sourcePage, sourcePages, institutionId, expectedApplicationId) {
   try {
     const reviewImage = await readFile(card);
-    const raw = await run(card);
+    const identity = await run(card, '--qr-only');
     const a = await pool.query(
       `SELECT aps.id, aps.application_id, aps.assessment_version_id, av.snapshot,
               s.name, s.registration, ce.number, c.name AS class_name
@@ -63,11 +64,15 @@ async function processCard(scanId, card, sourcePage, sourcePages, institutionId,
        LEFT JOIN class_enrollments ce
          ON ce.class_id = c.id AND ce.student_id = s.id
        WHERE aps.qr_payload=$1 AND aa.institution_id=$2 AND aa.status<>'cancelled'`,
-      [raw.qrPayload, institutionId],
+      [identity.qrPayload, institutionId],
     );
     if (!a.rowCount) throw new Error('QR desconhecido');
     const assignment = a.rows[0];
     assertCardApplication(assignment,expectedApplicationId);
+    const profile = compactCardProfile(assignment.snapshot.render?.template, assignment.snapshot.questions.length)
+      || { labels: assignment.snapshot.questions.every(question => question.type === 'true_false') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'] };
+    const raw = await run(card, profile);
+    if (raw.qrPayload !== identity.qrPayload) throw new Error('A identificação do cartão mudou durante a leitura.');
     const result = reconcileCardReading(assignment.snapshot,raw);
     let submissionId = null;
     let grade = null;

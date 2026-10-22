@@ -1,11 +1,12 @@
 import json
 import sys
+from itertools import combinations
 
 import cv2
 import numpy as np
 
 
-def detect_answer_groups(image, gray):
+def detect_answer_groups(image, gray, option_count=5):
     circles = cv2.HoughCircles(
         cv2.GaussianBlur(gray, (5, 5), 1.2),
         cv2.HOUGH_GRADIENT,
@@ -43,11 +44,11 @@ def detect_answer_groups(image, gray):
     groups = []
     for row in visual_rows:
         row.sort(key=lambda circle: circle[0])
-        for index in range(0, len(row), 5):
-            group = row[index : index + 5]
-            if len(group) != 5:
+        for index in range(0, len(row), option_count):
+            group = row[index : index + option_count]
+            if len(group) != option_count:
                 continue
-            gaps = [group[item + 1][0] - group[item][0] for item in range(4)]
+            gaps = [group[item + 1][0] - group[item][0] for item in range(option_count - 1)]
             if max(gaps) - min(gaps) < 12:
                 groups.append(group)
     return groups
@@ -59,8 +60,8 @@ def order_groups_by_column(groups):
     radius = float(np.median([circle[2] for group in groups for circle in group]))
     tolerance = max(20.0, radius * 2.5)
     columns = []
-    for group in sorted(groups, key=lambda item: sum(c[0] for c in item) / 5):
-        center_x = sum(circle[0] for circle in group) / 5
+    for group in sorted(groups, key=lambda item: sum(c[0] for c in item) / len(item)):
+        center_x = sum(circle[0] for circle in group) / len(group)
         column = next(
             (
                 candidate
@@ -74,7 +75,7 @@ def order_groups_by_column(groups):
         else:
             column["groups"].append(group)
             centers = [
-                sum(circle[0] for circle in item) / 5
+                sum(circle[0] for circle in item) / len(item)
                 for item in column["groups"]
             ]
             column["center_x"] = float(np.median(centers))
@@ -85,22 +86,139 @@ def order_groups_by_column(groups):
         ordered.extend(
             sorted(
                 column["groups"],
-                key=lambda group: sum(circle[1] for circle in group) / 5,
+                key=lambda group: sum(circle[1] for circle in group) / len(group),
             )
         )
     return ordered
 
 
-def read_card(file_name):
+def compact_registration(gray, qr_points, profile):
+    """Locate the four solid marks, then rectify their shared millimetre frame."""
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    candidates = []
+    minimum = max(5.0, min(gray.shape) * 0.003)
+    maximum = min(gray.shape) * 0.045
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        area = cv2.contourArea(contour)
+        if not (minimum <= w <= maximum and minimum <= h <= maximum):
+            continue
+        if not (0.65 < w / h < 1.5 and area / (w * h) > 0.72):
+            continue
+        _, (rect_width, rect_height), _ = cv2.minAreaRect(contour)
+        if rect_width * rect_height <= 0 or area / (rect_width * rect_height) < .88:
+            continue
+        perimeter = cv2.arcLength(contour, True)
+        if len(cv2.approxPolyDP(contour, .045 * perimeter, True)) != 4:
+            continue
+        candidates.append((x + w / 2, y + h / 2, (w + h) / 2))
+    # Text and QR components can also be square. Require the known spacing,
+    # similarly sized marks and the QR immediately to the left of the frame.
+    qr_center = np.asarray(qr_points, np.float32).reshape(-1, 2).mean(axis=0)
+    width, height = profile['widthMm'], profile['heightMm']
+    destination = np.float32([[0, 0], [width * 10, 0], [width * 10, height * 10], [0, height * 10]])
+    best = None
+    for anchor in candidates:
+        similar = [p for p in candidates if .72 < p[2] / anchor[2] < 1.38]
+        # Prevent large text-heavy photographs from creating unbounded work.
+        if len(similar) > 60:
+            continue
+        for others in combinations([p for p in similar if p != anchor], 3):
+            points = np.float32([p[:2] for p in (anchor, *others)])
+            sums, diffs = points.sum(axis=1), np.diff(points, axis=1).ravel()
+            ordered = np.float32([points[sums.argmin()], points[diffs.argmin()], points[sums.argmax()], points[diffs.argmax()]])
+            if len(set(map(tuple, ordered))) != 4 or not cv2.isContourConvex(ordered.reshape(-1, 1, 2)):
+                continue
+            # Only the top-left anchor evaluates this quadrilateral.
+            if not np.array_equal(ordered[0], np.float32(anchor[:2])):
+                continue
+            for turn in range(4):
+                oriented = np.roll(ordered, turn, axis=0)
+                horizontal = (np.linalg.norm(oriented[1] - oriented[0]) + np.linalg.norm(oriented[2] - oriented[3])) / 2
+                vertical = (np.linalg.norm(oriented[3] - oriented[0]) + np.linalg.norm(oriented[2] - oriented[1])) / 2
+                if vertical < 1 or not 1.7 < horizontal / vertical < 3.8:
+                    continue
+                relative_mark = anchor[2] / horizontal
+                expected_mark = profile['markerSizeMm'] / width
+                if not .65 < relative_mark / expected_mark < 1.5:
+                    continue
+                matrix = cv2.getPerspectiveTransform(oriented, destination)
+                qr_normal = cv2.perspectiveTransform(qr_center.reshape(1, 1, 2), matrix)[0, 0] / 10
+                if not (-42 < qr_normal[0] < -3 and 0 < qr_normal[1] < height):
+                    continue
+                ratio_error = abs(horizontal / vertical - width / height)
+                size_error = abs(relative_mark / expected_mark - 1)
+                score = ratio_error + size_error
+                if best is None or score < best[0]:
+                    best = (score, matrix)
+    if best is None:
+        return None
+    normalized = cv2.warpPerspective(gray, best[1], (int(width * 10) + 1, int(height * 10) + 1), borderValue=255)
+    # Reject square text/QR components masquerading as a missing corner mark.
+    # All printed bubble outlines must agree with the recovered geometry.
+    outlines = []
+    for index in range(profile['questionCount']):
+        column, row = divmod(index, profile['rowsPerColumn'])
+        y = round((profile['firstRowMm'] + row * profile['rowSpacingMm']) * 10)
+        for option in range(len(profile['labels'])):
+            x = round((profile['columnStartsMm'][column] + option * profile['columnSpacingMm']) * 10)
+            mask = np.zeros_like(normalized)
+            cv2.circle(mask, (x, y), round(profile['radiusMm'] * 11.6), 255, -1)
+            cv2.circle(mask, (x, y), round(profile['radiusMm'] * 8.4), 0, -1)
+            outlines.append(float((normalized[mask == 255] < 150).mean()))
+    if min(outlines) < .12 or float(np.median(outlines)) < .2:
+        return None
+    return {'image': normalized, 'matrix': best[1]}
+
+
+def read_compact(gray, qr_points, payload, profile):
+    registration = compact_registration(gray, qr_points, profile)
+    if registration is None:
+        return {'qrPayload': payload, 'answers': [], 'requiresReview': True,
+                'reviewReason': 'Não foi possível localizar as quatro marcas do cartão compacto. Fotografe o QR e todo o quadro de respostas.'}
+    normalized = registration['image']
+    answers = []
+    for index in range(profile['questionCount']):
+        column, row = divmod(index, profile['rowsPerColumn'])
+        y = (profile['firstRowMm'] + row * profile['rowSpacingMm']) * 10
+        ratios = []
+        for option in range(len(profile['labels'])):
+            x = (profile['columnStartsMm'][column] + option * profile['columnSpacingMm']) * 10
+            mask = np.zeros_like(normalized)
+            cv2.circle(mask, (round(x), round(y)), round(profile['radiusMm'] * 10 * .58), 255, -1)
+            pixels = normalized[mask == 255]
+            ratios.append(float((pixels < 130).mean()))
+        marked = [label for label, ratio in zip(profile['labels'], ratios) if ratio >= .6]
+        ambiguous = any(.15 < ratio < .6 for ratio in ratios)
+        status = 'uncertain' if ambiguous else 'recognized' if len(marked) == 1 else 'blank' if not marked else 'multiple'
+        answers.append({'questionNumber': index + 1, 'selectedLabels': marked, 'status': status,
+                        'fillRatios': [round(value, 3) for value in ratios]})
+    return {'qrPayload': payload, 'answers': answers,
+            'requiresReview': any(answer['status'] != 'recognized' for answer in answers)}
+
+
+def read_card(file_name, profile=None, qr_only=False):
     image = cv2.imread(file_name)
     if image is None:
         raise ValueError("Imagem do cartão não pôde ser aberta")
+    payload, qr_points = '', None
+    for turns in range(4):
+        candidate = np.ascontiguousarray(np.rot90(image, turns))
+        payload, qr_points, _ = cv2.QRCodeDetector().detectAndDecode(candidate)
+        if payload:
+            image = candidate
+            break
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    payload, _, _ = cv2.QRCodeDetector().detectAndDecode(image)
     if not payload:
         raise ValueError("QR Code não localizado")
 
-    groups = order_groups_by_column(detect_answer_groups(image, gray))
+    if qr_only:
+        return {'qrPayload': payload}
+    if profile and profile.get('id') in ('compacto-10-v1', 'certo-errado-10-v1'):
+        return read_compact(gray, qr_points, payload, profile)
+    labels = profile.get('labels', list('ABCDE')) if profile else list('ABCDE')
+    groups = order_groups_by_column(detect_answer_groups(image, gray, len(labels)))
     answers = []
     for number, group in enumerate(groups, 1):
         ratios = []
@@ -109,7 +227,7 @@ def read_card(file_name):
             cv2.circle(mask, (x, y), max(3, int(radius * 0.58)), 255, -1)
             ratios.append(float((gray[mask == 255] < 130).mean()))
         marked = [
-            chr(65 + index)
+            labels[index]
             for index, ratio in enumerate(ratios)
             if ratio > 0.45
         ]
@@ -137,4 +255,5 @@ def read_card(file_name):
 
 
 if __name__ == "__main__":
-    print(json.dumps(read_card(sys.argv[1])))
+    profile = json.loads(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2] != '--qr-only' else None
+    print(json.dumps(read_card(sys.argv[1], profile, '--qr-only' in sys.argv[2:])))

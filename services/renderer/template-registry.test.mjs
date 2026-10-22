@@ -7,14 +7,11 @@ import {
 
 test('expõe somente metadados seguros dos layouts registrados', () => {
   const templates = listRenderTemplates();
-  assert.equal(templates.length, 3);
-  assert.equal(templates[0].id, 'basicexam-v1');
-  assert.equal(templates[0].engine, 'ConTeXt / LuaMetaTeX');
-  assert.equal('render' in templates[0], false);
-  assert.equal(templates[1].id, 'simulado-v1');
-  assert.equal('render' in templates[1], false);
-  assert.equal(templates[2].id, 'caderno-duas-colunas-v1');
-  assert.equal('render' in templates[2], false);
+  assert.equal(templates.length, 6);
+  assert.deepEqual(new Set(templates.map(item => item.id)), new Set([
+    'compacto-10-v1', 'certo-errado-10-v1', 'basicexam-v1', 'certo-errado-v1', 'simulado-v1', 'caderno-duas-colunas-v1',
+  ]));
+  assert.ok(templates.every(item => item.engine === 'ConTeXt / LuaMetaTeX' && !('render' in item)));
 });
 
 test('não aceita nome ou caminho de layout arbitrário', () => {
