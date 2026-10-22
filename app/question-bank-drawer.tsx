@@ -89,7 +89,7 @@ export function QuestionBankDrawer({
       signal: controller.signal,
     })
       .then(async (r) => {
-        const b = await r.json();
+        const b = await r.json() as { data: Detail; error?: string };
         if (!r.ok) throw new Error(b.error || 'Falha ao carregar a questão.');
         if (alive.current) setDetail(b.data);
       })
@@ -139,7 +139,7 @@ export function QuestionBankDrawer({
         }),
       });
       if (!r.ok) {
-        const b = await r.json().catch(() => ({}));
+        const b = await r.json().catch(() => ({})) as { error?: string };
         throw new Error(b.error || 'Não foi possível compilar a prévia.');
       }
       const blob = await r.blob();
