@@ -1779,7 +1779,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
                                 return {
                                   ...current,
                                   [question.number]:
-                                    question.type === 'single_choice'
+                                    ['single_choice', 'true_false'].includes(question.type)
                                       ? selected
                                         ? []
                                         : [label]

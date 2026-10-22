@@ -1,7 +1,9 @@
+import { isCompactTemplate } from '../../lib/compact-assessment.mjs';
 import { getRenderTemplate } from './template-registry.mjs';
 import { withoutEmbeddedMetaPost, validMetaPost, normalizeMetaPost } from '../../lib/embedded-metapost.mjs';
 import {
   DEFAULT_RENDER_FONT,
+  assertAssessmentQuestionStyle,
   isRenderFontId,
 } from '../../lib/render-templates.mjs';
 
@@ -435,6 +437,9 @@ export function renderAssessment(snapshot) {
   if (snapshot?.schemaVersion !== '1.0' || !Array.isArray(snapshot.questions)) {
     throw new Error('Snapshot de avaliação inválido ou incompatível.');
   }
+  assertAssessmentQuestionStyle(snapshot.questions, snapshot.render?.template || 'basicexam-v1');
+  if (isCompactTemplate(snapshot.render?.template) && snapshot.render?.paper === 'A5')
+    throw new Error('Os modelos compactos de 10 questões usam papel A4.');
   const mode =
     snapshot.render?.mode === 'answer-key' ? 'answer-key' : 'student';
   const renderQuestion = (question, addGap = true) => {
@@ -463,17 +468,31 @@ export function renderAssessment(snapshot) {
           `    \\startcitem${correct.has(answer.stableKey) ? '[*]' : ''} ${richText(answer.content)} \\stopcitem`,
       )
       .join('\n');
-    const choiceBlock = choices
+    const judgmentChoices = question.type === 'true_false' && !isCompactTemplate(snapshot.render?.template)
+      ? '\\blank[small]\n' + (question.alternatives ?? []).map(answer => {
+          const label = answer.stableKey === 'alt-a' ? 'C' : 'E';
+          const text = `${label} — ${label === 'C' ? 'Certo' : 'Errado'}`;
+          return mode === 'answer-key' && correct.has(answer.stableKey)
+            ? `\\bold{${text}}` : text;
+        }).join('\\quad ')
+      : '';
+    const choiceBlock = question.type === 'true_false' && isCompactTemplate(snapshot.render?.template) ? '' : judgmentChoices || (choices
       ? `  \\startchoice\n${choices}\n  \\stopchoice`
       : mode === 'student'
         ? '\\blank[4*big]'
-        : '';
+        : '');
     const questionGap = addGap
       ? mode === 'answer-key'
         ? '\\blank[small]'
-        : '\\blank[medium]'
+        : isCompactTemplate(snapshot.render?.template) ? '\\blank[small]' : '\\blank[medium]'
       : '';
-    return `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${adoteNote(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\n${questionGap}` : ''}`;
+    const questionTex = `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${adoteNote(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\n${questionGap}` : ''}`;
+    const nodes = [...(question.statement ?? []), ...(question.alternatives ?? []).flatMap(answer => answer.content ?? [])];
+    const keepTogether = isCompactTemplate(snapshot.render?.template) && nodes.every(node => node.type === 'paragraph') &&
+      nodes.reduce((length, node) => length + (node.text?.length || 0), 0) < 900 * 10 / Number(snapshot.render?.fontSize || 11);
+    return keepTogether
+      ? `\\startframedtext[frame=off,width=\\hsize,offset=0pt,before=,after=,split=no]\n${questionTex}\n\\stopframedtext`
+      : questionTex;
   };
   const sections =
     Array.isArray(snapshot.sections) && snapshot.sections.length
@@ -535,7 +554,7 @@ export function renderAssessment(snapshot) {
         const labels = (question.alternatives ?? [])
           .filter((answer) => correct.has(answer.stableKey))
           .map((answer) => question.type === 'true_false'
-            ? answer.stableKey === 'alt-a' ? 'C — Certo' : 'E — Errado'
+            ? answer.stableKey === 'alt-a' ? 'C' : 'E'
             : answer.label)
           .join(', ');
         const answer = labels || 'Correção manual';

@@ -763,30 +763,42 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
     ],
     answer: { correctStableKeys: ['alt-a'] },
   }];
+  snapshot.version.qrPayload = 'CB1:49de6dd7-2236-4fab-b260-5daa54e2bc09:0123456789abcdef0123';
+  snapshot.render.template = 'certo-errado-v1';
   const tex = renderAssessment(snapshot);
   assert.ok(tex.indexOf('Julgue o item a seguir') < tex.indexOf('Seis vezes sete é igual a 42'));
   assert.match(tex, /Seis vezes sete é igual a 42/);
-  assert.match(tex, /\\startcitem\[\*\] Certo \\stopcitem/);
-  assert.match(tex, /\\startcitem Errado \\stopcitem/);
-  assert.equal((tex.match(/\\startcitem/g) || []).length, 2);
+  assert.ok(tex.includes('C — Certo'));
+  assert.ok(tex.includes('E — Errado'));
+  assert.equal((tex.match(/\\startcitem/g) || []).length, 0);
+  assert.ok(!tex.includes('{A}'));
+  assert.ok(!tex.includes('{B}'));
+  assert.ok(!tex.includes('{D}'));
+  assert.ok(tex.includes('offset=overlay]{C}'));
+  assert.ok(tex.includes('offset=overlay]{E}'));
 });
 
 
-test('gabarito de certo ou errado identifica C e E em uma prova mista', async () => {
+test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura', async () => {
   const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
   const original = snapshot.questions[0];
-  snapshot.questions = [original, ...['alt-a', 'alt-b'].map((correct, index) => ({
+  snapshot.questions = ['alt-a', 'alt-b'].map((correct, index) => ({
     ...original, number: index + 2, type: 'true_false',
     alternatives: [
       { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
       { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
     ],
     answer: { correctStableKeys: [correct] },
-  }))];
+  }));
   snapshot.render.mode = 'answer-key';
+  snapshot.render.template = 'certo-errado-v1';
   const tex = renderAssessment(snapshot);
-  assert.ok(tex.includes('C — Certo'));
-  assert.ok(tex.includes('E — Errado'));
-  const correct = original.alternatives.find(option => original.answer.correctStableKeys.includes(option.stableKey));
-  assert.ok(tex.includes(correct.label));
+  assert.ok(tex.includes('\\NC C \\NC'));
+  assert.ok(tex.includes('\\NC E \\NC'));
+  assert.ok(!tex.includes('C — Certo'));
+  assert.ok(!tex.includes('E — Errado'));
+  snapshot.questions.push(original);
+  assert.throws(() => renderAssessment(snapshot), /somente questões de Certo/);
+  snapshot.render.template = 'basicexam-v1';
+  assert.throws(() => renderAssessment(snapshot), /não podem ser mescladas/);
 });

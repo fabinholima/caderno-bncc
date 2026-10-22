@@ -2611,7 +2611,7 @@ export default function Home() {
                     >
                       <div className="mb-2 flex items-center justify-between">
                         <span className="grid size-8 place-items-center rounded-lg bg-slate-100 text-sm font-bold">
-                          {letter}
+                          {questionType === 'true_false' ? (letter === 'A' ? 'C' : 'E') : letter}
                         </span>
                         <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600">
                           <input

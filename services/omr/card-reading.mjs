@@ -1,10 +1,10 @@
 // The reader enumerates bubble rows; the immutable exam defines question numbers.
 export function reconcileCardReading(snapshot, reading) {
-  const objective = (snapshot?.questions || []).filter(q => ['single_choice','multiple_choice'].includes(q.type));
+  const objective = (snapshot?.questions || []).filter(q => ['single_choice','multiple_choice','true_false'].includes(q.type));
   const rows = Array.isArray(reading?.answers) ? reading.answers : [];
   if (!objective.length || rows.length !== objective.length) return {
     ...reading, answers: [], requiresReview: true,
-    reviewReason: 'A foto não permitiu reconhecer todas as questões. Confira o cartão e revise as respostas antes de confirmar.',
+    reviewReason: reading?.reviewReason || 'A foto não permitiu reconhecer todas as questões. Confira o cartão e revise as respostas antes de confirmar.',
   };
   let invalid = false;
   const answers = rows.map((row,index) => {
