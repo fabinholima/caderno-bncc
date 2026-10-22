@@ -300,3 +300,35 @@ test('preserva a referência da imagem no cadastro e rejeita nomes que pareçam 
  assert.equal(parsed[0].referenceId,'imagem1');
  assert.throws(()=>createQuestionSchema.shape.statementBlocks.parse([{...image,referenceId:'../arquivo'}]));
 });
+
+const trueFalseQuestion = {
+  ...baseQuestion,
+  type: 'true_false',
+  statement: 'O resultado de 6 vezes 7 é 42.',
+  alternatives: [
+    { stableKey: 'alt-a', content: 'Certo', isCorrect: true, position: 1 },
+    { stableKey: 'alt-b', content: 'Errado', isCorrect: false, position: 2 },
+  ],
+};
+
+test('aceita certo ou errado com uma única resposta correta', () => {
+  for (const correctIndex of [0, 1]) {
+    const parsed = createQuestionSchema.parse({ ...trueFalseQuestion,
+      alternatives: trueFalseQuestion.alternatives.map((option, index) => ({ ...option, isCorrect: index === correctIndex })),
+    });
+    assert.equal(parsed.alternatives[correctIndex].isCorrect, true);
+  }
+});
+
+test('rejeita gabarito ausente ou duplo e opções alteradas em certo ou errado', () => {
+  const options = trueFalseQuestion.alternatives;
+  for (const alternatives of [
+    options.map(option => ({ ...option, isCorrect: false })),
+    options.map(option => ({ ...option, isCorrect: true })),
+    options.slice(0, 1),
+    options.map(option => ({ ...option, content: 'Outra resposta' })),
+    options.map(option => ({ ...option, contentBlocks: [{ type: 'paragraph', text: 'Outra resposta' }] })),
+  ]) {
+    assert.equal(createQuestionSchema.safeParse({ ...trueFalseQuestion, alternatives }).success, false);
+  }
+});

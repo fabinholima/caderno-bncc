@@ -87,7 +87,7 @@ export async function createQuestionPdfPreview(input) {
     .digest('hex');
   const cached = previewCache.get(cacheKey);
   if (cached) return cached;
-  if (previewMode === 'student' && previewInput.type === 'single_choice' && !previewInput.alternatives?.some((item) => item.isCorrect))
+  if (previewMode === 'student' && ['single_choice', 'true_false'].includes(previewInput.type) && !previewInput.alternatives?.some((item) => item.isCorrect))
     previewInput.alternatives[0].isCorrect = true;
   if (previewMode === 'student' && previewInput.type === 'multiple_choice' && previewInput.alternatives?.filter((item) => item.isCorrect).length < 2)
     previewInput.alternatives.slice(0, 2).forEach((item) => { item.isCorrect = true; });

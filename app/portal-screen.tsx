@@ -61,7 +61,7 @@ type Question = {
   id: string;
   code: string;
   statement: string;
-  type: 'single_choice' | 'multiple_choice' | 'essay';
+  type: 'single_choice' | 'multiple_choice' | 'true_false' | 'essay';
   subject: string;
   grade: string;
   stage: 'Ensino Fundamental' | 'Ensino Médio';
@@ -322,6 +322,8 @@ export default function Home() {
   });
   const [questionType, setQuestionType] =
     useState<Question['type']>('single_choice');
+  const judgmentContextBlocks = useMemo(() => importedQuestion?.statementBlocks?.slice(0, -1), [importedQuestion]);
+  const judgmentAssertionBlocks = useMemo(() => importedQuestion?.statementBlocks?.slice(-1), [importedQuestion]);
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [questionPreviewUrl, setQuestionPreviewUrl] = useState('');
@@ -773,7 +775,10 @@ export default function Home() {
           (block) => block.type !== 'contextRaw' || Boolean((block as any).code?.trim()),
         );
     };
-    const statementBlocks = parseBlocks('statementBlocks');
+    const statementBlocks = [
+      ...(questionType === 'true_false' ? parseBlocks('judgmentContextBlocks') : []),
+      ...parseBlocks('statementBlocks'),
+    ];
     const adote = formString('adoteNote').trim();
     if (adote) statementBlocks.push({ type: 'adoteNote', text: adote });
     const answerBlocks = parseBlocks('answerBlocks');
@@ -808,6 +813,14 @@ export default function Home() {
       alternatives:
         questionType === 'essay'
           ? []
+          : questionType === 'true_false'
+            ? ['Certo', 'Errado'].map((content, index) => ({
+                stableKey: index === 0 ? 'alt-a' : 'alt-b',
+                content,
+                contentBlocks: [{ type: 'paragraph', text: content }],
+                isCorrect: correct.has(index === 0 ? 'A' : 'B'),
+                position: index + 1,
+              }))
           : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
               const contentBlocks = parseBlocks(`alternative_${letter}`);
               return {
@@ -1675,6 +1688,7 @@ export default function Home() {
                             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-[10px] font-bold text-slate-500">
                               {q.type === 'essay'
                                 ? 'DIS'
+                                : q.type === 'true_false' ? 'C/E'
                                 : `${q.alternatives}A`}
                             </span>
                             <div>
@@ -1909,10 +1923,11 @@ export default function Home() {
                     t-basicexam cuida apenas da apresentação.
                   </p>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {[
                     ['single_choice', 'Resposta única'],
                     ['multiple_choice', 'Múltiplas'],
+                    ['true_false', 'Certo ou errado'],
                     ['essay', 'Discursiva'],
                   ].map(([value, label]) => (
                     <Button
@@ -2523,21 +2538,33 @@ export default function Home() {
                     Etapa 4
                   </p>
                   <p className="mt-1 text-base font-semibold">
-                    Enunciado e recursos visuais
+                    {questionType === 'true_false' ? 'Contexto e afirmação' : 'Enunciado e recursos visuais'}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Escreva o conteúdo principal e acrescente fórmulas, imagens
-                    ou ilustrações somente quando necessário.
+                    {questionType === 'true_false'
+                      ? 'Apresente o contexto e escreva uma única afirmação para o aluno julgar como certa ou errada.'
+                      : 'Escreva o conteúdo principal e acrescente fórmulas, imagens ou ilustrações somente quando necessário.'}
                   </p>
                 </div>
+                {questionType === 'true_false' && (
+                  <RichContentEditor
+                    apiUrl={apiUrl}
+                    name="judgmentContextBlocks"
+                    label="Texto de contextualização (opcional)"
+                    allowRawContext
+                    rawOnly
+                    initialBlocks={judgmentContextBlocks}
+                    resetKey={importRevision}
+                  />
+                )}
                 <RichContentEditor
                   apiUrl={apiUrl}
                   name="statementBlocks"
-                  label="Enunciado"
+                  label={questionType === 'true_false' ? 'Afirmação a ser julgada' : 'Enunciado'}
                   required
                   allowRawContext
                   rawOnly
-                  initialBlocks={importedQuestion?.statementBlocks}
+                  initialBlocks={questionType === 'true_false' ? judgmentAssertionBlocks : importedQuestion?.statementBlocks}
                   resetKey={importRevision}
                 />
                 <label className="block">
@@ -2569,12 +2596,15 @@ export default function Home() {
                       </p>
                     </div>
                     <Badge variant="secondary">
-                      {questionType === 'single_choice'
+                      {questionType === 'true_false'
+                        ? 'Certo ou errado · uma correta'
+                        : questionType === 'single_choice'
                         ? 'Alternativas A–E · uma correta'
                         : 'Duas ou mais corretas'}
                     </Badge>
                   </div>
-                  {['A', 'B', 'C', 'D', 'E'].map((letter) => (
+                  {questionType === 'true_false' && <p className="mb-4 text-sm text-slate-600">Selecione o gabarito da afirmação: Certo ou Errado.</p>}
+                  {(questionType === 'true_false' ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E']).map((letter) => (
                     <div
                       key={letter}
                       className="mb-3 rounded-xl border border-slate-200 p-3"
@@ -2586,16 +2616,16 @@ export default function Home() {
                         <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600">
                           <input
                             required={
-                              questionType === 'single_choice' && letter === 'A'
+                              questionType !== 'multiple_choice' && letter === 'A'
                             }
                             type={
-                              questionType === 'single_choice'
+                              questionType !== 'multiple_choice'
                                 ? 'radio'
                                 : 'checkbox'
                             }
                             name="correct"
                             value={letter}
-                            key={`correct-${letter}-${importRevision}`}
+                            key={`correct-${questionType}-${letter}-${importRevision}`}
                             defaultChecked={importedCorrect.includes(letter)}
                             className="size-4 accent-blue-600"
                           />
@@ -2603,7 +2633,7 @@ export default function Home() {
                         </label>
                       </div>
                       <div>
-                        <RichContentEditor
+                        {questionType === 'true_false' ? <p className="font-medium">{letter === 'A' ? 'Certo' : 'Errado'}</p> : <RichContentEditor
                           apiUrl={apiUrl}
                           name={`alternative_${letter}`}
                           compact
@@ -2612,7 +2642,7 @@ export default function Home() {
                           required
                           initialBlocks={importedQuestion?.alternatives[letter]}
                           resetKey={importRevision}
-                        />
+                        />}
                       </div>
                     </div>
                   ))}

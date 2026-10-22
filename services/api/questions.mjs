@@ -405,7 +405,7 @@ const richStatement = (text, mathFormula, chemicalFormula, metapostCode) => [
 
 export const createQuestionSchema = z
   .object({
-    type: z.enum(['single_choice', 'multiple_choice', 'essay']),
+    type: z.enum(['single_choice', 'multiple_choice', 'true_false', 'essay']),
     recommendSingleColumn: z.boolean().default(false),
     statement: z.string().trim().min(10).max(20_000),
     statementBlocks: richContentSchema.optional(),
@@ -461,6 +461,22 @@ export const createQuestionSchema = z
         code: 'custom',
         message:
           'Questões de resposta única precisam das alternativas A a E e exatamente uma correta.',
+        path: ['alternatives'],
+      });
+    }
+    if (value.type === 'true_false') {
+      const expected = ['Certo', 'Errado'];
+      const valid = value.alternatives.length === 2 && correct === 1 &&
+        expected.every((text, index) => {
+          const option = value.alternatives.find(item => item.position === index + 1);
+          return option?.stableKey === `alt-${index === 0 ? 'a' : 'b'}` &&
+            option.content === text &&
+            (!option.contentBlocks || (option.contentBlocks.length === 1 &&
+              option.contentBlocks[0].type === 'paragraph' && option.contentBlocks[0].text === text));
+        });
+      if (!valid) ctx.addIssue({
+        code: 'custom',
+        message: 'Questões de certo ou errado precisam das opções fixas Certo e Errado, nessa ordem, e exatamente uma correta.',
         path: ['alternatives'],
       });
     }
