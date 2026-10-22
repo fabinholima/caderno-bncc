@@ -142,7 +142,7 @@ export function RichContentEditor({
   const add = (type: RichContentBlock['type']) =>
     setBlocks((current) => [
       ...current,
-      type === 'paragraph'
+      type === 'paragraph' || type === 'adoteNote'
         ? { type, text: '' }
         : type === 'romanList'
           ? { type, items: [''] }

@@ -120,7 +120,6 @@ type ExamImportCandidate = {
   aiSuggestion?: {
     normalizedText: string;
     questionType: ExamImportCandidate['questionType'];
-    subject?: string;
     subject?: string | null;
     grade?: string | null;
     difficulty?: BulkSettings['difficulty'] | null;
@@ -590,12 +589,13 @@ function candidateMatchesReviewFilters(
 }
 
 function blockPlainText(block: RichContentBlock) {
-  if (block.type === 'paragraph') return block.text;
+  if (block.type === 'paragraph' || block.type === 'adoteNote') return block.text;
   if (block.type === 'romanList') return block.items.join(' ');
   if (
     block.type === 'contextFormula' ||
     block.type === 'contextInline' ||
-    block.type === 'contextRaw'
+    block.type === 'contextRaw' ||
+    block.type === 'metapost'
   )
     return block.code;
   if (block.type === 'math') return block.tex;
@@ -909,6 +909,7 @@ export function ExamImportManager({
     sourceInstitution: string;
     sourceYear: number;
     questionType: ExamImportCandidate['questionType'];
+    subject?: string;
     imageDataUrl?: string;
     imageAlt?: string;
     correctAnswers?: string[];
