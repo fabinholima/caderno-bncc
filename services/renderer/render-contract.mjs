@@ -534,7 +534,9 @@ export function renderAssessment(snapshot) {
         const correct = new Set(question.answer?.correctStableKeys ?? []);
         const labels = (question.alternatives ?? [])
           .filter((answer) => correct.has(answer.stableKey))
-          .map((answer) => answer.label)
+          .map((answer) => question.type === 'true_false'
+            ? answer.stableKey === 'alt-a' ? 'C — Certo' : 'E — Errado'
+            : answer.label)
           .join(', ');
         const answer = labels || 'Correção manual';
         return `\\NC ${question.number} \\NC ${escapeContext(section.subject)} \\NC ${escapeContext(answer)} \\NC\\NR`;

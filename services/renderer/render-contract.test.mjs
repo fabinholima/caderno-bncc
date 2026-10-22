@@ -747,3 +747,46 @@ test('Note e adote respeita a largura local e permite quebra e hifenização em 
   }
  }
 });
+
+
+test('renderiza uma afirmação com as duas opções de certo ou errado', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  snapshot.questions = [{
+    ...snapshot.questions[0], type: 'true_false',
+    statement: [
+      { type: 'paragraph', text: 'Considere a multiplicação de números naturais. Julgue o item a seguir.' },
+      { type: 'paragraph', text: 'Seis vezes sete é igual a 42.' },
+    ],
+    alternatives: [
+      { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
+      { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
+    ],
+    answer: { correctStableKeys: ['alt-a'] },
+  }];
+  const tex = renderAssessment(snapshot);
+  assert.ok(tex.indexOf('Julgue o item a seguir') < tex.indexOf('Seis vezes sete é igual a 42'));
+  assert.match(tex, /Seis vezes sete é igual a 42/);
+  assert.match(tex, /\\startcitem\[\*\] Certo \\stopcitem/);
+  assert.match(tex, /\\startcitem Errado \\stopcitem/);
+  assert.equal((tex.match(/\\startcitem/g) || []).length, 2);
+});
+
+
+test('gabarito de certo ou errado identifica C e E em uma prova mista', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const original = snapshot.questions[0];
+  snapshot.questions = [original, ...['alt-a', 'alt-b'].map((correct, index) => ({
+    ...original, number: index + 2, type: 'true_false',
+    alternatives: [
+      { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
+      { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
+    ],
+    answer: { correctStableKeys: [correct] },
+  }))];
+  snapshot.render.mode = 'answer-key';
+  const tex = renderAssessment(snapshot);
+  assert.ok(tex.includes('C — Certo'));
+  assert.ok(tex.includes('E — Errado'));
+  const correct = original.alternatives.find(option => original.answer.correctStableKeys.includes(option.stableKey));
+  assert.ok(tex.includes(correct.label));
+});

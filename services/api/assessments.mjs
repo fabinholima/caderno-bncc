@@ -198,7 +198,9 @@ export async function createAssessment({ institutionId, questionBankId = institu
           seed + sectionIndex * 997,
         );
         const snapshotQuestions = ordered.map((question, position) => {
-          const alternatives = seededShuffle(
+          const alternatives = question.type === 'true_false'
+            ? question.alternatives
+            : seededShuffle(
             question.alternatives,
             seed + sectionIndex * 997 + position + 1,
           );
