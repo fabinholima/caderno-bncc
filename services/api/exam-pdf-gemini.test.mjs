@@ -48,6 +48,19 @@ test('sends the PDF directly and preserves page references with review required'
   assert.equal(candidate.answerStatus, 'missing');
   assert.deepEqual(candidate.correctAnswers, []);
 });
+test('preserves a judgment item as true_false without inventing A-E choices', async () => {
+  const [candidate] = await extractPdfWithGemini(pdf, options([{
+    sourceNumber: 2,
+    pageNumber: 1,
+    statement: 'A afirmação apresenta um conceito que deve ser julgado pelo estudante.',
+    alternatives: [],
+    questionType: 'true_false',
+  }]));
+  assert.equal(candidate.questionType, 'true_false');
+  assert.match(candidate.rawText, /A afirmação apresenta/);
+  assert.deepEqual(candidate.correctAnswers, []);
+  assert.equal(candidate.answerStatus, 'missing');
+});
 test('rejects missing, repeated questions and invalid page references', async () => {
   await assert.rejects(extractPdfWithGemini(pdf, options([])));
   await assert.rejects(

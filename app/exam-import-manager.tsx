@@ -96,7 +96,7 @@ type ExamImportCandidate = {
   adoteNote?: string;
   editorialReviewed?: boolean;
   selected: boolean;
-  questionType: 'single_choice' | 'multiple_choice' | 'essay';
+  questionType: 'single_choice' | 'multiple_choice' | 'true_false' | 'essay';
   status: 'complete' | 'review' | 'completed' | 'duplicate' | 'ignored';
   pageNumber?: number;
   extractionMethod?: 'text' | 'ocr' | 'gemini-pdf' | 'pasted-text';
@@ -247,7 +247,7 @@ function editableTextFromBlocks(blocks: RichContentBlock[]) {
     .join('\n\n');
 }
 
-function splitImportedQuestion(rawText: string): ImportedQuestionFields {
+function splitImportedQuestion(rawText: string, judgment = false): ImportedQuestionFields {
   const parsed = parsePastedQuestion(rawText);
   return {
     preserveContext: rawText.startsWith(CONTEXT_PASTE_MARKER),
@@ -255,19 +255,19 @@ function splitImportedQuestion(rawText: string): ImportedQuestionFields {
     alternatives: Object.fromEntries(
       alternativeLetters.map((letter) => [
         letter,
-        editableTextFromBlocks(parsed.alternatives[letter] || []),
+        editableTextFromBlocks(judgment ? [] : parsed.alternatives[letter] || []),
       ]),
     ) as ImportedQuestionFields['alternatives'],
   };
 }
 
-function joinImportedQuestion(fields: ImportedQuestionFields) {
+function joinImportedQuestion(fields: ImportedQuestionFields, judgment = false) {
   return [
     ...(fields.preserveContext ? [CONTEXT_PASTE_MARKER] : []),
     fields.statement.trim(),
-    ...alternativeLetters.map(
+    ...(judgment ? [] : alternativeLetters.map(
       (letter) => fields.preserveContext && !fields.alternatives[letter].trim() ? '' : `${letter}) ${fields.alternatives[letter].trim()}`,
-    ),
+    )),
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -375,26 +375,32 @@ function ImportedQuestionTextEditor({
 }) {
   const savedValue = useRef(candidate.rawText);
   const lastJoinedValue = useRef(candidate.rawText);
+  const lastQuestionType = useRef(candidate.questionType);
   const [fields, setFields] = useState(() =>
-    splitImportedQuestion(candidate.rawText),
+    splitImportedQuestion(candidate.rawText, candidate.questionType === 'true_false'),
   );
 
   useEffect(() => {
-    if (candidate.rawText === lastJoinedValue.current) return;
+    if (
+      candidate.rawText === lastJoinedValue.current &&
+      candidate.questionType === lastQuestionType.current
+    )
+      return;
     lastJoinedValue.current = candidate.rawText;
     savedValue.current = candidate.rawText;
-    setFields(splitImportedQuestion(candidate.rawText));
-  }, [candidate.id, candidate.rawText]);
+    lastQuestionType.current = candidate.questionType;
+    setFields(splitImportedQuestion(candidate.rawText, candidate.questionType === 'true_false'));
+  }, [candidate.id, candidate.rawText, candidate.questionType]);
 
   const updateFields = (next: ImportedQuestionFields) => {
     setFields(next);
-    const rawText = joinImportedQuestion(next);
+    const rawText = joinImportedQuestion(next, candidate.questionType === 'true_false');
     lastJoinedValue.current = rawText;
     onChange(rawText);
   };
 
   const save = () => {
-    const rawText = joinImportedQuestion(fields);
+    const rawText = joinImportedQuestion(fields, candidate.questionType === 'true_false');
     if (rawText.trim() === savedValue.current.trim()) return;
     savedValue.current = rawText;
     onSave(rawText);
@@ -408,7 +414,7 @@ function ImportedQuestionTextEditor({
             Editor estruturado da questão
           </p>
           <p className="text-xs text-slate-500">
-            Enunciado e alternativas A–E separados, todos com ConTeXt livre.
+            {candidate.questionType === 'true_false' ? 'Afirmação para julgar como certa ou errada, com ConTeXt livre.' : 'Enunciado e alternativas A–E separados, todos com ConTeXt livre.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -419,10 +425,10 @@ function ImportedQuestionTextEditor({
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               const repaired = repairPdfTextBreaks(
-                joinImportedQuestion(fields),
+                joinImportedQuestion(fields, candidate.questionType === 'true_false'),
               );
               lastJoinedValue.current = repaired;
-              setFields(splitImportedQuestion(repaired));
+              setFields(splitImportedQuestion(repaired, candidate.questionType === 'true_false'));
               onChange(repaired);
             }}
           >
@@ -441,7 +447,7 @@ function ImportedQuestionTextEditor({
           rows={12}
           onChange={(statement) => updateFields({ ...fields, statement })}
         />
-        <div className="grid gap-4 xl:grid-cols-2">
+        {candidate.questionType !== 'true_false' && <div className="grid gap-4 xl:grid-cols-2">
           {alternativeLetters.map((letter) => (
             <ContextTextField
               key={letter}
@@ -457,7 +463,7 @@ function ImportedQuestionTextEditor({
               }
             />
           ))}
-        </div>
+        </div>}
       </div>
     </section>
   );
@@ -495,7 +501,11 @@ function candidateReadiness(candidate: ExamImportCandidate) {
   )
     .sort()
     .join('');
-  if (candidate.questionType !== 'essay' && labels !== 'ABCDE')
+  if (
+    (candidate.questionType === 'single_choice' ||
+      candidate.questionType === 'multiple_choice') &&
+    labels !== 'ABCDE'
+  )
     reasons.push('alternativas A–E incompletas');
   if (
     candidate.questionType !== 'essay' &&
@@ -508,6 +518,8 @@ function candidateReadiness(candidate: ExamImportCandidate) {
     reasons.push('selecione uma resposta correta');
   if (candidate.questionType === 'multiple_choice' && answerCount < 2)
     reasons.push('selecione pelo menos duas respostas corretas');
+  if (candidate.questionType === 'true_false' && answerCount !== 1)
+    reasons.push('selecione Certo ou Errado como gabarito');
   return { ready: reasons.length === 0, reasons };
 }
 
@@ -520,12 +532,23 @@ function candidateEditorialChecks(candidate: ExamImportCandidate) {
   return [
     {
       label:
-        candidate.questionType === 'essay' ? 'Discursiva' : 'Alternativas A–E',
-      ok: candidate.questionType === 'essay' || labels === 'ABCDE',
+        candidate.questionType === 'essay'
+          ? 'Discursiva'
+          : candidate.questionType === 'true_false'
+            ? 'Afirmação C/E'
+            : 'Alternativas A–E',
+      ok:
+        candidate.questionType === 'essay' ||
+        candidate.questionType === 'true_false' ||
+        labels === 'ABCDE',
     },
     {
       label:
-        candidate.questionType === 'essay' ? 'Correção individual' : 'Gabarito',
+        candidate.questionType === 'essay'
+          ? 'Correção individual'
+          : candidate.questionType === 'true_false'
+            ? 'Gabarito C/E'
+            : 'Gabarito',
       ok:
         candidate.questionType === 'essay' ||
         (candidate.answerStatus === 'confirmed' &&
@@ -630,6 +653,7 @@ const questionTypeLabels: Record<ExamImportCandidate['questionType'], string> =
   {
     single_choice: 'Múltipla escolha · uma resposta',
     multiple_choice: 'Múltipla escolha · várias respostas',
+    true_false: 'Certo ou errado · uma afirmação',
     essay: 'Discursiva',
   };
 
@@ -1647,7 +1671,11 @@ export function ExamImportManager({
             pedagogicalDisciplineId: classification.discipline?.id || '',
             pedagogicalTopicId: classification.topicId,
             difficulty: candidate.difficulty || settings.difficulty,
-            alternatives: candidate.questionType === 'essay' ? [] : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
+            alternatives: candidate.questionType === 'essay' ? [] : candidate.questionType === 'true_false' ? ['Certo', 'Errado'].map((content, index) => ({
+              stableKey: index === 0 ? 'alt-a' : 'alt-b', content,
+              contentBlocks: [{ type: 'paragraph', text: content }],
+              isCorrect: (candidate.correctAnswers || []).includes(index === 0 ? 'A' : 'B'), position: index + 1,
+            })) : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
               const contentBlocks = parsed.alternatives[letter];
               return {
                 stableKey: `alt-${letter.toLowerCase()}`,
@@ -2182,6 +2210,7 @@ GABARITO: B`}
                 ['', 'Todos os tipos'],
                 ['single_choice', 'Objetiva · uma resposta'],
                 ['multiple_choice', 'Objetiva · várias respostas'],
+                ['true_false', 'Certo ou errado'],
                 ['essay', 'Discursiva'],
               ]}
             />
@@ -2719,6 +2748,7 @@ GABARITO: B`}
                                 <option value="multiple_choice">
                                   Múltipla escolha · várias respostas
                                 </option>
+                                <option value="true_false">Certo ou errado · uma afirmação</option>
                                 <option value="essay">Discursiva</option>
                               </select>
                               <span
@@ -3018,7 +3048,7 @@ GABARITO: B`}
                                   )}
                                 </div>
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                  {['A', 'B', 'C', 'D', 'E'].map((letter) => {
+                                  {(candidate.questionType === 'true_false' ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E']).map((letter) => {
                                     const checked = (
                                       candidate.correctAnswers || []
                                     ).includes(letter);
@@ -3029,8 +3059,7 @@ GABARITO: B`}
                                         aria-pressed={checked}
                                         onClick={() => {
                                           const correctAnswers =
-                                            candidate.questionType ===
-                                            'single_choice'
+                                            (candidate.questionType === 'single_choice' || candidate.questionType === 'true_false')
                                               ? [letter]
                                               : checked
                                                 ? (
@@ -3060,7 +3089,7 @@ GABARITO: B`}
                                         }}
                                         className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-violet-700 bg-violet-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
                                       >
-                                        {letter}
+                                        {candidate.questionType === 'true_false' ? (letter === 'A' ? 'C' : 'E') : letter}
                                       </button>
                                     );
                                   })}

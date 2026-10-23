@@ -7,9 +7,12 @@ import {
   examImportSchema,
   mergeReextractedCandidates,
   parseAnswerKeyText,
+  pastedQuestionAnswers,
+  pastedQuestionType,
   parsePdfQuestionBounds,
   parsePdfQuestionRegions,
   questionNeedsVisualCapture,
+  looksLikeTrueFalse,
   repairExtractedQuestionText,
   splitExamQuestions,
 } from './exam-imports.mjs';
@@ -105,11 +108,15 @@ test('aceita prova e gabarito na área editorial', () => {
 
 test('associa respostas numeradas do gabarito', () => {
   const parsed = parseAnswerKeyText(
-    'GABARITO 01 - C   02 B   03: E   04) A   05 D',
-    [1, 2, 3, 4, 5],
+    'GABARITO 01 - C   02 B   03: E   04) A   05 D   06-C   07-E   08 CERTO   09 ERRADO',
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],
   );
-  assert.equal(parsed.answers.length, 5);
+  assert.equal(parsed.answers.length, 9);
   assert.deepEqual(parsed.answers[0], { sourceNumber: 1, answer: 'C' });
+  assert.equal(parsed.answers[5].answer, 'C');
+  assert.equal(parsed.answers[6].answer, 'E');
+  assert.equal(parsed.answers[7].answer, 'C');
+  assert.equal(parsed.answers[8].answer, 'E');
   assert.equal(parsed.confidence, 0.95);
 });
 
@@ -158,12 +165,28 @@ test('separa questões objetivas e discursivas para revisão', () => {
 
     QUESTÃO 19. Explique, com base na cinética química, por que a velocidade
     da reação aumenta quando a temperatura do sistema é elevada.
+
+    QUESTÃO 20. Julgue o item a seguir como certo ou errado, considerando a teoria celular.
+    Todas as células possuem material genético.
   `);
-  assert.equal(candidates.length, 2);
+  assert.equal(candidates.length, 3);
   assert.equal(candidates[0].questionType, 'single_choice');
   assert.equal(candidates[0].status, 'complete');
   assert.equal(candidates[1].questionType, 'essay');
   assert.equal(candidates[1].status, 'complete');
+  assert.equal(candidates[2].questionType, 'true_false');
+});
+
+test('reconhece o formato Certo/Errado e converte o gabarito para as alternativas fixas', () => {
+  const statement = 'Julgue o item a seguir como certo ou errado, considerando o conceito apresentado.';
+  assert.equal(looksLikeTrueFalse(statement), true);
+  const question = { statement, alternatives: {}, correctAnswers: ['E'] };
+  assert.equal(pastedQuestionType(question), 'true_false');
+  assert.deepEqual(pastedQuestionAnswers(question), ['B']);
+  const labeled = { statement: 'Leia a afirmação e julgue.', alternatives: { C: 'Certo', E: 'Errado' }, correctAnswers: ['C'] };
+  assert.equal(pastedQuestionType(labeled), 'true_false');
+  assert.deepEqual(pastedQuestionAnswers(labeled), ['A']);
+  assert.doesNotThrow(() => candidateUpdateSchema.parse({ questionType: 'true_false' }));
 });
 
 test('detecta questão cujas alternativas dependem de gráficos', () => {
