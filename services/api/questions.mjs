@@ -586,8 +586,15 @@ export async function listQuestions({
       LEFT JOIN question_skills qs ON qs.question_id = qr.question_id AND qs.revision = qr.revision AND qs.is_primary
       LEFT JOIN curriculum_skills cs ON cs.id = qs.skill_id
       LEFT JOIN knowledge_objects ko ON ko.id = cs.knowledge_object_id
-      LEFT JOIN skill_competencies sc ON sc.skill_id = cs.id
-      LEFT JOIN curriculum_competencies cc ON cc.id = sc.competency_id
+      LEFT JOIN LATERAL (
+        SELECT competency.id, competency.number
+        FROM skill_competencies relation
+        JOIN curriculum_competencies competency
+          ON competency.id = relation.competency_id
+        WHERE relation.skill_id = cs.id
+        ORDER BY competency.number, competency.id
+        LIMIT 1
+      ) cc ON true
       LEFT JOIN question_saeb_descriptors qsd
         ON qsd.question_id = qr.question_id AND qsd.revision = qr.revision AND qsd.is_primary
       LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
@@ -605,7 +612,11 @@ export async function listQuestions({
           WHERE filter_sko.skill_id = cs.id
             AND filter_sko.knowledge_object_id = $4::uuid
         ))
-        AND ($5::uuid IS NULL OR sc.competency_id = $5::uuid)
+        AND ($5::uuid IS NULL OR EXISTS (
+          SELECT 1 FROM skill_competencies filter_relation
+          WHERE filter_relation.skill_id = cs.id
+            AND filter_relation.competency_id = $5::uuid
+        ))
         AND ($6 = '' OR qr.source_institution = $6)
         AND ($7::integer IS NULL OR qr.source_year = $7::integer)
         AND ($8 = '' OR qr.difficulty::text = $8)
