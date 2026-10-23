@@ -80,6 +80,11 @@ export const decodePdf = (document) => {
   return contents;
 };
 
+export function looksLikeTrueFalse(text) {
+  return /\b(?:certo\s+ou\s+errado|certo\s*\/\s*errado|verdadeiro\s+ou\s+falso|julgue\s+(?:os\s+)?(?:itens|afirmações)|assinale\s+certo\s+ou\s+errado)\b/i.test(text) ||
+    /(?:^|\s)C\s*\(\s*\)\s*E\s*\(\s*\)/i.test(text);
+}
+
 export function splitExamQuestions(text) {
   const normalized = repairExtractedQuestionText(
     String(text).replace(/^(\d{1,2})2\s+QUEST(?:ÃO|AO)\b/gim, '$1 QUESTÃO'),
@@ -120,7 +125,7 @@ export function splitExamQuestions(text) {
           sourceNumber: Number(match[1]),
           rawText,
           selected: true,
-          questionType: alternativeCount >= 4 ? 'single_choice' : 'essay',
+          questionType: looksLikeTrueFalse(rawText) ? 'true_false' : alternativeCount >= 4 ? 'single_choice' : 'essay',
           status:
             alternativeCount === 5 || alternativeCount === 0
               ? 'complete'
@@ -531,7 +536,7 @@ export const candidateUpdateSchema = z.object({
   rawText: z.string().trim().min(20).max(30_000).optional(),
   selected: z.boolean().optional(),
   questionType: z
-    .enum(['single_choice', 'multiple_choice', 'essay'])
+    .enum(['single_choice', 'multiple_choice', 'true_false', 'essay'])
     .optional(),
   status: z
     .enum(['complete', 'review', 'completed', 'duplicate', 'ignored'])
@@ -695,6 +700,24 @@ export async function updateExamImportCandidate({
   });
 }
 
+export function pastedQuestionType(question) {
+  const alternatives = question.alternatives || {};
+  const isLabeledJudgment = Object.keys(alternatives).sort().join('') === 'CE' &&
+    /certo/i.test(alternatives.C || '') && /errado/i.test(alternatives.E || '');
+  const statement = question.statement || '';
+  const isJudgmentPrompt = /\b(?:certo\s+ou\s+errado|certo\s*\/\s*errado|verdadeiro\s+ou\s+falso|julgue\s+(?:os\s+)?(?:itens|afirmações))\b/i.test(statement);
+  if (isLabeledJudgment || isJudgmentPrompt) return 'true_false';
+  return question.correctAnswers?.length > 1 ? 'multiple_choice' : Object.keys(alternatives).length ? 'single_choice' : 'essay';
+}
+
+export function pastedQuestionAnswers(question) {
+  if (pastedQuestionType(question) !== 'true_false') return question.correctAnswers || [];
+  const alternatives = question.alternatives || {};
+  if (Object.keys(alternatives).sort().join('') === 'CE')
+    return (question.correctAnswers || []).map((answer) => answer === 'C' ? 'A' : answer === 'E' ? 'B' : answer);
+  return (question.correctAnswers || []).map((answer) => answer === 'B' || answer === 'E' ? 'B' : 'A');
+}
+
 export async function createExamImport({ institutionId, userId, role, input }) {
   const value = examImportSchema.parse(input);
   if (
@@ -714,8 +737,8 @@ export async function createExamImport({ institutionId, userId, role, input }) {
     try { pastedCandidates = parsePastedExam(value.pastedText).map(question => ({
       id:randomUUID(), sourceNumber:question.sourceNumber, rawText:question.rawText,
       resolution:question.resolution, adoteNote:question.adoteNote, ...(question.skill ? {skill:question.skill} : {}), selected:true, status:'review',
-      questionType:question.correctAnswers.length > 1 ? 'multiple_choice' : Object.keys(question.alternatives).length ? 'single_choice' : 'essay',
-      correctAnswers:question.correctAnswers, answerStatus:question.correctAnswers.length ? 'suggested' : 'missing', extractionMethod:'pasted-text',
+      questionType: pastedQuestionType(question),
+      correctAnswers: pastedQuestionAnswers(question), answerStatus:question.correctAnswers.length ? 'suggested' : 'missing', extractionMethod:'pasted-text',
     })); } catch(error) { throw Object.assign(error,{statusCode:422}); }
   }
   const documents = value.documents.map((document) => ({
@@ -982,7 +1005,7 @@ export async function extractExamImportQuestions({
             rawText: region.rawText,
             pageNumber: region.pageNumber,
             selected: true,
-            questionType: alternatives >= 4 ? 'single_choice' : 'essay',
+            questionType: looksLikeTrueFalse(region.rawText) ? 'true_false' : alternatives >= 4 ? 'single_choice' : 'essay',
             status:
               alternatives === 5 || alternatives === 0 ? 'complete' : 'review',
             extractionMethod: 'text-region',
@@ -1317,11 +1340,11 @@ export function parseAnswerKeyText(text, expectedNumbers = []) {
     .replace(/\s+/g, ' ');
   const answers = new Map();
   for (const match of normalized.matchAll(
-    /(?:^|\s)(\d{1,3})\s*(?:[-.:)]|\s)\s*([A-E])(?=\s|$)/gi,
+    /(?:^|\s)(\d{1,3})\s*(?:[-.:)]|\s)\s*(A|B|C|D|E|CERTO|ERRADO|VERDADEIRO|FALSO)(?=\s|$)/gi,
   )) {
     const number = Number(match[1]);
     if ((!expected.size || expected.has(number)) && !answers.has(number))
-      answers.set(number, match[2].toUpperCase());
+      answers.set(number, ({ CERTO: 'C', VERDADEIRO: 'C', ERRADO: 'E', FALSO: 'E' }[match[2].toUpperCase()] || match[2].toUpperCase()));
   }
   const expectedCount = expected.size || answers.size;
   const coverage = expectedCount ? answers.size / expectedCount : 0;
@@ -1390,7 +1413,7 @@ export async function extractExamImportAnswerKey({
       return answer && candidate.questionType !== 'essay'
         ? {
             ...candidate,
-            correctAnswers: [answer],
+            correctAnswers: [candidate.questionType === 'true_false' ? ({ C: 'A', E: 'B' }[answer] || answer) : answer],
             answerStatus: 'suggested',
             answerConfidence: parsed.confidence,
             status: 'review',
