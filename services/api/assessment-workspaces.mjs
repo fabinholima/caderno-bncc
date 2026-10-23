@@ -100,3 +100,17 @@ export async function pinWorkspace({ institutionId, userId, id, input }) {
   if (!r.rowCount) throw missing();
   return r.rows[0];
 }
+
+export async function deleteWorkspace({ institutionId, userId, id }) {
+  const r = await pool.query(
+    `DELETE FROM assessment_workspaces
+     WHERE id=$1 AND institution_id=$2 AND created_by=$3
+     RETURNING id, assessment_id AS "assessmentId"`,
+    [id, institutionId, userId],
+  );
+  if (!r.rowCount) throw missing();
+  return {
+    id: r.rows[0].id,
+    assessmentPreserved: Boolean(r.rows[0].assessmentId),
+  };
+}

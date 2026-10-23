@@ -251,6 +251,7 @@ export function AssessmentBuilder({
     }>
   >([]);
   const [offset, setOffset] = useState(0);
+  const [deletingWorkspaceId, setDeletingWorkspaceId] = useState('');
   const configuration = useMemo(
     () => ({
       title,
@@ -575,6 +576,17 @@ export function AssessmentBuilder({
   const activeSection = sections.find(
     (section) => section.id === activeSectionId,
   );
+  const questionsForActiveSubject = questions.filter(
+    (question) => question.subject === activeSection?.subject,
+  );
+  const questionTypeCounts = {
+    multipleChoice: questionsForActiveSubject.filter(
+      (question) => question.type !== 'true_false',
+    ).length,
+    trueFalse: questionsForActiveSubject.filter(
+      (question) => question.type === 'true_false',
+    ).length,
+  };
   const questionsInActiveSubject = questions.filter(
     (question) =>
       question.subject === activeSection?.subject &&
@@ -1214,63 +1226,139 @@ export function AssessmentBuilder({
               Continuar rascunho
             </Button>
           </div>
-          <h2 className="text-xl font-bold">
-            {offset ? 'Provas arquivadas' : 'Provas recentes'}
-          </h2>
-          <p className="text-sm text-slate-500">
-            10 por página. Favoritas aparecem primeiro; as anteriores permanecem
-            arquivadas.
-          </p>
-          {recent.map((r) => (
-            <article
-              key={r.id}
-              className="flex flex-wrap items-center justify-between gap-3 border-b py-3"
-            >
-              <div>
-                <strong>{r.title}</strong>
-                <p className="text-sm">
-                  {r.subject} · {r.grade} ·{' '}
-                  {new Date(r.updatedAt).toLocaleDateString('pt-BR')} ·{' '}
-                  {r.assessmentId ? 'Gerada' : 'Rascunho'}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => openWorkspace(r.id)}>
-                  Reabrir
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => openWorkspace(r.id, true)}
-                >
-                  Duplicar
-                </Button>
-                <Button
-                  variant="outline"
-                  aria-pressed={r.pinned}
-                  onClick={async () => {
-                    try {
-                      await workspaceRequest(`/${r.id}/pin`, {
-                        method: 'PATCH',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ pinned: !r.pinned }),
-                      });
-                      setRecent(
-                        await workspaceRequest<typeof recent>(
-                          `?offset=${offset}`,
-                        ),
-                      );
-                    } catch (e) {
-                      setMessage(String(e));
-                    }
-                  }}
-                >
-                  {r.pinned ? 'Desafixar' : 'Fixar'}
-                </Button>
-              </div>
-            </article>
-          ))}
-          {!recent.length && <p>Nenhuma prova salva nesta página.</p>}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">
+                {offset ? 'Provas arquivadas' : 'Provas recentes'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Suas provas e rascunhos, com acesso rápido às principais ações.
+              </p>
+            </div>
+            <Badge variant="secondary">{recent.length} nesta página</Badge>
+          </div>
+          <div className="grid gap-3">
+            {recent.map((r) => (
+              <article
+                key={r.id}
+                className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-5"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+                    <FileOutput className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-slate-900">
+                        {r.title || 'Prova sem título'}
+                      </h3>
+                      <Badge variant={r.assessmentId ? 'default' : 'outline'}>
+                        {r.assessmentId ? 'Gerada' : 'Rascunho'}
+                      </Badge>
+                      {r.pinned && <Badge variant="secondary">Fixada</Badge>}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {[
+                        r.subject,
+                        r.grade,
+                        new Date(r.updatedAt).toLocaleDateString('pt-BR'),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:shrink-0">
+                  <Button variant="outline" onClick={() => openWorkspace(r.id)}>
+                    Reabrir
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => openWorkspace(r.id, true)}
+                  >
+                    Duplicar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    aria-pressed={r.pinned}
+                    onClick={async () => {
+                      try {
+                        await workspaceRequest(`/${r.id}/pin`, {
+                          method: 'PATCH',
+                          headers: { 'content-type': 'application/json' },
+                          body: JSON.stringify({ pinned: !r.pinned }),
+                        });
+                        setRecent(
+                          await workspaceRequest<typeof recent>(
+                            `?offset=${offset}`,
+                          ),
+                        );
+                      } catch (e) {
+                        setMessage(String(e));
+                      }
+                    }}
+                  >
+                    {r.pinned ? 'Desafixar' : 'Fixar'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={deletingWorkspaceId === r.id}
+                    className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    onClick={async () => {
+                      const detail = r.assessmentId
+                        ? 'A prova gerada e eventuais resultados continuarão preservados no histórico.'
+                        : 'Esta ação remove o rascunho salvo.';
+                      if (
+                        !window.confirm(
+                          `Excluir “${r.title || 'Prova sem título'}” da lista? ${detail}`,
+                        )
+                      )
+                        return;
+                      setDeletingWorkspaceId(r.id);
+                      try {
+                        await workspaceRequest(`/${r.id}`, {
+                          method: 'DELETE',
+                        });
+                        setRecent(
+                          await workspaceRequest<typeof recent>(
+                            `?offset=${offset}`,
+                          ),
+                        );
+                        setMessage(
+                          r.assessmentId
+                            ? 'Prova removida desta lista. O histórico e os resultados foram preservados.'
+                            : 'Rascunho excluído.',
+                        );
+                      } catch (e) {
+                        setMessage(e instanceof Error ? e.message : String(e));
+                      } finally {
+                        setDeletingWorkspaceId('');
+                      }
+                    }}
+                  >
+                    <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
+                    {deletingWorkspaceId === r.id ? 'Excluindo…' : 'Excluir'}
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+          {!recent.length && (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
+              <FileOutput
+                className="mx-auto size-8 text-slate-400"
+                aria-hidden="true"
+              />
+              <p className="mt-3 font-medium text-slate-800">
+                Nenhuma prova salva nesta página
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Crie uma nova prova ou consulte o arquivo.
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 border-t pt-3">
             <Button
               variant="outline"
               disabled={!offset}
@@ -1471,6 +1559,64 @@ export function AssessmentBuilder({
               onChange={(e) => setQuestionSkill(e.target.value)}
             />
             <div className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2 xl:grid-cols-3">
+              <select
+                aria-label="Formato das questões"
+                value={
+                  isJudgmentTemplate(template) ? 'true_false' : 'multiple_choice'
+                }
+                onChange={(event) => {
+                  const wantsJudgment = event.target.value === 'true_false';
+                  const nextTemplate = wantsJudgment
+                    ? isCompactTemplate(template)
+                      ? 'certo-errado-10-v1'
+                      : 'certo-errado-v1'
+                    : isCompactTemplate(template)
+                      ? 'compacto-10-v1'
+                      : 'basicexam-v1';
+                  const incompatibleIds = new Set(
+                    chosen
+                      .filter(
+                        (question) =>
+                          (question.type === 'true_false') !== wantsJudgment,
+                      )
+                      .map((question) => question.id),
+                  );
+                  if (
+                    incompatibleIds.size > 0 &&
+                    !window.confirm(
+                      `O formato selecionado não aceita ${incompatibleIds.size} questão(ões) já escolhida(s). Deseja removê-las e trocar para ${wantsJudgment ? 'Certo/Errado' : 'múltipla escolha'}?`,
+                    )
+                  )
+                    return;
+                  if (incompatibleIds.size > 0) {
+                    setSections((current) =>
+                      current.map((section) => {
+                        const selected = new Set(section.selected);
+                        const fullWidth = new Set(section.fullWidth);
+                        for (const id of incompatibleIds) {
+                          selected.delete(id);
+                          fullWidth.delete(id);
+                        }
+                        return { ...section, selected, fullWidth };
+                      }),
+                    );
+                    setGenerated(false);
+                  }
+                  if (nextTemplate !== template) {
+                    setTemplate(nextTemplate);
+                    setGenerated(false);
+                  }
+                  if (isCompactTemplate(nextTemplate)) setPaper('A4');
+                }}
+                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+              >
+                <option value="multiple_choice">
+                  Múltipla escolha ({questionTypeCounts.multipleChoice})
+                </option>
+                <option value="true_false">
+                  Certo/Errado ({questionTypeCounts.trueFalse})
+                </option>
+              </select>
               <select
                 aria-label="Filtrar por disciplina"
                 value={activeSection?.subject || ''}
