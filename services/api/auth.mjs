@@ -199,7 +199,7 @@ export async function authenticate(request) {
       ? process.env.DEV_AUTH_BYPASS_ROLE
       : 'admin';
     const developmentUser = await pool.query(
-      `SELECT u.id user_id,u.email,u.display_name,m.institution_id,m.role,
+      `SELECT u.id user_id,u.email,u.display_name,u.portal_admin,u.cpf_hash,m.institution_id,m.role,
               i.name institution_name
        FROM users u
        JOIN memberships m ON m.user_id=u.id
@@ -219,6 +219,9 @@ export async function authenticate(request) {
         institutionId: row.institution_id,
         institutionName: row.institution_name,
         role: row.role,
+        portalAdmin: Boolean(row.portal_admin),
+        cpfComplete: Boolean(row.cpf_hash),
+        profileComplete: true,
         developmentBypass: true,
       };
     }

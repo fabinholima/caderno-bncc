@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { renderAssessment } from './render-contract.mjs';
 import { renderClassReport, renderStudentReport } from './report-contract.mjs';
-import { storeRenderArtifact } from '../api/render-artifact-storage.mjs';
+import { storeRenderArtifact, storeRenderDependencies } from '../api/render-artifact-storage.mjs';
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -423,6 +423,7 @@ export async function render(job) {
   );
   await compileAndValidate(studentSource, directory, 'prova');
   await compileAndValidate(answerKeySource, directory, 'gabarito');
+  const dependencies=await storeRenderDependencies({directory,jobId:job.id});
   const artifact = (name, contentType) =>
     storeRenderArtifact({
       key: `renders/${job.id}/${name}`,
@@ -444,6 +445,8 @@ export async function render(job) {
       JSON.stringify({
         studentPdf,
         answerKeyPdf,
+        dependencies,
+        pdfCacheExpiresAt: new Date(Date.now()+30*86400000).toISOString(),
         studentSource: storedStudentSource,
         answerKeySource: storedAnswerKeySource,
       }),

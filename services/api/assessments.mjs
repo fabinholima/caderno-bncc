@@ -54,6 +54,8 @@ export const createAssessmentSchema = z
       )
       .min(1)
       .max(20),
+    questionPoints: z.record(z.uuid(), z.number().positive().max(1000)).default({}),
+    shuffleQuestions: z.boolean().default(true),
     versionCount: z.number().int().min(1).max(6),
     paper: z.enum(['A4', 'A5']).default('A4'),
     template: z.enum(renderTemplateIds).default(DEFAULT_RENDER_TEMPLATE),
@@ -197,10 +199,10 @@ export async function createAssessment({ institutionId, questionBankId = institu
         const sectionQuestions = section.questionIds.map((id) =>
           questionById.get(id),
         );
-        const ordered = seededShuffle(
+        const ordered = value.shuffleQuestions ? seededShuffle(
           sectionQuestions,
           seed + sectionIndex * 997,
-        );
+        ) : sectionQuestions;
         const snapshotQuestions = ordered.map((question, position) => {
           const alternatives = question.type === 'true_false'
             ? question.alternatives
@@ -233,7 +235,7 @@ export async function createAssessment({ institutionId, questionBankId = institu
                 .map((answer) => answer.stableKey),
               explanation: question.explanation || [],
             },
-            points: Number(question.default_points),
+            points: value.questionPoints[question.id] ?? Number(question.default_points),
             fullWidth: fullWidthQuestionIds.has(question.id),
             skills: question.skills,
             saebDescriptors: question.saeb_descriptors,
@@ -398,15 +400,11 @@ export async function getAssessment({ institutionId, assessmentId }) {
     text: `SELECT av.id, av.code, av.seed, av.snapshot, av.created_at,
                   rj.id AS render_job_id, rj.template_version,
                   rj.status AS render_status, rj.error_message,
-                  rj.created_at AS render_created_at,
-                  rj.completed_at AS render_completed_at,
-                  COUNT(s.id)::int AS submission_count
+                  rj.created_at AS render_created_at,rj.completed_at AS render_completed_at,
+                  (SELECT COUNT(*) FROM assessment_submissions s WHERE s.assessment_version_id=av.id)::int AS submission_count
            FROM assessment_versions av
-           LEFT JOIN render_jobs rj ON rj.assessment_version_id = av.id
-           LEFT JOIN assessment_submissions s ON s.assessment_version_id = av.id
-           WHERE av.assessment_id = $1
-           GROUP BY av.id, rj.id
-           ORDER BY av.code`,
+           LEFT JOIN LATERAL (SELECT * FROM render_jobs j WHERE j.assessment_version_id=av.id AND j.application_student_id IS NULL ORDER BY j.created_at DESC,j.id DESC LIMIT 1) rj ON true
+           WHERE av.assessment_id = $1 ORDER BY av.code`,
     values: [assessmentId],
   });
   const row = assessment.rows[0];
@@ -438,4 +436,19 @@ export async function getAssessment({ institutionId, assessmentId }) {
         : null,
     })),
   };
+}
+
+export async function regenerateAssessment({institutionId,assessmentId}) {
+ return transaction(async client=>{
+ const a=await client.query('SELECT id FROM assessments WHERE id=$1 AND institution_id=$2 FOR UPDATE',[assessmentId,institutionId]);
+ if(!a.rowCount)throw Object.assign(new Error('Avaliação não encontrada.'),{statusCode:404});
+ const versions=await client.query('SELECT id,code,snapshot FROM assessment_versions WHERE assessment_id=$1 ORDER BY code',[assessmentId]);
+ const result=[];
+ for(const v of versions.rows){
+   let job=await client.query("SELECT id,status FROM render_jobs WHERE assessment_version_id=$1 AND application_student_id IS NULL AND status IN ('queued','running') ORDER BY created_at DESC LIMIT 1",[v.id]);
+   if(!job.rowCount)job=await client.query('INSERT INTO render_jobs(assessment_version_id,template_version) VALUES($1,$2) RETURNING id,status',[v.id,v.snapshot.render.template]);
+   result.push({code:v.code,renderJobId:job.rows[0].id,status:job.rows[0].status});
+ }
+ return result;
+ });
 }
