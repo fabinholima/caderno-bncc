@@ -1,9 +1,15 @@
 'use client';
-import { isCompactTemplate, isJudgmentTemplate } from '@/lib/compact-assessment.mjs';
-import { assertAssessmentQuestionStyle, renderTemplateCatalog } from '@/lib/render-templates.mjs';
+import {
+  isCompactTemplate,
+  isJudgmentTemplate,
+} from '@/lib/compact-assessment.mjs';
+import {
+  assertAssessmentQuestionStyle,
+  renderTemplateCatalog,
+} from '@/lib/render-templates.mjs';
 import type { EducatorData, School } from './educator-profile';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   BookOpen,
   Check,
@@ -22,10 +28,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AssessmentApplicationStep } from './assessment-application-step';
+import { AssessmentPdfPreview } from './assessment-pdf-preview';
 import { apiFetch } from '@/lib/api-client';
 
 export type BuilderQuestion = {
   type?: string;
+  points?: number;
   recommendSingleColumn?: boolean;
   id: string;
   code: string;
@@ -96,7 +105,9 @@ type AssessmentPreset = {
   };
 };
 
-const fallbackTemplates: RenderTemplate[] = renderTemplateCatalog.map(item => ({ ...item }));
+const fallbackTemplates: RenderTemplate[] = renderTemplateCatalog.map(
+  (item) => ({ ...item }),
+);
 
 const fallbackFonts: RenderFont[] = [
   { id: 'plex', label: 'IBM Plex' },
@@ -133,12 +144,7 @@ export function AssessmentBuilder({
         subject,
         columns: index === 0 ? 2 : 1,
         startOnNewPage: false,
-        selected: new Set(
-          questions
-            .filter((question) => question.subject === subject && question.type !== 'true_false')
-            .slice(0, 2)
-            .map((question) => question.id),
-        ),
+        selected: new Set<string>(),
         fullWidth: new Set<string>(),
       })),
   );
@@ -166,21 +172,31 @@ export function AssessmentBuilder({
   const [schoolId, setSchoolId] = useState('');
   useEffect(() => {
     let active = true;
-    apiFetch(`${apiUrl}/api/educator-profile`).then(async response => {
-      if (!response.ok) throw new Error('Não foi possível carregar as escolas.');
-      return await response.json() as { data: EducatorData };
-    }).then(body => {
-      if (!active) return;
-      setSchools(body.data.schools);
-      setTeacherName(current => current || body.data.teacherName);
-      const first = body.data.schools[0];
-      if (first) {
-        setSchoolId(first.id || '');
-        setInstitutionName(`${first.name} — ${first.city}/${first.state}`);
-        setLogoDataUrl(first.logoDataUrl);
-      }
-    }).catch(() => { if (active) setMessage('Não foi possível carregar as escolas do seu cadastro.'); });
-    return () => { active = false; };
+    apiFetch(`${apiUrl}/api/educator-profile`)
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error('Não foi possível carregar as escolas.');
+        return (await response.json()) as { data: EducatorData };
+      })
+      .then((body) => {
+        if (!active) return;
+        setSchools(body.data.schools);
+        if (restoredProfile.current) return;
+        setTeacherName((current) => current || body.data.teacherName);
+        const first = body.data.schools[0];
+        if (first) {
+          setSchoolId(first.id || '');
+          setInstitutionName(`${first.name} — ${first.city}/${first.state}`);
+          setLogoDataUrl(first.logoDataUrl);
+        }
+      })
+      .catch(() => {
+        if (active)
+          setMessage('Não foi possível carregar as escolas do seu cadastro.');
+      });
+    return () => {
+      active = false;
+    };
   }, [apiUrl]);
   const [className, setClassName] = useState('');
   const [term, setTerm] = useState('');
@@ -210,6 +226,315 @@ export function AssessmentBuilder({
   const [generatedVersions, setGeneratedVersions] = useState<
     GeneratedVersion[]
   >([]);
+  const [step, setStep] = useState(0);
+  const [workspaceId, setWorkspaceId] = useState('');
+  const revisionRef = useRef(1);
+  const saveQueue = useRef(Promise.resolve());
+  const pendingSave = useRef<(() => void) | null>(null);
+  const saveSequence = useRef(0);
+  const [saveRetry, setSaveRetry] = useState(0);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [assessmentId, setAssessmentId] = useState<string | null>(null);
+  const [questionPoints, setQuestionPoints] = useState<Record<string, number>>(
+    {},
+  );
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [recent, setRecent] = useState<
+    Array<{
+      id: string;
+      title: string;
+      subject: string;
+      grade: string;
+      updatedAt: string;
+      pinned: boolean;
+      assessmentId: string | null;
+    }>
+  >([]);
+  const [offset, setOffset] = useState(0);
+  const configuration = useMemo(
+    () => ({
+      title,
+      grade,
+      ...(schoolId ? { schoolId } : {}),
+      header: {
+        institutionName,
+        teacherName,
+        className,
+        term,
+        date: assessmentDate,
+        transcriptionPhrase,
+        logoDataUrl,
+      },
+      sections: sections.map((s) => ({
+        id: s.id,
+        subject: s.subject,
+        columns: s.columns,
+        startOnNewPage: s.startOnNewPage,
+        questionIds: [...s.selected],
+        fullWidthQuestionIds: [...s.fullWidth],
+      })),
+      versionCount: versions,
+      paper,
+      template,
+      font,
+      fontSize,
+      showBnccSkills,
+      showSaebDescriptors,
+      instructions,
+      questionPoints,
+      shuffleQuestions,
+    }),
+    [
+      title,
+      grade,
+      schoolId,
+      institutionName,
+      teacherName,
+      className,
+      term,
+      assessmentDate,
+      transcriptionPhrase,
+      logoDataUrl,
+      sections,
+      versions,
+      paper,
+      template,
+      font,
+      fontSize,
+      showBnccSkills,
+      showSaebDescriptors,
+      instructions,
+      questionPoints,
+      shuffleQuestions,
+    ],
+  );
+  const configurationKey = JSON.stringify(configuration, (_key, value) =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value).sort(([a], [b]) => a.localeCompare(b)),
+        )
+      : value,
+  );
+  const renderedConfiguration = useRef('');
+  const restoredProfile = useRef(false);
+  const skipNextSave = useRef(false);
+  const workspaceRequest = useCallback(
+    async <T,>(path: string, options?: RequestInit): Promise<T> => {
+      const response = await apiFetch(
+        `${apiUrl}/api/assessment-workspaces${path}`,
+        options,
+      );
+      const body = (await response.json()) as { data: T; error?: string };
+      if (!response.ok)
+        throw new Error(body.error || 'Não foi possível salvar a montagem.');
+      return body.data;
+    },
+    [apiUrl],
+  );
+  useEffect(() => {
+    if (step !== 0) return;
+    workspaceRequest<typeof recent>(`?offset=${offset}`)
+      .then(setRecent)
+      .catch((e) => setMessage(e.message));
+  }, [step, offset, workspaceRequest]);
+  useEffect(() => {
+    if (
+      renderedConfiguration.current &&
+      renderedConfiguration.current !== configurationKey
+    ) {
+      setGenerated(false);
+      setAssessmentId(null);
+      setGeneratedVersions([]);
+      renderedConfiguration.current = '';
+    }
+  }, [configurationKey]);
+  useEffect(() => {
+    if (!workspaceId) return;
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+    const sequence = ++saveSequence.current;
+    queueMicrotask(() => setSaveStatus('Alterações pendentes…'));
+    const save = () => {
+      pendingSave.current = null;
+      saveQueue.current = saveQueue.current
+        .then(async () => {
+          setSaveStatus('Salvando…');
+          const result = await workspaceRequest<{ revision: number }>(
+            `/${workspaceId}`,
+            {
+              method: 'PUT',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                configuration,
+                revision: revisionRef.current,
+                assessmentId,
+              }),
+            },
+          );
+          revisionRef.current = result.revision;
+          if (sequence === saveSequence.current)
+            setSaveStatus('Rascunho salvo');
+        })
+        .catch((e) => {
+          setSaveStatus(`Não salvo: ${e.message}`);
+        });
+    };
+    pendingSave.current = save;
+    const timer = setTimeout(save, 650);
+    return () => clearTimeout(timer);
+  }, [workspaceId, configuration, assessmentId, workspaceRequest, saveRetry]);
+  useEffect(
+    () => () => {
+      pendingSave.current?.();
+    },
+    [],
+  );
+  useEffect(() => {
+    const guard = (event: BeforeUnloadEvent) => {
+      if (saveStatus && saveStatus !== 'Rascunho salvo') {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [saveStatus]);
+  function restoreConfiguration(c: typeof configuration) {
+    restoredProfile.current = true;
+    skipNextSave.current = true;
+    setTitle(c.title);
+    setGrade(c.grade);
+    setSchoolId(c.schoolId || '');
+    setInstitutionName(c.header.institutionName);
+    setTeacherName(c.header.teacherName);
+    setClassName(c.header.className);
+    setTerm(c.header.term);
+    setAssessmentDate(c.header.date);
+    setTranscriptionPhrase(c.header.transcriptionPhrase);
+    setLogoDataUrl(c.header.logoDataUrl);
+    setSections(
+      c.sections.map((s) => ({
+        ...s,
+        selected: new Set(s.questionIds),
+        fullWidth: new Set(s.fullWidthQuestionIds),
+      })),
+    );
+    setVersions(c.versionCount);
+    setPaper(c.paper);
+    setTemplate(c.template);
+    setFont(c.font);
+    setFontSize(c.fontSize);
+    setShowBnccSkills(c.showBnccSkills);
+    setShowSaebDescriptors(c.showSaebDescriptors);
+    setInstructions(c.instructions);
+    setQuestionPoints(c.questionPoints || {});
+    setShuffleQuestions(c.shuffleQuestions ?? false);
+  }
+  async function openWorkspace(id?: string, duplicate = false) {
+    try {
+      await saveQueue.current;
+      type Workspace = {
+        id: string;
+        configuration: typeof configuration;
+        revision: number;
+        assessmentId: string | null;
+      };
+      let data: Workspace;
+      if (id) data = await workspaceRequest<Workspace>(`/${id}`);
+      if (!id || duplicate) {
+        const c = id
+          ? {
+              ...data!.configuration,
+              title: `${data!.configuration.title.slice(0, 170)} (cópia)`,
+            }
+          : {
+              ...configuration,
+              title: 'Nova prova',
+              sections: configuration.sections
+                .slice(0, 1)
+                .map((s) => ({
+                  ...s,
+                  questionIds: [],
+                  fullWidthQuestionIds: [],
+                })),
+              questionPoints: {},
+            };
+        data = await workspaceRequest<Workspace>('', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ configuration: c }),
+        });
+      }
+      if (!data!) return;
+      restoreConfiguration(data.configuration);
+      revisionRef.current = data.revision;
+      setWorkspaceId(data.id);
+      setAssessmentId(data.assessmentId);
+      setGenerated(false);
+      setGeneratedVersions([]);
+      setSaveStatus('Rascunho salvo');
+      renderedConfiguration.current = '';
+      setStep(1);
+      setMessage('');
+      if (data.assessmentId) {
+        const response = await apiFetch(
+          `${apiUrl}/api/assessments/${data.assessmentId}`,
+        );
+        if (!response.ok)
+          throw new Error('Não foi possível carregar os PDFs salvos.');
+        const body = (await response.json()) as {
+          data: {
+            versions: Array<{
+              code: string;
+              renderJob: {
+                id: string;
+                status: GeneratedVersion['status'];
+                error?: string;
+              } | null;
+            }>;
+          };
+        };
+        setGeneratedVersions(
+          body.data.versions
+            .filter((v) => v.renderJob)
+            .map((v) => ({
+              code: v.code,
+              renderJobId: v.renderJob!.id,
+              status: v.renderJob!.status,
+              error: v.renderJob!.error,
+            })),
+        );
+        renderedConfiguration.current = JSON.stringify(
+          data!.configuration,
+          (_key, value) =>
+            value && typeof value === 'object' && !Array.isArray(value)
+              ? Object.fromEntries(
+                  Object.entries(value).sort(([a], [b]) => a.localeCompare(b)),
+                )
+              : value,
+        );
+        setGenerated(true);
+      }
+    } catch (e) {
+      setMessage(
+        e instanceof Error ? e.message : 'Não foi possível abrir a prova.',
+      );
+    }
+  }
+  function moveQuestion(sectionId: string, id: string, direction: number) {
+    setSections((current) =>
+      current.map((s) => {
+        if (s.id !== sectionId) return s;
+        const ids = [...s.selected],
+          index = ids.indexOf(id),
+          target = index + direction;
+        if (target < 0 || target >= ids.length) return s;
+        [ids[index], ids[target]] = [ids[target], ids[index]];
+        return { ...s, selected: new Set(ids) };
+      }),
+    );
+  }
   const downloadRenderFile = async (url: string, filename: string) => {
     try {
       const response = await apiFetch(url);
@@ -240,6 +565,7 @@ export function AssessmentBuilder({
       );
     }
   };
+  const [questionSkill, setQuestionSkill] = useState('');
   const [questionTopic, setQuestionTopic] = useState('');
   const [questionSubtopic, setQuestionSubtopic] = useState('');
   const [questionSourceInstitution, setQuestionSourceInstitution] =
@@ -250,8 +576,9 @@ export function AssessmentBuilder({
     (section) => section.id === activeSectionId,
   );
   const questionsInActiveSubject = questions.filter(
-    (question) => question.subject === activeSection?.subject &&
-      ((question.type === 'true_false') === isJudgmentTemplate(template)) &&
+    (question) =>
+      question.subject === activeSection?.subject &&
+      (question.type === 'true_false') === isJudgmentTemplate(template) &&
       (template !== 'compacto-10-v1' || question.type === 'single_choice'),
   );
   const topicParts = (question: BuilderQuestion) => {
@@ -284,6 +611,8 @@ export function AssessmentBuilder({
   ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const visibleQuestions = questionsInActiveSubject.filter(
     (question) =>
+      (!questionSkill ||
+        question.skill.toLowerCase().includes(questionSkill.toLowerCase())) &&
       (!questionTopic || topicParts(question).topic === questionTopic) &&
       (!questionSubtopic ||
         topicParts(question).subtopic === questionSubtopic) &&
@@ -348,17 +677,12 @@ export function AssessmentBuilder({
     const currentQuestionIds = new Set(
       questions.map((question) => question.id),
     );
-    const currentSubjects = new Set(subjects);
     setSections((current) => {
       const synchronized = current
-        .filter((section) => currentSubjects.has(section.subject))
+
         .map((section) => ({
           ...section,
-          selected: new Set(
-            Array.from(section.selected).filter((id) =>
-              currentQuestionIds.has(id),
-            ),
-          ),
+          selected: new Set(Array.from(section.selected)),
           fullWidth: new Set(
             Array.from(section.fullWidth).filter(
               (id) => currentQuestionIds.has(id) && section.selected.has(id),
@@ -458,7 +782,11 @@ export function AssessmentBuilder({
   }, [apiUrl, generated, generatedVersions]);
 
   function toggle(id: string) {
-    if (isCompactTemplate(template) && chosen.length >= 10 && !chosen.some(question => question.id === id))
+    if (
+      isCompactTemplate(template) &&
+      chosen.length >= 10 &&
+      !chosen.some((question) => question.id === id)
+    )
       return setMessage('O modelo compacto aceita no máximo 10 questões.');
     setGenerated(false);
     setSections((current) =>
@@ -667,15 +995,53 @@ export function AssessmentBuilder({
     }
   }
 
+  async function regenerate() {
+    if (!assessmentId) return generate();
+    setSaving(true);
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/assessments/${assessmentId}/renders`,
+        { method: 'POST' },
+      );
+      const body = (await response.json()) as {
+        data: GeneratedVersion[];
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(body.error || 'Falha ao gerar novamente.');
+      setGeneratedVersions(body.data);
+      setGenerated(true);
+    } catch (e) {
+      setMessage(String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
   async function generate() {
+    if (
+      sections.some((s) =>
+        [...s.selected].some((id) => !questions.some((q) => q.id === id)),
+      )
+    )
+      return setMessage(
+        'Há questões indisponíveis no banco carregado. Atualize o banco ou remova-as antes de gerar.',
+      );
     const configuredSections = sections.filter(
       (section) => section.selected.size > 0,
     );
     if (!configuredSections.length)
       return setMessage('Selecione pelo menos uma questão.');
-    try { assertAssessmentQuestionStyle(chosen, template); }
-    catch (error) { return setMessage(error instanceof Error ? error.message : 'Seleção incompatível com o modelo.'); }
-    if (isCompactTemplate(template) && paper !== 'A4') return setMessage('O modelo compacto usa papel A4.');
+    try {
+      assertAssessmentQuestionStyle(chosen, template);
+    } catch (error) {
+      return setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Seleção incompatível com o modelo.',
+      );
+    }
+    if (isCompactTemplate(template) && paper !== 'A4')
+      return setMessage('O modelo compacto usa papel A4.');
     setSaving(true);
     setMessage('');
     try {
@@ -715,14 +1081,23 @@ export function AssessmentBuilder({
             showBnccSkills,
             showSaebDescriptors,
             instructions,
+            questionPoints: Object.fromEntries(
+              chosen.map((q) => [q.id, questionPoints[q.id] ?? q.points ?? 1]),
+            ),
+            shuffleQuestions,
           }),
         });
         const body = (await response.json()) as {
-          data: { versions: Array<{ code: string; renderJobId?: string }> };
+          data: {
+            id: string;
+            versions: Array<{ code: string; renderJobId?: string }>;
+          };
           error?: string;
         };
         if (!response.ok)
           throw new Error(body.error || 'Não foi possível gerar a avaliação.');
+        setAssessmentId(body.data.id);
+        renderedConfiguration.current = configurationKey;
         setGeneratedVersions(
           body.data.versions.map((version) => ({
             ...version,
@@ -733,17 +1108,12 @@ export function AssessmentBuilder({
           `${body.data.versions.length} versões enviadas para a fila de PDF.`,
         );
       } else {
-        setGeneratedVersions(
-          Array.from({ length: versions }, (_, index) => ({
-            code: String.fromCharCode(65 + index),
-            status: 'completed' as const,
-          })),
-        );
-        setMessage(
-          `${versions} versões preparadas com ${configuredSections.length} disciplinas. A prova modelo já pode ser baixada; a API produzirá os arquivos dinâmicos.`,
+        throw new Error(
+          'Conecte a API e selecione questões cadastradas para gerar a prévia real.',
         );
       }
       setGenerated(true);
+      setStep(4);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : 'Erro ao gerar avaliação.',
@@ -761,11 +1131,10 @@ export function AssessmentBuilder({
             Montagem e versões
           </p>
           <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
-            Nova avaliação
+            Elaborar prova
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Escolha questões, defina as versões e envie uma fotografia imutável
-            para a fila de composição tipográfica.
+            Identifique, monte, revise no ConTeXt e aplique sua prova à turma.
           </p>
         </div>
         <Badge
@@ -776,9 +1145,171 @@ export function AssessmentBuilder({
           BNCC vinculada
         </Badge>
       </div>
-      <div className="mt-7 grid gap-5 xl:grid-cols-[1fr_380px]">
+      <nav
+        aria-label="Etapas da elaboração"
+        className="my-5 flex flex-wrap gap-2"
+      >
+        {[
+          'Provas recentes',
+          'Identificação e modelo',
+          'Questões',
+          'Organização',
+          'Revisão ConTeXt',
+          'Aplicação',
+        ].map((label, index) => (
+          <Button
+            key={label}
+            variant={step === index ? 'default' : 'outline'}
+            disabled={
+              (index === 0 &&
+                !!workspaceId &&
+                saveStatus !== 'Rascunho salvo') ||
+              (index > 0 && !workspaceId) ||
+              (index === 5 &&
+                (!generated ||
+                  !assessmentId ||
+                  generatedVersions.some((v) => v.status !== 'completed')))
+            }
+            onClick={() => setStep(index)}
+          >
+            {label}
+          </Button>
+        ))}
+      </nav>
+      {workspaceId && (
+        <div className="mb-3 text-sm">
+          <output>{saveStatus}</output>
+          {saveStatus.startsWith('Não salvo') && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setSaveRetry((n) => n + 1)}
+              >
+                Tentar salvar novamente
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => openWorkspace(workspaceId)}
+              >
+                Reabrir versão salva
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      {message && <output className="my-3 block text-sm">{message}</output>}
+      {step === 0 && (
+        <section className="space-y-4 rounded-xl border bg-white p-5">
+          <div className="flex gap-3">
+            <Button onClick={() => openWorkspace()}>Nova prova</Button>
+            <Button
+              variant="outline"
+              disabled={!workspaceId && !recent.some((r) => !r.assessmentId)}
+              onClick={() =>
+                workspaceId
+                  ? setStep(1)
+                  : openWorkspace(recent.find((r) => !r.assessmentId)?.id)
+              }
+            >
+              Continuar rascunho
+            </Button>
+          </div>
+          <h2 className="text-xl font-bold">
+            {offset ? 'Provas arquivadas' : 'Provas recentes'}
+          </h2>
+          <p className="text-sm text-slate-500">
+            10 por página. Favoritas aparecem primeiro; as anteriores permanecem
+            arquivadas.
+          </p>
+          {recent.map((r) => (
+            <article
+              key={r.id}
+              className="flex flex-wrap items-center justify-between gap-3 border-b py-3"
+            >
+              <div>
+                <strong>{r.title}</strong>
+                <p className="text-sm">
+                  {r.subject} · {r.grade} ·{' '}
+                  {new Date(r.updatedAt).toLocaleDateString('pt-BR')} ·{' '}
+                  {r.assessmentId ? 'Gerada' : 'Rascunho'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => openWorkspace(r.id)}>
+                  Reabrir
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => openWorkspace(r.id, true)}
+                >
+                  Duplicar
+                </Button>
+                <Button
+                  variant="outline"
+                  aria-pressed={r.pinned}
+                  onClick={async () => {
+                    try {
+                      await workspaceRequest(`/${r.id}/pin`, {
+                        method: 'PATCH',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ pinned: !r.pinned }),
+                      });
+                      setRecent(
+                        await workspaceRequest<typeof recent>(
+                          `?offset=${offset}`,
+                        ),
+                      );
+                    } catch (e) {
+                      setMessage(String(e));
+                    }
+                  }}
+                >
+                  {r.pinned ? 'Desafixar' : 'Fixar'}
+                </Button>
+              </div>
+            </article>
+          ))}
+          {!recent.length && <p>Nenhuma prova salva nesta página.</p>}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={!offset}
+              onClick={() => setOffset(Math.max(0, offset - 10))}
+            >
+              Anteriores
+            </Button>
+            <Button
+              variant="outline"
+              disabled={recent.length < 10}
+              onClick={() => setOffset(offset + 10)}
+            >
+              Ver arquivo
+            </Button>
+          </div>
+        </section>
+      )}
+      {step === 5 && assessmentId && (
+        <AssessmentApplicationStep
+          apiUrl={apiUrl}
+          assessmentId={assessmentId}
+        />
+      )}
+      <fieldset
+        disabled={saving}
+        className={
+          step > 0 && step < 5
+            ? 'mt-7 grid gap-5 xl:grid-cols-[1fr_380px]'
+            : 'hidden'
+        }
+      >
         <div className="space-y-5">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <section
+            className={
+              step === 3
+                ? 'rounded-2xl border border-slate-200 bg-white p-5'
+                : 'hidden'
+            }
+          >
             <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
               <div>
                 <h2 className="font-display text-xl font-bold text-[var(--navy)]">
@@ -914,7 +1445,13 @@ export function AssessmentBuilder({
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <section
+            className={
+              step === 2
+                ? 'overflow-hidden rounded-2xl border border-slate-200 bg-white'
+                : 'hidden'
+            }
+          >
             <header className="border-b border-slate-200 p-5">
               <h2 className="font-display text-xl font-bold text-[var(--navy)]">
                 2. Escolha as questões de{' '}
@@ -927,6 +1464,12 @@ export function AssessmentBuilder({
                 remover da seção ativa
               </p>
             </header>
+            <Input
+              aria-label="Filtrar por habilidade BNCC"
+              placeholder="Habilidade BNCC"
+              value={questionSkill}
+              onChange={(e) => setQuestionSkill(e.target.value)}
+            />
             <div className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2 xl:grid-cols-3">
               <select
                 aria-label="Filtrar por disciplina"
@@ -1097,7 +1640,11 @@ export function AssessmentBuilder({
                           </span>
                         )}
                       </div>
-                      {question.recommendSingleColumn && <p className="mb-1 text-xs font-semibold text-blue-700">Recomendada uma coluna · figura ou conteúdo amplo</p>}
+                      {question.recommendSingleColumn && (
+                        <p className="mb-1 text-xs font-semibold text-blue-700">
+                          Recomendada uma coluna · figura ou conteúdo amplo
+                        </p>
+                      )}
                       <p className="text-sm font-medium leading-5 text-slate-800">
                         {question.statement}
                       </p>
@@ -1112,7 +1659,9 @@ export function AssessmentBuilder({
                           onChange={() => toggleFullWidth(question.id)}
                           className="accent-blue-600"
                         />
-                        {question.recommendSingleColumn ? 'Aplicar sugestão: usar largura total (1 coluna)' : 'Usar largura total (1 coluna) para esta questão'}
+                        {question.recommendSingleColumn
+                          ? 'Aplicar sugestão: usar largura total (1 coluna)'
+                          : 'Usar largura total (1 coluna) para esta questão'}
                       </label>
                     )}
                 </article>
@@ -1125,9 +1674,196 @@ export function AssessmentBuilder({
               )}
             </div>
           </section>
+          {step === 1 && (
+            <div className="rounded-xl border bg-white p-5">
+              <h2 className="text-xl font-bold">Identificação e modelo</h2>
+              <p className="my-3">
+                Preencha o cabeçalho e escolha o modelo antes de selecionar as
+                questões. Compactos usam A4 e aceitam até 10 questões
+                compatíveis.
+              </p>
+              <label>
+                Disciplina
+                <select
+                  className="m-3 rounded border p-2"
+                  value={activeSection?.subject || ''}
+                  onChange={(e) => selectQuestionSubject(e.target.value)}
+                >
+                  {subjects.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                disabled={
+                  title.trim().length < 5 ||
+                  !grade.trim() ||
+                  !institutionName.trim() ||
+                  !teacherName.trim()
+                }
+                onClick={() => setStep(2)}
+              >
+                Selecionar questões
+              </Button>
+            </div>
+          )}
+          {step === 4 && (
+            <section className="space-y-4">
+              <h2 className="text-xl font-bold">Revisão dos PDFs reais</h2>
+              <p>
+                Confira todas as páginas, imagens, QR codes e marcações na prova
+                e no gabarito. Ao editar, gere uma nova prévia.
+              </p>
+              {generatedVersions
+                .filter((v) => v.status === 'completed' && v.renderJobId)
+                .map((v) => (
+                  <AssessmentPdfPreview
+                    key={v.renderJobId}
+                    apiUrl={apiUrl}
+                    jobId={v.renderJobId!}
+                    code={v.code}
+                  />
+                ))}
+              <Button disabled={saving || !chosen.length} onClick={regenerate}>
+                Gerar PDF novamente
+              </Button>
+              <Button
+                disabled={
+                  !assessmentId ||
+                  !generated ||
+                  !generatedVersions.length ||
+                  generatedVersions.some((v) => v.status !== 'completed')
+                }
+                onClick={() => setStep(5)}
+              >
+                Finalizar revisão e aplicar à turma
+              </Button>
+            </section>
+          )}
         </div>
         <aside className="space-y-5">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          {(step === 2 || step === 3) && (
+            <section className="rounded-xl border bg-white p-5">
+              <h2 className="text-xl font-bold">Prova em montagem</h2>
+              <p className="my-3">
+                {chosen.length} questões ·{' '}
+                {chosen.reduce(
+                  (sum, q) => sum + (questionPoints[q.id] ?? q.points ?? 1),
+                  0,
+                )}{' '}
+                pontos
+              </p>
+              {sections.map((section) => (
+                <div key={section.id}>
+                  <h3 className="my-3 font-bold">
+                    {section.subject} · {section.selected.size} questões
+                  </h3>
+                  {[...section.selected].map((id, index) => {
+                    const q = questions.find((q) => q.id === id);
+                    return (
+                      <article key={id} className="my-2 rounded border p-3">
+                        <p>
+                          {index + 1}. {q?.code} —{' '}
+                          {q?.statement.slice(0, 180) ||
+                            'Questão indisponível no banco carregado'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {q?.difficulty} · {q?.skill}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Button
+                            variant="outline"
+                            disabled={index === 0}
+                            onClick={() => moveQuestion(section.id, id, -1)}
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            variant="outline"
+                            disabled={index === section.selected.size - 1}
+                            onClick={() => moveQuestion(section.id, id, 1)}
+                          >
+                            ↓
+                          </Button>
+                          <label>
+                            Pontos{' '}
+                            <input
+                              aria-label={`Pontos da questão ${index + 1}`}
+                              type="number"
+                              min="0.01"
+                              max="1000"
+                              step="0.25"
+                              className="w-20 rounded border p-1"
+                              value={questionPoints[id] ?? q?.points ?? 1}
+                              onChange={(e) =>
+                                setQuestionPoints((p) => ({
+                                  ...p,
+                                  [id]: Number(e.target.value),
+                                }))
+                              }
+                            />
+                          </label>
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              setSections((current) =>
+                                current.map((s) =>
+                                  s.id !== section.id
+                                    ? s
+                                    : {
+                                        ...s,
+                                        selected: new Set(
+                                          [...s.selected].filter(
+                                            (x) => x !== id,
+                                          ),
+                                        ),
+                                        fullWidth: new Set(
+                                          [...s.fullWidth].filter(
+                                            (x) => x !== id,
+                                          ),
+                                        ),
+                                      },
+                                ),
+                              )
+                            }
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ))}
+              <label className="my-4 block">
+                <input
+                  type="checkbox"
+                  checked={shuffleQuestions}
+                  onChange={(e) => setShuffleQuestions(e.target.checked)}
+                />{' '}
+                Embaralhar questões entre versões
+              </label>
+              <p className="text-xs">
+                Desmarcado: preserva a ordem definida. O gabarito acompanha as
+                alternativas de cada versão.
+              </p>
+              <Button
+                className="mt-4"
+                disabled={saving || !chosen.length}
+                onClick={() => (step === 2 ? setStep(3) : generate())}
+              >
+                {step === 2 ? 'Organizar prova' : 'Gerar prévia ConTeXt'}
+              </Button>
+            </section>
+          )}
+
+          <section
+            className={
+              step === 1 || step === 3
+                ? 'rounded-2xl border border-slate-200 bg-white p-5'
+                : 'hidden'
+            }
+          >
             <div className="mb-5 flex items-center gap-3">
               <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-blue-600">
                 <Layers3 className="size-5" />
@@ -1198,15 +1934,28 @@ export function AssessmentBuilder({
               <span className="mb-2 block text-sm font-semibold">
                 Escola cadastrada para o cabeçalho
               </span>
-              <select className="mb-3 w-full rounded-lg border p-2" value={schoolId} onChange={event => {
-                const id=event.target.value;
-                setSchoolId(id);
-                const school=schools.find(item=>item.id===id);
-                if(school){setInstitutionName(`${school.name} — ${school.city}/${school.state}`);setLogoDataUrl(school.logoDataUrl);}
-                setGenerated(false);
-              }}>
+              <select
+                className="mb-3 w-full rounded-lg border p-2"
+                value={schoolId}
+                onChange={(event) => {
+                  const id = event.target.value;
+                  setSchoolId(id);
+                  const school = schools.find((item) => item.id === id);
+                  if (school) {
+                    setInstitutionName(
+                      `${school.name} — ${school.city}/${school.state}`,
+                    );
+                    setLogoDataUrl(school.logoDataUrl);
+                  }
+                  setGenerated(false);
+                }}
+              >
                 <option value="">Cabeçalho personalizado</option>
-                {schools.map(school=><option key={school.id} value={school.id}>{school.name} — {school.city}/{school.state}</option>)}
+                {schools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name} — {school.city}/{school.state}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="mt-4 block">
@@ -1215,7 +1964,10 @@ export function AssessmentBuilder({
               </span>
               <Input
                 value={institutionName}
-                onChange={(event) => { setSchoolId(''); setInstitutionName(event.target.value); }}
+                onChange={(event) => {
+                  setSchoolId('');
+                  setInstitutionName(event.target.value);
+                }}
                 placeholder="Ex.: Escola Municipal Paulo Freire"
               />
             </label>
@@ -1383,7 +2135,9 @@ export function AssessmentBuilder({
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                 >
                   <option value="A4">A4</option>
-                  <option value="A5" disabled={isCompactTemplate(template)}>A5</option>
+                  <option value="A5" disabled={isCompactTemplate(template)}>
+                    A5
+                  </option>
                 </select>
               </label>
             </div>
@@ -1395,9 +2149,22 @@ export function AssessmentBuilder({
                 value={template}
                 onChange={(event) => {
                   const next = event.target.value;
-                  if (next !== template && (isJudgmentTemplate(next) !== isJudgmentTemplate(template) || isCompactTemplate(next))) {
-                    setSections(current => current.map(section => ({ ...section, selected: new Set<string>(), fullWidth: new Set<string>() })));
-                    setMessage('Estilo alterado. Selecione as questões compatíveis com a prova.');
+                  if (
+                    next !== template &&
+                    (isJudgmentTemplate(next) !==
+                      isJudgmentTemplate(template) ||
+                      isCompactTemplate(next))
+                  ) {
+                    setSections((current) =>
+                      current.map((section) => ({
+                        ...section,
+                        selected: new Set<string>(),
+                        fullWidth: new Set<string>(),
+                      })),
+                    );
+                    setMessage(
+                      'Estilo alterado. Selecione as questões compatíveis com a prova.',
+                    );
                   }
                   if (isCompactTemplate(next)) setPaper('A4');
                   setTemplate(next);
@@ -1454,7 +2221,7 @@ export function AssessmentBuilder({
                 </span>
               </span>
             </label>
-            {template === 'simulado-v1' && (
+            {
               <div className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <label className="block">
                   <span className="mb-2 block text-sm font-semibold">
@@ -1498,7 +2265,7 @@ export function AssessmentBuilder({
                   </span>
                 </label>
               </div>
-            )}
+            }
             <div className="mt-5">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="text-sm font-semibold">
@@ -1661,12 +2428,14 @@ export function AssessmentBuilder({
                         <>
                           <button
                             type="button"
-                            onClick={() => downloadRenderFile(
-                              version.renderJobId
-                                ? `${apiUrl}${version.downloads?.prova || `/api/render-jobs/${version.renderJobId}/prova`}`
-                                : '/generated/avaliacao-modelo.pdf',
-                              `prova-${version.code}.pdf`,
-                            )}
+                            onClick={() =>
+                              downloadRenderFile(
+                                version.renderJobId
+                                  ? `${apiUrl}${version.downloads?.prova || `/api/render-jobs/${version.renderJobId}/prova`}`
+                                  : '/generated/avaliacao-modelo.pdf',
+                                `prova-${version.code}.pdf`,
+                              )
+                            }
                             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-blue-50"
                           >
                             <Printer className="size-3.5" />
@@ -1674,12 +2443,14 @@ export function AssessmentBuilder({
                           </button>
                           <button
                             type="button"
-                            onClick={() => downloadRenderFile(
-                              version.renderJobId
-                                ? `${apiUrl}${version.downloads?.gabarito || `/api/render-jobs/${version.renderJobId}/gabarito`}`
-                                : '/generated/avaliacao-modelo.pdf',
-                              `gabarito-${version.code}.pdf`,
-                            )}
+                            onClick={() =>
+                              downloadRenderFile(
+                                version.renderJobId
+                                  ? `${apiUrl}${version.downloads?.gabarito || `/api/render-jobs/${version.renderJobId}/gabarito`}`
+                                  : '/generated/avaliacao-modelo.pdf',
+                                `gabarito-${version.code}.pdf`,
+                              )
+                            }
                             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-blue-50"
                           >
                             <FileOutput className="size-3.5" />
@@ -1719,7 +2490,7 @@ export function AssessmentBuilder({
             </section>
           )}
         </aside>
-      </div>
+      </fieldset>
     </div>
   );
 }

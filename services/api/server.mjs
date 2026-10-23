@@ -1,3 +1,6 @@
+import { regenerateAssessment } from './assessments.mjs';
+import { listClassStudents } from './academic.mjs';
+import { listWorkspaces, getWorkspace, createWorkspace, saveWorkspace, pinWorkspace } from './assessment-workspaces.mjs';
 import {questionStatusHistory,approveQuestionsInBulk,sendQuestionsToReviewInBulk} from './question-workflow.mjs';
 import {listDrafts,getDraft,saveDraft,completeDraft} from './question-drafts.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
@@ -177,7 +180,7 @@ function json(response, status, body) {
     'content-type': 'application/json; charset=utf-8',
     ...corsHeaders(response),
     'access-control-allow-headers': 'content-type, authorization, x-client',
-    'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
   });
   response.end(JSON.stringify(body));
 }
@@ -654,6 +657,8 @@ const server = createServer(async (request, response) => {
       if (!ready.rows[0]?.ledger) return json(response, 503, { error: 'A migração de sincronização móvel ainda não foi aplicada.' });
       return json(response, 200, { data: { version: 1, idempotentUploads: true, manualReview: true, applicationScopedUploads:true, userId, institutionId } });
     }
+    const classStudentsMatch=request.method==='GET' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students$/i);
+    if(classStudentsMatch) return json(response,200,{data:await listClassStudents({institutionId,classId:classStudentsMatch[1]})});
     if (request.method === 'GET' && url.pathname === '/api/classes')
       return json(response, 200, {
         data: await listClasses({ institutionId }),
@@ -1406,10 +1411,23 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await listQuestionDuplicates({ institutionId }),
       });
+    if (url.pathname === '/api/assessment-workspaces') {
+      if (request.method === 'GET') return json(response,200,{data:await listWorkspaces({institutionId,userId,offset:Math.min(100000,Math.max(0,Number(url.searchParams.get('offset'))||0))})});
+      if (request.method === 'POST') return json(response,201,{data:await createWorkspace({institutionId,userId,input:await readJson(request)})});
+    }
+    const workspaceMatch=url.pathname.match(/^\/api\/assessment-workspaces\/([0-9a-f-]{36})(\/pin)?$/i);
+    if(workspaceMatch) {
+      const args={institutionId,userId,id:workspaceMatch[1]};
+      if(request.method==='GET' && !workspaceMatch[2]) return json(response,200,{data:await getWorkspace(args)});
+      if(request.method==='PUT' && !workspaceMatch[2]) return json(response,200,{data:await saveWorkspace({...args,input:await readJson(request)})});
+      if(request.method==='PATCH' && workspaceMatch[2]) return json(response,200,{data:await pinWorkspace({...args,input:await readJson(request)})});
+    }
     if (request.method === 'GET' && url.pathname === '/api/assessments')
       return json(response, 200, {
         data: await listAssessments({ institutionId }),
       });
+    const regenerateMatch=request.method==='POST' && url.pathname.match(/^\/api\/assessments\/([0-9a-f-]{36})\/renders$/i);
+    if(regenerateMatch)return json(response,202,{data:await regenerateAssessment({institutionId,assessmentId:regenerateMatch[1]})});
     const assessmentMatch =
       request.method === 'GET' &&
       url.pathname.match(/^\/api\/assessments\/([0-9a-f-]{36})$/i);

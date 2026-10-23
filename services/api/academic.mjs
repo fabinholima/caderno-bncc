@@ -20,6 +20,7 @@ export const applicationSchema = z.object({
   assessmentId: z.uuid(),
   classId: z.uuid(),
   scheduledAt: z.iso.datetime().optional(),
+  studentIds: z.array(z.uuid()).min(1).max(1000).refine(ids=>new Set(ids).size===ids.length).optional(),
 });
 export async function listClasses({ institutionId }) {
   const r = await pool.query({
@@ -101,9 +102,10 @@ export async function createApplication({ institutionId, userId, input }) {
       [v.assessmentId],
     );
     const students = await client.query(
-      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.active ORDER BY ce.number NULLS LAST,s.name`,
-      [v.classId],
+      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
+      [v.classId,institutionId,v.studentIds||null],
     );
+    if(v.studentIds && students.rowCount!==v.studentIds.length) throw Object.assign(new Error('Selecione somente alunos ativos matriculados nesta turma.'),{statusCode:422});
     if (!versions.rowCount)
       throw Object.assign(new Error('A avaliação não possui versões.'), {
         statusCode: 422,
@@ -273,4 +275,8 @@ export async function cancelApplication({ institutionId, applicationId }) {
     );
     return result.rows[0];
   });
+}
+
+export async function listClassStudents({institutionId,classId}) {
+ const r=await pool.query(`SELECT s.id,s.name,s.registration FROM class_enrollments ce JOIN classes c ON c.id=ce.class_id JOIN students s ON s.id=ce.student_id WHERE c.id=$1 AND c.institution_id=$2 AND s.institution_id=$2 AND s.active ORDER BY ce.number NULLS LAST,s.name`,[classId,institutionId]);return r.rows;
 }

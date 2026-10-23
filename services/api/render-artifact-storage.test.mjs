@@ -65,3 +65,35 @@ test('stores and reads a structured private manifest', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('dependências idênticas usam a mesma chave, mantendo os nomes do TeX', async () => {
+  const { storeRenderDependencies } =
+    await import('./render-artifact-storage.mjs');
+  const directory = await mkdtemp(path.join(tmpdir(), 'render-assets-'));
+  const stored = new Map();
+  const storage = {
+    provider: 'filesystem',
+    put: async (key, contents) => {
+      stored.set(key, contents);
+      return key;
+    },
+  };
+  try {
+    await writeFile(path.join(directory, 'one.png'), Buffer.from('same image'));
+    await writeFile(path.join(directory, 'two.png'), Buffer.from('same image'));
+    await writeFile(
+      path.join(directory, 'prova.pdf'),
+      Buffer.from('%PDF-not-an-asset'),
+    );
+    const result = await storeRenderDependencies({
+      directory,
+      jobId: 'job',
+      storage,
+    });
+    assert.equal(result['one.png'].key, result['two.png'].key);
+    assert.equal(stored.size, 1);
+    assert.equal(result['prova.pdf'], undefined);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
