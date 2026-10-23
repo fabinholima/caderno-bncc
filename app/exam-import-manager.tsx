@@ -2070,17 +2070,22 @@ export function ExamImportManager({
                   Ver exemplo do formato de importação
                 </summary>
                 <pre className="mt-3 overflow-x-auto rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-700">
-{`QUESTÃO 1
-Enunciado da questão.
-(A) Primeira alternativa
-(B) Segunda alternativa
-(C) Terceira alternativa
-(D) Quarta alternativa
-(E) Quinta alternativa
-GABARITO: B`}
+{`# Questões de certo ou errado
+## Bloco 1: Tema das questões
+**1.** Afirmação a ser julgada como certa ou errada.
+**2.** Outra afirmação para julgar.
+
+## Gabarito
+| Questão | Gabarito | Questão | Gabarito |
+| --- | --- | --- | --- |
+| 1 | C | 2 | E |
+
+## Comentários
+**1. CERTO.** Comentário ou resolução da primeira questão.
+**2. ERRADO.** Comentário ou resolução da segunda questão.`}
                 </pre>
                 <p className="mt-2 text-xs text-slate-500">
-                  Este exemplo é apenas uma referência e não será inserido no campo.
+                  Também aceitamos o gabarito em tabela e os comentários separados por número. O exemplo é apenas uma referência e não será inserido no campo.
                 </p>
               </details>
             </section>

@@ -704,9 +704,11 @@ export function pastedQuestionType(question) {
   const alternatives = question.alternatives || {};
   const isLabeledJudgment = Object.keys(alternatives).sort().join('') === 'CE' &&
     /certo/i.test(alternatives.C || '') && /errado/i.test(alternatives.E || '');
+  const isFixedTrueFalse = Object.keys(alternatives).sort().join('') === 'AB' &&
+    /certo/i.test(alternatives.A || '') && /errado/i.test(alternatives.B || '');
   const statement = question.statement || '';
   const isJudgmentPrompt = /\b(?:certo\s+ou\s+errado|certo\s*\/\s*errado|verdadeiro\s+ou\s+falso|julgue\s+(?:os\s+)?(?:itens|afirmações))\b/i.test(statement);
-  if (isLabeledJudgment || isJudgmentPrompt) return 'true_false';
+  if (isLabeledJudgment || isFixedTrueFalse || isJudgmentPrompt) return 'true_false';
   return question.correctAnswers?.length > 1 ? 'multiple_choice' : Object.keys(alternatives).length ? 'single_choice' : 'essay';
 }
 
