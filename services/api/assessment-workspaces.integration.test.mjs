@@ -36,6 +36,7 @@ test(
         getWorkspace,
         listWorkspaces,
         pinWorkspace,
+        deleteWorkspace,
       } = await import('./assessment-workspaces.mjs');
       const institutionId = randomUUID(),
         userId = randomUUID(),
@@ -106,6 +107,19 @@ test(
       assert.equal(
         (await listWorkspaces({ ...owner, userId: other })).length,
         0,
+      );
+      assert.deepEqual(await deleteWorkspace({ ...owner, id: copy.id }), {
+        id: copy.id,
+        assessmentPreserved: false,
+      });
+      await assert.rejects(getWorkspace({ ...owner, id: copy.id }), {
+        statusCode: 404,
+      });
+      await assert.rejects(
+        deleteWorkspace({ ...owner, userId: other, id: first.id }),
+        {
+          statusCode: 404,
+        },
       );
     } finally {
       if (pool) await pool.end();

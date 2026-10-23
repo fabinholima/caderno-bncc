@@ -1,6 +1,13 @@
 import { regenerateAssessment } from './assessments.mjs';
 import { listClassStudents } from './academic.mjs';
-import { listWorkspaces, getWorkspace, createWorkspace, saveWorkspace, pinWorkspace } from './assessment-workspaces.mjs';
+import {
+  listWorkspaces,
+  getWorkspace,
+  createWorkspace,
+  saveWorkspace,
+  pinWorkspace,
+  deleteWorkspace,
+} from './assessment-workspaces.mjs';
 import {questionStatusHistory,approveQuestionsInBulk,sendQuestionsToReviewInBulk} from './question-workflow.mjs';
 import {listDrafts,getDraft,saveDraft,completeDraft} from './question-drafts.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
@@ -1421,6 +1428,7 @@ const server = createServer(async (request, response) => {
       if(request.method==='GET' && !workspaceMatch[2]) return json(response,200,{data:await getWorkspace(args)});
       if(request.method==='PUT' && !workspaceMatch[2]) return json(response,200,{data:await saveWorkspace({...args,input:await readJson(request)})});
       if(request.method==='PATCH' && workspaceMatch[2]) return json(response,200,{data:await pinWorkspace({...args,input:await readJson(request)})});
+      if(request.method==='DELETE' && !workspaceMatch[2]) return json(response,200,{data:await deleteWorkspace(args)});
     }
     if (request.method === 'GET' && url.pathname === '/api/assessments')
       return json(response, 200, {
