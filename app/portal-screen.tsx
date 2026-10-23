@@ -333,6 +333,7 @@ export default function Home() {
   const [notice, setNotice] = useState('');
   const [bankQuestionId,setBankQuestionId]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
+  const [bankQuestionTypeFilter,setBankQuestionTypeFilter]=useState('');
   const [active, setActive] = useState('Início');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [initialApplicationId, setInitialApplicationId] = useState('');
@@ -436,6 +437,7 @@ export default function Home() {
             .includes(query.toLowerCase()) &&
           q.stage === educationStage &&
           (!statusFilter || q.status === statusFilter) &&
+          (!bankQuestionTypeFilter || q.type === bankQuestionTypeFilter) &&
           (!gradeFilter || q.grade === gradeFilter) &&
           (subject === 'Todas' || q.subject === subject) &&
           (!knowledgeObjectFilter ||
@@ -458,6 +460,7 @@ export default function Home() {
     [
       questions,
       statusFilter,
+      bankQuestionTypeFilter,
       query,
       educationStage,
       gradeFilter,
@@ -1413,6 +1416,7 @@ export default function Home() {
                     ))}
                   </select>
                   <select aria-label="Série ou ano" value={gradeFilter} onChange={event => {setGradeFilter(event.target.value);setTopicGroupFilter('');setSubtopicFilter('');setTopicDetailFilter('');}} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as séries</option>{[...new Set(questions.filter(q=>q.stage===educationStage).map(q=>q.grade))].sort().map(grade=><option key={grade}>{grade}</option>)}</select>
+                  <select aria-label="Tipo de questão" value={bankQuestionTypeFilter} onChange={event=>setBankQuestionTypeFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todos os tipos</option><option value="single_choice">Múltipla escolha · resposta única</option><option value="multiple_choice">Múltipla escolha · várias respostas</option><option value="true_false">Certo ou errado</option><option value="essay">Dissertativa</option></select>
                   <select aria-label="Situação das questões" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{['Rascunho','Em revisão','Precisa de ajustes','Aprovada','Arquivada'].map(status=><option key={status}>{status}</option>)}</select>
                   <details className="relative"><summary className="flex h-10 cursor-pointer items-center rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700">Mais filtros ▾</summary><div className="absolute right-0 z-20 mt-2 grid max-h-[70vh] w-[min(85vw,28rem)] gap-3 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
                   {filterPedagogicalDiscipline && educationStage === 'Ensino Médio' ? (
@@ -1630,7 +1634,7 @@ export default function Home() {
                     ))}
                   </select>
                   </div></details>
-                  {(query || statusFilter || gradeFilter || competencyFilter || topicDetailFilter || subject !== 'Todas' ||
+                  {(query || statusFilter || bankQuestionTypeFilter || gradeFilter || competencyFilter || topicDetailFilter || subject !== 'Todas' ||
                     knowledgeObjectFilter ||
                     topicGroupFilter ||
                     subtopicFilter ||
@@ -1641,7 +1645,7 @@ export default function Home() {
                       variant="outline"
                       className="h-10 px-3"
                       onClick={() => {
-                        setQuery('');setStatusFilter('');setGradeFilter('');setCompetencyFilter('');
+                        setQuery('');setStatusFilter('');setBankQuestionTypeFilter('');setGradeFilter('');setCompetencyFilter('');
                         setSubject('Todas');
                         setKnowledgeObjectFilter('');
                         setTopicGroupFilter('');
