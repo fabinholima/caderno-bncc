@@ -3,18 +3,25 @@ import {
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
 
-const bubble = (label) =>
-  `\\framed[width=3.8mm,height=3.8mm,corner=round,radius=1.9mm,offset=overlay,framecolor=simuladoaccent]{\\switchtobodyfont[6pt]${label}}`;
-
 function answerBlock(start, end) {
-  const rows = Array.from(
-    { length: Math.max(0, end - start + 1) },
-    (_, offset) => {
-      const number = start + offset;
-      return `\\NC \\switchtobodyfont[7pt]${String(number).padStart(2, '0')} \\NC ${bubble('A')} \\NC ${bubble('B')} \\NC ${bubble('C')} \\NC ${bubble('D')} \\NC ${bubble('E')} \\NC\\NR`;
-    },
-  ).join('\n');
-  return `\\vtop{\\hsize=25mm\\starttabulate[|cw(3mm)|c|c|c|c|c|]\n${rows}\n\\stoptabulate}`;
+  const count = Math.max(0, end - start + 1);
+  const height = count * 5.6 + 10;
+  const xs = [10, 15.5, 21, 26.5, 32];
+  const commands = [
+    `label(textext("{\\switchtobodyfont[7pt]Q.}"), (2mm,${height - 3}mm));`,
+  ];
+  ['A', 'B', 'C', 'D', 'E'].forEach((label, index) => {
+    commands.push(`label(textext("{\\switchtobodyfont[7pt]\\bf ${label}}"), (${xs[index]}mm,${height - 3}mm));`);
+  });
+  for (let offset = 0; offset < count; offset++) {
+    const number = start + offset;
+    const y = height - 8 - offset * 5.6;
+    commands.push(`label(textext("{\\switchtobodyfont[7pt]${String(number).padStart(2, '0')}}"), (2mm,${y}mm));`);
+    for (const x of xs)
+      commands.push(`draw fullcircle scaled 4.8mm shifted (${x}mm,${y}mm) withpen pencircle scaled .6pt withcolor \\MPcolor{simuladoaccent};`);
+  }
+  commands.push(`setbounds currentpicture to unitsquare xscaled 35.5mm yscaled ${height}mm;`);
+  return `\\startMPcode\n${commands.join('\n')}\n\\stopMPcode`;
 }
 
 export const simulatedExamV1 = Object.freeze({
@@ -37,6 +44,7 @@ export const simulatedExamV1 = Object.freeze({
       qrPayload,
       qrFileName,
       questionCount,
+      previewOnly = false,
       points,
       candidate,
       content,
@@ -85,7 +93,7 @@ export const simulatedExamV1 = Object.freeze({
       .map((instruction) => `\\item ${instruction}`)
       .join('\n');
     const cover =
-      mode === 'student'
+      mode === 'student' && !previewOnly
         ? `\\startframedtext[width=\\textwidth,framecolor=simuladoaccent,background=color,backgroundcolor=simuladobackground,corner=round,offset=4mm]
 ${examHeader}
 \\blank[small]
@@ -126,7 +134,7 @@ Turma: ${className || '\\thinrules[n=1,width=35mm]'} \\quad Data: ${assessmentDa
       );
     }).join('\\hfill\n');
     const answerSheet =
-      mode === 'student' && qrPayload
+      mode === 'student' && !previewOnly
         ? `\\page
 \\noindent\\blackrule[width=7mm,height=7mm]\\hfill\\blackrule[width=7mm,height=7mm]
 \\blank[small]

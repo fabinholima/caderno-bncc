@@ -44,6 +44,22 @@ def card(profile, marked=True):
     return image
 
 
+def standard_judgment_card():
+    """Synthetic photo for the regular (non-compact) Certo/Errado sheet."""
+    image = np.full((1600, 1200, 3), 255, np.uint8)
+    payload = 'CBS1:00000000-0000-4000-8000-000000000001:0123456789abcdef0123'
+    qr = cv2.QRCodeEncoder_create().encode(payload)
+    qr = cv2.resize(qr, (220, 220), interpolation=cv2.INTER_NEAREST)
+    image[80:300, 80:300] = cv2.cvtColor(qr, cv2.COLOR_GRAY2BGR)
+    for index in range(10):
+        y = 450 + index * 75
+        for option, x in enumerate((530, 615)):
+            cv2.circle(image, (x, y), 23, (0, 0, 0), 2)
+            if option == index % 2:
+                cv2.circle(image, (x, y), 19, (0, 0, 0), -1)
+    return image
+
+
 class CompactCardReading(unittest.TestCase):
     def read(self, image, profile):
         with tempfile.TemporaryDirectory() as directory:
@@ -72,6 +88,14 @@ class CompactCardReading(unittest.TestCase):
         result = self.read(missing, profile)
         self.assertTrue(result['requiresReview'])
         self.assertEqual(result['answers'], [])
+
+    def test_regular_judgment_sheet_reads_certo_and_errado(self):
+        result = self.read(standard_judgment_card(), {'labels': ['C', 'E']})
+        self.assertFalse(result['requiresReview'])
+        self.assertEqual(
+            [row['selectedLabels'] for row in result['answers']],
+            [['C' if index % 2 == 0 else 'E'] for index in range(10)],
+        )
 
 
 if __name__ == '__main__':

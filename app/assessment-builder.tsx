@@ -15,10 +15,14 @@ import {
   Check,
   CircleAlert,
   Columns2,
+  CopyPlus,
   FileOutput,
+  FolderOpen,
   ImagePlus,
   Layers3,
   LoaderCircle,
+  Pin,
+  PinOff,
   Plus,
   Printer,
   Shuffle,
@@ -1296,19 +1300,26 @@ export function AssessmentBuilder({
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 sm:shrink-0">
-                  <Button variant="outline" onClick={() => openWorkspace(r.id)}>
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2 sm:flex sm:shrink-0 sm:bg-transparent sm:p-0">
+                  <Button size="sm" variant="outline" className="w-full border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800 sm:w-auto" onClick={() => openWorkspace(r.id)}>
+                    <FolderOpen aria-hidden="true" />
                     Reabrir
                   </Button>
                   <Button
+                    size="sm"
                     variant="outline"
+                    className="w-full border-slate-200 bg-white hover:border-violet-200 hover:bg-violet-50 hover:text-violet-800 sm:w-auto"
                     onClick={() => openWorkspace(r.id, true)}
                   >
+                    <CopyPlus aria-hidden="true" />
                     Duplicar
                   </Button>
                   <Button
+                    size="sm"
                     variant="outline"
                     aria-pressed={r.pinned}
+                    aria-label={r.pinned ? 'Desafixar prova' : 'Fixar prova'}
+                    className="w-full border-slate-200 bg-white hover:border-amber-200 hover:bg-amber-50 hover:text-amber-800 sm:w-auto"
                     onClick={async () => {
                       try {
                         await workspaceRequest(`/${r.id}/pin`, {
@@ -1326,13 +1337,16 @@ export function AssessmentBuilder({
                       }
                     }}
                   >
+                    {r.pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
                     {r.pinned ? 'Desafixar' : 'Fixar'}
                   </Button>
                   <Button
+                    size="sm"
                     type="button"
                     variant="outline"
                     disabled={deletingWorkspaceId === r.id}
-                    className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    aria-label={deletingWorkspaceId === r.id ? 'Excluindo prova' : 'Excluir prova'}
+                    className="w-full border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800 sm:w-auto"
                     onClick={async () => {
                       const detail = r.assessmentId
                         ? 'A prova gerada e eventuais resultados continuarão preservados no histórico.'
@@ -1365,7 +1379,9 @@ export function AssessmentBuilder({
                       }
                     }}
                   >
-                    <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
+                    {deletingWorkspaceId === r.id
+                      ? <LoaderCircle className="animate-spin" aria-hidden="true" />
+                      : <Trash2 aria-hidden="true" />}
                     {deletingWorkspaceId === r.id ? 'Excluindo…' : 'Excluir'}
                   </Button>
                 </div>
