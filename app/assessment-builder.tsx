@@ -424,6 +424,7 @@ export function AssessmentBuilder({
     setVersions(c.versionCount);
     setPaper(c.paper);
     setTemplate(c.template);
+    setQuestionTypeFilter(isJudgmentTemplate(c.template) ? 'true_false' : '');
     setFont(c.font);
     setFontSize(c.fontSize);
     setShowBnccSkills(c.showBnccSkills);
@@ -565,6 +566,7 @@ export function AssessmentBuilder({
     }
   };
   const [questionSkill, setQuestionSkill] = useState('');
+  const [questionTypeFilter, setQuestionTypeFilter] = useState('');
   const [questionTopic, setQuestionTopic] = useState('');
   const [questionSubtopic, setQuestionSubtopic] = useState('');
   const [questionSourceInstitution, setQuestionSourceInstitution] =
@@ -596,16 +598,26 @@ export function AssessmentBuilder({
   );
   const questionTypeCounts = {
     multipleChoice: questionsForActiveSubject.filter(
-      (question) => question.type !== 'true_false',
+      (question) => !['true_false', 'essay'].includes(question.type || ''),
     ).length,
     trueFalse: questionsForActiveSubject.filter(
       (question) => question.type === 'true_false',
     ).length,
+    essay: questionsForActiveSubject.filter(
+      (question) => question.type === 'essay',
+    ).length,
   };
+  const effectiveQuestionTypeFilter =
+    questionTypeFilter ||
+    (isJudgmentTemplate(template) ? 'true_false' : 'multiple_choice');
   const questionsInActiveSubject = questions.filter(
     (question) =>
       question.subject === activeSection?.subject &&
-      (question.type === 'true_false') === isJudgmentTemplate(template) &&
+      (effectiveQuestionTypeFilter === 'true_false'
+        ? question.type === 'true_false'
+        : effectiveQuestionTypeFilter === 'essay'
+          ? question.type === 'essay'
+          : !['true_false', 'essay'].includes(question.type || '')) &&
       (template !== 'compacto-10-v1' || question.type === 'single_choice'),
   );
   const topicParts = (question: BuilderQuestion) => {
@@ -941,6 +953,9 @@ export function AssessmentBuilder({
     setLogoDataUrl(configuration.header.logoDataUrl || '');
     setPaper(configuration.paper);
     setTemplate(configuration.template);
+    setQuestionTypeFilter(
+      isJudgmentTemplate(configuration.template) ? 'true_false' : '',
+    );
     setFont(configuration.font);
     setFontSize(configuration.fontSize);
     setSelectedPresetId(preset.id);
@@ -1574,32 +1589,41 @@ export function AssessmentBuilder({
             <div className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2 xl:grid-cols-3">
               <select
                 aria-label="Formato das questões"
-                value={
-                  isJudgmentTemplate(template)
-                    ? 'true_false'
-                    : 'multiple_choice'
-                }
+                value={effectiveQuestionTypeFilter}
                 onChange={(event) => {
-                  const wantsJudgment = event.target.value === 'true_false';
+                  const nextType = event.target.value;
+                  const wantsJudgment = nextType === 'true_false';
+                  const requiresStandardTemplate = nextType === 'essay';
                   const nextTemplate = wantsJudgment
                     ? isCompactTemplate(template)
                       ? 'certo-errado-10-v1'
                       : 'certo-errado-v1'
-                    : isCompactTemplate(template)
-                      ? 'compacto-10-v1'
-                      : 'basicexam-v1';
+                    : requiresStandardTemplate
+                      ? 'basicexam-v1'
+                      : isJudgmentTemplate(template)
+                        ? isCompactTemplate(template)
+                          ? 'compacto-10-v1'
+                          : 'basicexam-v1'
+                        : template;
                   const incompatibleIds = new Set(
                     chosen
-                      .filter(
-                        (question) =>
-                          (question.type === 'true_false') !== wantsJudgment,
+                      .filter((question) =>
+                        wantsJudgment
+                          ? question.type !== 'true_false'
+                          : question.type === 'true_false',
                       )
                       .map((question) => question.id),
                   );
+                  const nextTypeLabel =
+                    nextType === 'true_false'
+                      ? 'Certo/Errado'
+                      : nextType === 'essay'
+                        ? 'Discursivas'
+                        : 'múltipla escolha';
                   if (
                     incompatibleIds.size > 0 &&
                     !window.confirm(
-                      `O formato selecionado não aceita ${incompatibleIds.size} questão(ões) já escolhida(s). Deseja removê-las e trocar para ${wantsJudgment ? 'Certo/Errado' : 'múltipla escolha'}?`,
+                      `O formato selecionado não aceita ${incompatibleIds.size} questão(ões) já escolhida(s). Deseja removê-las e trocar para ${nextTypeLabel}?`,
                     )
                   )
                     return;
@@ -1621,6 +1645,7 @@ export function AssessmentBuilder({
                     setTemplate(nextTemplate);
                     setGenerated(false);
                   }
+                  setQuestionTypeFilter(nextType);
                   if (isCompactTemplate(nextTemplate)) setPaper('A4');
                 }}
                 className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
@@ -1630,6 +1655,9 @@ export function AssessmentBuilder({
                 </option>
                 <option value="true_false">
                   Certo/Errado ({questionTypeCounts.trueFalse})
+                </option>
+                <option value="essay">
+                  Discursivas ({questionTypeCounts.essay})
                 </option>
               </select>
               <select
@@ -2336,6 +2364,13 @@ export function AssessmentBuilder({
                     );
                   }
                   if (isCompactTemplate(next)) setPaper('A4');
+                  setQuestionTypeFilter(
+                    isJudgmentTemplate(next)
+                      ? 'true_false'
+                      : isCompactTemplate(next)
+                        ? 'multiple_choice'
+                        : '',
+                  );
                   setTemplate(next);
                 }}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
