@@ -764,7 +764,11 @@ export default function Home() {
       const value = data.get(name);
       return typeof value === 'string' ? value : '';
     };
-    const correct = new Set(data.getAll('correct').map(String));
+    const correct = new Set(
+      (questionType === 'true_false'
+        ? [data.get('correct')].filter((value): value is string => typeof value === 'string')
+        : data.getAll('correct').map(String)),
+    );
     const parseBlocks = (name: string) => {
       const blocks = (
       JSON.parse(formString(name) || '[]') as Array<{
@@ -862,10 +866,18 @@ export default function Home() {
     setNotice('');
     setQuestionPreviewError('');
     try {
+      const questionInput = questionInputFromForm(new FormData(form));
+      if (
+        previewMode === 'answer-key' &&
+        questionInput.type === 'true_false' &&
+        questionInput.alternatives.filter((alternative) => alternative.isCorrect).length !== 1
+      ) {
+        throw new Error('Selecione Certo ou Errado como gabarito antes de gerar a prévia da resolução.');
+      }
       const response = await apiFetch(`${apiUrl}/api/questions/preview`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({...questionInputFromForm(new FormData(form)),previewMode}),
+        body: JSON.stringify({...questionInput,previewMode}),
       });
       if (!response.ok) {
         const raw = await response.text();

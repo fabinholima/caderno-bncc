@@ -20,8 +20,8 @@ export function billingConfigured(env = process.env) {
   }
 }
 
-export function checkoutSelection(input) {
-  const plan = billingPlans.find((p) => p.id === input?.plan);
+export function checkoutSelection(input, plans = billingPlans) {
+  const plan = plans.find((p) => p.id === input?.plan);
   if (!plan || !['monthly', 'annual'].includes(input?.cycle))
     throw billingError('Plano ou periodicidade inválidos.');
   return {

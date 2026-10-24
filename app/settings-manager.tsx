@@ -9,6 +9,7 @@ import { BillingManager } from './billing-manager';
 import { EducatorProfile } from './educator-profile';
 import { MaintenanceManager } from './maintenance-manager';
 import { PortalEditorManager } from './portal-editor-manager';
+import { SubscriptionAdmin } from './subscription-admin';
 
 type Subscription = {
   name: string;
@@ -120,6 +121,7 @@ export function SettingsManager({
       <h1 className="font-display mt-1 text-3xl font-bold">Configurações</h1>
       {portalAdmin && <MaintenanceManager apiUrl={apiUrl} />}
       {portalAdmin && <PortalEditorManager apiUrl={apiUrl} />}
+      {portalAdmin && <SubscriptionAdmin apiUrl={apiUrl} />}
       <BillingManager apiUrl={apiUrl} role={role} />
       <EducatorProfile apiUrl={apiUrl} />
       {message && (

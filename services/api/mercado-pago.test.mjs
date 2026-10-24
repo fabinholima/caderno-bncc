@@ -37,6 +37,13 @@ test('prices are server-controlled and input cannot override amount', () => {
   assert.throws(() =>
     checkoutSelection({ plan: 'professor', cycle: '__proto__' }),
   );
+  assert.equal(
+    checkoutSelection(
+      { plan: 'professor', cycle: 'monthly' },
+      [{ id: 'professor', name: 'Professor', monthly: 6290, annual: 62900 }],
+    ).cents,
+    6290,
+  );
 });
 test('webhook HMAC validates signed resource and rejects tampering', () => {
   const signature = createHmac('sha256', 'secret')

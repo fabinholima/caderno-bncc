@@ -1,6 +1,5 @@
 import { pool, transaction } from './db.mjs';
 import {
-  billingPlans,
   billingConfigured,
   billingError,
   checkoutSelection,
@@ -9,6 +8,7 @@ import {
   mpRequest,
   accessUntil,
 } from './mercado-pago.mjs';
+import { publicBillingPlans, applyBillingCoupon, normalizeCouponCode } from './billing-admin.mjs';
 
 function admin(identity) {
   if (identity.role !== 'admin' || identity.developmentBypass)
@@ -19,38 +19,84 @@ function admin(identity) {
 }
 
 export async function billingStatus(identity) {
-  const contracts = await pool.query(
-    `SELECT id,plan_id,months,amount_cents,status,checkout_url FROM billing_contracts WHERE institution_id=$1 ORDER BY created_at DESC LIMIT 1`,
-    [identity.institutionId],
-  );
+  const [contracts, plans] = await Promise.all([
+    pool.query(
+      `SELECT id,plan_id,months,amount_cents,base_amount_cents,discount_cents,
+              coupon_code,status,checkout_url
+       FROM billing_contracts WHERE institution_id=$1
+       ORDER BY created_at DESC LIMIT 1`,
+      [identity.institutionId],
+    ),
+    publicBillingPlans(),
+  ]);
   const payments = await pool.query(
     `SELECT p.status,p.amount_cents,p.paid_at,p.access_until FROM billing_payments p JOIN billing_contracts c ON c.id=p.contract_id WHERE c.institution_id=$1 ORDER BY p.paid_at DESC NULLS LAST LIMIT 24`,
     [identity.institutionId],
   );
   return {
     enabled: billingConfigured() && !identity.developmentBypass,
-    plans: billingPlans,
+    plans,
     contract: contracts.rows[0] || null,
     payments: payments.rows,
   };
+}
+
+export async function previewBillingCoupon(identity, input) {
+  admin(identity);
+  return transaction(async (db) => {
+    const result = await db.query(
+      `SELECT id,name,monthly_price_cents AS monthly,annual_price_cents AS annual
+       FROM subscription_plans WHERE id = ANY($1::text[])`,
+      [['professor', 'escola']],
+    );
+    const { plan, months, cents } = checkoutSelection(input, result.rows);
+    const applied = await applyBillingCoupon(db, {
+      code: input?.couponCode,
+      planId: plan.id,
+      months,
+      cents,
+      institutionId: identity.institutionId,
+    });
+    return {
+      planId: plan.id,
+      months,
+      baseAmountCents: cents,
+      amountCents: applied.amountCents,
+      discountCents: applied.discountCents,
+      couponCode: applied.coupon?.code || null,
+    };
+  });
 }
 
 export async function createCheckout(identity, input) {
   admin(identity);
   if (!billingConfigured())
     throw billingError('Mercado Pago ainda não configurado.', 503);
-  const { plan, months, cents } = checkoutSelection(input);
+  const couponCode = normalizeCouponCode(input?.couponCode);
   // Commit the reservation BEFORE calling the provider. An uncertain timeout must
   // not result in a second subscription on a subsequent click.
-  const contract = await transaction(async (db) => {
+  const reservation = await transaction(async (db) => {
     await db.query('SELECT id FROM institutions WHERE id=$1 FOR UPDATE', [
       identity.institutionId,
     ]);
+    const availablePlans = await db.query(
+      `SELECT id,name,monthly_price_cents AS monthly,annual_price_cents AS annual
+       FROM subscription_plans WHERE id = ANY($1::text[])`,
+      [['professor', 'escola']],
+    );
+    const { plan, months, cents } = checkoutSelection(input, availablePlans.rows);
     const existing = await db.query(
       `SELECT * FROM billing_contracts WHERE institution_id=$1 AND status <> 'cancelled'`,
       [identity.institutionId],
     );
-    if (existing.rowCount) return existing.rows[0];
+    if (existing.rowCount) {
+      const contract = existing.rows[0];
+      if (contract.status === 'pending' && contract.plan_id === plan.id &&
+          contract.months === months && contract.coupon_code === couponCode &&
+          contract.checkout_url)
+        return { contract, plan, months, amountCents: contract.amount_cents };
+      return { contract, plan, months, amountCents: contract.amount_cents };
+    }
     const paid = await db.query(
       `SELECT 1 FROM billing_payments p JOIN billing_contracts c ON c.id=p.contract_id WHERE c.institution_id=$1 AND p.status='approved' AND p.access_until>now()`,
       [identity.institutionId],
@@ -60,19 +106,30 @@ export async function createCheckout(identity, input) {
         'Aguarde o término do período pago antes de contratar outro plano.',
         409,
       );
+    const applied = await applyBillingCoupon(db, {
+      code: couponCode,
+      planId: plan.id,
+      months,
+      cents,
+      institutionId: identity.institutionId,
+    });
     const created = await db.query(
-      `INSERT INTO billing_contracts(institution_id,plan_id,months,amount_cents) VALUES($1,$2,$3,$4) RETURNING *`,
-      [identity.institutionId, plan.id, months, cents],
+      `INSERT INTO billing_contracts
+        (institution_id,plan_id,months,amount_cents,base_amount_cents,
+         discount_cents,coupon_id,coupon_code)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [identity.institutionId, plan.id, months, applied.amountCents, cents,
+        applied.discountCents, applied.coupon?.id || null,
+        applied.coupon?.code || null],
     );
-    return { ...created.rows[0], isNew: true };
+    return { contract: created.rows[0], plan, months,
+      amountCents: applied.amountCents, isNew: true };
   });
-  if (!contract.isNew) {
-    if (
-      contract.status === 'pending' &&
-      contract.plan_id === plan.id &&
-      contract.months === months &&
-      contract.checkout_url
-    )
+  const { contract, plan, months, amountCents } = reservation;
+  if (!reservation.isNew) {
+    if (contract.status === 'pending' && contract.plan_id === plan.id &&
+        contract.months === months && contract.coupon_code === couponCode &&
+        contract.checkout_url)
       return { url: checkoutUrl(contract.checkout_url) };
     throw billingError(
       'Já existe uma assinatura ou contratação em processamento. Consulte o status antes de tentar novamente.',
@@ -88,7 +145,7 @@ export async function createCheckout(identity, input) {
       auto_recurring: {
         frequency: months,
         frequency_type: 'months',
-        transaction_amount: cents / 100,
+        transaction_amount: amountCents / 100,
         currency_id: 'BRL',
       },
       back_url: process.env.MP_BACK_URL,

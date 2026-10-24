@@ -72,6 +72,23 @@ export function snapshotFromQuestion(question, mode = 'student') {
   };
 }
 
+export function normalizeTrueFalsePreviewAlternatives(question, previewMode) {
+  if (question.type !== 'true_false') return;
+  // The editor can retain stale radio values when switching question types.
+  // A print preview always uses the two canonical labels and one answer;
+  // saving the question still goes through the strict schema unchanged.
+  const selected = (Array.isArray(question.alternatives) ? question.alternatives : [])
+    .filter((alternative) => alternative?.isCorrect)
+    .sort((a, b) => (a.position || 0) - (b.position || 0))[0];
+  const correctKey = selected
+    ? selected.stableKey === 'alt-b' ? 'alt-b' : 'alt-a'
+    : previewMode === 'student' ? 'alt-a' : null;
+  question.alternatives = [
+    { stableKey: 'alt-a', label: 'Certo', content: 'Certo', contentBlocks: [{ type: 'paragraph', text: 'Certo' }], isCorrect: correctKey === 'alt-a', position: 1 },
+    { stableKey: 'alt-b', label: 'Errado', content: 'Errado', contentBlocks: [{ type: 'paragraph', text: 'Errado' }], isCorrect: correctKey === 'alt-b', position: 2 },
+  ];
+}
+
 export async function createQuestionPdfPreview(input) {
   const previewInput = structuredClone(input);
   const previewMode=z.enum(['student','answer-key']).default('student').parse(previewInput.previewMode);
@@ -91,6 +108,7 @@ export async function createQuestionPdfPreview(input) {
     previewInput.alternatives[0].isCorrect = true;
   if (previewMode === 'student' && previewInput.type === 'multiple_choice' && previewInput.alternatives?.filter((item) => item.isCorrect).length < 2)
     previewInput.alternatives.slice(0, 2).forEach((item) => { item.isCorrect = true; });
+  normalizeTrueFalsePreviewAlternatives(previewInput, previewMode);
   const question = createQuestionSchema.parse(previewInput);
   if(previewMode==='answer-key'&&!question.answerBlocks?.length&&!question.answerGuide?.trim())
     throw Object.assign(new Error('Adicione a resolução ou o gabarito comentado antes de gerar esta prévia.'),{statusCode:422});
