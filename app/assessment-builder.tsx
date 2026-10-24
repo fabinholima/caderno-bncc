@@ -452,13 +452,11 @@ export function AssessmentBuilder({
           : {
               ...configuration,
               title: 'Nova prova',
-              sections: configuration.sections
-                .slice(0, 1)
-                .map((s) => ({
-                  ...s,
-                  questionIds: [],
-                  fullWidthQuestionIds: [],
-                })),
+              sections: configuration.sections.slice(0, 1).map((s) => ({
+                ...s,
+                questionIds: [],
+                fullWidthQuestionIds: [],
+              })),
               questionPoints: {},
             };
         data = await workspaceRequest<Workspace>('', {
@@ -573,9 +571,26 @@ export function AssessmentBuilder({
     useState('');
   const [questionSourceYear, setQuestionSourceYear] = useState('');
   const [questionDifficulty, setQuestionDifficulty] = useState('');
+  function resetQuestionFilters() {
+    setQuestionSkill('');
+    setQuestionTopic('');
+    setQuestionSubtopic('');
+    setQuestionSourceInstitution('');
+    setQuestionSourceYear('');
+    setQuestionDifficulty('');
+  }
   const activeSection = sections.find(
     (section) => section.id === activeSectionId,
   );
+  function activateSection(id: string) {
+    if (
+      sections.find((section) => section.id === id)?.subject !==
+      activeSection?.subject
+    ) {
+      resetQuestionFilters();
+    }
+    setActiveSectionId(id);
+  }
   const questionsForActiveSubject = questions.filter(
     (question) => question.subject === activeSection?.subject,
   );
@@ -673,6 +688,49 @@ export function AssessmentBuilder({
   }, [apiUrl]);
 
   useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const currentQuestionIds = new Set(
+        questions.map((question) => question.id),
+      );
+      setSections((current) => {
+        if (!current.length && subjects.length) {
+          return [
+            {
+              id: `section-${Date.now()}`,
+              subject: subjects[0],
+              columns: 1,
+              startOnNewPage: false,
+              selected: new Set<string>(),
+              fullWidth: new Set<string>(),
+            },
+          ];
+        }
+        return current.map((section) => {
+          const selected = new Set(
+            Array.from(section.selected).filter((id) =>
+              currentQuestionIds.has(id),
+            ),
+          );
+          const fullWidth = new Set(
+            Array.from(section.fullWidth).filter((id) => selected.has(id)),
+          );
+          if (
+            selected.size === section.selected.size &&
+            fullWidth.size === section.fullWidth.size
+          )
+            return section;
+          return { ...section, selected, fullWidth };
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [questions, subjects]);
+
+  useEffect(() => {
     if (!apiUrl) return;
     const controller = new AbortController();
     apiFetch(`${apiUrl}/api/assessment-presets`, { signal: controller.signal })
@@ -684,50 +742,6 @@ export function AssessmentBuilder({
       .catch(() => undefined);
     return () => controller.abort();
   }, [apiUrl]);
-
-  useEffect(() => {
-    const currentQuestionIds = new Set(
-      questions.map((question) => question.id),
-    );
-    setSections((current) => {
-      const synchronized = current
-
-        .map((section) => ({
-          ...section,
-          selected: new Set(Array.from(section.selected)),
-          fullWidth: new Set(
-            Array.from(section.fullWidth).filter(
-              (id) => currentQuestionIds.has(id) && section.selected.has(id),
-            ),
-          ),
-        }));
-      if (synchronized.length || !subjects.length) return synchronized;
-      return [
-        {
-          id: `section-${Date.now()}`,
-          subject: subjects[0],
-          columns: 1,
-          startOnNewPage: false,
-          selected: new Set<string>(),
-          fullWidth: new Set<string>(),
-        },
-      ];
-    });
-  }, [questions, subjects]);
-
-  useEffect(() => {
-    if (!sections.some((section) => section.id === activeSectionId)) {
-      setActiveSectionId(sections[0]?.id || '');
-    }
-  }, [activeSectionId, sections]);
-
-  useEffect(() => {
-    setQuestionTopic('');
-    setQuestionSubtopic('');
-    setQuestionSourceInstitution('');
-    setQuestionSourceYear('');
-    setQuestionDifficulty('');
-  }, [activeSection?.subject]);
 
   useEffect(() => {
     if (
@@ -824,7 +838,8 @@ export function AssessmentBuilder({
         if (section.id !== activeSectionId || !section.selected.has(id))
           return section;
         const fullWidth = new Set(section.fullWidth);
-        fullWidth.has(id) ? fullWidth.delete(id) : fullWidth.add(id);
+        if (fullWidth.has(id)) fullWidth.delete(id);
+        else fullWidth.add(id);
         return { ...section, fullWidth };
       }),
     );
@@ -849,7 +864,7 @@ export function AssessmentBuilder({
         fullWidth: new Set<string>(),
       },
     ]);
-    setActiveSectionId(id);
+    activateSection(id);
     setSubjectToAdd('');
     setGenerated(false);
   }
@@ -857,7 +872,7 @@ export function AssessmentBuilder({
   function selectQuestionSubject(subject: string) {
     const existing = sections.find((section) => section.subject === subject);
     if (existing) {
-      setActiveSectionId(existing.id);
+      activateSection(existing.id);
       return;
     }
     const id = `section-${Date.now()}`;
@@ -872,7 +887,7 @@ export function AssessmentBuilder({
         fullWidth: new Set<string>(),
       },
     ]);
-    setActiveSectionId(id);
+    activateSection(id);
     setGenerated(false);
   }
 
@@ -886,11 +901,9 @@ export function AssessmentBuilder({
   }
 
   function removeSection(id: string) {
-    setSections((current) => {
-      const next = current.filter((section) => section.id !== id);
-      if (activeSectionId === id) setActiveSectionId(next[0]?.id || '');
-      return next;
-    });
+    const next = sections.filter((section) => section.id !== id);
+    setSections(next);
+    if (activeSectionId === id) activateSection(next[0]?.id || '');
     setGenerated(false);
   }
 
@@ -1446,8 +1459,7 @@ export function AssessmentBuilder({
               {sections.map((section, index) => (
                 <article
                   key={section.id}
-                  onClick={() => setActiveSectionId(section.id)}
-                  className={`cursor-pointer rounded-xl border p-4 transition ${
+                  className={`rounded-xl border p-4 transition ${
                     activeSectionId === section.id
                       ? 'border-blue-400 bg-blue-50/50 ring-2 ring-blue-100'
                       : 'border-slate-200 hover:border-slate-300'
@@ -1459,9 +1471,13 @@ export function AssessmentBuilder({
                         <BookOpen className="size-4" />
                       </span>
                       <div>
-                        <p className="font-semibold text-slate-900">
+                        <button
+                          type="button"
+                          onClick={() => activateSection(section.id)}
+                          className="text-left font-semibold text-slate-900 hover:text-blue-700"
+                        >
                           {section.subject}
-                        </p>
+                        </button>
                         <p className="mt-0.5 text-xs text-slate-500">
                           Seção {index + 1} · {section.selected.size}{' '}
                           {section.selected.size === 1 ? 'questão' : 'questões'}
@@ -1511,10 +1527,7 @@ export function AssessmentBuilder({
                     </button>
                   </div>
                   {index > 0 && (
-                    <label
-                      onClick={(event) => event.stopPropagation()}
-                      className="mt-3 flex items-center gap-2 text-xs text-slate-600"
-                    >
+                    <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
                       <input
                         type="checkbox"
                         checked={section.startOnNewPage}
@@ -1562,7 +1575,9 @@ export function AssessmentBuilder({
               <select
                 aria-label="Formato das questões"
                 value={
-                  isJudgmentTemplate(template) ? 'true_false' : 'multiple_choice'
+                  isJudgmentTemplate(template)
+                    ? 'true_false'
+                    : 'multiple_choice'
                 }
                 onChange={(event) => {
                   const wantsJudgment = event.target.value === 'true_false';
@@ -2104,11 +2119,12 @@ export function AssessmentBuilder({
                 ))}
               </select>
             </label>
-            <label className="mt-4 block">
+            <label htmlFor="assessment-institution-name" className="mt-4 block">
               <span className="mb-2 block text-sm font-semibold">
                 Nome da instituição / município
               </span>
               <Input
+                id="assessment-institution-name"
                 value={institutionName}
                 onChange={(event) => {
                   setSchoolId('');
@@ -2121,10 +2137,10 @@ export function AssessmentBuilder({
               <div className="flex items-center gap-3">
                 <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-50 text-slate-400">
                   {logoDataUrl ? (
-                    <img
-                      src={logoDataUrl}
-                      alt="Prévia do logotipo da instituição"
-                      className="size-full object-contain"
+                    <div
+                      aria-hidden="true"
+                      className="size-full bg-contain bg-center bg-no-repeat"
+                      style={{ backgroundImage: `url("${logoDataUrl}")` }}
                     />
                   ) : (
                     <ImagePlus className="size-5" />
@@ -2164,19 +2180,21 @@ export function AssessmentBuilder({
                 </div>
               </div>
             </div>
-            <label className="mt-4 block">
+            <label htmlFor="assessment-title" className="mt-4 block">
               <span className="mb-2 block text-sm font-semibold">Título</span>
               <Input
+                id="assessment-title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
               />
             </label>
             <div className="mt-4 grid grid-cols-[1fr_96px] gap-3">
-              <label>
+              <label htmlFor="assessment-pdf-font">
                 <span className="mb-2 block text-sm font-semibold">
                   Fonte do PDF
                 </span>
                 <select
+                  id="assessment-pdf-font"
                   value={font}
                   onChange={(event) => setFont(event.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
@@ -2208,48 +2226,53 @@ export function AssessmentBuilder({
               </label>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <label>
+              <label htmlFor="assessment-teacher-name">
                 <span className="mb-2 block text-sm font-semibold">
                   Professor(a)
                 </span>
                 <Input
+                  id="assessment-teacher-name"
                   value={teacherName}
                   onChange={(event) => setTeacherName(event.target.value)}
                   placeholder="Nome"
                 />
               </label>
-              <label>
+              <label htmlFor="assessment-class-name">
                 <span className="mb-2 block text-sm font-semibold">Turma</span>
                 <Input
+                  id="assessment-class-name"
                   value={className}
                   onChange={(event) => setClassName(event.target.value)}
                   placeholder="Ex.: 7º A"
                 />
               </label>
-              <label>
+              <label htmlFor="assessment-term">
                 <span className="mb-2 block text-sm font-semibold">
                   Período
                 </span>
                 <Input
+                  id="assessment-term"
                   value={term}
                   onChange={(event) => setTerm(event.target.value)}
                   placeholder="Ex.: 2º bimestre"
                 />
               </label>
-              <label>
+              <label htmlFor="assessment-date">
                 <span className="mb-2 block text-sm font-semibold">Data</span>
                 <Input
+                  id="assessment-date"
                   value={assessmentDate}
                   onChange={(event) => setAssessmentDate(event.target.value)}
                   placeholder="Ex.: 15/09/2026"
                 />
               </label>
             </div>
-            <label className="mt-4 block">
+            <label htmlFor="assessment-grade" className="mt-4 block">
               <span className="mb-2 block text-sm font-semibold">
                 Etapa ou série
               </span>
               <Input
+                id="assessment-grade"
                 value={grade}
                 onChange={(event) => setGrade(event.target.value)}
                 placeholder="Ex.: 3ª série do Ensino Médio"
@@ -2327,8 +2350,9 @@ export function AssessmentBuilder({
                 {templates.find((item) => item.id === template)?.description}
               </p>
             </label>
-            <label className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+            <div className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 p-3">
               <input
+                id="show-bncc-skills"
                 type="checkbox"
                 checked={showBnccSkills}
                 onChange={(event) => {
@@ -2338,17 +2362,21 @@ export function AssessmentBuilder({
                 className="mt-0.5 size-4 accent-blue-600"
               />
               <span>
-                <span className="block text-sm font-semibold">
+                <label
+                  htmlFor="show-bncc-skills"
+                  className="block text-sm font-semibold"
+                >
                   Exibir habilidade BNCC nas questões
-                </span>
+                </label>
                 <span className="mt-1 block text-xs text-slate-500">
                   Mostra a habilidade antes do enunciado. A instituição e o ano
                   da fonte são sempre exibidos em negrito.
                 </span>
               </span>
-            </label>
-            <label className="mt-3 flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+            </div>
+            <div className="mt-3 flex items-start gap-3 rounded-xl border border-slate-200 p-3">
               <input
+                id="show-saeb-descriptors"
                 type="checkbox"
                 checked={showSaebDescriptors}
                 onChange={(event) => {
@@ -2358,22 +2386,29 @@ export function AssessmentBuilder({
                 className="mt-0.5 size-4 accent-cyan-700"
               />
               <span>
-                <span className="block text-sm font-semibold">
+                <label
+                  htmlFor="show-saeb-descriptors"
+                  className="block text-sm font-semibold"
+                >
                   Exibir descritor SAEB nas questões
-                </span>
+                </label>
                 <span className="mt-1 block text-xs text-slate-500">
                   Mostra o código do descritor antes do enunciado somente nas
                   questões que possuem vínculo SAEB.
                 </span>
               </span>
-            </label>
+            </div>
             {
               <div className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <label className="block">
+                <label
+                  htmlFor="assessment-transcription-phrase"
+                  className="block"
+                >
                   <span className="mb-2 block text-sm font-semibold">
                     Frase para transcrição
                   </span>
                   <Input
+                    id="assessment-transcription-phrase"
                     value={transcriptionPhrase}
                     onChange={(event) => {
                       setTranscriptionPhrase(event.target.value);
@@ -2434,10 +2469,10 @@ export function AssessmentBuilder({
                   <div className="grid grid-cols-[48px_1fr] items-center gap-3">
                     <div className="grid h-8 place-items-center overflow-hidden text-slate-400">
                       {logoDataUrl ? (
-                        <img
-                          src={logoDataUrl}
-                          alt="Logotipo no cabeçalho da avaliação"
-                          className="max-h-8 max-w-12 object-contain"
+                        <div
+                          aria-hidden="true"
+                          className="h-8 w-12 bg-contain bg-center bg-no-repeat"
+                          style={{ backgroundImage: `url("${logoDataUrl}")` }}
                         />
                       ) : (
                         <ImagePlus className="size-4" />
@@ -2501,12 +2536,9 @@ export function AssessmentBuilder({
                 : `Gerar ${versions} ${versions === 1 ? 'versão' : 'versões'}`}
             </Button>
             {message && (
-              <p
-                role="status"
-                className="mt-3 text-xs leading-5 text-slate-600"
-              >
+              <output className="mt-3 text-xs leading-5 text-slate-600">
                 {message}
-              </p>
+              </output>
             )}
           </section>
           {generated && (
