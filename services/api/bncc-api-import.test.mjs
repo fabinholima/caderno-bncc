@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateAreaPayload } from './bncc-api-import.mjs';
+import {
+  skillBelongsToDiscipline,
+  validateAreaPayload,
+} from './bncc-api-import.mjs';
+
+test('skills EM13LP are restricted to Língua Portuguesa, area skills stay shared', () => {
+  assert.equal(skillBelongsToDiscipline('EM13LP01', 'Língua Portuguesa'), true);
+  assert.equal(skillBelongsToDiscipline('EM13LP01', 'Arte'), false);
+  assert.equal(skillBelongsToDiscipline('EM13LGG101', 'Língua Portuguesa'), true);
+  assert.equal(skillBelongsToDiscipline('EM13LGG101', 'Arte'), true);
+});
 
 test('valida a quantidade e o prefixo das habilidades da área', () => {
   const area = {
