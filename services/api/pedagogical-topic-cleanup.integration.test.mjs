@@ -49,10 +49,10 @@ test('remove somente ramos incorretos arquivados e sem uso, preservando cópia r
       await client.query(source);
       await client.query('COMMIT');
       const remaining=(await client.query('SELECT id FROM pedagogical_topics ORDER BY id')).rows.map(t=>t.id);
-      assert.deepEqual(remaining,protectedIds.sort());
+      assert.deepEqual(remaining,protectedIds.toSorted((a,b)=>a.localeCompare(b)));
       const backup=(await client.query('SELECT * FROM pedagogical_topic_cleanup_backups')).rows;
       assert.equal(backup.length,3);
-      assert.deepEqual(backup.map(t=>t.topic_id).sort(),[root,child,detail].sort());
+      assert.deepEqual(backup.map(t=>t.topic_id).sort(),[root,child,detail].toSorted((a,b)=>a.localeCompare(b)));
       assert.equal(backup.find(t=>t.topic_id===child).topic.parent_id,root);
       assert.equal(backup.find(t=>t.topic_id===child).skill_links[0].skill_id,skill);
       assert.equal((await client.query('SELECT pedagogical_topic_id FROM question_revisions')).rows[0].pedagogical_topic_id,usedChild);

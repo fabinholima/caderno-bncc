@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { importReviewGroup } from '@/lib/import-review-queue.mjs';
 import { resolveImportClassification } from '@/lib/import-classification.mjs';
 import { CONTEXT_PASTE_MARKER, parsePastedExam } from '@/lib/pasted-exam.mjs';
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
+import { formString } from '@/lib/form-data';
 import {
   ArrowRight,
   ChevronDown,
@@ -1024,7 +1026,7 @@ export function ExamImportManager({
     );
   };
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const response = await apiFetch(`${apiUrl}/api/exam-imports`);
     const body = (await response.json()) as {
       data?: ExamImport[];
@@ -1033,9 +1035,9 @@ export function ExamImportManager({
     if (!response.ok)
       throw new Error(body.error || 'Falha ao listar importações.');
     setImports(body.data || []);
-  };
+  }, [apiUrl]);
 
-  const refreshDuplicates = async () => {
+  const refreshDuplicates = useCallback(async () => {
     const response = await apiFetch(`${apiUrl}/api/questions/duplicates`);
     const body = (await response.json()) as {
       data?: DuplicateQuestion[];
@@ -1044,12 +1046,12 @@ export function ExamImportManager({
     if (!response.ok)
       throw new Error(body.error || 'Falha ao listar duplicidades.');
     setDuplicates(body.data || []);
-  };
+  }, [apiUrl]);
 
   useEffect(() => {
-    refresh().catch((error) => setMessage(error.message));
-    refreshDuplicates().catch((error) => setMessage(error.message));
-  }, [apiUrl]);
+    void Promise.resolve().then(refresh).catch((error) => setMessage(error.message));
+    void Promise.resolve().then(refreshDuplicates).catch((error) => setMessage(error.message));
+  }, [refresh, refreshDuplicates]);
 
   useEffect(() => {
     if (
@@ -1065,7 +1067,7 @@ export function ExamImportManager({
       2000,
     );
     return () => window.clearInterval(timer);
-  }, [apiUrl, imports]);
+  }, [refresh, imports]);
 
   const clearDuplicate = async (duplicate: DuplicateQuestion) => {
     if (
@@ -1191,14 +1193,14 @@ export function ExamImportManager({
       .catch((error) => setMessage(error.message));
   }, [apiUrl]);
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
     const exam = data.get('examPdf');
     const answerKey = data.get('answerKeyPdf');
-    const examPdfUrl = String(data.get('examPdfUrl') || '').trim();
-    const answerKeyPdfUrl = String(data.get('answerKeyPdfUrl') || '').trim();
+    const examPdfUrl = formString(data, 'examPdfUrl').trim();
+    const answerKeyPdfUrl = formString(data, 'answerKeyPdfUrl').trim();
     const examFile = exam instanceof File && exam.size ? exam : null;
     const keyFile = answerKey instanceof File && answerKey.size ? answerKey : null;
     if (importMode === 'text') {
@@ -1229,19 +1231,19 @@ export function ExamImportManager({
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          sourceInstitution: String(data.get('sourceInstitution') || ''),
+          sourceInstitution: formString(data, 'sourceInstitution'),
           sourceYear: Number(data.get('sourceYear')),
-          examType: String(data.get('examType')),
+          examType: formString(data, 'examType'),
           subjectMode,
           primarySubject:
             subjectMode === 'single'
-              ? String(data.get('primarySubject') || '')
+              ? formString(data, 'primarySubject')
               : '',
-          sourceUrl: String(data.get('sourceUrl') || ''),
+          sourceUrl: formString(data, 'sourceUrl'),
           examPdfUrl: importMode === 'pdf' ? examPdfUrl : '',
           answerKeyPdfUrl: importMode === 'pdf' ? answerKeyPdfUrl : '',
           pastedText: importMode === 'text' ? pastedText : '',
-          rightsStatus: String(data.get('rightsStatus')),
+          rightsStatus: formString(data, 'rightsStatus'),
           documents: importMode === 'pdf' ? documents : [],
         }),
       });
@@ -1986,7 +1988,7 @@ export function ExamImportManager({
                       ),
                     ),
                   ].map((name) => (
-                    <option key={name} value={name} />
+                    <option key={name} value={name}>{name}</option>
                   ))}
                 </datalist>
               </label>
@@ -2032,8 +2034,8 @@ export function ExamImportManager({
             />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <label className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF da prova<Input name="examPdfUrl" type="url" placeholder="https://instituicao.br/prova.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
-            <label className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
+            <label htmlFor="exam-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF da prova<Input id="exam-pdf-url" name="examPdfUrl" type="url" placeholder="https://instituicao.br/prova.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
+            <label htmlFor="answer-key-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input id="answer-key-pdf-url" name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
           </div>
           </div>
           {importMode === 'text' && (
@@ -2871,7 +2873,7 @@ export function ExamImportManager({
                                     onPointerMove={updateCropSelection}
                                     onPointerUp={finishCropSelection}
                                   >
-                                    <img
+                                    <Image unoptimized width={1200} height={1600}
                                       draggable={false}
                                       alt={`Página original da questão ${candidate.sourceNumber}`}
                                       src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
@@ -2952,7 +2954,7 @@ export function ExamImportManager({
                               )}
                             {candidate.imageDataUrl && (
                               <figure className="mt-3 rounded-lg border border-emerald-200 bg-white p-3">
-                                <img
+                                <Image unoptimized width={1200} height={1600}
                                   src={candidate.imageDataUrl}
                                   alt={
                                     candidate.imageAlt || 'Recorte da questão'

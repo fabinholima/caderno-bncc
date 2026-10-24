@@ -57,7 +57,7 @@ await transaction(async (client) => {
       } catch (error) {
         await client.query('ROLLBACK TO SAVEPOINT seed_row');
         skipped += 1;
-        console.warn(`Ignorado ${table}: ${error instanceof Error ? error.message : error}`);
+        console.warn(`Ignorado ${table}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }

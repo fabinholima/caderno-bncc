@@ -195,7 +195,11 @@ export function questionNeedsVisualCapture(rawText) {
 export function pdfTextNeedsOcr(text) {
   const value = String(text ?? '');
   if (value.length < 120) return true;
-  const controls = (value.match(/[\u0000-\u001f\u007f-\u009f]/g) || []).length;
+  let controls = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) controls += 1;
+  }
   const replacement = (value.match(/[�]/g) || []).length;
   const letters = (value.match(/[A-Za-zÀ-ÿ]/g) || []).length;
   return controls > 4 || replacement > 2 || letters / value.length < 0.35;
@@ -1222,7 +1226,7 @@ export async function getExamImportPagePreview({
     );
     const contents = await readFile(imagePath);
     return { contents, size: contents.length };
-  } catch (error) {
+  } catch {
     return { status: 422, error: 'A página não pôde ser renderizada.' };
   } finally {
     await rm(workingDirectory, { recursive: true, force: true });

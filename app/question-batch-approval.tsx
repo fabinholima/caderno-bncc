@@ -238,10 +238,12 @@ export function QuestionBatchApproval({
     </Context.Provider>
   );
 }
-export function QuestionApprovalCheckbox({
+export function QuestionApprovalSelection({
   question,
+  'aria-label': ariaLabel,
 }: {
   question?: Question;
+  'aria-label'?: string;
 }) {
   const selection = useContext(Context);
   if (!selection) return null;
@@ -253,7 +255,6 @@ export function QuestionApprovalCheckbox({
     : selection.selected.length > 0 &&
       selection.selected.length === Math.min(selection.eligible.length, 100);
   return (
-    <label className="inline-flex min-h-11 min-w-11 items-center justify-center">
       <input
         type="checkbox"
         ref={(node) => {
@@ -268,11 +269,11 @@ export function QuestionApprovalCheckbox({
           !eligible ||
           Boolean(question && !checked && selection.selected.length >= 100)
         }
-        aria-label={
+        aria-label={ariaLabel || (
           question
             ? `Selecionar ${question.code} para alterar situação`
             : 'Selecionar até 100 questões visíveis para revisão ou aprovação'
-        }
+        )}
         title={
           !eligible
             ? 'Questões aprovadas, arquivadas ou sem revisão carregada não são selecionáveis'
@@ -282,6 +283,13 @@ export function QuestionApprovalCheckbox({
           question ? selection.toggle(question) : selection.toggleAll()
         }
       />
-    </label>
+  );
+}
+
+export function QuestionApprovalTableCell({ question }: { question: Question }) {
+  return (
+    <td className="px-3 py-4">
+      <QuestionApprovalSelection question={question} />
+    </td>
   );
 }

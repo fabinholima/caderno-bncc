@@ -1,6 +1,8 @@
 'use client';
+import { formString } from '@/lib/form-data';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import {
   BarChart3,
   CalendarCheck,
@@ -24,7 +26,6 @@ type SchoolClass = {
   schoolYear: number;
   students: number;
 };
-type ClassInvite = { code: string; classId: string; className: string; active: boolean };
 type Student = {
   id: string;
   registration: string;
@@ -113,7 +114,7 @@ type ApiBody<T> = { data?: T; error?: string };
 function readImageAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
     reader.onerror = () => reject(new Error('Não foi possível ler a selfie.'));
     reader.readAsDataURL(file);
   });
@@ -321,7 +322,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     useState<StudentProgress | null>(null);
   const [message, setMessage] = useState('');
   const [inviteClass,setInviteClass]=useState<SchoolClass|null>(null);
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!apiUrl) return;
     const [c, s, a, ap, sc] = await Promise.all([
       apiFetch(`${apiUrl}/api/classes`).then(
@@ -345,12 +346,12 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     setAssessments(a.data || []);
     setApplications(ap.data || []);
     setScans(sc.data || []);
-  };
+  }, [apiUrl]);
   useEffect(() => {
-    refresh().catch(() =>
+    void Promise.resolve().then(refresh).catch(() =>
       setMessage('Não foi possível carregar os dados acadêmicos.'),
     );
-  }, [apiUrl]);
+  }, [refresh]);
   const post = async (
     path: string,
     form: HTMLFormElement,
@@ -368,7 +369,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     await refresh();
     return body.data;
   };
-  const loadReport = async (applicationId: string) => {
+  const loadReport = useCallback(async (applicationId: string) => {
     const response = await apiFetch(
       `${apiUrl}/api/assessment-applications/${applicationId}/report`,
     );
@@ -377,16 +378,16 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       throw new Error(body.error || 'Não foi possível gerar o relatório.');
     setReport(body.data);
     setReportPdf('');
-  };
+  }, [apiUrl]);
   useEffect(() => {
     if (initialApplicationId) {
       Promise.resolve().then(() => loadReport(initialApplicationId)).catch((error) => setMessage(error.message));
     }
-  }, [initialApplicationId]);
+  }, [initialApplicationId, loadReport]);
   useEffect(() => {
     const target = initialSection === 'correction' ? 'academic-correction' : initialSection === 'reports' ? (report ? 'academic-report' : 'academic-applications') : '';
     if (target) document.getElementById(target)?.scrollIntoView({ block: 'start' });
-  }, [initialSection, Boolean(report)]);
+  }, [initialSection, report]);
   const generateReportPdf = async () => {
     if (!report) return;
     setReportPdfLoading(true);
@@ -705,7 +706,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               e.preventDefault();
               const d = new FormData(e.currentTarget);
               post(
-                `/api/classes/${d.get('classId')}/enrollments`,
+                `/api/classes/${formString(d, 'classId')}/enrollments`,
                 e.currentTarget,
                 (x) => ({
                   studentId: x.get('studentId'),
@@ -757,7 +758,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           onSubmit={(event) => {
             event.preventDefault();
             const data = new FormData(event.currentTarget);
-            loadStudentProgress(String(data.get('progressStudentId'))).catch(
+            loadStudentProgress(formString(data, 'progressStudentId')).catch(
               (error) => setMessage(error.message),
             );
           }}
@@ -906,7 +907,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             post('/api/assessment-applications', e.currentTarget, (d) => ({
               assessmentId: d.get('assessmentId'),
               classId: d.get('classId'),
-              scheduledAt: new Date(String(d.get('scheduledAt'))).toISOString(),
+              scheduledAt: new Date(formString(d, 'scheduledAt')).toISOString(),
             }))
               .then((data) =>
                 setLastAssignments(
@@ -1577,7 +1578,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               const asDataUrl = (file: File) =>
                 new Promise<string>((resolve, reject) => {
                   const reader = new FileReader();
-                  reader.onload = () => resolve(String(reader.result));
+                  reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
                   reader.onerror = () => reject(reader.error);
                   reader.readAsDataURL(file);
                 });
@@ -1712,7 +1713,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
             <div className="overflow-hidden rounded-xl border bg-slate-100">
               {scanReview.imageAvailable ? (
-                <img
+                <Image unoptimized width={1200} height={1600}
                   src={`${apiUrl}/api/card-scans/${scanReview.id}/image`}
                   alt="Página original do cartão-resposta"
                   className="mx-auto max-h-[760px] w-full object-contain"

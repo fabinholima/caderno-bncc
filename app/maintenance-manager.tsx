@@ -33,6 +33,6 @@ export function MaintenanceManager({apiUrl}:{apiUrl:string}) {
     <label className="flex items-center gap-3 font-medium"><input type="checkbox" checked={enabled} disabled={!ready||busy} onChange={e=>setEnabled(e.target.checked)}/>Ativar modo de manutenção</label>
     <label className="block text-sm font-medium">Mensagem para os visitantes<textarea className="mt-2 block w-full rounded-xl border border-slate-300 p-3" maxLength={500} rows={3} value={message} disabled={!ready||busy} onChange={e=>setMessage(e.target.value)}/></label>
     <Button disabled={!ready||busy||!message.trim()} onClick={save}>{busy?'Salvando…':'Salvar manutenção'}</Button>
-    {notice&&<p role="status" className="text-sm text-slate-700">{notice}</p>}
+    {notice&&<p aria-live="polite" className="text-sm text-slate-700">{notice}</p>}
   </section>;
 }

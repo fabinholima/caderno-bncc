@@ -17,32 +17,31 @@ export type AuthIdentity = {
 };
 
 export function AuthScreen({ apiUrl }: { apiUrl: string }) {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'verify' | 'resend'>(
-    'login',
-  );
-  const [resetToken, setResetToken] = useState('');
-  const [message, setMessage] = useState('');
+  const [resetToken, setResetToken] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.hash.slice(1)).get('reset_token') || new URLSearchParams(window.location.hash.slice(1)).get('verify_token') || '');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'verify' | 'resend'>(() => {
+    if (typeof window === 'undefined') return 'login';
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    return params.has('verify_token') ? 'verify' : params.has('reset_token') ? 'reset' : 'login';
+  });
+  const [message, setMessage] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    return params.has('verify_token') ? 'Clique em Confirmar e-mail para concluir seu cadastro.' : params.has('reset_token') ? 'Defina uma nova senha com pelo menos 10 caracteres.' : '';
+  });
   const [saving, setSaving] = useState(false);
-  const [accountType, setAccountType] = useState<'educator' | 'student'>('educator');
+  const [accountType, setAccountType] = useState<'educator' | 'student'>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('invite') ? 'student' : 'educator');
   const [cpf, setCpf] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [config, setConfig] = useState({ google: false, passwordRecovery: false });
   useEffect(() => {
     let active = true;
-    if(new URLSearchParams(window.location.search).has('invite')) setAccountType('student');
     const params = new URLSearchParams(window.location.hash.slice(1));
     const recoveryToken = params.get('reset_token');
     const verificationToken = params.get('verify_token');
     if (verificationToken) {
-      setResetToken(verificationToken);
-      setMode('verify');
-      setMessage('Clique em Confirmar e-mail para concluir seu cadastro.');
       window.history.replaceState(null, '', window.location.pathname);
     }
     if (recoveryToken) {
-      setResetToken(recoveryToken);
-      setMode('reset');
-      setMessage('Defina uma nova senha com pelo menos 10 caracteres.');
       window.history.replaceState(null, '', window.location.pathname);
     }
     apiFetch(`${apiUrl}/api/auth/config`).then(async (response) => {
@@ -260,7 +259,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
           </Button>
         </form>
         {message && (
-          <output role="status" className="mt-4 block rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-sm leading-5 text-blue-900">
+          <output  className="mt-4 block rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-sm leading-5 text-blue-900">
             {message}
           </output>
         )}

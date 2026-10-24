@@ -187,7 +187,7 @@ test(
         api.inspectInvite(student, { code: renewed.code }),
         (e) => e.statusCode === 404,
       );
-      const concurrent = await Promise.all([
+      await Promise.all([
         api.createInvite(staff, classId),
         api.createInvite(staff, classId),
       ]);

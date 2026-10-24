@@ -48,8 +48,8 @@ export const createAssessmentSchema = z
           title: z.string().trim().min(2).max(180).optional(),
           columns: z.union([z.literal(1), z.literal(2)]).default(1),
           startOnNewPage: z.boolean().default(false),
-          questionIds: z.array(z.string().uuid()).min(1).max(100),
-          fullWidthQuestionIds: z.array(z.string().uuid()).max(100).default([]),
+          questionIds: z.array(z.uuid()).min(1).max(100),
+          fullWidthQuestionIds: z.array(z.uuid()).max(100).default([]),
         }),
       )
       .min(1)
@@ -75,7 +75,7 @@ export const createAssessmentSchema = z
     );
     if (questionIds.length > 100) {
       context.addIssue({
-        code: z.ZodIssueCode.too_big,
+        code: 'too_big',
         maximum: 100,
         inclusive: true,
         type: 'array',
@@ -85,7 +85,7 @@ export const createAssessmentSchema = z
     }
     if (new Set(questionIds).size !== questionIds.length) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['sections'],
         message: 'Uma questão não pode aparecer em mais de uma seção.',
       });
@@ -98,7 +98,7 @@ export const createAssessmentSchema = z
         section.fullWidthQuestionIds.some((id) => !selected.has(id))
       ) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['sections', sectionIndex, 'fullWidthQuestionIds'],
           message:
             'Questões em largura total devem pertencer à própria seção e não podem se repetir.',

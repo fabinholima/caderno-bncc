@@ -225,7 +225,7 @@ export function QuestionBankDrawer({
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {loading && (
-            <p role="status" className="text-sm text-slate-500">
+            <p aria-live="polite" className="text-sm text-slate-500">
               Carregando questão…
             </p>
           )}

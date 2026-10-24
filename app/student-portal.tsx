@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api-client";
@@ -14,13 +14,13 @@ type Activity = {
 };
 type Invite = { schoolName: string; className: string; teacherName: string };
 export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }) {
-  const [code, setCode] = useState(""),
+  const [code, setCode] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('invite') || ''),
     [invite, setInvite] = useState<Invite | null>(null),
     [requests, setRequests] = useState<Request[]>([]),
     [activities, setActivities] = useState<Activity[]>([]),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
-  async function call(path: string, input?: object) {
+  const call = useCallback(async <T,>(path: string, input?: object): Promise<T> => {
     const response = await apiFetch(
       `${apiUrl}${path}`,
       input
@@ -31,26 +31,27 @@ export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }
           }
         : {},
     );
-    const body = (await response.json()) as { error?: string; data: any };
+    const body = (await response.json()) as { error?: string; data: T };
     if (!response.ok) throw Error(body.error || "Não foi possível continuar.");
     return body.data;
-  }
-  async function refresh() {
+  }, [apiUrl]);
+  const refresh = useCallback(async () => {
     try {
       const [list, own] = await Promise.all([
-        call("/api/class-join-requests/me"),
-        call("/api/student/activities"),
+        call<Request[]>("/api/class-join-requests/me"),
+        call<Activity[]>("/api/student/activities"),
       ]);
       setRequests(list);
       setActivities(own);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Falha ao atualizar.");
     }
-  }
+  }, [call]);
   useEffect(() => {
-    setCode(new URLSearchParams(window.location.search).get("invite") || "");
-    void refresh();
-  }, [apiUrl]);
+    let active = true;
+    void Promise.resolve().then(() => { if (active) void refresh(); });
+    return () => { active = false; };
+  }, [refresh]);
   async function submit(confirm: boolean) {
     setBusy(true);
     setMessage("");
@@ -60,7 +61,7 @@ export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }
         setInvite(null);
         setMessage("Solicitação enviada. Aguarde a aprovação do professor.");
         await refresh();
-      } else setInvite(await call("/api/class-invites/inspect", { code }));
+      } else setInvite(await call<Invite>("/api/class-invites/inspect", { code }));
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Falha ao consultar convite.");
     } finally {
@@ -132,7 +133,7 @@ export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }
           </div>
         )}
         {message && (
-          <p role="status" className="mt-4 text-sm">
+          <p aria-live="polite" className="mt-4 text-sm">
             {message}
           </p>
         )}

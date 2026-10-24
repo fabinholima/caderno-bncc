@@ -1,5 +1,5 @@
 'use client';
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 export function PortalEditorManager({apiUrl}:{apiUrl:string}) {
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
-  async function submit(event:FormEvent<HTMLFormElement>) {
+  async function submit(event:SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const data=new FormData(event.currentTarget);
     setBusy(true); setMessage('');
@@ -27,6 +27,6 @@ export function PortalEditorManager({apiUrl}:{apiUrl:string}) {
       <select name="profile" aria-label="Perfil de acesso" className="rounded-lg border p-2"><option value="teacher">Professor</option><option value="editor">Editor</option></select>
       <Button type="submit" disabled={busy}>{busy?'Salvando…':'Salvar permissão'}</Button>
     </form>
-    {message && <p role="status" className="mt-3 text-sm">{message}</p>}
+    {message && <p aria-live="polite" className="mt-3 text-sm">{message}</p>}
   </section>;
 }

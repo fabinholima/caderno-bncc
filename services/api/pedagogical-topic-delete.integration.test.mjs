@@ -43,7 +43,7 @@ test('exclui hierarquia sem uso e protege vínculos, confirmação e instituiç�
     const sibling=await add(root);
     const result=await remove(child,[child,detail]);
     assert.equal(result.deletedCount,2);
-    assert.deepEqual((await client.query('SELECT id FROM pedagogical_topics ORDER BY id')).rows.map(t=>t.id),[root,sibling].sort());
+    assert.deepEqual((await client.query('SELECT id FROM pedagogical_topics ORDER BY id')).rows.map(t=>t.id),[root,sibling].toSorted((a,b)=>a.localeCompare(b)));
     assert.equal((await client.query('SELECT count(*)::int AS n FROM pedagogical_topic_skills')).rows[0].n,0);
     await assert.rejects(remove(child,[child,detail]),{statusCode:404});
     await remove(root,[root,sibling]);

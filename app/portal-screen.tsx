@@ -1,10 +1,10 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { SubmitEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { restoreQuestionClassification } from '@/lib/question-editor-classification.mjs';
 import { QuestionBankDrawer } from './question-bank-drawer';
 import { questionBankSummary } from '@/lib/question-bank-summary.mjs';
-import { QuestionBatchApproval, QuestionApprovalCheckbox } from './question-batch-approval';
+import { QuestionBatchApproval, QuestionApprovalSelection, QuestionApprovalTableCell } from './question-batch-approval';
 import { WorkspaceHome } from './workspace-home';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { QuestionPasteExample } from './question-paste-example';
@@ -14,7 +14,6 @@ import {
   BarChart3,
   BookOpenCheck,
   CircleHelp,
-  FileOutput,
   FileInput,
   Eye,
   GraduationCap,
@@ -28,7 +27,6 @@ import {
   Settings,
   Sparkles,
   Trash2,
-  Users,
   X,
   ScanLine,
   Menu,
@@ -39,7 +37,7 @@ import { Input } from '@/components/ui/input';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from '@/components/ui/dropdown-menu';
 import { AssessmentBuilder } from './assessment-builder';
 import { CurriculumManager, type CurriculumOption } from './curriculum-manager';
-import { RichContentEditor } from './rich-content-editor';
+import { RichContentEditor, type RichContentBlock } from './rich-content-editor';
 import { AcademicManager } from './academic-manager';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
@@ -83,6 +81,25 @@ type Question = {
   revision?:number;
   alternatives: number;
   updatedAt: string;
+};
+type QuestionDraftInput = {
+  recommendSingleColumn?: boolean; type?: Question['type']; subject?: string; grade?: string;
+  sourceInstitution?: string; sourceYear?: number | string; knowledgeObjectId?: string;
+  competencyId?: string; saebDescriptorId?: string; pedagogicalDisciplineId?: string;
+  pedagogicalTopicId?: string; knowledgeTopic?: string; skill?: string; difficulty?: string;
+  metapostCode?: string; answerBlocks?: RichContentBlock[]; statementBlocks?: RichContentBlock[];
+  alternatives?: Array<{ isCorrect: boolean; stableKey: string; contentBlocks: RichContentBlock[] }>;
+};
+type QuestionDraftEditor = {
+  educationStage?: 'Ensino Fundamental' | 'Ensino Médio'; knowledgeAreaFilter?: string;
+  editingQuestionId?: string; importCandidateSource?: { importId: string; candidateId: string } | null;
+  pedagogicalGrade?: string; fundamentalGrade?: string; pedagogicalObjectId?: string;
+  pedagogicalSubtopicId?: string; pedagogicalDetailId?: string; selectedSaebMatrix?: string;
+};
+type EditableQuestionData = Question & {
+  statement: RichContentBlock[]; explanation?: RichContentBlock[];
+  alternatives: Array<{ isCorrect: boolean; stableKey: string; content: string; contentBlocks: RichContentBlock[] }>;
+  saebDescriptors?: Array<{ matrixId: string; id: string }>;
 };
 
 type QuestionFilterOptions = {
@@ -302,6 +319,7 @@ export default function Home() {
   });
   const [open, setOpen] = useState(false);
   const draftActions = useRef<DraftActions|null>(null);
+  const registerDraftActions = useCallback((actions: DraftActions | null) => { draftActions.current = actions; }, []);
   const [importedQuestion, setImportedQuestion] =
     useState<ParsedQuestion | null>(null);
   const [importRevision, setImportRevision] = useState(0);
@@ -313,7 +331,7 @@ export default function Home() {
   } | null>(null);
   const [editingQuestionId, setEditingQuestionId] = useState('');
   const [importedCorrect, setImportedCorrect] = useState<string[]>([]);
-  const [importedAnswerBlocks, setImportedAnswerBlocks] = useState<any[]>([]);
+  const [importedAnswerBlocks, setImportedAnswerBlocks] = useState<RichContentBlock[]>([]);
   const [importedDetails, setImportedDetails] = useState({
     grade: '',
     skill: '',
@@ -483,9 +501,9 @@ export default function Home() {
       // Usa o mesmo host aberto pelo usuário. Assim o cookie funciona tanto em
       // localhost quanto no celular pela rede local.
       if (!configuredApiUrl) target.hostname = window.location.hostname;
-      setApiUrl(target.origin);
+      queueMicrotask(() => setApiUrl(target.origin));
     } catch {
-      setApiUrl(fallback);
+      queueMicrotask(() => setApiUrl(fallback));
     }
   }, []);
 
@@ -493,8 +511,7 @@ export default function Home() {
     if (!apiUrl) return;
     const authParams = new URLSearchParams(window.location.hash.slice(1));
     if (authParams.has('reset_token') || authParams.has('verify_token')) {
-      setIdentity(null);
-      setAuthReady(true);
+      queueMicrotask(() => { setIdentity(null); setAuthReady(true); });
       return;
     }
     apiFetch(`${apiUrl}/api/auth/me`)
@@ -525,7 +542,7 @@ export default function Home() {
       questions.length &&
       !questions.some((question) => question.stage === educationStage)
     )
-      setEducationStage(questions[0].stage);
+      queueMicrotask(() => setEducationStage(questions[0].stage));
   }, [questions, educationStage]);
 
   useEffect(() => {
@@ -541,14 +558,12 @@ export default function Home() {
       (item) => item.id === selectedSaebMatrix,
     );
     if (!matrix) {
-      setSelectedSaebMatrix(compatibleSaebMatrices[0]?.id || '');
-      setSelectedSaebDescriptor('');
+      queueMicrotask(() => { setSelectedSaebMatrix(compatibleSaebMatrices[0]?.id || ''); setSelectedSaebDescriptor(''); });
     }
-  }, [educationStage, discipline, saebMatrices, selectedSaebMatrix]);
+  }, [educationStage, discipline, saebMatrices, compatibleSaebMatrices, selectedSaebMatrix]);
 
   useEffect(() => {
     if (!apiUrl || !selectedSaebMatrix) {
-      setSaebDescriptors([]);
       return;
     }
     apiFetch(
@@ -565,7 +580,7 @@ export default function Home() {
     // Recarrega ao trocar de tela para refletir os itens editados no Planejamento/configurações.
     if (!apiUrl || !identity || identity.role === 'student') return;
     let catalogActive = true;
-    setCatalogError('');
+    queueMicrotask(() => setCatalogError(''));
     const requireCatalogResponse = async (response: Response) => {
       if (!response.ok) throw new Error('Não foi possível carregar o catálogo curricular. Atualize a página e confira sua sessão.');
       return response.json();
@@ -629,7 +644,7 @@ export default function Home() {
     return {input:questionInputFromForm(new FormData(form)),editor:{educationStage,knowledgeAreaFilter,editingQuestionId,importCandidateSource,pedagogicalGrade,fundamentalGrade,pedagogicalObjectId,pedagogicalSubtopicId,pedagogicalDetailId,selectedSaebMatrix}};
   }
   function restoreQuestionDraft(payload: DraftPayload) {
-    const v=payload.input,e=payload.editor;
+    const v=payload.input as QuestionDraftInput,e=payload.editor as QuestionDraftEditor;
     setEducationStage(e.educationStage || 'Ensino Médio');setKnowledgeAreaFilter(e.knowledgeAreaFilter || 'Ciências da Natureza e suas Tecnologias');
     setEditingQuestionId(e.editingQuestionId || '');setImportCandidateSource(e.importCandidateSource || null);
     setRecommendSingleColumn(Boolean(v.recommendSingleColumn));
@@ -640,11 +655,11 @@ export default function Home() {
     setSelectedSaebMatrix(e.selectedSaebMatrix || '');setSelectedSaebDescriptor(v.saebDescriptorId || '');
     setImportedDetails({grade:v.grade || '',skill:v.skill || '',knowledgeTopic:v.knowledgeTopic || '',difficulty:v.difficulty || 'Média'});
     setImportedAnswerBlocks(v.answerBlocks || []);setDraftMetapostCode(v.metapostCode || '');
-    setImportedCorrect((v.alternatives || []).filter((a:any)=>a.isCorrect).map((a:any)=>a.stableKey.slice(-1).toUpperCase()));
-    setImportedQuestion({sourceInstitution:v.sourceInstitution || '',sourceYear:String(v.sourceYear || ''),statementBlocks:(v.statementBlocks || []).filter((b:any)=>b.type!=='adoteNote'),adoteNote:(v.statementBlocks || []).find((b:any)=>b.type==='adoteNote')?.text || '',alternatives:Object.fromEntries((v.alternatives || []).map((a:any)=>[a.stableKey.slice(-1).toUpperCase(),a.contentBlocks || []])),warnings:[]});
+    setImportedCorrect((v.alternatives || []).filter((a)=>a.isCorrect).map((a)=>a.stableKey.slice(-1).toUpperCase()));
+    setImportedQuestion({sourceInstitution:v.sourceInstitution || '',sourceYear:String(v.sourceYear || ''),statementBlocks:(v.statementBlocks || []).filter((b)=>b.type!=='adoteNote'),adoteNote:(v.statementBlocks || []).find((b)=>b.type==='adoteNote' && 'text' in b)?.text || '',alternatives:Object.fromEntries((v.alternatives || []).map((a)=>[a.stableKey.slice(-1).toUpperCase(),a.contentBlocks || []])),warnings:[]});
     setImportRevision(n=>n+1);setQuestionPreviewVerified(false);setQuestionPreviewUrl('');
   }
-  async function createQuestion(event: FormEvent<HTMLFormElement>) {
+  async function createQuestion(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (importCandidateSource && !questionPreviewVerified) {
       setNotice(
@@ -752,10 +767,11 @@ export default function Home() {
     const correct = new Set(data.getAll('correct').map(String));
     const parseBlocks = (name: string) => {
       const blocks = (
-        JSON.parse(String(data.get(name) || '[]')) as Array<{
+      JSON.parse(formString(name) || '[]') as Array<{
           type: string;
           text?: string;
           items?: string[];
+          code?: string;
         }>
       ).map((block) =>
         block.type === 'romanList'
@@ -775,7 +791,7 @@ export default function Home() {
           (block) => block.type !== 'romanList' || Boolean(block.items?.length),
         )
         .filter(
-          (block) => block.type !== 'contextRaw' || Boolean((block as any).code?.trim()),
+          (block) => block.type !== 'contextRaw' || Boolean('code' in block && typeof block.code === 'string' && block.code.trim()),
         );
     };
     const statementBlocks = [
@@ -898,7 +914,7 @@ export default function Home() {
     setNotice('Carregando questão...');
     try {
       const response = await apiFetch(`${apiUrl}/api/questions/${questionId}`);
-      const body = (await response.json()) as { data?: any; error?: string };
+      const body = (await response.json()) as { data?: EditableQuestionData; error?: string };
       if (!response.ok || !body.data)
         throw new Error(body.error || 'Questão não encontrada.');
       const question = body.data;
@@ -929,8 +945,8 @@ export default function Home() {
       setPedagogicalDetailId(restored.detailId);
       setImportedCorrect(
         question.alternatives
-          .filter((item: any) => item.isCorrect)
-          .map((item: any) => item.stableKey.slice(-1).toUpperCase()),
+          .filter((item) => item.isCorrect)
+          .map((item) => item.stableKey.slice(-1).toUpperCase()),
       );
       setImportedAnswerBlocks(question.explanation || []);
       setImportedDetails({
@@ -949,15 +965,15 @@ export default function Home() {
         sourceInstitution: question.sourceInstitution,
         sourceYear: String(question.sourceYear),
         statementBlocks: question.statement.filter(
-          (node: any) => node.type !== 'adoteNote',
+          (node) => node.type !== 'adoteNote',
         ),
         adoteNote:
-          question.statement.find((node: any) => node.type === 'adoteNote')
+          question.statement.find((node) => node.type === 'adoteNote')
             ?.text || '',
         alternatives: Object.fromEntries(
-          question.alternatives.map((item: any) => [
+          question.alternatives.map((item) => [
             item.stableKey.slice(-1).toUpperCase(),
-            item.content,
+          item.contentBlocks,
           ]),
         ),
         warnings: [],
@@ -1302,7 +1318,7 @@ export default function Home() {
             </div>
             {notice && (
               <div
-                role="status"
+                aria-live="polite"
                 className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900"
               >
                 {notice}
@@ -1669,7 +1685,7 @@ export default function Home() {
                 <table className="w-full min-w-[920px] border-collapse text-left">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-[.08em] text-slate-500">
-                      {identity.portalAdmin && <th className="w-12 px-3 py-3"><QuestionApprovalCheckbox /></th>}
+                      {identity.portalAdmin && <th className="w-12 px-3 py-3"><QuestionApprovalSelection /></th>}
                       <th className="w-[47%] px-5 py-3">Questão</th>
                       <th className="px-4 py-3">Classificação</th>
                       <th className="px-4 py-3">Dificuldade</th>
@@ -1686,8 +1702,8 @@ export default function Home() {
                         key={q.id}
                         className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30"
                       >
-                        {identity.portalAdmin && <td className="px-3 py-4"><QuestionApprovalCheckbox question={q} /></td>}
-                        <td className="px-5 py-4">
+                        {identity.portalAdmin && <QuestionApprovalTableCell question={q} />}
+                        <td aria-label={`Questão ${q.code}`} className="px-5 py-4">
                           <div className="flex gap-3">
                             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-[10px] font-bold text-slate-500">
                               {q.type === 'essay'
@@ -1790,8 +1806,8 @@ export default function Home() {
             if (e.currentTarget === e.target) setOpen(false);
           }}
         >
-          <section
-            role="dialog"
+          <dialog
+            open
             aria-modal="true"
             aria-labelledby="dialog-title"
             className="h-full w-full max-w-[1540px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
@@ -2074,11 +2090,12 @@ export default function Home() {
                         </p>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block">
+                        <label htmlFor="saeb-matrix" className="block">
                           <span className="mb-2 block text-xs font-semibold text-slate-600">
                             Matriz
                           </span>
                           <select
+                            id="saeb-matrix"
                             value={selectedSaebMatrix}
                             onChange={(event) => {
                               setSelectedSaebMatrix(event.target.value);
@@ -2094,11 +2111,12 @@ export default function Home() {
                             ))}
                           </select>
                         </label>
-                        <label className="block">
+                        <label htmlFor="saeb-descriptor" className="block">
                           <span className="mb-2 block text-xs font-semibold text-slate-600">
                             Indicador/descritor
                           </span>
                           <select
+                            id="saeb-descriptor"
                             name="saebDescriptorId"
                             value={selectedSaebDescriptor}
                             onChange={(event) => {
@@ -2180,10 +2198,10 @@ export default function Home() {
                   </label>
                   {catalogError && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{catalogError}</p>}
                   {educationStage === 'Ensino Médio' && !pedagogicalDiscipline && !catalogError && (
-                    <p role="status" className="text-sm text-amber-800 sm:col-span-2">O catálogo de {discipline} ainda não está disponível. Solicite o cadastro da disciplina e dos tópicos em Planejamento.</p>
+                    <p aria-live="polite" className="text-sm text-amber-800 sm:col-span-2">O catálogo de {discipline} ainda não está disponível. Solicite o cadastro da disciplina e dos tópicos em Planejamento.</p>
                   )}
                   {pedagogicalDiscipline && pedagogicalTopicOptions.length === 0 && (
-                    <p role="status" className="text-sm text-amber-800 sm:col-span-2">Não há tópicos cadastrados para {discipline} na {pedagogicalGrade}. Você pode informar um tema abaixo ou cadastrar tópicos em Planejamento.</p>
+                    <p aria-live="polite" className="text-sm text-amber-800 sm:col-span-2">Não há tópicos cadastrados para {discipline} na {pedagogicalGrade}. Você pode informar um tema abaixo ou cadastrar tópicos em Planejamento.</p>
                   )}
                   {pedagogicalDiscipline ? (
                     <div className="space-y-4 sm:col-span-2">
@@ -2332,11 +2350,12 @@ export default function Home() {
                           </span>
                         </div>
                       ) : (
-                        <label className="block">
+                        <label htmlFor="knowledge-topic" className="block">
                           <span className="mb-2 block text-sm font-semibold">
                             Tema ou objeto pedagógico
                           </span>
                           <Input
+                            id="knowledge-topic"
                             required
                             name="knowledgeTopic"
                             key={`topic-${importRevision}`}
@@ -2391,7 +2410,7 @@ export default function Home() {
                       {fundamentalCompetencies.map(item=><p key={item.id} className="mt-3 text-sm"><strong>{item.tipo === 'especifica_de_componente' ? 'Componente' : 'Área'} · Competência {item.numero}:</strong> {item.texto}</p>)}
                     </details>
                   )}
-                  <label className="block sm:col-span-2">
+                  <label htmlFor="institution-owner" className="block sm:col-span-2">
                     <span className="mb-2 block text-sm font-semibold">
                       Habilidade BNCC
                     </span>
@@ -2487,11 +2506,12 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block sm:col-span-2">
+                  <label htmlFor="institution-owner" className="block sm:col-span-2">
                     <span className="mb-2 block text-sm font-semibold">
                       Instituição proprietária
                     </span>
                     <Input
+                      id="institution-owner"
                       readOnly
                       value="UFA Prova"
                       className="bg-slate-50 text-slate-600"
@@ -2501,11 +2521,12 @@ export default function Home() {
                       automaticamente.
                     </span>
                   </label>
-                  <label className="block">
+                  <label htmlFor="source-institution" className="block">
                     <span className="mb-2 block text-sm font-semibold">
                       Instituição/Banca de origem
                     </span>
                     <Input
+                      id="source-institution"
                       required
                       name="sourceInstitution"
                       key={`source-${importRevision}`}
@@ -2514,17 +2535,18 @@ export default function Home() {
                       placeholder="Ex.: ENEM"
                     />
                     <datalist id="source-institutions">
-                      <option value="ENEM" />
-                      <option value="FUVEST" />
-                      <option value="UEMS" />
-                      <option value="UFMS" />
+                      <option value="ENEM">ENEM</option>
+                      <option value="FUVEST">FUVEST</option>
+                      <option value="UEMS">UEMS</option>
+                      <option value="UFMS">UFMS</option>
                     </datalist>
                   </label>
-                  <label className="block">
+                  <label htmlFor="source-year" className="block">
                     <span className="mb-2 block text-sm font-semibold">
                       Ano da prova
                     </span>
                     <Input
+                      id="source-year"
                       required
                       name="sourceYear"
                       type="number"
@@ -2571,9 +2593,10 @@ export default function Home() {
                   initialBlocks={questionType === 'true_false' ? judgmentAssertionBlocks : importedQuestion?.statementBlocks}
                   resetKey={importRevision}
                 />
-                <label className="block">
+                <label htmlFor="adote-note" className="block">
                   <span className="mb-2 block text-sm font-semibold">Note e adote (opcional)</span>
                   <textarea
+                    id="adote-note"
                     name="adoteNote"
                     rows={5}
                     maxLength={5000}
@@ -2583,7 +2606,7 @@ export default function Home() {
                   />
                 </label>
                 <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-slate-700">
-                  <input type="checkbox" name="recommendSingleColumn" checked={recommendSingleColumn} onChange={(event) => setRecommendSingleColumn(event.target.checked)} className="mt-1 accent-blue-600" />
+                  <input aria-label="Recomendar uma coluna para esta questão" type="checkbox" name="recommendSingleColumn" checked={recommendSingleColumn} onChange={(event) => setRecommendSingleColumn(event.target.checked)} className="mt-1 accent-blue-600" />
                   <span><strong>Recomendar uma coluna</strong><span className="mt-1 block text-xs text-slate-500">Indicado para figuras grandes. Na montagem da avaliação, você poderá usar a largura total para esta questão.</span></span>
                 </label>
                 <input type="hidden" name="metapostCode" value={draftMetapostCode} />
@@ -2677,8 +2700,8 @@ export default function Home() {
                 <span className="hidden text-xs text-slate-500 sm:block">
                   Confira a prévia para validar fórmulas, imagens e paginação.
                 </span>
-                {notice && <p role="status" className="w-full text-sm text-slate-700">{notice}</p>}
-                <QuestionDraftControls apiUrl={apiUrl} capture={captureQuestionDraft} restore={restoreQuestionDraft} paused={saving} actions={draftActions}/>
+                {notice && <p aria-live="polite" className="w-full text-sm text-slate-700">{notice}</p>}
+                <QuestionDraftControls apiUrl={apiUrl} capture={captureQuestionDraft} restore={restoreQuestionDraft} paused={saving} onActionsChange={registerDraftActions}/>
                 <div className="flex flex-1 flex-wrap justify-end gap-2">
                 <Button
                   type="button"
@@ -2762,7 +2785,7 @@ export default function Home() {
                 </section>
               )}
             </form>
-          </section>
+          </dialog>
         </div>
       )}
       {bankQuestionId && questions.some(q=>q.id===bankQuestionId) && (() => {

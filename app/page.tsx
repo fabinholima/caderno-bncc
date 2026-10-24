@@ -1,6 +1,7 @@
 import { ArrowUpRight, BookOpen, Layers3, FileCheck2 } from 'lucide-react';
 import './landing.css';
 import Pricing from './pricing';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'UfaProva — Mais tempo para ensinar. E para você.',
@@ -13,7 +14,7 @@ function Mimeograph() {
     <svg
       className="machine"
       viewBox="0 0 600 480"
-      role="img"
+      // SVG is the native accessible image container for this inline illustration.
       aria-labelledby="mimeograph-title"
     >
       <title id="mimeograph-title">
@@ -183,18 +184,18 @@ export default function HomePage() {
         Pular para o conteúdo
       </a>
       <header className="ufa-wrap ufa-header">
-        <a href="/" className="ufa-logo" aria-label="UfaProva, início">
+        <Link href="/" className="ufa-logo" aria-label="UfaProva, início">
           <b className="ufa-mark">u.</b>ufa<span>prova</span>
           <i>✳</i>
-        </a>
+        </Link>
         <nav aria-label="Navegação principal">
           <a href="#recursos">O que você pode fazer</a>
           <a href="#como-funciona">Como funciona</a>
           <a href="#planos">Planos e assinaturas</a>
         </nav>
-        <a className="ufa-login" href="/portal">
+        <Link className="ufa-login" href="/portal">
           Entrar <ArrowUpRight size={17} />
-        </a>
+        </Link>
       </header>
       <main id="conteudo">
         <section className="ufa-wrap ufa-hero">
@@ -211,9 +212,9 @@ export default function HomePage() {
               Sua próxima avaliação sem perder o fim de semana. Reúna questões,
               organize suas ideias e gere uma prova com a sua cara.
             </p>
-            <a className="ufa-cta" href="/portal">
+            <Link className="ufa-cta" href="/portal">
               Montar minha avaliação <ArrowUpRight size={21} />
-            </a>
+            </Link>
             <p className="ufa-small">
               Do banco de questões ao PDF pronto para imprimir.
             </p>
@@ -324,20 +325,20 @@ export default function HomePage() {
             <br />
             <em>O fim de semana fica seu.</em>
           </h2>
-          <a className="ufa-cta" href="/portal">
+          <Link className="ufa-cta" href="/portal">
             Vamos preparar sua prova? <ArrowUpRight size={20} />
-          </a>
+          </Link>
         </section>
       </main>
       <footer className="ufa-wrap ufa-footer">
-        <a href="/" className="ufa-logo">
+        <Link href="/" className="ufa-logo">
           ufa<span>prova</span>
-        </a>
+        </Link>
         <p>Mais tempo para ensinar. E para você.</p>
-        <a href="/portal">Acessar o portal ↗</a>
+        <Link href="/portal">Acessar o portal ↗</Link>
         <nav aria-label="Informações legais" className="flex flex-wrap gap-4 text-sm">
-          <a href="/privacidade">Política de privacidade</a>
-          <a href="/contato">Contato</a>
+          <Link href="/privacidade">Política de privacidade</Link>
+          <Link href="/contato">Contato</Link>
         </nav>
       </footer>
     </div>

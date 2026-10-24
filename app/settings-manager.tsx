@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { SubmitEvent, useEffect, useState } from 'react';
 import { CreditCard, ShieldCheck, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,10 @@ type Subscription = {
   concurrent_renders: number;
   period_ends_at: string;
 };
+type CatalogSubtopic = { sourceKey: string; name: string; subtopics?: CatalogSubtopic[] };
+type CatalogTopic = { sourceKey: string; name: string; subtopics?: CatalogSubtopic[] };
+type CatalogSubject = { sourceKey: string; name: string; stage: string; topics?: CatalogTopic[] };
+type CurriculumCatalog = { version: number; subjects: CatalogSubject[] };
 
 export function SettingsManager({
   apiUrl,
@@ -35,7 +39,7 @@ export function SettingsManager({
 }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [message, setMessage] = useState('');
-  const [catalog, setCatalog] = useState<Record<string, any> | null>(null);
+  const [catalog, setCatalog] = useState<CurriculumCatalog | null>(null);
   const [catalogName, setCatalogName] = useState('');
   const [importing, setImporting] = useState(false);
   const [catalogStage, setCatalogStage] = useState<'Ensino Médio' | 'Ensino Fundamental'>('Ensino Médio');
@@ -48,7 +52,7 @@ export function SettingsManager({
       })
       .catch(() => setMessage('Não foi possível consultar o plano.'));
   }, [apiUrl]);
-  async function invite(event: FormEvent<HTMLFormElement>) {
+  async function invite(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
@@ -76,9 +80,9 @@ export function SettingsManager({
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const value = JSON.parse(String(reader.result));
+        const value = JSON.parse(typeof reader.result === 'string' ? reader.result : '') as CurriculumCatalog;
         if (!value?.version || !Array.isArray(value.subjects)) throw new Error();
-        if (value.subjects.some((subject: any) => subject.stage !== catalogStage)) {
+        if (value.subjects.some((subject: { stage?: string }) => subject.stage !== catalogStage)) {
           throw new Error(`O arquivo não corresponde à aba ${catalogStage}.`);
         }
         setCatalog(value);
@@ -119,7 +123,7 @@ export function SettingsManager({
       <BillingManager apiUrl={apiUrl} role={role} />
       <EducatorProfile apiUrl={apiUrl} />
       {message && (
-        <p role="status" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm">
+        <p aria-live="polite" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm">
           {message}
         </p>
       )}
@@ -134,7 +138,7 @@ export function SettingsManager({
           <input className="mt-3 block w-full rounded-lg border p-2 text-sm" type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && readCatalog(event.target.files[0])} />
           {catalog && <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
             <p className="font-semibold">Prévia: {catalogName} · {catalog.subjects.length} disciplina(s)</p>
-            <ul className="mt-3 space-y-2">{catalog.subjects.map((subject: any) => <li key={subject.sourceKey}><b>{subject.name}</b> · {subject.stage}<ul className="ml-5 list-disc">{(subject.topics || []).map((topic: any) => <li key={topic.sourceKey}><span className="font-medium">{topic.name}</span>{topic.subtopics?.length ? <ul className="ml-5 list-[circle] text-slate-600">{topic.subtopics.map((subtopic: any) => <li key={subtopic.sourceKey}>{subtopic.name}{subtopic.subtopics?.length ? ` · ${subtopic.subtopics.length} detalhamento(s)` : ''}</li>)}</ul> : null}</li>)}</ul></li>)}</ul>
+            <ul className="mt-3 space-y-2">{catalog.subjects.map((subject) => <li key={subject.sourceKey}><b>{subject.name}</b> · {subject.stage}<ul className="ml-5 list-disc">{(subject.topics || []).map((topic) => <li key={topic.sourceKey}><span className="font-medium">{topic.name}</span>{topic.subtopics?.length ? <ul className="ml-5 list-[circle] text-slate-600">{topic.subtopics.map((subtopic) => <li key={subtopic.sourceKey}>{subtopic.name}{subtopic.subtopics?.length ? ` · ${subtopic.subtopics.length} detalhamento(s)` : ''}</li>)}</ul> : null}</li>)}</ul></li>)}</ul>
             <Button className="mt-4" type="button" disabled={importing} onClick={importCatalog}>{importing ? 'Importando…' : 'Confirmar importação'}</Button>
           </div>}
         </section>}

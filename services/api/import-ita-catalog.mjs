@@ -22,7 +22,7 @@ export function normalizeItaRows(rows) {
         Number.isInteger(item.year) &&
         item.phase &&
         item.file &&
-        /^https:\/\//.test(item.url),
+        item.url.startsWith('https://'),
     );
 
   const answerKeys = new Map(
@@ -35,7 +35,7 @@ export function normalizeItaRows(rows) {
     .filter((item) => item.file.toLowerCase() !== 'gabarito')
     .map((exam) => {
       const answerKey = answerKeys.get(`${exam.year}|${exam.phase}`);
-      const firstPhase = /^1/.test(exam.phase);
+      const firstPhase = exam.phase.startsWith('1');
       return {
         catalogKey: `ita-${exam.year}-${slug(exam.phase)}-${slug(exam.file)}`,
         sourceInstitution: 'ITA',
