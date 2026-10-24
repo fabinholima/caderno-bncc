@@ -47,6 +47,12 @@ export function validateAreaPayload(payload, area) {
   return payload.itens;
 }
 
+export function skillBelongsToDiscipline(skillCode, disciplineName) {
+  // EM13LP skills are specific to the Língua Portuguesa component. The
+  // EM13LGG area skills remain shared across all components in Linguagens.
+  return !skillCode.startsWith('EM13LP') || disciplineName === 'Língua Portuguesa';
+}
+
 async function fetchArea(area, fetchImpl = fetch) {
   const url = new URL(BNCC_API_URL);
   url.searchParams.set('etapa', 'EM');
@@ -170,10 +176,13 @@ async function saveArea(client, area, items) {
   );
   for (const discipline of disciplines.rows) {
     await client.query(
-      'DELETE FROM pedagogical_discipline_skills WHERE discipline_id=$1',
-      [discipline.id],
+      `DELETE FROM pedagogical_discipline_skills
+       WHERE discipline_id=$1 AND skill_id=ANY($2::uuid[])`,
+      [discipline.id, skillIds],
     );
-    for (const skillId of skillIds)
+    for (const [index, skillId] of skillIds.entries()) {
+      if (!skillBelongsToDiscipline(items[index].codigo, discipline.name))
+        continue;
       await client.query(
         `INSERT INTO pedagogical_discipline_skills
            (discipline_id,skill_id,tagged_by,rationale)
@@ -185,6 +194,7 @@ async function saveArea(client, area, items) {
           `Vínculo com as habilidades oficiais da área ${first.area.nome}.`,
         ],
       );
+    }
   }
   return {
     area: first.area.nome,
