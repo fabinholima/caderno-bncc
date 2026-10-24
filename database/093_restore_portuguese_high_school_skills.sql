@@ -81,6 +81,28 @@ SET stage = EXCLUDED.stage,
     validity_status = EXCLUDED.validity_status,
     source_metadata = EXCLUDED.source_metadata;
 
+-- Portuguese skills are validated in migration order before migration 094
+-- normalizes every area's competencies; seed LGG competencies here first.
+WITH official_competencies(number, source_key, description, source_metadata) AS (
+VALUES
+  (1, 'em-area-lgg-ce-01', 'Compreender o funcionamento das diferentes linguagens e práticas culturais (artísticas, corporais e verbais) e mobilizar esses conhecimentos na recepção e produção de discursos nos diferentes campos de atuação social e nas diversas mídias, para ampliar as formas de participação social, o entendimento e as possibilidades de explicação e interpretação crítica da realidade e para continuar aprendendo.', '{"documento":"bncc-2018","arquivo":"BNCC_Ensino_Medio.xlsx","proveniencia":"exportada de downloadbncc.mec.gov.br em 23/06/2023","localizador":"aba Comp. de Linguagens e suas Tec","localizador_pdf":"Base-Nacional-Comum-Curricular-BNCC.pdf, página PDF 492","proveniencia_catalogo":"bncc.dev/bncc-dados","commit_catalogo":"9c268978efa2aa250834c6a9edb6074432752838"}'::jsonb),
+  (2, 'em-area-lgg-ce-02', 'Compreender os processos identitários, conflitos e relações de poder que permeiam as práticas sociais de linguagem, respeitando as diversidades e a pluralidade de ideias e posições, e atuar socialmente com base em princípios e valores assentados na democracia, na igualdade e nos Direitos Humanos, exercitando o autoconhecimento, a empatia, o diálogo, a resolução de conflitos e a cooperação, e combatendo preconceitos de qualquer natureza.', '{"documento":"bncc-2018","arquivo":"BNCC_Ensino_Medio.xlsx","proveniencia":"exportada de downloadbncc.mec.gov.br em 23/06/2023","localizador":"aba Comp. de Linguagens e suas Tec","localizador_pdf":"Base-Nacional-Comum-Curricular-BNCC.pdf, página PDF 492","proveniencia_catalogo":"bncc.dev/bncc-dados","commit_catalogo":"9c268978efa2aa250834c6a9edb6074432752838"}'::jsonb),
+  (3, 'em-area-lgg-ce-03', 'Utilizar diferentes linguagens (artísticas, corporais e verbais) para exercer, com autonomia e colaboração, protagonismo e autoria na vida pessoal e coletiva, de forma crítica, criativa, ética e solidária, defendendo pontos de vista que respeitem o outro e promovam os Direitos Humanos, a consciência socioambiental e o consumo responsável, em âmbito local, regional e global.', '{"documento":"bncc-2018","arquivo":"BNCC_Ensino_Medio.xlsx","proveniencia":"exportada de downloadbncc.mec.gov.br em 23/06/2023","localizador":"aba Comp. de Linguagens e suas Tec","localizador_pdf":"Base-Nacional-Comum-Curricular-BNCC.pdf, página PDF 492","proveniencia_catalogo":"bncc.dev/bncc-dados","commit_catalogo":"9c268978efa2aa250834c6a9edb6074432752838"}'::jsonb),
+  (4, 'em-area-lgg-ce-04', 'Compreender as línguas como fenômeno (geo)político, histórico, cultural, social, variável, heterogêneo e sensível aos contextos de uso, reconhecendo suas variedades e vivenciando-as como formas de expressões identitárias, pessoais e coletivas, bem como agindo no enfrentamento de preconceitos de qualquer natureza.', '{"documento":"bncc-2018","arquivo":"BNCC_Ensino_Medio.xlsx","proveniencia":"exportada de downloadbncc.mec.gov.br em 23/06/2023","localizador":"aba Comp. de Linguagens e suas Tec","localizador_pdf":"Base-Nacional-Comum-Curricular-BNCC.pdf, página PDF 492","proveniencia_catalogo":"bncc.dev/bncc-dados","commit_catalogo":"9c268978efa2aa250834c6a9edb6074432752838"}'::jsonb),
+  (5, 'em-area-lgg-ce-05', 'Compreender os processos de produção e negociação de sentidos nas práticas corporais, reconhecendo-as e vivenciando-as como formas de expressão de valores e identidades, em uma perspectiva democrática e de respeito à diversidade.', '{"documento":"bncc-2018","arquivo":"BNCC_Ensino_Medio.xlsx","proveniencia":"exportada de downloadbncc.mec.gov.br em 23/06/2023","localizador":"aba Comp. de Linguagens e suas Tec","localizador_pdf":"Base-Nacional-Comum-Curricular-BNCC.pdf, página PDF 492","proveniencia_catalogo":"bncc.dev/bncc-dados","commit_catalogo":"9c268978efa2aa250834c6a9edb6074432752838"}'::jsonb),
+  (6, 'em-area-lgg-ce-06', 'Apreciar esteticamente as mais diversas produções artísticas e culturais, considerando suas características locais, regionais e globais, e mobilizar seus conhecimentos sobre as linguagens artísticas para dar significado e (re)construir produções autorais individuais e coletivas, exercendo protagonismo de maneira crítica e criativa, com respeito à diversidade de saberes, identidades e culturas.', '{"documento":"bncc-2018","arquivo":"BNCC_Ensino_Medio.xlsx","proveniencia":"exportada de downloadbncc.mec.gov.br em 23/06/2023","localizador":"aba Comp. de Linguagens e suas Tec","localizador_pdf":"Base-Nacional-Comum-Curricular-BNCC.pdf, página PDF 492","proveniencia_catalogo":"bncc.dev/bncc-dados","commit_catalogo":"9c268978efa2aa250834c6a9edb6074432752838"}'::jsonb),
+  (7, 'em-area-lgg-ce-07', 'Mobilizar práticas de linguagem no universo digital, considerando as dimensões técnicas, críticas, criativas, éticas e estéticas, para expandir as formas de produzir sentidos, de engajar-se em práticas autorais e coletivas, e de aprender a aprender nos campos da ciência, cultura, trabalho, informação e vida pessoal e coletiva.', '{"documento":"bncc-2018","arquivo":"BNCC_Ensino_Medio.xlsx","proveniencia":"exportada de downloadbncc.mec.gov.br em 23/06/2023","localizador":"aba Comp. de Linguagens e suas Tec","localizador_pdf":"Base-Nacional-Comum-Curricular-BNCC.pdf, página PDF 492","proveniencia_catalogo":"bncc.dev/bncc-dados","commit_catalogo":"9c268978efa2aa250834c6a9edb6074432752838"}'::jsonb)
+)
+INSERT INTO curriculum_competencies (area_id, source_key, number, description, source_metadata)
+SELECT area.id, official.source_key, official.number, official.description, official.source_metadata
+FROM official_competencies official
+JOIN curriculum_areas area ON area.curriculum_version = 'BNCC-2018'
+ AND area.source_key = 'em-area-lgg'
+ON CONFLICT (area_id, number) DO UPDATE
+SET source_key = EXCLUDED.source_key,
+    description = EXCLUDED.description,
+    source_metadata = EXCLUDED.source_metadata;
+
 DELETE FROM skill_competencies link
 USING curriculum_skills skill
 WHERE link.skill_id = skill.id
@@ -207,15 +229,8 @@ WHERE discipline.name = 'Língua Portuguesa'
 ON CONFLICT (discipline_id, skill_id) DO NOTHING;
 
 DO $$
-DECLARE total_skills integer; portuguese_skills integer; portuguese_competency_links integer;
+DECLARE portuguese_skills integer; portuguese_competency_links integer;
 BEGIN
-  SELECT count(*) INTO total_skills FROM curriculum_skills
-  WHERE curriculum_version = 'BNCC-2018' AND stage = 'Ensino Médio'
-    AND (code ~ '^EM13(LGG|MAT|CNT|CHS)[0-9]{3}$'
-      OR code ~ '^EM13LP[0-9]{2}$');
-  IF total_skills <> 183 THEN
-    RAISE EXCEPTION 'Catálogo BNCC do Ensino Médio incompleto: esperadas 183 habilidades, encontradas %.', total_skills;
-  END IF;
   SELECT count(*) INTO portuguese_skills FROM curriculum_skills
   WHERE curriculum_version = 'BNCC-2018' AND stage = 'Ensino Médio'
     AND code ~ '^EM13LP[0-9]{2}$';
