@@ -60,7 +60,10 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\blackrule\[width=8mm,height=8mm\]/);
   assert.match(tex, /\\NC 01 \\NC \\framed\[width=6mm,height=6mm/);
-  assert.match(tex, /offset=overlay\]\{E\}/);
+  assert.match(tex, /\\NC \\NC \{\\bf A\} \\NC \{\\bf B\}/);
+  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,corner=round/g) || []).length, 5);
+  assert.doesNotMatch(tex, /\\framed\[width=6mm,height=6mm[^\]]*\]\{[A-E]\}/);
+  assert.match(tex, /offset=overlay\]\{\}/);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
   assert.match(tex, /\\bold\{Nome completo do aluno\}/);
@@ -69,6 +72,42 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.equal(tex.match(/\\startframedtext\[width=\\textwidth/g)?.length, 1);
   assert.match(tex, /\\blackrule\[width=\.5pt,height=16mm/);
   assert.match(tex, /\\blackrule\[width=\\textwidth,height=\.5pt/);
+});
+
+test('mantém o cartão clássico e os círculos mesmo sem QR associado', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
+  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,corner=round/g) || []).length, 5);
+  assert.match(tex, /\\NC 01 [\s\S]*?\\NC\\NR/);
+  assert.doesNotMatch(tex, /\\externalfigure\[undefined\]/);
+  snapshot.render.previewOnly = true;
+  assert.doesNotMatch(renderAssessment(snapshot), /CARTÃO-RESPOSTA/);
+});
+
+test('mantém círculos alinhados no cartão do Simulado sem QR associado', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.render.template = 'simulado-v1';
+  snapshot.questions = Array.from({ length: 19 }, (_, index) => ({
+    ...snapshot.questions[0],
+    number: index + 1,
+  }));
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
+  assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]\\bf A\}"\)/);
+  assert.equal((tex.match(/draw fullcircle scaled 4\.8mm shifted/g) || []).length, 95);
+  assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
+  assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]19\}"\)/);
+  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 35\.5mm yscaled 66mm/);
+  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 35\.5mm yscaled 60\.4mm/);
 });
 
 test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simplificado', async () => {
@@ -279,6 +318,21 @@ test('preserva matemática romana e negrito seguro no texto importado', async ()
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\m\{\\rm E\^o_\{Zn\/Zn\^\{2\+\}\}\}/);
   assert.match(tex, /\\bold\{padrão\}/);
+});
+
+test('normaliza a grafia portuguesa alfa para o comando nativo do ConTeXt', async () => {
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement = [
+    { type: 'paragraph', text: String.raw`Partículas alfa (\m{\alfa}) e beta.` },
+  ];
+  const tex = renderAssessment(snapshot);
+  assert.match(tex, /\\m\{\\alpha\}/);
+  assert.doesNotMatch(tex, /\\alfa\b/);
+  assert.doesNotMatch(tex, /\\(?:directlua|ctxlua|startluacode)/);
 });
 
 test('renderiza estrutura orgânica por preset seguro', async () => {
@@ -774,8 +828,9 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   assert.ok(!tex.includes('{A}'));
   assert.ok(!tex.includes('{B}'));
   assert.ok(!tex.includes('{D}'));
-  assert.ok(tex.includes('offset=overlay]{C}'));
-  assert.ok(tex.includes('offset=overlay]{E}'));
+  assert.match(tex, /\\NC \\NC \{\\bf C\} \\NC \{\\bf E\}/);
+  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,corner=round/g) || []).length, 2);
+  assert.doesNotMatch(tex, /offset=overlay\]\{[CE]\}/);
 });
 
 

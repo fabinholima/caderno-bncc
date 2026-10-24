@@ -31,6 +31,9 @@ const forbiddenContextFormula =
 
 const allowedMathCommands = new Set([
   'alpha',
+  // Accept the common Portuguese spelling used in imported questions, then
+  // normalize it to ConTeXt's native control sequence before compilation.
+  'alfa',
   'beta',
   'gamma',
   'delta',
@@ -634,5 +637,5 @@ export function renderAssessment(snapshot) {
     ),
     content,
     previewOnly: Boolean(snapshot.render?.previewOnly),
-  });
+  }).replace(/\\alfa\b/g, '\\alpha');
 }

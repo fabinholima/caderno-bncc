@@ -80,16 +80,18 @@ export const basicExamV1 = Object.freeze({
     const answerRows = Array.from(
       { length: Number(questionCount) || 0 },
       (_, index) =>
-        `\\NC ${String(index + 1).padStart(2, '0')} ${answerLabels.map(label => `\\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{${label}}`).join(' ')} \\NC\\NR`,
+        `\\NC ${String(index + 1).padStart(2, '0')} ${answerLabels.map(() => `\\NC \\framed[width=6mm,height=6mm,corner=round,radius=3mm,offset=overlay]{}`).join(' ')} \\NC\\NR`,
     ).join('\n');
+    const answerHeadings = `\\NC \\NC ${answerLabels.map(label => `\\NC {\\bf ${label}}`).join(' ')} \\NC\\NR`;
     const answerSheet =
-      mode === 'student' && qrPayload && !omitAnswerSheet
+      mode === 'student' && !omitAnswerSheet && !previewOnly
         ? `\\page
 \\noindent\\blackrule[width=8mm,height=8mm]\\hfill\\blackrule[width=8mm,height=8mm]
 \\blank[small]
 ${answerCardHeader}
 \\blank[medium]
 \\starttabulate[|c|${answerLabels.map(() => 'c|').join('')}]
+${answerHeadings}
 ${answerRows}
 \\stoptabulate
 \\vfill
