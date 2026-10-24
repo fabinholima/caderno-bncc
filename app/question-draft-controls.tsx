@@ -1,21 +1,22 @@
 'use client';
-import {useEffect,useRef,useState,type MutableRefObject} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {apiFetch} from '@/lib/api-client';
 import {Button} from '@/components/ui/button';
-export type DraftPayload={input:Record<string,any>;editor:Record<string,any>};
+export type DraftPayload={input:Record<string,unknown>;editor:Record<string,unknown>};
 export type DraftActions={save:(force?:boolean)=>Promise<boolean>;complete:()=>Promise<void>};
-export function QuestionDraftControls({apiUrl,capture,restore,paused,actions}:{apiUrl:string;capture:(form:HTMLFormElement)=>DraftPayload;restore:(payload:DraftPayload)=>void;paused:boolean;actions:MutableRefObject<DraftActions|null>}) {
+export function QuestionDraftControls({apiUrl,capture,restore,paused,onActionsChange}:{apiUrl:string;capture:(form:HTMLFormElement)=>DraftPayload;restore:(payload:DraftPayload)=>void;paused:boolean;onActionsChange:(actions:DraftActions|null)=>void}) {
  const root=useRef<HTMLDivElement>(null);
- const latest=useRef({capture,restore,paused});latest.current={capture,restore,paused};
+ const latest=useRef({capture,restore,paused});
+ useEffect(()=>{latest.current={capture,restore,paused}},[capture,restore,paused]);
  const state=useRef({id:crypto.randomUUID(),version:0,saved:'',baseline:'',busy:false,conflict:false});
  const pending=useRef({encoded:'',changedAt:0});
  const [status,setStatus]=useState('Salvamento automático ativo');
  const [busy,setBusy]=useState(false);
  const [drafts,setDrafts]=useState<Array<{id:string;subject:string;title:string;updated_at:string}>>([]);
  const [selected,setSelected]=useState('');
- async function list(){try{const r=await apiFetch(`${apiUrl}/api/questions/drafts`,{cache:'no-store'});if(r.ok){const b=await r.json() as {data:typeof drafts};setDrafts(b.data)}}catch{setStatus('Não foi possível consultar seus rascunhos.')}}
- function snapshot(){const form=root.current?.closest('form');return form?latest.current.capture(form):null;}
- async function save(force=false):Promise<boolean>{
+ const list=useCallback(async()=>{try{const r=await apiFetch(`${apiUrl}/api/questions/drafts`,{cache:'no-store'});if(r.ok){const b=await r.json() as {data:typeof drafts};setDrafts(b.data)}}catch{setStatus('Não foi possível consultar seus rascunhos.')}},[apiUrl]);
+ const snapshot=useCallback(()=>{const form=root.current?.closest('form');return form?latest.current.capture(form):null;},[]);
+ const save=useCallback(async(force=false):Promise<boolean>=>{
   const value=snapshot();if(!value)return false;
   const encoded=JSON.stringify(value),s=state.current;
   if(!force && encoded===(s.saved||s.baseline))return true;
@@ -29,11 +30,11 @@ export function QuestionDraftControls({apiUrl,capture,restore,paused,actions}:{a
    s.version=b.data.version;s.saved=encoded;setStatus(`Rascunho salvo às ${new Date(b.data.updated_at).toLocaleTimeString('pt-BR')}`);return true;
   }catch(e){setStatus(e instanceof Error?e.message:'Sem conexão. O rascunho ainda não foi salvo; tentaremos novamente.');return false;}
   finally{s.busy=false;setBusy(false)}
- }
- async function complete(){const s=state.current;if(!s.version)return;const r=await apiFetch(`${apiUrl}/api/questions/drafts/${s.id}/complete`,{method:'POST'});if(!r.ok)throw new Error('A questão foi salva, mas o rascunho não foi encerrado.');}
- actions.current={save,complete};
+ },[apiUrl,snapshot]);
+ const complete=useCallback(async()=>{const s=state.current;if(!s.version)return;const r=await apiFetch(`${apiUrl}/api/questions/drafts/${s.id}/complete`,{method:'POST'});if(!r.ok)throw new Error('A questão foi salva, mas o rascunho não foi encerrado.');},[apiUrl]);
  useEffect(()=>{
-  state.current.baseline=JSON.stringify(snapshot());void list();
+  state.current.baseline=JSON.stringify(snapshot());void Promise.resolve().then(list);
+  onActionsChange({save,complete});
   const timer=setInterval(()=>{
     if(latest.current.paused || state.current.busy || state.current.conflict)return;
     const value=snapshot();if(!value)return;
@@ -42,10 +43,10 @@ export function QuestionDraftControls({apiUrl,capture,restore,paused,actions}:{a
     if(encoded!==pending.current.encoded){pending.current={encoded,changedAt:Date.now()};setStatus('Alterações pendentes de salvamento…');return;}
     if(Date.now()-pending.current.changedAt>=1500)void save();
   },1000);
-  const guard=(e:BeforeUnloadEvent)=>{const value=snapshot();if(value && JSON.stringify(value)!==(state.current.saved||state.current.baseline)){e.preventDefault();e.returnValue='';}};
+  const guard=(e:BeforeUnloadEvent)=>{const value=snapshot();if(value && JSON.stringify(value)!==(state.current.saved||state.current.baseline))e.preventDefault();};
   window.addEventListener('beforeunload',guard);
-  return()=>{clearInterval(timer);window.removeEventListener('beforeunload',guard);actions.current=null};
- },[apiUrl]);
+  return()=>{clearInterval(timer);window.removeEventListener('beforeunload',guard);onActionsChange(null)};
+ },[snapshot,list,onActionsChange,save,complete]);
  async function discard(){
   if(!selected || !window.confirm('Descartar este rascunho? A questão cadastrada não será alterada.'))return;
   state.current.busy=true;setBusy(true);
@@ -66,7 +67,7 @@ export function QuestionDraftControls({apiUrl,capture,restore,paused,actions}:{a
  }
  return <div ref={root} className="flex w-full flex-wrap items-center gap-2">
   <Button type="button" variant="outline" disabled={busy||paused||!apiUrl} onClick={()=>void save(true)}>Salvar rascunho</Button>
-  <span role="status" className="text-xs text-slate-600">{status}</span>
+  <span aria-live="polite" className="text-xs text-slate-600">{status}</span>
   <Button type="button" variant="ghost" disabled={busy||paused} onClick={()=>void list()}>Atualizar rascunhos</Button>
   <select aria-label="Rascunhos salvos" value={selected} onChange={e=>setSelected(e.target.value)} className="max-w-xs rounded-lg border p-2 text-xs"><option value="">Retomar rascunho…</option>{drafts.map(d=><option key={d.id} value={d.id}>{d.subject||'Sem disciplina'} · {d.title||'Sem enunciado'} · {new Date(d.updated_at).toLocaleString('pt-BR')}</option>)}</select>
   <Button type="button" variant="outline" disabled={!selected||busy||paused} onClick={()=>void resume()}>Retomar</Button>

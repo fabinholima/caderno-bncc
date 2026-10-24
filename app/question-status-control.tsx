@@ -26,6 +26,6 @@ export function QuestionStatusControl({apiUrl,question,reviewer,canManage,onChan
    <ul className="mt-2 max-h-56 space-y-2 overflow-auto">{history.map((h,i)=><li key={`${h.created_at}-${i}`} className="rounded bg-slate-50 p-2"><strong>{h.changed_by||'Usuário'} · {new Date(h.created_at).toLocaleString('pt-BR')}</strong><p>{h.metadata.from?`${questionStatusLabels[h.metadata.from as keyof typeof questionStatusLabels]||h.metadata.from} → `:''}{questionStatusLabels[h.metadata.status as keyof typeof questionStatusLabels]||h.metadata.status}{h.metadata.revision?` · revisão ${h.metadata.revision}`:''}</p>{h.metadata.reason&&<p className="whitespace-pre-wrap">{h.metadata.reason}</p>}</li>)}</ul>
    {!history.length&&<p className="mt-2 text-slate-500">Nenhuma alteração de situação registrada.</p>}
   </details>
-  {message&&<p role="status">{message}</p>}
+  {message&&<p aria-live="polite">{message}</p>}
  </div>;
 }

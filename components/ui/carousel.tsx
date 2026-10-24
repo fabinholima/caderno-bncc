@@ -95,11 +95,12 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return;
-    onSelect(api);
+    const frame = requestAnimationFrame(() => onSelect(api));
     api.on('reInit', onSelect);
     api.on('select', onSelect);
 
     return () => {
+      cancelAnimationFrame(frame);
       api?.off('select', onSelect);
     };
   }, [api, onSelect]);
@@ -121,7 +122,7 @@ function Carousel({
       <div
         onKeyDownCapture={handleKeyDown}
         className={cn('relative', className)}
-        role="region"
+        aria-label="Carrossel"
         aria-roledescription="carousel"
         data-slot="carousel"
         {...props}
@@ -158,7 +159,6 @@ function CarouselItem({ className, ...props }: React.ComponentProps<'div'>) {
 
   return (
     <div
-      role="group"
       aria-roledescription="slide"
       data-slot="carousel-item"
       className={cn(

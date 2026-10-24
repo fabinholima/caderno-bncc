@@ -3,18 +3,17 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Wrench } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen } from './auth-screen';
+import Link from 'next/link';
 
 type Status = {enabled:boolean;message:string};
 export function MaintenanceGate({children}:{children:ReactNode}) {
   const [status,setStatus]=useState<Status|null>(null);
   const [admin,setAdmin]=useState(false);
-  const [apiUrl,setApiUrl]=useState('');
+  const apiUrl=process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8788` : '');
   const [error,setError]=useState(false);
-  const [adminLogin,setAdminLogin]=useState(false);
+  const [adminLogin]=useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('maintenance_admin'));
   useEffect(()=>{
-    const origin=process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//${window.location.hostname}:8788`;
-    setApiUrl(origin);
-    setAdminLogin(new URLSearchParams(window.location.search).has('maintenance_admin'));
+    const origin=apiUrl;
     let active=true;
     async function refresh(){
       try {
@@ -29,10 +28,10 @@ export function MaintenanceGate({children}:{children:ReactNode}) {
         if(active){setStatus(body.data);setAdmin(isAdmin);setError(false);}
       }catch{if(active)setError(true);}
     }
-    void refresh();
+    void Promise.resolve().then(refresh);
     const timer=setInterval(refresh,15000);
     return ()=>{active=false;clearInterval(timer)};
-  },[]);
+  },[apiUrl]);
   // Keep legal information accessible even while the portal is closed.
   if(typeof window!=='undefined' && ['/privacidade','/contato'].includes(window.location.pathname))return children;
   if(status && (!status.enabled || admin))return children;
@@ -42,9 +41,9 @@ export function MaintenanceGate({children}:{children:ReactNode}) {
       <p className="mb-8 text-2xl font-bold text-slate-900">ufa<span className="text-blue-700">prova</span></p>
       <div className="mx-auto mb-6 grid size-20 place-items-center rounded-3xl bg-blue-100 text-blue-700"><Wrench size={36} aria-hidden="true"/></div>
       <h1 className="text-3xl font-bold text-slate-900">{status?.enabled?'Estamos em manutenção':error?'Portal temporariamente indisponível':'Carregando o portal…'}</h1>
-      <p role="status" className="mt-4 whitespace-pre-line text-lg leading-relaxed text-slate-600">{status?.enabled?status.message:error?'Não foi possível consultar o portal. Tente novamente em instantes.':'Só um instante.'}</p>
+      <p aria-live="polite" className="mt-4 whitespace-pre-line text-lg leading-relaxed text-slate-600">{status?.enabled?status.message:error?'Não foi possível consultar o portal. Tente novamente em instantes.':'Só um instante.'}</p>
       {(status?.enabled||error)&&<button onClick={()=>window.location.reload()} className="mt-8 rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white">Tentar novamente</button>}
-      {status?.enabled&&<a href="/portal?maintenance_admin=1" className="mt-8 block text-sm text-slate-500 underline">Acesso do administrador</a>}
+      {status?.enabled&&<Link href="/portal?maintenance_admin=1" className="mt-8 block text-sm text-slate-500 underline">Acesso do administrador</Link>}
     </section>
   </main>;
 }

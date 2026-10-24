@@ -1,7 +1,7 @@
 'use client';
 import { normalizeRawContextBlocks } from '@/lib/raw-context-blocks.mjs';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { nextImageReference, assignImageReferences } from '@/lib/context-image-references.mjs';
 import type { ClipboardEvent } from 'react';
 import type { ReactNode } from 'react';
@@ -121,16 +121,17 @@ export function RichContentEditor({
   resetKey?: number;
   apiUrl: string;
 }) {
-  const emptyBlocks = rawOnly
+  const emptyBlocks = useMemo(() => rawOnly
     ? ([{ type: 'contextRaw', code: '' }] as RichContentBlock[])
-    : ([{ type: 'paragraph', text: '' }] as RichContentBlock[]);
+    : ([{ type: 'paragraph', text: '' }] as RichContentBlock[]), [rawOnly]);
   const [blocks, setBlocks] = useState<RichContentBlock[]>(emptyBlocks);
   const rawEditors = useRef<Record<number, HTMLTextAreaElement | null>>({});
   const activeRawIndex = useRef<number | null>(null);
   const [structureLoading, setStructureLoading] = useState<number | null>(null);
   useEffect(() => {
+    // oxlint-disable-next-line react-compiler -- This uncontrolled editor mirrors newly loaded question content.
     setBlocks(initialBlocks?.length ? assignImageReferences(rawOnly ? normalizeRawContextBlocks(initialBlocks) : initialBlocks) as RichContentBlock[] : emptyBlocks);
-  }, [initialBlocks, resetKey, rawOnly]);
+  }, [initialBlocks, resetKey, rawOnly, emptyBlocks]);
   const update = (index: number, patch: Partial<RichContentBlock>) =>
     setBlocks((current) =>
       current.map((block, position) =>
@@ -787,7 +788,6 @@ draw fullcircle scaled 2cm;
           {block.type === 'image' && (
             <div
               className="space-y-2"
-              tabIndex={0}
               onPaste={(event) => pasteImage(index, event)}
               title="Você também pode colar uma imagem aqui (Ctrl+V)."
             >

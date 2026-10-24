@@ -8,7 +8,7 @@ export const manualReviewSchema = z.object({
   expectedInstitutionId: z.uuid().optional(),
   reviews: z.array(z.object({
     questionNumber: z.number().int().min(1).max(1000),
-    awardedPoints: z.number().finite().min(0).max(999999).refine(v => Math.abs(v * 100 - Math.round(v * 100)) < 1e-7, 'Use no máximo duas casas decimais.'),
+    awardedPoints: z.number().min(0).max(999999).refine(v => Math.abs(v * 100 - Math.round(v * 100)) < 1e-7, 'Use no máximo duas casas decimais.'),
     feedback: z.string().trim().max(2000).default(''),
   })).min(1).max(1000),
 }).superRefine((value, context) => {

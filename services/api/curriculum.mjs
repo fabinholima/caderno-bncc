@@ -7,14 +7,14 @@ export const createSubjectSchema = z.object({
 });
 
 export const createKnowledgeObjectSchema = z.object({
-  subjectId: z.string().uuid(),
+  subjectId: z.uuid(),
   name: z.string().trim().min(2).max(240),
   gradeRange: z.string().trim().min(2).max(80),
   description: z.string().trim().max(2_000).optional().or(z.literal('')),
 });
 
 export const createSkillSchema = z.object({
-  knowledgeObjectId: z.string().uuid(),
+  knowledgeObjectId: z.uuid(),
   code: z
     .string()
     .trim()

@@ -306,7 +306,7 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
       statementBlocks: blocks(parsed.statement),
       alternatives: Object.fromEntries(Object.entries(parsed.alternatives).map(([key, text]) => [key, blocks(text as string)])),
       adoteNote: parsed.adoteNote,
-      correctAnswers: parsed.correctAnswers, skill: parsed.skill,
+      correctAnswers: parsed.correctAnswers, skill: 'skill' in parsed ? parsed.skill : '',
       answerBlocks: blocks(parsed.resolution),
       warnings: ['Revise a classificação curricular e confira a prévia em PDF antes de salvar.'],
     };
@@ -509,7 +509,7 @@ export function QuestionPasteImporter({
                 ...current.statementBlocks,
                 {
                   type: 'image',
-                  dataUrl: String(reader.result),
+                  dataUrl: typeof reader.result === 'string' ? reader.result : '',
                   alt: file.name.replace(/\.[^.]+$/, ''),
                   caption: '',
                 },

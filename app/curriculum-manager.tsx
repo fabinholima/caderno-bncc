@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { SubmitEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { formString } from '@/lib/form-data';
 import {
   BookMarked,
   Check,
@@ -141,7 +142,7 @@ export function CurriculumManager({
     (item) => item.area_source_key === 'em-area-cnt',
   );
 
-  const refreshPedagogicalDisciplines = async () => {
+  const refreshPedagogicalDisciplines = useCallback(async () => {
     if (!apiUrl) return;
     const body = (await apiFetch(
       `${apiUrl}/api/curriculum/pedagogical-disciplines`,
@@ -156,9 +157,9 @@ export function CurriculumManager({
     setCatalogDisciplineId(
       (current) => current || saved?.id || body.data?.[0]?.id || '',
     );
-  };
+  }, [apiUrl]);
 
-  const refreshPedagogicalTopics = async () => {
+  const refreshPedagogicalTopics = useCallback(async () => {
     if (!apiUrl) return;
     setCatalogLoading(true);
     try {
@@ -176,7 +177,7 @@ export function CurriculumManager({
     } finally {
       setCatalogLoading(false);
     }
-  };
+  }, [apiUrl]);
 
   useEffect(() => {
     if (!apiUrl) return;
@@ -211,10 +212,10 @@ export function CurriculumManager({
       .catch(() => undefined);
   }, [apiUrl, selectedSaebMatrix]);
   useEffect(() => {
-    refreshPedagogicalDisciplines().catch(() => undefined);
+    void Promise.resolve().then(refreshPedagogicalDisciplines).catch(() => undefined);
     const refresh = () => {
       if (document.visibilityState === 'visible') {
-        void refreshPedagogicalTopics().catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
+        void Promise.resolve().then(refreshPedagogicalTopics).catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
       }
     };
     refresh();
@@ -224,11 +225,12 @@ export function CurriculumManager({
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [apiUrl]);
+  }, [apiUrl, refreshPedagogicalDisciplines, refreshPedagogicalTopics]);
 
   useEffect(() => {
     const disciplines = pedagogicalDisciplines.filter(item => item.stage === educationStage);
     if (!disciplines.some(item => item.id === catalogDisciplineId)) {
+      // oxlint-disable-next-line react-compiler -- Reset dependent selection when the catalog options change.
       setCatalogDisciplineId(disciplines[0]?.id || '');
       setCatalogParentId('');
     }
@@ -238,11 +240,12 @@ export function CurriculumManager({
     if (catalogParentId && !pedagogicalTopics.some(topic =>
       topic.id === catalogParentId && topic.discipline_id === catalogDisciplineId &&
       topic.grade_range === catalogGrade && (topic.effective_active ?? topic.active))) {
+      // oxlint-disable-next-line react-compiler -- Clear a parent topic that became invalid after filtering.
       setCatalogParentId('');
     }
   }, [pedagogicalTopics, catalogParentId, catalogDisciplineId, catalogGrade]);
 
-  async function createCatalogTopic(event: FormEvent<HTMLFormElement>) {
+  async function createCatalogTopic(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!catalogDisciplineId || !catalogName.trim()) return;
     setCatalogSaving(true);
@@ -484,7 +487,7 @@ export function CurriculumManager({
     'em-area-chs': ['História', 'Geografia', 'Sociologia', 'Filosofia'],
   };
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
@@ -496,18 +499,18 @@ export function CurriculumManager({
           : 'skills';
     const payload =
       mode === 'subject'
-        ? { name: String(data.get('name')), stage: String(data.get('stage')) }
+        ? { name: formString(data, 'name'), stage: formString(data, 'stage') }
         : mode === 'object'
           ? {
-              subjectId: String(data.get('subjectId')),
-              name: String(data.get('name')),
-              gradeRange: String(data.get('gradeRange')),
-              description: String(data.get('description')),
+              subjectId: formString(data, 'subjectId'),
+              name: formString(data, 'name'),
+              gradeRange: formString(data, 'gradeRange'),
+              description: formString(data, 'description'),
             }
           : {
-              knowledgeObjectId: String(data.get('knowledgeObjectId')),
-              code: String(data.get('code')).toUpperCase(),
-              description: String(data.get('description')),
+              knowledgeObjectId: formString(data, 'knowledgeObjectId'),
+              code: formString(data, 'code').toUpperCase(),
+              description: formString(data, 'description'),
             };
     setSaving(true);
     setMessage('');
@@ -813,6 +816,7 @@ export function CurriculumManager({
                   ].map((skill) => (
                     <label
                       key={skill.skill_id}
+                      aria-label={`${skill.skill_code} ${skill.skill_description}`}
                       className="flex gap-2 rounded-lg border border-violet-100 bg-white p-3 text-xs"
                     >
                       <input
@@ -821,9 +825,8 @@ export function CurriculumManager({
                         onChange={(event) =>
                           setSelectedChemistrySkills((current) => {
                             const next = new Set(current);
-                            event.target.checked
-                              ? next.add(skill.skill_id)
-                              : next.delete(skill.skill_id);
+                            if (event.target.checked) next.add(skill.skill_id);
+                            else next.delete(skill.skill_id);
                             return next;
                           })
                         }
@@ -961,7 +964,7 @@ export function CurriculumManager({
                 >
                   <Plus /> {catalogSaving ? 'Salvando...' : 'Adicionar item'}
                 </Button>
-                {catalogMessage && <output role="status" className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">{catalogMessage}</output>}
+                {catalogMessage && <output  className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">{catalogMessage}</output>}
               </form>
               <div>
                 {role !== 'teacher' && <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
@@ -1381,7 +1384,7 @@ export function CurriculumManager({
             </Button>
             {message && (
               <p
-                role="status"
+                aria-live="polite"
                 className="rounded-lg bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800"
               >
                 {message}

@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { formString } from '@/lib/form-data';
+import { useCallback, useEffect, useState } from "react";
+import Image from 'next/image';
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,40 +37,39 @@ export function ClassInvitePanel({
     [students, setStudents] = useState<Candidate[]>([]),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
-  async function call(path: string, method = "GET", input?: object) {
+  const call = useCallback(async <T,>(path: string, method = "GET", input?: object): Promise<T> => {
     const r = await apiFetch(`${apiUrl}${path}`, {
       method,
       ...(input
         ? { headers: { "content-type": "application/json" }, body: JSON.stringify(input) }
         : {}),
     });
-    const b = (await r.json()) as { error?: string; data: any };
+    const b = (await r.json()) as { error?: string; data: T };
     if (!r.ok) throw Error(b.error || "Não foi possível continuar.");
     return b.data;
-  }
-  async function refresh() {
+  }, [apiUrl]);
+  const refresh = useCallback(async () => {
     const [invite, list, candidates, profile] = await Promise.all([
-      call(`/api/classes/${classId}/invite`),
-      call(`/api/classes/${classId}/join-requests`),
-      call(`/api/classes/${classId}/join-candidates`),
-      call("/api/educator-profile"),
+      call<{schoolId?: string; code?: string} | null>(`/api/classes/${classId}/invite`),
+      call<Request[]>(`/api/classes/${classId}/join-requests`),
+      call<Candidate[]>(`/api/classes/${classId}/join-candidates`),
+      call<{schools:{id:string;name:string}[]}>('/api/educator-profile'),
     ]);
     setSchools(profile.schools);
     setSchoolId(invite?.schoolId || (profile.schools.length === 1 ? profile.schools[0].id : ""));
     setCode(invite?.code || "");
     setRequests(list);
     setStudents(candidates);
-  }
+  }, [call, classId]);
   useEffect(() => {
-    void refresh().catch((e) => setMessage(e.message));
-  }, [classId, apiUrl]);
+    void Promise.resolve().then(() => refresh()).catch((e) => setMessage(e.message));
+  }, [refresh]);
   const link =
     typeof window === "undefined"
       ? ""
       : `${window.location.origin}/portal?invite=${encodeURIComponent(code)}`;
   useEffect(() => {
     let live = true;
-    setQr("");
     if (code)
       QRCode.toDataURL(link, { width: 200, margin: 2 })
         .then((value) => {
@@ -152,7 +153,7 @@ export function ClassInvitePanel({
                   if (!window.confirm("Renovar o código? O convite anterior deixará de funcionar."))
                     return;
                   setCode(
-                    (await call(`/api/classes/${classId}/invite`, "POST", { schoolId })).code,
+                    (await call<{code:string}>(`/api/classes/${classId}/invite`, "POST", { schoolId })).code,
                   );
                 })
               }
@@ -174,7 +175,7 @@ export function ClassInvitePanel({
             </Button>
           </div>
           {qr && (
-            <img
+            <Image unoptimized
               src={qr}
               alt={`QR Code de convite para ${className}`}
               width={200}
@@ -189,7 +190,7 @@ export function ClassInvitePanel({
           disabled={busy || !schoolId}
           onClick={() =>
             void run(async () =>
-              setCode((await call(`/api/classes/${classId}/invite`, "POST", { schoolId })).code),
+              setCode((await call<{code:string}>(`/api/classes/${classId}/invite`, "POST", { schoolId })).code),
             )
           }
         >
@@ -210,7 +211,7 @@ export function ClassInvitePanel({
             e.preventDefault();
             const data = new FormData(e.currentTarget);
             void run(async () => {
-              const studentId = String(data.get("studentId") || "");
+              const studentId = formString(data, "studentId");
               await call(`/api/class-join-requests/${r.id}`, "POST", {
                 action: "approve",
                 confirmed: data.get("confirmed") === "on",
@@ -285,7 +286,7 @@ export function ClassInvitePanel({
       ))}
       {!requests.length && <p className="mt-3 text-sm">Nenhuma solicitação pendente.</p>}
       {message && (
-        <p role="status" className="mt-3 text-sm">
+        <p aria-live="polite" className="mt-3 text-sm">
           {message}
         </p>
       )}

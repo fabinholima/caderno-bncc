@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 const plans = [
   {
@@ -65,9 +66,8 @@ export default function Pricing() {
           <br />
           <em>Escolha como começar.</em>
         </h2>
-        <div
-          className="ufa-billing"
-          role="group"
+        <fieldset
+          className="ufa-billing m-0 min-w-0 border-0 p-0"
           aria-label="Periodicidade de pagamento"
         >
           <button
@@ -84,7 +84,7 @@ export default function Pricing() {
           >
             Anual <span className="ufa-saving">Economize 16%</span>
           </button>
-        </div>
+        </fieldset>
       </div>
       <p className="ufa-plan-notice">
         Assinaturas disponíveis. Crie sua conta ou entre no portal para escolher
@@ -131,19 +131,18 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            <a
+            <Link
               className="ufa-cta"
               href="/portal"
             >
               {index === 0 ? 'Começar agora' : `Assinar plano ${plan.name}`}
-            </a>
+            </Link>
           </article>
         ))}
       </div>
       <div
         id="subscription-info"
         className="ufa-subscription-info"
-        role="status"
         aria-live="polite"
       >
         <p>

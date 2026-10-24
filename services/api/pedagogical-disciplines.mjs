@@ -18,7 +18,7 @@ export const createPedagogicalDisciplineSchema = z.object({
 });
 
 export const setDisciplineSkillsSchema = z.object({
-  skillIds: z.array(z.string().uuid()).max(200),
+  skillIds: z.array(z.uuid()).max(200),
 });
 export const pedagogicalTopicFilterSchema = z.object({
   disciplineId: z.uuid().optional().or(z.literal('')),

@@ -9,7 +9,7 @@ import { sessionNetwork } from './admin-dashboard.mjs';
 import { requireMail, sendAuthMail, developmentMail } from './auth-mail.mjs';
 
 const scrypt = promisify(crypto.scrypt);
-const email = z.string().trim().toLowerCase().email().max(254);
+const email = z.email().trim().toLowerCase().max(254);
 const password = z.string().min(10).max(200);
 export const registerSchema = z.object({
   cpf: z.string().refine((value) => Boolean(normalizeCpf(value)), 'Informe um CPF válido.'),

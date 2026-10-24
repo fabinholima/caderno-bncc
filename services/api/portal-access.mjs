@@ -23,7 +23,7 @@ export async function resolveUnifiedContext(identity) {
 
 export async function setPortalEditor(identity,input) {
   requirePortalAdmin(identity);
-  const value=z.object({email:z.string().trim().toLowerCase().email(),editor:z.boolean()}).parse(input);
+  const value=z.object({email:z.email().trim().toLowerCase(),editor:z.boolean()}).parse(input);
   return transaction(async db=>{
     const result=await db.query('SELECT id,portal_admin FROM users WHERE lower(email)=$1 AND active FOR UPDATE',[value.email]);
     if(result.rowCount!==1) throw Object.assign(new Error('Conta ativa não encontrada. O usuário precisa se cadastrar primeiro.'),{statusCode:404});
