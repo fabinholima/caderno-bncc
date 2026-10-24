@@ -1,7 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api-client';
+
+type Prices = Record<string, { monthly: number; annual: number }>;
+const initialPrices: Prices = {
+  professor: { monthly: 4990, annual: 49900 },
+  escola: { monthly: 19990, annual: 199900 },
+};
+const money = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const plans = [
   {
@@ -53,6 +61,26 @@ const plans = [
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);
+  const [prices, setPrices] = useState<Prices>(initialPrices);
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    let active = true;
+    apiFetch(`${apiUrl}/api/public/billing-plans`).then(async (response) => {
+      const body = await response.json() as { data?: { id: string; monthly: number; annual: number }[] };
+      if (!response.ok || !body.data) return;
+      const updated = Object.fromEntries(body.data.map((plan) => [plan.id, { monthly: plan.monthly, annual: plan.annual }]));
+      if (active) setPrices((current) => ({ ...current, ...updated }));
+    }).catch(() => { /* Keep the published fallback while the API is unavailable. */ });
+    return () => { active = false; };
+  }, []);
+  const monthlyProfessor = prices.professor?.monthly || initialPrices.professor.monthly;
+  const annualProfessor = prices.professor?.annual || initialPrices.professor.annual;
+  const annualSavings = Math.max(0, Math.round((1 - annualProfessor / (monthlyProfessor * 12)) * 100));
+  const displayPlans = plans.map((plan) => {
+    const id = plan.name.toLowerCase();
+    if (id === 'professor' || id === 'escola') return { ...plan, monthly: money(prices[id]?.monthly || initialPrices[id].monthly), yearly: money(prices[id]?.annual || initialPrices[id].annual) };
+    return plan;
+  });
   return (
     <section
       className="ufa-wrap ufa-section ufa-pricing"
@@ -82,7 +110,7 @@ export default function Pricing() {
             aria-pressed={annual}
             onClick={() => setAnnual(true)}
           >
-            Anual <span className="ufa-saving">Economize 16%</span>
+            Anual <span className="ufa-saving">Economize {annualSavings}%</span>
           </button>
         </fieldset>
       </div>
@@ -91,7 +119,7 @@ export default function Pricing() {
         o plano e concluir o pagamento com segurança no Mercado Pago.
       </p>
       <div className="ufa-plan-grid">
-        {plans.map((plan, index) => (
+        {displayPlans.map((plan, index) => (
           <article
             key={plan.name}
             className={`ufa-plan ${index === 1 ? 'ufa-plan-featured' : ''}`}

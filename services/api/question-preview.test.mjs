@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   snapshotFromQuestion,
   createQuestionPdfPreview,
+  normalizeTrueFalsePreviewAlternatives,
 } from './question-preview.mjs';
+import { createQuestionSchema } from './questions.mjs';
 import { renderAssessment } from '../renderer/render-contract.mjs';
 const question = {
   type: 'single_choice',
@@ -28,6 +30,37 @@ test('prévia inclui a ilustração MetaPost antes das alternativas', () => {
   const tex = renderAssessment(snapshotFromQuestion({ ...question, metapostCode: 'draw fullcircle scaled 2cm;' }));
   assert.match(tex, /\\startMPcode\ndraw fullcircle scaled 2cm;\n\\stopMPcode/);
   assert.ok(tex.indexOf('draw fullcircle') < tex.indexOf('\\startchoice'));
+});
+test('prévia de Certo/Errado recompõe opções fixas e mantém somente um gabarito', () => {
+  const candidate = {
+    ...question,
+    type: 'true_false',
+    alternatives: [
+      { stableKey: 'alt-a', content: 'Certo', isCorrect: true, position: 1 },
+      { stableKey: 'alt-b', content: 'Errado', isCorrect: true, position: 2 },
+    ],
+  };
+  normalizeTrueFalsePreviewAlternatives(candidate, 'student');
+  assert.doesNotThrow(() => createQuestionSchema.parse(candidate));
+  assert.deepEqual(candidate.alternatives.map((item) => [item.content, item.isCorrect]), [
+    ['Certo', true], ['Errado', false],
+  ]);
+  const tex = renderAssessment(snapshotFromQuestion(candidate));
+  assert.deepEqual(snapshotFromQuestion(candidate).questions[0].answer.correctStableKeys, ['alt-a']);
+  assert.match(tex, /C — Certo\\quad E — Errado/);
+  assert.doesNotMatch(tex, /\\(?:directlua|ctxlua|startluacode)/);
+});
+test('prévia da resolução mantém alternativas fixas sem inventar resposta ausente', () => {
+  const candidate = {
+    ...question,
+    type: 'true_false',
+    alternatives: [],
+  };
+  normalizeTrueFalsePreviewAlternatives(candidate, 'answer-key');
+  assert.deepEqual(candidate.alternatives.map((item) => [item.content, item.isCorrect]), [
+    ['Certo', false], ['Errado', false],
+  ]);
+  assert.throws(() => createQuestionSchema.parse(candidate), /exatamente uma correta/);
 });
 test('renderiza MetaPost escrito em ConTeXt puro dentro da alternativa', () => {
   const tex = renderAssessment(snapshotFromQuestion({

@@ -22,13 +22,14 @@ test(
     process.env.MP_BACK_URL = 'https://example.com/portal';
     process.env.DEV_AUTH_BYPASS = 'false';
     const { pool } = await import('./db.mjs');
-    const { createCheckout, billingStatus, cancelBilling, billingWebhook } =
+    const { createCheckout, billingStatus, cancelBilling, billingWebhook, previewBillingCoupon } =
       await import('./billing.mjs');
     const originalFetch = globalThis.fetch;
     let creates = 0;
     let paymentStatus = 'approved';
     let providerStatus = 'pending';
-    let paymentAmount = 29.9;
+    let paymentAmount = 49.9;
+    let expectedCheckoutAmount = 49.9;
     let refundedAmount = 0;
     let ref;
     globalThis.fetch = async (url, options) => {
@@ -38,12 +39,11 @@ test(
         creates++;
         const body = JSON.parse(options.body);
         ref = body.external_reference;
-        assert.equal(body.auto_recurring.transaction_amount, 29.9);
+        assert.equal(body.auto_recurring.transaction_amount, expectedCheckoutAmount);
         assert.equal(body.status, 'pending');
         data = {
-          id: 'sub1',
-          init_point:
-            'https://www.mercadopago.com.br/subscriptions/checkout?id=sub1',
+          id: `sub${creates}`,
+          init_point: `https://www.mercadopago.com.br/subscriptions/checkout?id=sub${creates}`,
         };
       } else if (path === '/preapproval/sub1') {
         if (options.method === 'PUT') providerStatus = 'cancelled';
@@ -77,7 +77,8 @@ test(
     try {
       await pool.query(`CREATE TABLE users(id uuid PRIMARY KEY); CREATE TABLE user_sessions(id uuid PRIMARY KEY); CREATE TABLE institutions(id uuid PRIMARY KEY);
       CREATE TABLE subscription_plans(id text PRIMARY KEY,name text,monthly_assessments int,max_students int,storage_mb int,concurrent_renders int);
-      CREATE TABLE institution_subscriptions(institution_id uuid PRIMARY KEY,plan_id text,status text,period_started_at timestamptz,period_ends_at timestamptz,updated_at timestamptz);`);
+      CREATE TABLE institution_subscriptions(institution_id uuid PRIMARY KEY,plan_id text,status text,period_started_at timestamptz,period_ends_at timestamptz,updated_at timestamptz);
+      CREATE TABLE audit_log(id bigserial PRIMARY KEY,user_id uuid,action text,entity_type text,entity_id text,metadata jsonb);`);
       await pool.query(
         await readFile(
           new URL('../../database/041_mercado_pago.sql', import.meta.url),
@@ -85,6 +86,7 @@ test(
         ),
       );
       await pool.query(await readFile(new URL('../../database/047_admin_reporting.sql',import.meta.url),'utf8'));
+      await pool.query(await readFile(new URL('../../database/095_billing_prices_and_coupons.sql',import.meta.url),'utf8'));
       const identity = {
         institutionId: randomUUID(),
         role: 'admin',
@@ -132,7 +134,7 @@ test(
         notify('subscription_authorized_payment', 'invoice1'),
         /incompatível/,
       );
-      paymentAmount = 29.9;
+      paymentAmount = 49.9;
       await notify('subscription_authorized_payment', 'invoice1');
       await notify('subscription_authorized_payment', 'invoice1');
       assert.equal(
@@ -171,12 +173,36 @@ test(
       await notify('payment', 'payment1');
       await notify('payment', 'payment1');
       assert.equal((await pool.query('SELECT count(*)::int n,sum(amount_cents)::int cents FROM billing_refund_events')).rows[0].n,3);
-      assert.equal((await pool.query('SELECT sum(amount_cents)::int cents FROM billing_refund_events')).rows[0].cents,2990);
+      assert.equal((await pool.query('SELECT sum(amount_cents)::int cents FROM billing_refund_events')).rows[0].cents,4990);
       assert.equal(
         (await pool.query('SELECT status FROM institution_subscriptions'))
           .rows[0].status,
         'past_due',
       );
+
+      const couponBuyer = { ...identity, institutionId: randomUUID() };
+      await pool.query('INSERT INTO institutions(id) VALUES($1)', [couponBuyer.institutionId]);
+      await pool.query(`INSERT INTO institution_subscriptions(institution_id,plan_id,status,period_started_at,period_ends_at)
+        VALUES($1,'trial','trialing',now(),now()+interval '7 days')`, [couponBuyer.institutionId]);
+      await pool.query(`INSERT INTO billing_coupons(code,discount_type,discount_value,plan_id,cycle_months,max_redemptions)
+        VALUES('TEST10','percent',10,'professor',1,1)`);
+      const couponPreview = await previewBillingCoupon(couponBuyer, {
+        plan: 'professor', cycle: 'monthly', couponCode: 'test10',
+      });
+      assert.equal(couponPreview.baseAmountCents, 4990);
+      assert.equal(couponPreview.discountCents, 499);
+      assert.equal(couponPreview.amountCents, 4491);
+      expectedCheckoutAmount = 44.91;
+      const discountedLink = await createCheckout(couponBuyer, {
+        plan: 'professor', cycle: 'monthly', couponCode: 'TEST10',
+      });
+      assert.match(discountedLink.url, /mercadopago/);
+      await assert.rejects(previewBillingCoupon(couponBuyer, {
+        plan: 'professor', cycle: 'monthly', couponCode: 'TEST10',
+      }), /já utilizou/);
+      await assert.rejects(previewBillingCoupon(other, {
+        plan: 'professor', cycle: 'monthly', couponCode: 'TEST10',
+      }), /limite de utilizações/);
     } finally {
       globalThis.fetch = originalFetch;
       await pool.end();

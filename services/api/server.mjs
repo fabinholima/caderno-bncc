@@ -19,7 +19,8 @@ import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-acc
 import { getEducatorProfile, saveEducatorProfile } from './educator-profile.mjs';
 import { googleConfigured, startGoogle, finishGoogle } from './google-auth.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
-import { billingStatus, createCheckout, cancelBilling, billingWebhook } from './billing.mjs';
+import { billingStatus, createCheckout, cancelBilling, billingWebhook, previewBillingCoupon } from './billing.mjs';
+import { publicBillingPlans, listBillingSettings, updateBillingPlan, saveBillingCoupon } from './billing-admin.mjs';
 import { ZodError } from 'zod';
 import { pool } from './db.mjs';
 import {
@@ -246,6 +247,10 @@ const server = createServer(async (request, response) => {
       response.setHeader('cache-control','no-store');
       return json(response,200,{data:await maintenanceStatus()});
     }
+    if (request.method === 'GET' && url.pathname === '/api/public/billing-plans') {
+      response.setHeader('cache-control', 'public, max-age=60');
+      return json(response, 200, { data: await publicBillingPlans() });
+    }
     // Keep login/recovery, payment callbacks and health available during maintenance.
     if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/') && url.pathname !== '/api/billing/webhook') {
       const state = await maintenanceStatus();
@@ -396,6 +401,20 @@ const server = createServer(async (request, response) => {
     if (url.pathname.startsWith('/api/admin/')) response.setHeader('cache-control','no-store');
     if (request.method === 'GET' && url.pathname === '/api/admin/revenue')
       return json(response,200,{data:await revenueReport(identity,{year:url.searchParams.get('year') || new Date().getFullYear()})});
+    if (url.pathname === '/api/admin/billing-settings') {
+      if (request.method === 'GET')
+        return json(response, 200, { data: await listBillingSettings(identity) });
+      if (request.method === 'POST') {
+        if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+          return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+        return json(response, 200, { data: await updateBillingPlan(identity, await readJson(request, 4096)) });
+      }
+    }
+    if (request.method === 'POST' && url.pathname === '/api/admin/billing-coupons') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      return json(response, 200, { data: await saveBillingCoupon(identity, await readJson(request, 4096)) });
+    }
     if (request.method === 'GET' && url.pathname === '/api/admin/subscribers')
       return json(response,200,{data:await listSubscribers(identity,{q:url.searchParams.get('q') || '',ip:url.searchParams.get('ip') || '',page:url.searchParams.get('page') || 1})});
     if (request.method === 'POST' && url.pathname === '/api/admin/subscribers') {
@@ -429,6 +448,11 @@ const server = createServer(async (request, response) => {
       return json(response, 428, { error: 'Complete seu perfil e cadastre sua escola para continuar.' });
     if (request.method === 'GET' && url.pathname === '/api/billing')
       return json(response, 200, { data: await billingStatus(identity) });
+    if (request.method === 'POST' && url.pathname === '/api/billing/coupon/validate') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      return json(response, 200, { data: await previewBillingCoupon(identity, await readJson(request, 4096)) });
+    }
     if (request.method === 'POST' && ['/api/billing/checkout', '/api/billing/cancel'].includes(url.pathname)) {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });

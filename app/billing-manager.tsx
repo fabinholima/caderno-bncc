@@ -11,6 +11,9 @@ type Billing = {
     plan_id: string;
     months: number;
     amount_cents: number;
+    base_amount_cents?: number | null;
+    discount_cents?: number;
+    coupon_code?: string | null;
   } | null;
   payments: {
     status: string;
@@ -18,6 +21,14 @@ type Billing = {
     paid_at: string | null;
     access_until: string | null;
   }[];
+};
+type CouponPreview = {
+  planId: string;
+  months: number;
+  baseAmountCents: number;
+  amountCents: number;
+  discountCents: number;
+  couponCode: string | null;
 };
 const money = (cents: number) =>
   (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -52,6 +63,8 @@ export function BillingManager({
   const [cycle, setCycle] = useState<'monthly' | 'annual'>('monthly');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
   async function refresh() {
     try {
       setData(await loadBilling(apiUrl));
@@ -68,7 +81,26 @@ export function BillingManager({
     });
     return () => { active = false; };
   }, [apiUrl]);
+  async function validateCoupon(plan: string) {
+    setBusy(true);
+    setMessage('');
+    setCouponPreview(null);
+    try {
+      const response = await apiFetch(`${apiUrl}/api/billing/coupon/validate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, cycle, couponCode }),
+      });
+      const body = await response.json() as { error?: string; data?: CouponPreview };
+      if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível validar o cupom.');
+      setCouponPreview(body.data);
+      setMessage(`Cupom ${body.data.couponCode} aplicado: desconto de ${money(body.data.discountCents)}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao validar o cupom.');
+    } finally { setBusy(false); }
+  }
   async function action(kind: 'checkout' | 'cancel', plan?: string) {
+    const appliedCoupon = kind === 'checkout' && couponPreview && couponPreview.planId === plan &&
+      couponPreview.months === (cycle === 'annual' ? 12 : 1) ? couponPreview : null;
     if (
       kind === 'cancel' &&
       !window.confirm(
@@ -79,7 +111,7 @@ export function BillingManager({
     if (
       kind === 'checkout' &&
       !window.confirm(
-        `Continuar para contratar ${plan === 'professor' ? 'Professor' : 'Escola'} com renovação ${cycle === 'annual' ? 'anual' : 'mensal'} no Mercado Pago?`,
+        `Continuar para contratar ${plan === 'professor' ? 'Professor' : 'Escola'} com renovação ${cycle === 'annual' ? 'anual' : 'mensal'}${appliedCoupon ? ` por ${money(appliedCoupon.amountCents)} (cupom ${appliedCoupon.couponCode})` : ''} no Mercado Pago?`,
       )
     )
       return;
@@ -89,7 +121,7 @@ export function BillingManager({
       const response = await apiFetch(`${apiUrl}/api/billing/${kind}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, cycle }),
+        body: JSON.stringify({ plan, cycle, couponCode: appliedCoupon?.couponCode || undefined }),
       });
       const body = await response.json() as { error?: string; data?: { url?: string; cancelled?: boolean } };
       if (!response.ok)
@@ -141,6 +173,7 @@ export function BillingManager({
               {labels[data.contract.status] || data.contract.status} ·{' '}
               {money(data.contract.amount_cents)} /{' '}
               {data.contract.months === 12 ? 'ano' : 'mês'}
+              {data.contract.coupon_code && data.contract.discount_cents ? ` · cupom ${data.contract.coupon_code} (${money(data.contract.discount_cents)} de desconto)` : ''}
             </p>
           )}
           {role === 'admin' ? (
@@ -151,13 +184,18 @@ export function BillingManager({
                   className="ml-3 rounded-lg border p-2"
                   value={cycle}
                   onChange={(e) =>
-                    setCycle(e.target.value as 'monthly' | 'annual')
+                    { setCycle(e.target.value as 'monthly' | 'annual'); setCouponPreview(null); }
                   }
                 >
                   <option value="monthly">Mensal</option>
                   <option value="annual">Anual (cobrança única por ano)</option>
                 </select>
               </label>
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <label className="block text-sm font-medium" htmlFor="subscription-coupon">Cupom de desconto</label>
+                <input id="subscription-coupon" value={couponCode} onChange={(event) => { setCouponCode(event.target.value.toUpperCase()); setCouponPreview(null); }} className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" placeholder="Digite o código" maxLength={24} />
+                <p className="mt-2 text-xs text-slate-500">Depois, selecione “Validar cupom neste plano” no cartão da assinatura.</p>
+              </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {data.plans.map((plan) => (
                   <article key={plan.id} className="rounded-xl border p-4">
@@ -185,6 +223,8 @@ export function BillingManager({
                     >
                       Continuar no Mercado Pago
                     </button>
+                    {couponCode.trim() && <button type="button" className="ml-2 mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50" disabled={busy} onClick={() => void validateCoupon(plan.id)}>Validar cupom neste plano</button>}
+                    {couponPreview?.planId === plan.id && couponPreview.months === (cycle === 'annual' ? 12 : 1) && <p className="mt-2 text-sm text-emerald-700">Com cupom: <b>{money(couponPreview.amountCents)}</b> · desconto de {money(couponPreview.discountCents)}</p>}
                   </article>
                 ))}
               </div>
