@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import {
   ArrowRight,
+  ArrowUpRight,
   BookOpenCheck,
+  CheckCircle2,
+  Clock3,
+  FileCheck2,
   FileOutput,
   LibraryBig,
   ScanLine,
@@ -237,15 +241,42 @@ export function WorkspaceHome({
           </ol>
         </section>
       ) : (
-        <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-            <h2 className="font-display text-xl font-bold text-[var(--navy)]">
-              {preparing
-                ? 'Ferramentas de preparação'
-                : 'Continue de onde parou'}
-            </h2>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-[var(--blue)]">
+                  {preparing ? (
+                    <BookOpenCheck className="size-5" aria-hidden="true" />
+                  ) : (
+                    <Clock3 className="size-5" aria-hidden="true" />
+                  )}
+                </span>
+                <div>
+                  <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+                    {preparing
+                      ? 'Ferramentas de preparação'
+                      : 'Continue de onde parou'}
+                  </h2>
+                  {!preparing && data && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {
+                        data.questions.filter((q) => q.status !== 'Arquivada')
+                          .length
+                      }{' '}
+                      questões recentes
+                    </p>
+                  )}
+                </div>
+              </div>
+              {!preparing && !!data?.questions.length && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  Últimas atividades
+                </span>
+              )}
+            </div>
             {preparing ? (
-              <div className="mt-4 space-y-3">
+              <div className="space-y-3 p-5 sm:p-6">
                 <HomeAction
                   icon={LibraryBig}
                   title="Banco de questões"
@@ -279,23 +310,30 @@ export function WorkspaceHome({
                 )}
               </div>
             ) : (
-              <div className="mt-4 divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 px-5 sm:px-6">
                 {completed && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-                    <div className="min-w-0">
-                      <p className="break-words font-semibold">
-                        {completed.title}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-600">
-                        {completed.className} · {completed.completed}/
-                        {completed.students} PDFs prontos
-                      </p>
+                  <div className="flex flex-wrap items-center justify-between gap-4 py-5">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                        <FileCheck2 className="size-4" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="break-words font-semibold text-slate-900">
+                          {completed.title}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          {completed.className} · {completed.completed}/
+                          {completed.students} PDFs prontos
+                        </p>
+                      </div>
                     </div>
                     <Button
                       variant="outline"
+                      className="ml-12 sm:ml-0"
                       onClick={() => onOpenApplication(completed.id)}
                     >
                       Ver relatório
+                      <ArrowUpRight aria-hidden="true" />
                     </Button>
                   </div>
                 )}
@@ -305,31 +343,45 @@ export function WorkspaceHome({
                   .map((q) => (
                     <div
                       key={q.id}
-                      className="flex flex-wrap items-center justify-between gap-3 py-4"
+                      className="flex flex-wrap items-center justify-between gap-4 py-4 transition-colors hover:bg-slate-50/80"
                     >
-                      <div>
-                        <p className="font-semibold">
-                          {q.code} · {q.subject}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-600">
-                          {q.status}
-                        </p>
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
+                          <BookOpenCheck
+                            className="size-4"
+                            aria-hidden="true"
+                          />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="break-words font-semibold text-slate-900">
+                            {q.code} · {q.subject}
+                          </p>
+                          <p className="mt-1 flex items-center gap-1.5 text-xs text-emerald-700">
+                            <CheckCircle2
+                              className="size-3.5"
+                              aria-hidden="true"
+                            />
+                            {q.status}
+                          </p>
+                        </div>
                       </div>
                       <Button
                         variant="outline"
+                        className="ml-12 sm:ml-0"
                         onClick={() => {
                           if (canEditCatalog) onEditQuestion(q.id);
                           else onNavigate('Questões');
                         }}
                       >
                         {canEditCatalog ? 'Abrir questão' : 'Ver banco'}
+                        <ArrowRight aria-hidden="true" />
                       </Button>
                     </div>
                   ))}
                 {data &&
                   !completed &&
                   !data.questions.some((q) => q.status !== 'Arquivada') && (
-                    <div className="py-5">
+                    <div className="my-5 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center sm:px-6">
                       <p className="text-sm text-slate-600">
                         Suas atividades aparecerão aqui. Comece pelo banco de
                         questões ou prepare sua primeira avaliação.
@@ -346,58 +398,98 @@ export function WorkspaceHome({
               </div>
             )}
           </section>
-          <section className="rounded-2xl border border-blue-100 bg-white p-5 sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--blue)]">
-              Próxima ação
-            </p>
-            <h2 className="mt-3 font-display text-xl font-bold text-[var(--navy)]">
-              {completed
-                ? 'Acompanhe os resultados da turma'
-                : approved
-                  ? 'Transforme questões em avaliação'
-                  : 'Prepare o banco de questões'}
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              {completed
-                ? 'Abra o relatório da aplicação. Conforme as correções forem concluídas, os resultados por habilidade, competência e tópico aparecerão ali.'
-                : approved
-                  ? 'As questões aprovadas já podem ser selecionadas para uma nova avaliação.'
-                  : 'Somente questões aprovadas entram nas avaliações. Consulte o catálogo e acompanhe a revisão.'}
-            </p>
-            <Button
-              className="mt-5"
-              disabled={!data}
-              onClick={() =>
-                completed
-                  ? onOpenApplication(completed.id)
-                  : onNavigate(approved ? 'Avaliações' : 'Questões')
-              }
-            >
-              {completed
-                ? 'Ver relatório'
-                : approved
-                  ? 'Montar avaliação'
-                  : 'Abrir banco'}
-              <ArrowRight />
-            </Button>
+          <section className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm">
+            <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50/70 p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--blue)]">
+                  Próxima ação
+                </p>
+                <span className="flex size-10 items-center justify-center rounded-xl bg-white text-[var(--blue)] shadow-sm ring-1 ring-blue-100">
+                  {completed ? (
+                    <ChartNoAxesCombined
+                      className="size-5"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <FileOutput className="size-5" aria-hidden="true" />
+                  )}
+                </span>
+              </div>
+              <h2 className="mt-3 font-display text-xl font-bold leading-snug text-[var(--navy)]">
+                {completed
+                  ? 'Acompanhe os resultados da turma'
+                  : approved
+                    ? 'Transforme questões em avaliação'
+                    : 'Prepare o banco de questões'}
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                {completed
+                  ? 'Abra o relatório da aplicação. Conforme as correções forem concluídas, os resultados por habilidade, competência e tópico aparecerão ali.'
+                  : approved
+                    ? 'As questões aprovadas já podem ser selecionadas para uma nova avaliação.'
+                    : 'Somente questões aprovadas entram nas avaliações. Consulte o catálogo e acompanhe a revisão.'}
+              </p>
+              <Button
+                className="mt-5 shadow-sm"
+                disabled={!data}
+                onClick={() =>
+                  completed
+                    ? onOpenApplication(completed.id)
+                    : onNavigate(approved ? 'Avaliações' : 'Questões')
+                }
+              >
+                {completed
+                  ? 'Ver relatório'
+                  : approved
+                    ? 'Montar avaliação'
+                    : 'Abrir banco'}
+                <ArrowRight aria-hidden="true" />
+              </Button>
+            </div>
             {!!data?.assessments.length && (
-              <div className="mt-6 border-t border-slate-100 pt-5">
-                <h3 className="font-semibold">Avaliações recentes</h3>
-                {data.assessments.slice(0, 3).map((a) => (
-                  <p
-                    key={a.id}
-                    className="mt-3 break-words text-sm text-slate-600"
-                  >
-                    {a.title} · {a.grade}
-                  </p>
-                ))}
+              <div className="border-t border-slate-100 p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-display font-bold text-slate-900">
+                    Avaliações recentes
+                  </h3>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                    {data.assessments.length}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {data.assessments.slice(0, 3).map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => onNavigate('Avaliações')}
+                      className="flex w-full items-center gap-3 rounded-lg border border-transparent bg-slate-50 px-3 py-2.5 text-left transition hover:border-blue-100 hover:bg-blue-50/70"
+                    >
+                      <FileOutput
+                        className="size-4 shrink-0 text-slate-500"
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words text-sm font-medium text-slate-800">
+                          {a.title}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          {a.grade}
+                        </span>
+                      </span>
+                      <ArrowUpRight
+                        className="size-4 shrink-0 text-slate-400"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ))}
+                </div>
                 <Button
                   variant="link"
-                  className="mt-2 px-0"
+                  className="mt-3 h-auto px-0 py-1 font-semibold"
                   onClick={() => onNavigate('Avaliações')}
                 >
                   Abrir avaliações
-                  <ArrowRight />
+                  <ArrowRight aria-hidden="true" />
                 </Button>
               </div>
             )}
