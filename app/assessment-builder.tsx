@@ -1109,6 +1109,10 @@ export function AssessmentBuilder({
     setSaving(true);
     setMessage('');
     try {
+      // Persist any pending organization/configuration edits before creating
+      // the assessment and queuing the ConTeXt PDFs.
+      pendingSave.current?.();
+      await saveQueue.current;
       if (
         apiUrl &&
         chosen.every((question) => /^[0-9a-f-]{36}$/i.test(question.id))
@@ -1217,8 +1221,8 @@ export function AssessmentBuilder({
           'Provas recentes',
           'Identificação e modelo',
           'Questões',
-          'Organização',
-          'Revisão ConTeXt',
+          'Organização e impressão',
+          'Prévia e revisão',
           'Aplicação',
         ].map((label, index) => (
           <Button
@@ -1234,7 +1238,10 @@ export function AssessmentBuilder({
                   !assessmentId ||
                   generatedVersions.some((v) => v.status !== 'completed')))
             }
-            onClick={() => setStep(index)}
+            onClick={() => {
+              setMessage('');
+              setStep(index);
+            }}
           >
             {label}
           </Button>
@@ -2068,36 +2075,96 @@ export function AssessmentBuilder({
             </div>
           )}
           {step === 4 && (
-            <section className="space-y-4">
-              <h2 className="text-xl font-bold">Revisão dos PDFs reais</h2>
-              <p>
-                Confira todas as páginas, imagens, QR codes e marcações na prova
-                e no gabarito. Ao editar, gere uma nova prévia.
-              </p>
-              {generatedVersions
-                .filter((v) => v.status === 'completed' && v.renderJobId)
-                .map((v) => (
-                  <AssessmentPdfPreview
-                    key={v.renderJobId}
-                    apiUrl={apiUrl}
-                    jobId={v.renderJobId!}
-                    code={v.code}
-                  />
-                ))}
-              <Button disabled={saving || !chosen.length} onClick={regenerate}>
-                Gerar PDF novamente
-              </Button>
-              <Button
-                disabled={
-                  !assessmentId ||
-                  !generated ||
-                  !generatedVersions.length ||
-                  generatedVersions.some((v) => v.status !== 'completed')
-                }
-                onClick={() => setStep(5)}
-              >
-                Finalizar revisão e aplicar à turma
-              </Button>
+            <section className="space-y-5">
+              <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 sm:p-6">
+                <p className="text-xs font-bold uppercase tracking-[.14em] text-blue-700">
+                  Etapa final antes da aplicação
+                </p>
+                <h2 className="mt-2 text-xl font-bold text-[var(--navy)]">
+                  Revisão da prova no ConTeXt
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                  {generated
+                    ? 'A prova foi enviada para composição. Acompanhe o processamento e confira cada PDF antes de aplicar à turma.'
+                    : 'A compilação acontece somente nesta etapa. Confira as configurações e a organização; quando estiver tudo pronto, gere os PDFs e revise cada versão antes de aplicar.'}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+                  <span className="rounded-full border bg-white px-3 py-1.5">
+                    {chosen.length}{' '}
+                    {chosen.length === 1 ? 'questão' : 'questões'}
+                  </span>
+                  <span className="rounded-full border bg-white px-3 py-1.5">
+                    {sections.filter((section) => section.selected.size).length}{' '}
+                    {sections.filter((section) => section.selected.size)
+                      .length === 1
+                      ? 'disciplina'
+                      : 'disciplinas'}
+                  </span>
+                  <span className="rounded-full border bg-white px-3 py-1.5">
+                    {versions} {versions === 1 ? 'versão' : 'versões'} · {paper}
+                  </span>
+                  <span className="rounded-full border bg-white px-3 py-1.5">
+                    {templates.find((item) => item.id === template)?.label ||
+                      template}
+                  </span>
+                </div>
+                {!generated && (
+                  <Button
+                    className="mt-5 bg-[var(--blue)] text-white hover:bg-blue-700"
+                    disabled={saving || !chosen.length}
+                    onClick={generate}
+                  >
+                    <Sparkles className="size-4" />
+                    {saving
+                      ? 'Enviando para compilação…'
+                      : 'Gerar prévia ConTeXt'}
+                  </Button>
+                )}
+              </div>
+              {generated && (
+                <>
+                  <div>
+                    <h3 className="font-semibold text-[var(--navy)]">
+                      PDFs para revisar
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Confira todas as páginas, imagens, QR codes e marcações na
+                      prova e no gabarito. Se alterar a configuração, gere uma
+                      nova prévia.
+                    </p>
+                  </div>
+                  {generatedVersions
+                    .filter((v) => v.status === 'completed' && v.renderJobId)
+                    .map((v) => (
+                      <AssessmentPdfPreview
+                        key={v.renderJobId}
+                        apiUrl={apiUrl}
+                        jobId={v.renderJobId!}
+                        code={v.code}
+                      />
+                    ))}
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      variant="outline"
+                      disabled={saving || !chosen.length}
+                      onClick={regenerate}
+                    >
+                      Gerar PDFs novamente
+                    </Button>
+                    <Button
+                      disabled={
+                        !assessmentId ||
+                        !generated ||
+                        !generatedVersions.length ||
+                        generatedVersions.some((v) => v.status !== 'completed')
+                      }
+                      onClick={() => setStep(5)}
+                    >
+                      Finalizar revisão e aplicar à turma
+                    </Button>
+                  </div>
+                </>
+              )}
             </section>
           )}
         </div>
@@ -2210,9 +2277,12 @@ export function AssessmentBuilder({
               <Button
                 className="mt-4"
                 disabled={saving || !chosen.length}
-                onClick={() => (step === 2 ? setStep(3) : generate())}
+                onClick={() => {
+                  setMessage('');
+                  setStep(3);
+                }}
               >
-                {step === 2 ? 'Organizar prova' : 'Gerar prévia ConTeXt'}
+                Organizar prova
               </Button>
             </section>
           )}
@@ -2230,7 +2300,7 @@ export function AssessmentBuilder({
               </span>
               <div>
                 <h2 className="font-display text-lg font-bold text-[var(--navy)]">
-                  3. Configuração
+                  Configuração da prova
                 </h2>
                 <p className="text-xs text-slate-500">Conteúdo e impressão</p>
               </div>
@@ -2731,23 +2801,8 @@ export function AssessmentBuilder({
                 </div>
               </div>
             </div>
-            <Button
-              onClick={generate}
-              disabled={saving || !title.trim() || !institutionName.trim()}
-              className="mt-5 w-full bg-[var(--blue)] text-white hover:bg-blue-700"
-            >
-              <Sparkles />
-              {saving
-                ? 'Preparando...'
-                : `Gerar ${versions} ${versions === 1 ? 'versão' : 'versões'}`}
-            </Button>
-            {message && (
-              <output className="mt-3 text-xs leading-5 text-slate-600">
-                {message}
-              </output>
-            )}
           </section>
-          {generated && (
+          {step === 4 && generated && (
             <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-5">
               <div className="flex items-center gap-2 text-blue-900">
                 {generatedVersions.some(
