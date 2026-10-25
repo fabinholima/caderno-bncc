@@ -61,7 +61,7 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\blackrule\[width=8mm,height=8mm\]/);
   assert.match(tex, /\\NC 01 \\NC \\framed\[width=6mm,height=6mm/);
   assert.match(tex, /\\NC \\NC \{\\bf A\} \\NC \{\\bf B\}/);
-  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,corner=round/g) || []).length, 5);
+  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,[^\]]*corner=round/g) || []).length, 5);
   assert.doesNotMatch(tex, /\\framed\[width=6mm,height=6mm[^\]]*\]\{[A-E]\}/);
   assert.match(tex, /offset=overlay\]\{\}/);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
@@ -82,7 +82,7 @@ test('mantém o cartão clássico e os círculos mesmo sem QR associado', async 
   );
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
-  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,corner=round/g) || []).length, 5);
+  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,[^\]]*corner=round/g) || []).length, 5);
   assert.match(tex, /\\NC 01 [\s\S]*?\\NC\\NR/);
   assert.doesNotMatch(tex, /\\externalfigure\[undefined\]/);
   snapshot.render.previewOnly = true;
@@ -829,7 +829,8 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   assert.ok(!tex.includes('{B}'));
   assert.ok(!tex.includes('{D}'));
   assert.match(tex, /\\NC \\NC \{\\bf C\} \\NC \{\\bf E\}/);
-  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,corner=round/g) || []).length, 2);
+  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,[^\]]*corner=round/g) || []).length, 2);
+  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,frame=on,rulethickness=\.6pt,corner=round/g) || []).length, 2);
   assert.doesNotMatch(tex, /offset=overlay\]\{[CE]\}/);
 });
 
