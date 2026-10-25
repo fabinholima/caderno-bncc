@@ -59,11 +59,12 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   snapshot.candidate = { name: 'Aluno Demonstração', number: 1 };
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\blackrule\[width=8mm,height=8mm\]/);
-  assert.match(tex, /\\NC 01 \\NC \\framed\[width=6mm,height=6mm/);
-  assert.match(tex, /\\NC \\NC \{\\bf A\} \\NC \{\\bf B\}/);
-  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,[^\]]*corner=round/g) || []).length, 5);
-  assert.doesNotMatch(tex, /\\framed\[width=6mm,height=6mm[^\]]*\]\{[A-E]\}/);
-  assert.match(tex, /offset=overlay\]\{\}/);
+  assert.match(tex, /\\bf ITEM/);
+  assert.match(tex, /\\bf RESPOSTA/);
+  assert.match(tex, /\\bf A/);
+  assert.match(tex, /\\bf E/);
+  assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
+  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
   assert.match(tex, /\\bold\{Nome completo do aluno\}/);
@@ -82,8 +83,8 @@ test('mantém o cartão clássico e os círculos mesmo sem QR associado', async 
   );
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
-  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,[^\]]*corner=round/g) || []).length, 5);
-  assert.match(tex, /\\NC 01 [\s\S]*?\\NC\\NR/);
+  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
+  assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.doesNotMatch(tex, /\\externalfigure\[undefined\]/);
   snapshot.render.previewOnly = true;
   assert.doesNotMatch(renderAssessment(snapshot), /CARTÃO-RESPOSTA/);
@@ -103,11 +104,11 @@ test('mantém círculos alinhados no cartão do Simulado sem QR associado', asyn
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]\\bf A\}"\)/);
-  assert.equal((tex.match(/draw fullcircle scaled 4\.8mm shifted/g) || []).length, 95);
+  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 95);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]19\}"\)/);
-  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 35\.5mm yscaled 66mm/);
-  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 35\.5mm yscaled 60\.4mm/);
+  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 41\.4mm yscaled 67mm/);
+  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 41\.4mm yscaled 61\.6mm/);
 });
 
 test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simplificado', async () => {
@@ -187,7 +188,8 @@ test('renderiza o Modelo 3 em duas colunas com folha de respostas OMR', async ()
   assert.match(tex, /Versão: A/);
   assert.match(tex, /\\externalfigure\[assessment-qr\.png\]/);
   assert.match(tex, /\\blackrule\[width=7mm,height=7mm\]/);
-  assert.match(tex, /RESPOSTAS 01 - 01/);
+  assert.match(tex, /\\bf ITEM/);
+  assert.match(tex, /\\bf RESPOSTA/);
   assert.match(tex, /\\definecolor\[modelthreerule\]\[s=\.62\]/);
 });
 

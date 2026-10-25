@@ -66,6 +66,28 @@ def standard_judgment_card(question_count=10):
     return image
 
 
+def standard_five_option_card(question_count=100):
+    """Synthetic photo with the same column-major order as the printed A-E grid."""
+    image = np.full((1750, 1700, 3), 255, np.uint8)
+    payload = 'CBS1:00000000-0000-4000-8000-000000000001:0123456789abcdef0123'
+    qr = cv2.QRCodeEncoder_create().encode(payload)
+    qr = cv2.resize(qr, (220, 220), interpolation=cv2.INTER_NEAREST)
+    image[80:300, 80:300] = cv2.cvtColor(qr, cv2.COLOR_GRAY2BGR)
+    columns = min(4, int(np.ceil(question_count / 15)))
+    rows_per_column = int(np.ceil(question_count / columns))
+    for index in range(question_count):
+        column, row = divmod(index, rows_per_column)
+        for option in range(5):
+            x, y = 220 + column * 350 + option * 42, 370 + row * 50
+            cv2.circle(image, (x, y), 17, (0, 0, 0), 2)
+            if option == index % 5:
+                cv2.circle(image, (x, y), 13, (0, 0, 0), -1)
+    if question_count == 100:
+        # A circular stray mark before the last row must not hide item 100.
+        cv2.circle(image, (1215, 1570), 17, (0, 0, 0), 2)
+    return image
+
+
 class CompactCardReading(unittest.TestCase):
     def read(self, image, profile):
         with tempfile.TemporaryDirectory() as directory:
@@ -110,6 +132,15 @@ class CompactCardReading(unittest.TestCase):
         self.assertEqual(
             [row['selectedLabels'] for row in result['answers']],
             [['C' if index % 2 == 0 else 'E'] for index in range(100)],
+        )
+
+    def test_regular_five_option_sheet_reads_four_vertical_blocks_in_question_order(self):
+        result = self.read(standard_five_option_card(), {'labels': list('ABCDE')})
+        self.assertFalse(result['requiresReview'])
+        self.assertEqual(len(result['answers']), 100)
+        self.assertEqual(
+            [row['selectedLabels'] for row in result['answers']],
+            [[list('ABCDE')[index % 5]] for index in range(100)],
         )
 
 

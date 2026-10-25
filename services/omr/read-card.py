@@ -44,13 +44,17 @@ def detect_answer_groups(image, gray, option_count=5):
     groups = []
     for row in visual_rows:
         row.sort(key=lambda circle: circle[0])
-        for index in range(0, len(row), option_count):
+        index = 0
+        while index <= len(row) - option_count:
             group = row[index : index + option_count]
-            if len(group) != option_count:
-                continue
             gaps = [group[item + 1][0] - group[item][0] for item in range(option_count - 1)]
             if max(gaps) - min(gaps) < 12:
                 groups.append(group)
+                index += option_count
+            else:
+                # Text or a mark can look circular. Skip that candidate rather
+                # than shifting every response to its right by one position.
+                index += 1
     return groups
 
 

@@ -1191,6 +1191,12 @@ export function AssessmentBuilder({
     }
   }
 
+  const setupReady =
+    title.trim().length >= 5 &&
+    grade.trim().length > 0 &&
+    institutionName.trim().length > 0 &&
+    teacherName.trim().length > 0;
+
   return (
     <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
@@ -1202,7 +1208,8 @@ export function AssessmentBuilder({
             Elaborar prova
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Identifique, monte, revise no ConTeXt e aplique sua prova à turma.
+            Configure a prova, escolha as questões, organize as seções e revise
+            os PDFs antes da aplicação.
           </p>
         </div>
         <Badge
@@ -1213,39 +1220,49 @@ export function AssessmentBuilder({
           BNCC vinculada
         </Badge>
       </div>
-      <nav
-        aria-label="Etapas da elaboração"
-        className="my-5 flex flex-wrap gap-2"
-      >
-        {[
-          'Provas recentes',
-          'Identificação e modelo',
-          'Questões',
-          'Organização e impressão',
-          'Prévia e revisão',
-          'Aplicação',
-        ].map((label, index) => (
-          <Button
-            key={label}
-            variant={step === index ? 'default' : 'outline'}
-            disabled={
-              (index === 0 &&
-                !!workspaceId &&
-                saveStatus !== 'Rascunho salvo') ||
-              (index > 0 && !workspaceId) ||
-              (index === 5 &&
-                (!generated ||
-                  !assessmentId ||
-                  generatedVersions.some((v) => v.status !== 'completed')))
-            }
-            onClick={() => {
-              setMessage('');
-              setStep(index);
-            }}
+      <nav aria-label="Etapas da elaboração" className="my-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <button
+            type="button"
+            disabled={!!workspaceId && saveStatus !== 'Rascunho salvo'}
+            onClick={() => { setMessage(''); setStep(0); }}
+            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${step === 0 ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            {label}
-          </Button>
-        ))}
+            <FolderOpen className="size-4" /> Provas recentes
+          </button>
+          {workspaceId && <span className="text-xs font-medium text-slate-500">{saveStatus || 'Salvando rascunho…'}</span>}
+        </div>
+        <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            'Identificação',
+            'Questões',
+            'Organização',
+            'Prévia e revisão',
+            'Aplicação',
+          ].map((label, position) => {
+            const index = position + 1;
+            const disabled = !workspaceId ||
+              (index >= 2 && !setupReady) ||
+              (index >= 3 && !chosen.length) ||
+              (index === 5 && (!generated || !assessmentId || generatedVersions.some((v) => v.status !== 'completed')));
+            return (
+              <li key={label}>
+                <button
+                  type="button"
+                  aria-current={step === index ? 'step' : undefined}
+                  disabled={disabled}
+                  onClick={() => { setMessage(''); setStep(index); }}
+                  className={`flex min-h-16 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${step === index ? 'border-blue-500 bg-blue-50 text-blue-950 shadow-sm' : index < step ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900 hover:bg-emerald-50' : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-blue-200 hover:bg-blue-50/50'}`}
+                >
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold ${step === index ? 'bg-blue-600 text-white' : index < step ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}>
+                    {index < step ? <Check className="size-4" /> : index}
+                  </span>
+                  <span className="text-sm font-semibold leading-tight">{label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       </nav>
       {workspaceId && (
         <div className="mb-3 text-sm">
@@ -1592,7 +1609,9 @@ export function AssessmentBuilder({
         disabled={saving}
         className={
           step > 0 && step < 5
-            ? 'mt-7 grid gap-5 xl:grid-cols-[1fr_380px]'
+            ? step === 1 || step === 4
+              ? 'mt-7 grid gap-5'
+              : 'mt-7 grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px]'
             : 'hidden'
         }
       >
@@ -1736,6 +1755,14 @@ export function AssessmentBuilder({
                   )}
                 </article>
               ))}
+            </div>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+              <p className="text-sm text-slate-500">
+                {chosen.length} questões distribuídas em {sections.filter((section) => section.selected.size).length} seção(ões).
+              </p>
+              <Button disabled={!chosen.length} onClick={() => { setMessage(''); setStep(4); }}>
+                Revisar e gerar prévia
+              </Button>
             </div>
           </section>
 
@@ -2041,39 +2068,6 @@ export function AssessmentBuilder({
               )}
             </div>
           </section>
-          {step === 1 && (
-            <div className="rounded-xl border bg-white p-5">
-              <h2 className="text-xl font-bold">Identificação e modelo</h2>
-              <p className="my-3">
-                Preencha o cabeçalho e escolha o modelo antes de selecionar as
-                questões. Compactos usam A4 e aceitam até 10 questões
-                compatíveis.
-              </p>
-              <label>
-                Disciplina
-                <select
-                  className="m-3 rounded border p-2"
-                  value={activeSection?.subject || ''}
-                  onChange={(e) => selectQuestionSubject(e.target.value)}
-                >
-                  {subjects.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-              <Button
-                disabled={
-                  title.trim().length < 5 ||
-                  !grade.trim() ||
-                  !institutionName.trim() ||
-                  !teacherName.trim()
-                }
-                onClick={() => setStep(2)}
-              >
-                Selecionar questões
-              </Button>
-            </div>
-          )}
           {step === 4 && (
             <section className="space-y-5">
               <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 sm:p-6">
@@ -2274,23 +2268,22 @@ export function AssessmentBuilder({
                 Desmarcado: preserva a ordem definida. O gabarito acompanha as
                 alternativas de cada versão.
               </p>
-              <Button
-                className="mt-4"
-                disabled={saving || !chosen.length}
-                onClick={() => {
-                  setMessage('');
-                  setStep(3);
-                }}
-              >
-                Organizar prova
-              </Button>
+              {step === 2 && (
+                <Button
+                  className="mt-4 w-full"
+                  disabled={saving || !chosen.length}
+                  onClick={() => { setMessage(''); setStep(3); }}
+                >
+                  Continuar para organização
+                </Button>
+              )}
             </section>
           )}
 
           <section
             className={
-              step === 1 || step === 3
-                ? 'rounded-2xl border border-slate-200 bg-white p-5'
+              step === 1
+                ? 'mx-auto w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7'
                 : 'hidden'
             }
           >
@@ -2300,9 +2293,9 @@ export function AssessmentBuilder({
               </span>
               <div>
                 <h2 className="font-display text-lg font-bold text-[var(--navy)]">
-                  Configuração da prova
+                  1. Identificação e modelo
                 </h2>
-                <p className="text-xs text-slate-500">Conteúdo e impressão</p>
+                <p className="text-sm text-slate-500">Defina o cabeçalho e o formato de impressão. Depois, selecione as questões.</p>
               </div>
             </div>
             <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
@@ -2800,6 +2793,12 @@ export function AssessmentBuilder({
                   </p>
                 </div>
               </div>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+              <p className="text-xs text-slate-500">Título, série, instituição e professor são obrigatórios.</p>
+              <Button disabled={!setupReady} onClick={() => { setMessage(''); setStep(2); }}>
+                Continuar para questões
+              </Button>
             </div>
           </section>
           {step === 4 && generated && (

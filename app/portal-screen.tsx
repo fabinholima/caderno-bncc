@@ -1336,6 +1336,29 @@ export default function Home() {
                 {notice}
               </div>
             )}
+            <section aria-label="Da questão à prova" className="mt-6 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white p-5 shadow-sm sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[.14em] text-blue-700">Fluxo de preparação</p>
+                  <h2 className="mt-1 font-display text-xl font-bold text-[var(--navy)]">Da questão à prova, passo a passo</h2>
+                </div>
+                <Button type="button" variant="outline" onClick={() => setActive('Avaliações')}>
+                  <BookOpenCheck className="size-4" /> Montar prova
+                </Button>
+              </div>
+              <ol className="mt-5 grid gap-3 md:grid-cols-3">
+                {[
+                  ['1', 'Cadastre', 'Escreva o enunciado, as alternativas e a resolução.'],
+                  ['2', 'Revise', 'Confira a classificação, o gabarito e a prévia da questão.'],
+                  ['3', 'Monte a prova', 'Escolha as questões aprovadas e organize as seções.'],
+                ].map(([number, heading, detail]) => (
+                  <li key={number} className="flex gap-3 rounded-xl border border-blue-100 bg-white p-4">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-blue-600 text-xs font-bold text-white">{number}</span>
+                    <div><h3 className="text-sm font-bold text-slate-900">{heading}</h3><p className="mt-1 text-xs leading-5 text-slate-600">{detail}</p></div>
+                  </li>
+                ))}
+              </ol>
+            </section>
             <div className="mt-6 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
               {(['Ensino Fundamental', 'Ensino Médio'] as const).map(
                 (stage) => (
@@ -1879,8 +1902,8 @@ export default function Home() {
                       ['question-curriculum', '2', 'Classificação'],
                       ['question-source', '3', 'Origem'],
                       ['question-content', '4', 'Enunciado'],
-                      ['question-alternatives', '5', 'Alternativas'],
-                      ['question-resolution', '6', 'Resolução'],
+                      ...(questionType === 'essay' ? [] : [['question-alternatives', '5', 'Alternativas']]),
+                      ['question-resolution', questionType === 'essay' ? '5' : '6', 'Resolução'],
                     ].map(([target, step, label]) => (
                       <a
                         key={target}
@@ -1902,6 +1925,18 @@ export default function Home() {
                   </div>
                 </aside>
                 <div className="min-w-0 space-y-6 p-4 sm:p-7 lg:p-9">
+              <nav aria-label="Etapas do cadastro da questão" className="flex gap-2 overflow-x-auto rounded-xl border border-blue-100 bg-blue-50/70 p-2 lg:hidden">
+                {[
+                  ['question-type', '1. Tipo'],
+                  ['question-curriculum', '2. Classificação'],
+                  ['question-source', '3. Origem'],
+                  ['question-content', '4. Enunciado'],
+                  ...(questionType === 'essay' ? [] : [['question-alternatives', '5. Alternativas']]),
+                  ['question-resolution', questionType === 'essay' ? '5. Resolução' : '6. Resolução'],
+                ].map(([target, label]) => (
+                  <a key={target} href={`#${target}`} className="shrink-0 rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-blue-900 shadow-sm">{label}</a>
+                ))}
+              </nav>
               {importCandidateSource && (
                 <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-950">
                   <strong>Revisão final da questão importada.</strong> Edite o
