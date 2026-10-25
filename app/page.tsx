@@ -193,7 +193,15 @@ export default function HomePage() {
           <a href="#como-funciona">Como funciona</a>
           <a href="#planos">Planos e assinaturas</a>
         </nav>
-        <Link className="ufa-login" href="/portal">
+        <Link
+          className="ufa-login"
+          href="/portal"
+          prefetch={false}
+          onClick={(event) => {
+            event.preventDefault();
+            window.location.assign('/portal');
+          }}
+        >
           Entrar <ArrowUpRight size={17} />
         </Link>
       </header>
