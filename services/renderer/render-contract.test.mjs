@@ -828,12 +828,39 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   assert.ok(!tex.includes('{A}'));
   assert.ok(!tex.includes('{B}'));
   assert.ok(!tex.includes('{D}'));
-  assert.match(tex, /\\NC \\NC \{\\bf C\} \\NC \{\\bf E\}/);
-  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,[^\]]*corner=round/g) || []).length, 2);
-  assert.equal((tex.match(/\\framed\[width=6mm,height=6mm,frame=on,rulethickness=\.6pt,corner=round/g) || []).length, 2);
+  assert.match(tex, /\\bf ITEM/);
+  assert.match(tex, /\\bf RESPOSTA/);
+  assert.match(tex, /\\switchtobodyfont\[6pt\]\\bf C/);
+  assert.match(tex, /\\switchtobodyfont\[6pt\]\\bf E/);
+  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]01/);
+  assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,[^\]]*corner=round/g) || []).length, 2);
+  assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,frame=on,rulethickness=\.6pt,corner=round/g) || []).length, 2);
   assert.doesNotMatch(tex, /offset=overlay\]\{[CE]\}/);
 });
 
+
+test('distribui até 100 respostas C/E em blocos numerados lado a lado', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const original = snapshot.questions[0];
+  snapshot.render.template = 'certo-errado-v1';
+  snapshot.questions = Array.from({ length: 100 }, (_, index) => ({
+    ...original,
+    number: index + 1,
+    type: 'true_false',
+    statement: [{ type: 'paragraph', text: `Afirmação ${index + 1}.` }],
+    alternatives: [
+      { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
+      { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
+    ],
+    answer: { correctStableKeys: [index % 2 ? 'alt-b' : 'alt-a'] },
+  }));
+  const tex = renderAssessment(snapshot);
+  assert.equal((tex.match(/\\bf ITEM/g) || []).length, 6);
+  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]01/);
+  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]18/);
+  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]86/);
+  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]100/);
+});
 
 test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura', async () => {
   const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));

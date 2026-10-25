@@ -44,19 +44,25 @@ def card(profile, marked=True):
     return image
 
 
-def standard_judgment_card():
+def standard_judgment_card(question_count=10):
     """Synthetic photo for the regular (non-compact) Certo/Errado sheet."""
-    image = np.full((1600, 1200, 3), 255, np.uint8)
+    image = np.full((1600, 2000, 3), 255, np.uint8)
     payload = 'CBS1:00000000-0000-4000-8000-000000000001:0123456789abcdef0123'
     qr = cv2.QRCodeEncoder_create().encode(payload)
     qr = cv2.resize(qr, (220, 220), interpolation=cv2.INTER_NEAREST)
     image[80:300, 80:300] = cv2.cvtColor(qr, cv2.COLOR_GRAY2BGR)
-    for index in range(10):
-        y = 450 + index * 75
-        for option, x in enumerate((530, 615)):
-            cv2.circle(image, (x, y), 23, (0, 0, 0), 2)
-            if option == index % 2:
-                cv2.circle(image, (x, y), 19, (0, 0, 0), -1)
+    columns = min(6, int(np.ceil(question_count / 15)))
+    rows_per_column = int(np.ceil(question_count / columns))
+    for column in range(columns):
+        for row in range(rows_per_column):
+            index = column * rows_per_column + row
+            if index >= question_count:
+                continue
+            y = 450 + row * 55
+            for option, x in enumerate((350 + column * 260, 398 + column * 260)):
+                cv2.circle(image, (x, y), 14, (0, 0, 0), 2)
+                if option == index % 2:
+                    cv2.circle(image, (x, y), 11, (0, 0, 0), -1)
     return image
 
 
@@ -95,6 +101,15 @@ class CompactCardReading(unittest.TestCase):
         self.assertEqual(
             [row['selectedLabels'] for row in result['answers']],
             [['C' if index % 2 == 0 else 'E'] for index in range(10)],
+        )
+
+    def test_regular_judgment_sheet_reads_six_vertical_blocks_in_question_order(self):
+        result = self.read(standard_judgment_card(100), {'labels': ['C', 'E']})
+        self.assertFalse(result['requiresReview'])
+        self.assertEqual(len(result['answers']), 100)
+        self.assertEqual(
+            [row['selectedLabels'] for row in result['answers']],
+            [['C' if index % 2 == 0 else 'E'] for index in range(100)],
         )
 
 

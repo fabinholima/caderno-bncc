@@ -32,6 +32,7 @@ export const basicExamV1 = Object.freeze({
     headerQr = true,
     compactLayout = false,
     answerLabels = ['A', 'B', 'C', 'D', 'E'],
+    answerSheetBody = '',
   }) {
     const classicHeader = logoFileName
       ? `\\startcombination[2*1]
@@ -76,13 +77,17 @@ export const basicExamV1 = Object.freeze({
       className,
       qr,
     });
-    const header = previewOnly ? '' : mode === 'student' ? institutionalHeader : classicHeader;
+    const header = previewOnly
+      ? ''
+      : mode === 'student'
+        ? institutionalHeader
+        : classicHeader;
     const answerRows = Array.from(
       { length: Number(questionCount) || 0 },
       (_, index) =>
         `\\NC ${String(index + 1).padStart(2, '0')} ${answerLabels.map(() => `\\NC \\framed[width=6mm,height=6mm,frame=on,rulethickness=.6pt,corner=round,radius=3mm,offset=overlay]{}`).join(' ')} \\NC\\NR`,
     ).join('\n');
-    const answerHeadings = `\\NC \\NC ${answerLabels.map(label => `\\NC {\\bf ${label}}`).join(' ')} \\NC\\NR`;
+    const answerHeadings = `\\NC \\NC ${answerLabels.map((label) => `\\NC {\\bf ${label}}`).join(' ')} \\NC\\NR`;
     const answerSheet =
       mode === 'student' && !omitAnswerSheet && !previewOnly
         ? `\\page
@@ -90,10 +95,13 @@ export const basicExamV1 = Object.freeze({
 \\blank[small]
 ${answerCardHeader}
 \\blank[medium]
-\\starttabulate[|c|${answerLabels.map(() => 'c|').join('')}]
+${
+  answerSheetBody ||
+  `\\starttabulate[|c|${answerLabels.map(() => 'c|').join('')}]
 ${answerHeadings}
 ${answerRows}
-\\stoptabulate
+\\stoptabulate`
+}
 \\vfill
 \\noindent\\blackrule[width=8mm,height=8mm]\\hfill\\blackrule[width=8mm,height=8mm]`
         : '';
