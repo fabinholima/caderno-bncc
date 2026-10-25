@@ -2,6 +2,7 @@ import {
   answerCardHeaderPreamble,
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
+import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
 
 export const basicExamV1 = Object.freeze({
   id: 'basicexam-v1',
@@ -82,12 +83,9 @@ export const basicExamV1 = Object.freeze({
       : mode === 'student'
         ? institutionalHeader
         : classicHeader;
-    const answerRows = Array.from(
-      { length: Number(questionCount) || 0 },
-      (_, index) =>
-        `\\NC ${String(index + 1).padStart(2, '0')} ${answerLabels.map(() => `\\NC \\framed[width=6mm,height=6mm,frame=on,rulethickness=.6pt,corner=round,radius=3mm,offset=overlay]{}`).join(' ')} \\NC\\NR`,
-    ).join('\n');
-    const answerHeadings = `\\NC \\NC ${answerLabels.map((label) => `\\NC {\\bf ${label}}`).join(' ')} \\NC\\NR`;
+    const defaultAnswerSheet = answerLabels.length === 5
+      ? fiveOptionAnswerSheet(questionCount)
+      : '';
     const answerSheet =
       mode === 'student' && !omitAnswerSheet && !previewOnly
         ? `\\page
@@ -96,11 +94,7 @@ export const basicExamV1 = Object.freeze({
 ${answerCardHeader}
 \\blank[medium]
 ${
-  answerSheetBody ||
-  `\\starttabulate[|c|${answerLabels.map(() => 'c|').join('')}]
-${answerHeadings}
-${answerRows}
-\\stoptabulate`
+  answerSheetBody || defaultAnswerSheet
 }
 \\vfill
 \\noindent\\blackrule[width=8mm,height=8mm]\\hfill\\blackrule[width=8mm,height=8mm]`

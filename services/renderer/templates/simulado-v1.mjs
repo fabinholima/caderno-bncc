@@ -2,27 +2,7 @@ import {
   answerCardHeaderPreamble,
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
-
-function answerBlock(start, end) {
-  const count = Math.max(0, end - start + 1);
-  const height = count * 5.6 + 10;
-  const xs = [10, 15.5, 21, 26.5, 32];
-  const commands = [
-    `label(textext("{\\switchtobodyfont[7pt]Q.}"), (2mm,${height - 3}mm));`,
-  ];
-  ['A', 'B', 'C', 'D', 'E'].forEach((label, index) => {
-    commands.push(`label(textext("{\\switchtobodyfont[7pt]\\bf ${label}}"), (${xs[index]}mm,${height - 3}mm));`);
-  });
-  for (let offset = 0; offset < count; offset++) {
-    const number = start + offset;
-    const y = height - 8 - offset * 5.6;
-    commands.push(`label(textext("{\\switchtobodyfont[7pt]${String(number).padStart(2, '0')}}"), (2mm,${y}mm));`);
-    for (const x of xs)
-      commands.push(`draw fullcircle scaled 4.8mm shifted (${x}mm,${y}mm) withpen pencircle scaled .6pt withcolor \\MPcolor{simuladoaccent};`);
-  }
-  commands.push(`setbounds currentpicture to unitsquare xscaled 35.5mm yscaled ${height}mm;`);
-  return `\\startMPcode\n${commands.join('\n')}\n\\stopMPcode`;
-}
+import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
 
 export const simulatedExamV1 = Object.freeze({
   id: 'simulado-v1',
@@ -121,18 +101,6 @@ Aluno(a): \\thinrules[n=1,width=10cm]\\par
 Turma: ${className || '\\thinrules[n=1,width=35mm]'} \\quad Data: ${assessmentDate || '\\thinrules[n=1,width=30mm]'}}
 \\page`
         : '';
-    const columns = Math.max(
-      1,
-      Math.min(5, Math.ceil(Number(questionCount) / 18)),
-    );
-    const rowsPerColumn = Math.ceil(Number(questionCount) / columns);
-    const blocks = Array.from({ length: columns }, (_, column) => {
-      const start = column * rowsPerColumn + 1;
-      return answerBlock(
-        start,
-        Math.min(start + rowsPerColumn - 1, Number(questionCount)),
-      );
-    }).join('\\hfill\n');
     const answerSheet =
       mode === 'student' && !previewOnly
         ? `\\page
@@ -143,7 +111,7 @@ ${answerCardHeader}
 \\color[simuladoaccent]{\\bold{INSTRUÇÕES}}\\par
 \\switchtobodyfont[8pt]Preencha completamente apenas um círculo por questão, usando caneta preta ou azul. Não dobre, rasure nem danifique o QR Code e as marcas pretas. Em caso de alteração, solicite orientação ao aplicador.\\par
 \\blank[small]
-\\framed[width=\\textwidth,framecolor=simuladoaccent,offset=0mm]{\\hbox to \\textwidth{${blocks}}}
+\\framed[width=\\textwidth,framecolor=simuladoaccent,offset=0mm]{${fiveOptionAnswerSheet(questionCount)}}
 \\vfill
 \\noindent\\blackrule[width=7mm,height=7mm]\\hfill\\blackrule[width=7mm,height=7mm]`
         : '';

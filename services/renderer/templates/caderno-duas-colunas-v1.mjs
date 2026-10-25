@@ -1,30 +1,4 @@
-const answerBubble = (label, filled = false) =>
-  `\\framed[width=4.6mm,height=4.6mm,frame=on,rulethickness=.6pt,corner=round,radius=2.3mm,offset=overlay,framecolor=modelthreeink,background=${filled ? 'color' : 'none'},backgroundcolor=modelthreeink]{${filled ? `\\color[white]{\\switchtobodyfont[6pt]${label}}` : `\\switchtobodyfont[6pt]${label}`}}`;
-
-function answerRows(start, end) {
-  return Array.from({ length: Math.max(0, end - start + 1) }, (_, offset) => {
-    const number = start + offset;
-    return `\\NC \\switchtobodyfont[7pt]${String(number).padStart(2, '0')} \\NC ${answerBubble('A')} \\NC ${answerBubble('B')} \\NC ${answerBubble('C')} \\NC ${answerBubble('D')} \\NC ${answerBubble('E')} \\NC\\NR`;
-  }).join('\n');
-}
-
-function answerBlock(start, end) {
-  return `\\vtop{\\hsize=43mm\\midaligned{\\switchtobodyfont[8pt]\\bold{RESPOSTAS ${String(start).padStart(2, '0')} - ${String(end).padStart(2, '0')}}}\\blank[1mm]\\starttabulate[|cw(5mm)|c|c|c|c|c|]\n\\NC \\NC A \\NC B \\NC C \\NC D \\NC E \\NC\\NR\n${answerRows(start, end)}\n\\stoptabulate}`;
-}
-
-function responseBlocks(questionCount) {
-  const size = 10;
-  return Array.from(
-    { length: Math.ceil(Number(questionCount) / size) },
-    (_, index) => {
-      const start = index * size + 1;
-      return answerBlock(
-        start,
-        Math.min(start + size - 1, Number(questionCount)),
-      );
-    },
-  ).join('\\hfill\n');
-}
+import { fiveOptionAnswerBlock, fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
 
 export const twoColumnExamV1 = Object.freeze({
   id: 'caderno-duas-colunas-v1',
@@ -60,7 +34,7 @@ export const twoColumnExamV1 = Object.freeze({
       : '';
     const compactHeader = `\\hbox to \\textwidth{\\vbox{\\hsize=30mm${logo}}\\hfill\\vbox{\\hsize=105mm\\rightaligned{\\switchtobodyfont[8pt]\\bold{${title}}}\\rightaligned{\\switchtobodyfont[7pt]${grade} \\quad VERSÃO ${version}}}}\\blank[1mm]\\modelthreeline`;
     const answerHeader = `\\hbox to \\textwidth{${logo}\\hfill\\framed[frame=off,width=105mm,align=middle]{\\tfc\\bold{${institution}}\\par\\switchtobodyfont[8pt]${title}}\\hfill\\framed[frame=off,width=20mm,align=middle]{${qr}}}`;
-    const example = `\\vbox{\\hsize=55mm\\framed[frame=off,width=55mm,align=middle]{\\switchtobodyfont[8pt]\\bold{EXEMPLO DE RESPOSTA}}\\blank[1mm]\\starttabulate[|cw(8mm)|c|c|c|c|c|]\n\\NC \\NC A \\NC B \\NC C \\NC D \\NC E \\NC\\NR\n\\NC 01 \\NC ${answerBubble('A', true)} \\NC ${answerBubble('B')} \\NC ${answerBubble('C')} \\NC ${answerBubble('D')} \\NC ${answerBubble('E')} \\NC\\NR\n\\NC 02 \\NC ${answerBubble('A')} \\NC ${answerBubble('B')} \\NC ${answerBubble('C', true)} \\NC ${answerBubble('D')} \\NC ${answerBubble('E')} \\NC\\NR\n\\stoptabulate}`;
+    const example = `\\vbox{\\hsize=55mm\\framed[frame=off,width=55mm,align=middle]{\\switchtobodyfont[8pt]\\bold{EXEMPLO DE RESPOSTA}}\\blank[1mm]${fiveOptionAnswerBlock(1, 2, { 1: 'A', 2: 'C' })}}`;
     const answerSheet =
       mode === 'student'
         ? `\\page
@@ -79,8 +53,8 @@ ${answerHeader}
 \\stoptabulate
 \\blank[medium]
 \\hbox to \\textwidth{\\vbox{\\hsize=.5\\textwidth\\switchtobodyfont[8pt]\\bold{COMO PREENCHER}\\blank[1mm]\n• Marque somente uma alternativa por questão.\\par\n• Preencha completamente o círculo com caneta preta ou azul.\\par\n• Não rasure, não dobre e não danifique o QR Code ou as marcas de alinhamento.}\\hfill${example}}
-\\blank[big]
-\\hbox to \\textwidth{${responseBlocks(questionCount)}}
+\\blank[small]
+${fiveOptionAnswerSheet(questionCount)}
 \\vfill
 \\noindent\\blackrule[width=7mm,height=7mm]\\hfill\\blackrule[width=7mm,height=7mm]`
         : '';
