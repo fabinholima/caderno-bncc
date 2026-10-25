@@ -39,6 +39,10 @@ def card(profile, marked=True):
             center = (round(origin[0] + (profile['columnStartsMm'][column] + option * profile['columnSpacingMm']) * scale),
                       round(origin[1] + (profile['firstRowMm'] + row * profile['rowSpacingMm']) * scale))
             cv2.circle(image, center, round(profile['radiusMm'] * scale), (0, 0, 0), 2)
+            (text_width, text_height), _ = cv2.getTextSize(profile['labels'][option], cv2.FONT_HERSHEY_SIMPLEX, .27, 1)
+            cv2.putText(image, profile['labels'][option],
+                        (center[0] - text_width // 2, center[1] + text_height // 2),
+                        cv2.FONT_HERSHEY_SIMPLEX, .27, (166, 166, 166), 1, cv2.LINE_AA)
             if marked and option == index % len(profile['labels']):
                 cv2.circle(image, center, round(profile['radiusMm'] * scale * .85), (0, 0, 0), -1)
     return image
@@ -61,6 +65,10 @@ def standard_judgment_card(question_count=10):
             y = 450 + row * 55
             for option, x in enumerate((350 + column * 260, 398 + column * 260)):
                 cv2.circle(image, (x, y), 14, (0, 0, 0), 2)
+                label = 'CE'[option]
+                (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, .4, 1)
+                cv2.putText(image, label, (x - text_width // 2, y + text_height // 2),
+                            cv2.FONT_HERSHEY_SIMPLEX, .4, (166, 166, 166), 1, cv2.LINE_AA)
                 if option == index % 2:
                     cv2.circle(image, (x, y), 11, (0, 0, 0), -1)
     return image
@@ -80,6 +88,10 @@ def standard_five_option_card(question_count=100):
         for option in range(5):
             x, y = 220 + column * 350 + option * 42, 370 + row * 50
             cv2.circle(image, (x, y), 17, (0, 0, 0), 2)
+            label = 'ABCDE'[option]
+            (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, .45, 1)
+            cv2.putText(image, label, (x - text_width // 2, y + text_height // 2),
+                        cv2.FONT_HERSHEY_SIMPLEX, .45, (166, 166, 166), 1, cv2.LINE_AA)
             if option == index % 5:
                 cv2.circle(image, (x, y), 13, (0, 0, 0), -1)
     if question_count == 100:

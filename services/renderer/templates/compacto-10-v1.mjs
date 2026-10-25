@@ -19,8 +19,9 @@ export function compactAnswerCard(profile, qrFileName) {
       if (number > profile.questionCount) continue;
       const y = heightMm + pad - profile.firstRowMm - row * profile.rowSpacingMm;
       commands.push(`label(textext("{\\switchtobodyfont[8pt]${String(number).padStart(2, '0')}}"), (${start + pad - 9}mm,${y}mm));`);
-      profile.labels.forEach((_, index) => {
+      profile.labels.forEach((label, index) => {
         commands.push(`draw fullcircle scaled ${2 * profile.radiusMm}mm shifted (${start + pad + index * profile.columnSpacingMm}mm,${y}mm) withpen pencircle scaled .65pt;`);
+        commands.push(`label(textext("{\\switchtobodyfont[5pt]\\bf ${label}}"), (${start + pad + index * profile.columnSpacingMm}mm,${y}mm)) withcolor .65white;`);
       });
     }
   }

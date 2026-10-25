@@ -19,6 +19,7 @@ export function fiveOptionAnswerBlock(start, end, marked = {}) {
     commands.push(`label(textext("{\\switchtobodyfont[7pt]${String(number).padStart(2, '0')}}"), (3mm,${y}mm));`);
     OPTION_X.forEach((x, index) => {
       commands.push(`draw fullcircle scaled 4.6mm shifted (${x}mm,${y}mm) withpen pencircle scaled .6pt;`);
+      commands.push(`label(textext("{\\switchtobodyfont[6pt]\\bf ${LABELS[index]}}"), (${x}mm,${y}mm)) withcolor .65white;`);
       if (marked[number] === LABELS[index])
         commands.push(`fill fullcircle scaled 2.8mm shifted (${x}mm,${y}mm);`);
     });
