@@ -256,6 +256,10 @@ export function AssessmentBuilder({
   >([]);
   const [offset, setOffset] = useState(0);
   const [deletingWorkspaceId, setDeletingWorkspaceId] = useState('');
+  const [selectedRecentIds, setSelectedRecentIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [deletingSelected, setDeletingSelected] = useState(false);
   const configuration = useMemo(
     () => ({
       title,
@@ -335,6 +339,22 @@ export function AssessmentBuilder({
       return body.data;
     },
     [apiUrl],
+  );
+  const deleteRecentItem = useCallback(
+    async (item: (typeof recent)[number]) => {
+      if (item.assessmentId) {
+        const response = await apiFetch(
+          `${apiUrl}/api/assessments/${item.assessmentId}`,
+          { method: 'DELETE' },
+        );
+        const body = (await response.json()) as { error?: string };
+        if (!response.ok)
+          throw new Error(body.error || 'Não foi possível excluir a prova.');
+      } else {
+        await workspaceRequest(`/${item.id}`, { method: 'DELETE' });
+      }
+    },
+    [apiUrl, workspaceRequest],
   );
   useEffect(() => {
     if (step !== 0) return;
@@ -1269,6 +1289,99 @@ export function AssessmentBuilder({
             </div>
             <Badge variant="secondary">{recent.length} nesta página</Badge>
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                aria-label="Selecionar todas as provas desta página"
+                checked={
+                  recent.length > 0 &&
+                  recent.every((item) => selectedRecentIds.has(item.id))
+                }
+                disabled={!recent.length || deletingSelected}
+                onChange={(event) =>
+                  setSelectedRecentIds(
+                    event.target.checked
+                      ? new Set(recent.map((item) => item.id))
+                      : new Set(),
+                  )
+                }
+                className="size-4 rounded border-slate-300 accent-indigo-600"
+              />
+              Selecionar todas desta página
+              {selectedRecentIds.size > 0 && (
+                <span className="text-slate-500">
+                  {selectedRecentIds.size} selecionada(s)
+                </span>
+              )}
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!selectedRecentIds.size || deletingSelected}
+              className="border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+              onClick={async () => {
+                const selected = recent.filter((item) =>
+                  selectedRecentIds.has(item.id),
+                );
+                if (!selected.length) return;
+                if (
+                  !window.confirm(
+                    `Excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações ou respostas vinculadas serão preservadas.`,
+                  )
+                )
+                  return;
+
+                setDeletingSelected(true);
+                setMessage('Excluindo provas selecionadas…');
+                const failed: Array<{
+                  id: string;
+                  title: string;
+                  reason: string;
+                }> = [];
+                let deleted = 0;
+                for (const item of selected) {
+                  try {
+                    await deleteRecentItem(item);
+                    deleted += 1;
+                  } catch (error) {
+                    failed.push({
+                      id: item.id,
+                      title: item.title || 'Prova sem título',
+                      reason:
+                        error instanceof Error ? error.message : String(error),
+                    });
+                  }
+                }
+                try {
+                  setRecent(
+                    await workspaceRequest<typeof recent>(`?offset=${offset}`),
+                  );
+                } catch (error) {
+                  setMessage(
+                    error instanceof Error
+                      ? `Exclusão concluída, mas não foi possível atualizar a lista: ${error.message}`
+                      : 'Exclusão concluída, mas não foi possível atualizar a lista.',
+                  );
+                }
+                setSelectedRecentIds(new Set(failed.map((item) => item.id)));
+                setMessage(
+                  failed.length
+                    ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}`
+                    : `${deleted} prova(s) excluída(s).`,
+                );
+                setDeletingSelected(false);
+              }}
+            >
+              {deletingSelected ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Trash2 aria-hidden="true" />
+              )}
+              {deletingSelected ? 'Excluindo…' : 'Excluir selecionadas'}
+            </Button>
+          </div>
           <div className="grid gap-3">
             {recent.map((r) => (
               <article
@@ -1276,6 +1389,21 @@ export function AssessmentBuilder({
                 className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-5"
               >
                 <div className="flex min-w-0 items-start gap-3">
+                  <input
+                    type="checkbox"
+                    aria-label={`Selecionar ${r.title || 'prova sem título'}`}
+                    checked={selectedRecentIds.has(r.id)}
+                    disabled={deletingSelected}
+                    onChange={(event) =>
+                      setSelectedRecentIds((current) => {
+                        const next = new Set(current);
+                        if (event.target.checked) next.add(r.id);
+                        else next.delete(r.id);
+                        return next;
+                      })
+                    }
+                    className="mt-3 size-4 shrink-0 rounded border-slate-300 accent-indigo-600"
+                  />
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
                     <FileOutput className="size-5" aria-hidden="true" />
                   </span>
@@ -1301,7 +1429,12 @@ export function AssessmentBuilder({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2 sm:flex sm:shrink-0 sm:bg-transparent sm:p-0">
-                  <Button size="sm" variant="outline" className="w-full border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800 sm:w-auto" onClick={() => openWorkspace(r.id)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800 sm:w-auto"
+                    onClick={() => openWorkspace(r.id)}
+                  >
                     <FolderOpen aria-hidden="true" />
                     Reabrir
                   </Button>
@@ -1337,15 +1470,23 @@ export function AssessmentBuilder({
                       }
                     }}
                   >
-                    {r.pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
+                    {r.pinned ? (
+                      <PinOff aria-hidden="true" />
+                    ) : (
+                      <Pin aria-hidden="true" />
+                    )}
                     {r.pinned ? 'Desafixar' : 'Fixar'}
                   </Button>
                   <Button
                     size="sm"
                     type="button"
                     variant="outline"
-                    disabled={deletingWorkspaceId === r.id}
-                    aria-label={deletingWorkspaceId === r.id ? 'Excluindo prova' : 'Excluir prova'}
+                    disabled={deletingWorkspaceId === r.id || deletingSelected}
+                    aria-label={
+                      deletingWorkspaceId === r.id
+                        ? 'Excluindo prova'
+                        : 'Excluir prova'
+                    }
                     className="w-full border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800 sm:w-auto"
                     onClick={async () => {
                       const detail = r.assessmentId
@@ -1359,24 +1500,7 @@ export function AssessmentBuilder({
                         return;
                       setDeletingWorkspaceId(r.id);
                       try {
-                        if (r.assessmentId) {
-                          await apiFetch(
-                            `${apiUrl}/api/assessments/${r.assessmentId}`,
-                            { method: 'DELETE' },
-                          ).then(async (response) => {
-                            const body = (await response.json()) as {
-                              error?: string;
-                            };
-                            if (!response.ok)
-                              throw new Error(
-                                body.error || 'Não foi possível excluir a prova.',
-                              );
-                          });
-                        } else {
-                          await workspaceRequest(`/${r.id}`, {
-                            method: 'DELETE',
-                          });
-                        }
+                        await deleteRecentItem(r);
                         setRecent(
                           await workspaceRequest<typeof recent>(
                             `?offset=${offset}`,
@@ -1387,6 +1511,11 @@ export function AssessmentBuilder({
                             ? 'Prova gerada excluída.'
                             : 'Rascunho excluído.',
                         );
+                        setSelectedRecentIds((current) => {
+                          const next = new Set(current);
+                          next.delete(r.id);
+                          return next;
+                        });
                       } catch (e) {
                         setMessage(e instanceof Error ? e.message : String(e));
                       } finally {
@@ -1394,9 +1523,14 @@ export function AssessmentBuilder({
                       }
                     }}
                   >
-                    {deletingWorkspaceId === r.id
-                      ? <LoaderCircle className="animate-spin" aria-hidden="true" />
-                      : <Trash2 aria-hidden="true" />}
+                    {deletingWorkspaceId === r.id ? (
+                      <LoaderCircle
+                        className="animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Trash2 aria-hidden="true" />
+                    )}
                     {deletingWorkspaceId === r.id ? 'Excluindo…' : 'Excluir'}
                   </Button>
                 </div>
@@ -1421,14 +1555,20 @@ export function AssessmentBuilder({
             <Button
               variant="outline"
               disabled={!offset}
-              onClick={() => setOffset(Math.max(0, offset - 10))}
+              onClick={() => {
+                setSelectedRecentIds(new Set());
+                setOffset(Math.max(0, offset - 10));
+              }}
             >
               Anteriores
             </Button>
             <Button
               variant="outline"
               disabled={recent.length < 10}
-              onClick={() => setOffset(offset + 10)}
+              onClick={() => {
+                setSelectedRecentIds(new Set());
+                setOffset(offset + 10);
+              }}
             >
               Ver arquivo
             </Button>
