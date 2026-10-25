@@ -1,16 +1,14 @@
 import { basicExamV1 } from './basicexam-v1.mjs';
 
-const judgmentBubble = `\\framed[width=4.6mm,height=4.6mm,frame=on,rulethickness=.6pt,corner=round,radius=2.3mm,offset=overlay]{}`;
+const judgmentBubble = label => `\\framed[width=4.6mm,height=4.6mm,frame=on,rulethickness=.6pt,corner=round,radius=2.3mm,offset=overlay]{\\color[answerbubblelabel]{\\switchtobodyfont[6pt]\\bf ${label}}}`;
 
 function judgmentAnswerBlock(start, end) {
   const rows = Array.from({ length: end - start + 1 }, (_, offset) => {
     const number = String(start + offset).padStart(2, '0');
-    return `\\NC \\switchtobodyfont[7pt]${number} \\NC \\hbox to 14mm{\\hfil ${judgmentBubble} \\hskip .8mm ${judgmentBubble}\\hfil} \\NC\\NR`;
+    return `\\NC \\switchtobodyfont[7pt]${number} \\NC \\hbox to 14mm{\\hfil ${judgmentBubble('C')} \\hskip .8mm ${judgmentBubble('E')}\\hfil} \\NC\\NR`;
   }).join('\n');
-  const choices = `\\hbox to 14mm{\\hfil\\hbox to 4.6mm{\\hfil{\\switchtobodyfont[6pt]\\bf C}\\hfil}\\hskip .8mm\\hbox to 4.6mm{\\hfil{\\switchtobodyfont[6pt]\\bf E}\\hfil}\\hfil}`;
   return `\\vtop{\\hsize=21mm\\switchtobodyfont[7pt]\\starttabulate[|cw(7mm)|cw(14mm)|]
 \\NC {\\switchtobodyfont[6pt]\\bf ITEM} \\NC {\\switchtobodyfont[6pt]\\bf RESPOSTA} \\NC\\NR
-\\NC \\NC ${choices} \\NC\\NR
 ${rows}
 \\stoptabulate}`;
 }
@@ -37,7 +35,7 @@ export const judgmentExamV1 = Object.freeze({
       .render({
         ...options,
         answerLabels: ['C', 'E'],
-        answerSheetBody: judgmentAnswerSheet(options.questionCount),
+        answerSheetBody: `\\definecolor[answerbubblelabel][s=.65]\n${judgmentAnswerSheet(options.questionCount)}`,
         content:
           options.mode === 'student'
             ? 'Julgue cada item e marque C para certo ou E para errado.\\blank[medium]\n' +

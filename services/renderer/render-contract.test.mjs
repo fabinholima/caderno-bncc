@@ -65,6 +65,7 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\bf E/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
+  assert.equal((tex.match(/\)\) withcolor \.65white;/g) || []).length, 5);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
   assert.match(tex, /\\bold\{Nome completo do aluno\}/);
@@ -837,7 +838,9 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]01/);
   assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,[^\]]*corner=round/g) || []).length, 2);
   assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,frame=on,rulethickness=\.6pt,corner=round/g) || []).length, 2);
-  assert.doesNotMatch(tex, /offset=overlay\]\{[CE]\}/);
+  assert.match(tex, /offset=overlay\]\{\\color\[answerbubblelabel\]\{\\switchtobodyfont\[6pt\]\\bf C\}\}/);
+  assert.match(tex, /offset=overlay\]\{\\color\[answerbubblelabel\]\{\\switchtobodyfont\[6pt\]\\bf E\}\}/);
+  assert.doesNotMatch(tex, /\\NC \\NC \\hbox to 14mm/);
 });
 
 
