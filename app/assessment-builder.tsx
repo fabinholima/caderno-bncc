@@ -1232,7 +1232,7 @@ export function AssessmentBuilder({
           </button>
           {workspaceId && <span className="text-xs font-medium text-slate-500">{saveStatus || 'Salvando rascunho…'}</span>}
         </div>
-        <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <ol className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
           {[
             'Identificação',
             'Questões',
@@ -1246,7 +1246,7 @@ export function AssessmentBuilder({
               (index >= 3 && !chosen.length) ||
               (index === 5 && (!generated || !assessmentId || generatedVersions.some((v) => v.status !== 'completed')));
             return (
-              <li key={label}>
+              <li key={label} className="min-w-[155px] flex-1 lg:min-w-0">
                 <button
                   type="button"
                   aria-current={step === index ? 'step' : undefined}
@@ -1263,6 +1263,7 @@ export function AssessmentBuilder({
             );
           })}
         </ol>
+        <p className="mt-2 text-xs text-slate-500 lg:hidden">Deslize para acompanhar as próximas etapas.</p>
       </nav>
       {workspaceId && (
         <div className="mb-3 text-sm">
