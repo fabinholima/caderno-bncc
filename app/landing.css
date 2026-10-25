@@ -52,10 +52,14 @@
   display: flex;
   gap: 22px;
   align-items: center;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
   border: 1px solid #233c3b66;
   border-radius: 6px;
   padding: 12px 20px;
   font-size: 14px;
+  font-family: inherit;
 }
 .ufa-hero {
   display: grid;

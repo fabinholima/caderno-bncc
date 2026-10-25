@@ -193,9 +193,11 @@ export default function HomePage() {
           <a href="#como-funciona">Como funciona</a>
           <a href="#planos">Planos e assinaturas</a>
         </nav>
-        <Link className="ufa-login" href="/portal">
-          Entrar <ArrowUpRight size={17} />
-        </Link>
+        <form action="/portal" method="get" className="m-0">
+          <button className="ufa-login" type="submit">
+            Entrar <ArrowUpRight size={17} />
+          </button>
+        </form>
       </header>
       <main id="conteudo">
         <section className="ufa-wrap ufa-hero">
