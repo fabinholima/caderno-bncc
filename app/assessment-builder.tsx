@@ -1349,7 +1349,7 @@ export function AssessmentBuilder({
                     className="w-full border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800 sm:w-auto"
                     onClick={async () => {
                       const detail = r.assessmentId
-                        ? 'A prova gerada e eventuais resultados continuarão preservados no histórico.'
+                        ? 'A prova gerada e os arquivos serão removidos. Provas com aplicações ou respostas vinculadas não podem ser excluídas.'
                         : 'Esta ação remove o rascunho salvo.';
                       if (
                         !window.confirm(
@@ -1359,9 +1359,24 @@ export function AssessmentBuilder({
                         return;
                       setDeletingWorkspaceId(r.id);
                       try {
-                        await workspaceRequest(`/${r.id}`, {
-                          method: 'DELETE',
-                        });
+                        if (r.assessmentId) {
+                          await apiFetch(
+                            `${apiUrl}/api/assessments/${r.assessmentId}`,
+                            { method: 'DELETE' },
+                          ).then(async (response) => {
+                            const body = (await response.json()) as {
+                              error?: string;
+                            };
+                            if (!response.ok)
+                              throw new Error(
+                                body.error || 'Não foi possível excluir a prova.',
+                              );
+                          });
+                        } else {
+                          await workspaceRequest(`/${r.id}`, {
+                            method: 'DELETE',
+                          });
+                        }
                         setRecent(
                           await workspaceRequest<typeof recent>(
                             `?offset=${offset}`,
@@ -1369,7 +1384,7 @@ export function AssessmentBuilder({
                         );
                         setMessage(
                           r.assessmentId
-                            ? 'Prova removida desta lista. O histórico e os resultados foram preservados.'
+                            ? 'Prova gerada excluída.'
                             : 'Rascunho excluído.',
                         );
                       } catch (e) {

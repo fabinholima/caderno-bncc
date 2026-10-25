@@ -38,6 +38,7 @@ import {
 } from './questions.mjs';
 import {
   createAssessment,
+  deleteAssessment,
   getAssessment,
   listAssessments,
 } from './assessments.mjs';
@@ -1460,10 +1461,18 @@ const server = createServer(async (request, response) => {
       });
     const regenerateMatch=request.method==='POST' && url.pathname.match(/^\/api\/assessments\/([0-9a-f-]{36})\/renders$/i);
     if(regenerateMatch)return json(response,202,{data:await regenerateAssessment({institutionId,assessmentId:regenerateMatch[1]})});
-    const assessmentMatch =
-      request.method === 'GET' &&
-      url.pathname.match(/^\/api\/assessments\/([0-9a-f-]{36})$/i);
-    if (assessmentMatch) {
+    const assessmentMatch = url.pathname.match(
+      /^\/api\/assessments\/([0-9a-f-]{36})$/i,
+    );
+    if (assessmentMatch && request.method === 'DELETE')
+      return json(response, 200, {
+        data: await deleteAssessment({
+          institutionId,
+          userId,
+          assessmentId: assessmentMatch[1],
+        }),
+      });
+    if (assessmentMatch && request.method === 'GET') {
       const assessment = await getAssessment({
         institutionId,
         assessmentId: assessmentMatch[1],
