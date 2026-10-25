@@ -438,6 +438,43 @@ export async function getAssessment({ institutionId, assessmentId }) {
   };
 }
 
+export async function deleteAssessment({ institutionId, userId, assessmentId }) {
+  return transaction(async (client) => {
+    const assessment = await client.query(
+      `SELECT id FROM assessments
+       WHERE id = $1 AND institution_id = $2 AND created_by = $3
+       FOR UPDATE`,
+      [assessmentId, institutionId, userId],
+    );
+    if (!assessment.rowCount)
+      throw Object.assign(new Error('Avaliação não encontrada.'), {
+        statusCode: 404,
+      });
+
+    const linked = await client.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM assessment_applications WHERE assessment_id = $1
+       ) OR EXISTS (
+         SELECT 1 FROM assessment_versions av
+         JOIN assessment_submissions s ON s.assessment_version_id = av.id
+         WHERE av.assessment_id = $1
+       ) AS has_history`,
+      [assessmentId],
+    );
+    if (linked.rows[0].has_history)
+      throw Object.assign(
+        new Error(
+          'Esta prova já possui aplicações ou respostas vinculadas e não pode ser excluída para preservar o histórico dos alunos.',
+        ),
+        { statusCode: 409 },
+      );
+
+    await client.query('DELETE FROM assessment_workspaces WHERE assessment_id = $1', [assessmentId]);
+    await client.query('DELETE FROM assessments WHERE id = $1', [assessmentId]);
+    return { id: assessmentId, deleted: true };
+  });
+}
+
 export async function regenerateAssessment({institutionId,assessmentId}) {
  return transaction(async client=>{
  const a=await client.query('SELECT id FROM assessments WHERE id=$1 AND institution_id=$2 FOR UPDATE',[assessmentId,institutionId]);
