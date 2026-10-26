@@ -840,8 +840,13 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   const tex = renderAssessment(snapshot);
   assert.ok(tex.indexOf('Julgue o item a seguir') < tex.indexOf('Seis vezes sete é igual a 42'));
   assert.match(tex, /Seis vezes sete é igual a 42/);
-  assert.ok(tex.includes('C — Certo'));
-  assert.ok(tex.includes('E — Errado'));
+  assert.equal((tex.match(/\\hbox to 29mm\{\\lower \.9mm\\hbox\{/g) || []).length, 2);
+  assert.match(tex, /\\hskip 1\.4mm \\strut\{\}Certo/);
+  assert.match(tex, /\\hskip 1\.4mm \\strut\{\}Errado/);
+  assert.match(tex, /\\hfil\}\\hskip 3mm \\hbox to 29mm/);
+  assert.equal((tex.match(/\\framed\[width=5mm,height=5mm,frame=on,rulethickness=\.7pt,corner=round/g) || []).length, 2);
+  assert.match(tex, /radius=2\.5mm,offset=overlay\]\{\\switchtobodyfont\[7pt\]\\bf C\}/);
+  assert.match(tex, /radius=2\.5mm,offset=overlay\]\{\\switchtobodyfont\[7pt\]\\bf E\}/);
   assert.equal((tex.match(/\\startcitem/g) || []).length, 0);
   assert.ok(!tex.includes('{A}'));
   assert.ok(!tex.includes('{B}'));
