@@ -471,17 +471,18 @@ export function renderAssessment(snapshot) {
           `    \\startcitem${correct.has(answer.stableKey) ? '[*]' : ''} ${richText(answer.content)} \\stopcitem`,
       )
       .join('\n');
-    const judgmentChoices = question.type === 'true_false' && !isCompactTemplate(snapshot.render?.template)
-      ? '\\blank[small]\n\\dontleavehmode\\hbox{' + (question.alternatives ?? []).map(answer => {
-          const label = answer.stableKey === 'alt-a' ? 'C' : 'E';
-          const text = label === 'C' ? 'Certo' : 'Errado';
-          const bubble = `\\framed[width=5mm,height=5mm,frame=on,rulethickness=.7pt,corner=round,radius=2.5mm,offset=overlay]{\\switchtobodyfont[7pt]\\bf ${label}}`;
-          const caption = mode === 'answer-key' && correct.has(answer.stableKey)
-            ? `\\bold{${text}}` : text;
-          return `\\hbox to 29mm{\\lower .9mm\\hbox{${bubble}}\\hskip 1.4mm \\strut{}${caption}\\hfil}`;
-        }).join('\\hskip 3mm ') + '}'
+    const judgmentChoices = question.type === 'true_false'
+      ? `\\blank[small]\n\\dontleavehmode\\hbox{\\startMPcode
+draw fullcircle scaled 5mm shifted (2.5mm,3mm) withpen pencircle scaled .7pt;
+draw fullcircle scaled 5mm shifted (34mm,3mm) withpen pencircle scaled .7pt;
+label(textext("{\\switchtobodyfont[7pt]\\bf C}"), (2.5mm,3mm));
+label(textext("{\\switchtobodyfont[7pt]\\bf E}"), (34mm,3mm));
+label.rt(textext("{\\switchtobodyfont[9pt]${mode === 'answer-key' && correct.has('alt-a') ? '\\bf ' : ''}Certo}"), (6.5mm,3mm));
+label.rt(textext("{\\switchtobodyfont[9pt]${mode === 'answer-key' && correct.has('alt-b') ? '\\bf ' : ''}Errado}"), (38mm,3mm));
+setbounds currentpicture to unitsquare xscaled 66mm yscaled 6mm;
+\\stopMPcode}`
       : '';
-    const choiceBlock = question.type === 'true_false' && isCompactTemplate(snapshot.render?.template) ? '' : judgmentChoices || (choices
+    const choiceBlock = judgmentChoices || (choices
       ? `  \\startchoice\n${choices}\n  \\stopchoice`
       : mode === 'student'
         ? '\\blank[4*big]'
