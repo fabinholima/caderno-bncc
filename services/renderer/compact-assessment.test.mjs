@@ -26,6 +26,7 @@ test('compact models put one calibrated card before questions and keep distinct 
     assert.equal((tex.match(/QUADRO DE RESPOSTAS/g) || []).length, 1);
     assert.equal((tex.match(/draw fullcircle/g) || []).length, 10 * profile.labels.length);
     assert.equal((tex.match(/\)\) withcolor \.55white;/g) || []).length, 10 * profile.labels.length);
+    assert.doesNotMatch(tex, /\\framed\[width=5mm,height=5mm/);
     assert.equal((tex.match(/fill unitsquare scaled 2.4mm/g) || []).length, 4);
     assert.equal((tex.match(/\\externalfigure\[qr.png\]/g) || []).length, 1);
     snapshot.render.mode = 'answer-key';

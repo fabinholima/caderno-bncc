@@ -472,12 +472,14 @@ export function renderAssessment(snapshot) {
       )
       .join('\n');
     const judgmentChoices = question.type === 'true_false' && !isCompactTemplate(snapshot.render?.template)
-      ? '\\blank[small]\n' + (question.alternatives ?? []).map(answer => {
+      ? '\\blank[small]\n\\dontleavehmode\\hbox{' + (question.alternatives ?? []).map(answer => {
           const label = answer.stableKey === 'alt-a' ? 'C' : 'E';
-          const text = `${label} — ${label === 'C' ? 'Certo' : 'Errado'}`;
-          return mode === 'answer-key' && correct.has(answer.stableKey)
+          const text = label === 'C' ? 'Certo' : 'Errado';
+          const bubble = `\\framed[width=5mm,height=5mm,frame=on,rulethickness=.7pt,corner=round,radius=2.5mm,offset=overlay]{\\switchtobodyfont[7pt]\\bf ${label}}`;
+          const caption = mode === 'answer-key' && correct.has(answer.stableKey)
             ? `\\bold{${text}}` : text;
-        }).join('\\quad ')
+          return `\\hbox to 29mm{\\lower .9mm\\hbox{${bubble}}\\hskip 1.4mm \\strut{}${caption}\\hfil}`;
+        }).join('\\hskip 3mm ') + '}'
       : '';
     const choiceBlock = question.type === 'true_false' && isCompactTemplate(snapshot.render?.template) ? '' : judgmentChoices || (choices
       ? `  \\startchoice\n${choices}\n  \\stopchoice`

@@ -22,7 +22,7 @@ const outputRoot = path.resolve(
 // caches persistentes recém-criados. Use sempre o mtxrun com o caminho
 // absoluto do script, mesmo se o serviço ainda tiver variáveis antigas.
 const contextViaMtxrun = true;
-const contextBin = '/opt/context/tex/texmf-linux-64/bin/mtxrun';
+const contextBin = process.env.CONTEXT_MTXRUN_BIN || '/opt/context/tex/texmf-linux-64/bin/mtxrun';
 const contextScript =
   process.env.CONTEXT_SCRIPT ||
   '/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua';
