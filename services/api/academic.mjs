@@ -7,7 +7,14 @@ export const classSchema = z.object({
   grade: z.string().trim().min(2).max(40),
   schoolYear: z.number().int().min(2000).max(2100),
 });
+export const studentStatusSchema = z.enum(['ativo', 'transferido', 'remanejado', 'atestado', 'regime_domiciliar']);
+export const studentUpdateSchema = z.object({
+  status: studentStatusSchema.optional(),
+  adaptedExam: z.boolean().optional(),
+}).strict().refine(value => value.status !== undefined || value.adaptedExam !== undefined, 'Informe a situação ou a condição de prova adaptada.');
 export const studentSchema = z.object({
+  status: studentStatusSchema.default('ativo'),
+  adaptedExam: z.boolean().default(false),
   registration: z.string().trim().min(1).max(60),
   name: z.string().trim().min(2).max(160),
   selfieDataUrl: z.string().max(550000).refine((v) => !v || (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.byteLength(v.split(',')[1], 'base64') <= 400000), 'Use selfie PNG/JPEG de até 400 KB.').default(''),
@@ -47,22 +54,26 @@ export async function createStudent({ institutionId, userId, input }) {
   await assertInstitutionLimit({ institutionId, kind: 'student' });
   const v = studentSchema.parse(input);
   const r = await pool.query({
-    text: `INSERT INTO students(institution_id,registration,name,teacher_id,access_code,selfie_data_url) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)),$5) RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active`,
-    values: [institutionId, v.registration, v.name, userId, v.selfieDataUrl],
+    text: `INSERT INTO students(institution_id,registration,name,teacher_id,access_code,selfie_data_url,status,adapted_exam) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)),$5,$6,$7) RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active,status,adapted_exam AS "adaptedExam"`,
+    values: [institutionId, v.registration, v.name, userId, v.selfieDataUrl, v.status, v.adaptedExam],
   });
   return r.rows[0];
 }
 export async function listStudents({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,i.name AS school_name,u.display_name AS teacher_name FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id WHERE s.institution_id=$1 ORDER BY s.name`,
+    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id WHERE s.institution_id=$1 ORDER BY s.name`,
     values: [institutionId],
   });
   return result.rows;
 }
-export async function setStudentActive({ institutionId, studentId, active }) {
+export async function updateStudent({ institutionId, studentId, input }) {
+  const value = studentUpdateSchema.parse(input);
   const r = await pool.query({
-    text: 'UPDATE students SET active=$3 WHERE id=$1 AND institution_id=$2 RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active',
-    values: [studentId, institutionId, Boolean(active)],
+    text: `UPDATE students SET status=COALESCE($3,status),
+      adapted_exam=COALESCE($4,adapted_exam)
+      WHERE id=$1 AND institution_id=$2
+      RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active,status,adapted_exam AS "adaptedExam"`,
+    values: [studentId, institutionId, value.status ?? null, value.adaptedExam ?? null],
   });
   if (!r.rowCount)
     throw Object.assign(new Error('Aluno não encontrado.'), { statusCode: 404 });

@@ -415,11 +415,11 @@ export async function getSubscription(identity) {
   return result.rows[0] || null;
 }
 
-export async function assertInstitutionLimit({ institutionId, kind, portalAdmin = false }) {
+export async function assertInstitutionLimit({ institutionId, kind, portalAdmin = false, quantity = 1, db = pool }) {
   // Administradores gerais precisam conseguir validar o portal e o compositor
   // independentemente do plano da instituição selecionada.
   if (portalAdmin) return;
-  const subscription = await pool.query(
+  const subscription = await db.query(
     `SELECT sp.monthly_assessments,sp.max_students,GREATEST(sub.period_started_at,date_trunc('month',now())) period_started_at
      FROM institution_subscriptions sub
      JOIN subscription_plans sp ON sp.id=sub.plan_id
@@ -430,7 +430,7 @@ export async function assertInstitutionLimit({ institutionId, kind, portalAdmin 
     throw Object.assign(new Error('Assinatura inativa.'), { statusCode: 402 });
   const plan = subscription.rows[0];
   if (kind === 'assessment') {
-    const usage = await pool.query(
+    const usage = await db.query(
       `SELECT COALESCE(sum(quantity),0)::int used FROM usage_events
        WHERE institution_id=$1 AND kind='assessment' AND created_at>=$2`,
       [institutionId, plan.period_started_at],
@@ -441,11 +441,11 @@ export async function assertInstitutionLimit({ institutionId, kind, portalAdmin 
       });
   }
   if (kind === 'student') {
-    const usage = await pool.query(
+    const usage = await db.query(
       `SELECT count(*)::int used FROM students WHERE institution_id=$1 AND active`,
       [institutionId],
     );
-    if (usage.rows[0].used >= plan.max_students)
+    if (usage.rows[0].used + quantity > plan.max_students)
       throw Object.assign(new Error('Limite de alunos do plano atingido.'), {
         statusCode: 402,
       });
