@@ -1,16 +1,23 @@
 import { basicExamV1 } from './basicexam-v1.mjs';
 
-const judgmentBubble = label => `\\framed[width=4.6mm,height=4.6mm,frame=on,rulethickness=.6pt,corner=round,radius=2.3mm,offset=overlay]{\\switchtobodyfont[6pt]\\bf ${label}}`;
-
 function judgmentAnswerBlock(start, end) {
-  const rows = Array.from({ length: end - start + 1 }, (_, offset) => {
+  const count = end - start + 1;
+  const height = 10 + count * 6;
+  const rows = Array.from({ length: count }, (_, offset) => {
     const number = String(start + offset).padStart(2, '0');
-    return `\\NC \\switchtobodyfont[7pt]${number} \\NC \\hbox to 14mm{\\hfil ${judgmentBubble('C')} \\hskip .8mm ${judgmentBubble('E')}\\hfil} \\NC\\NR`;
+    const y = height - 10 - offset * 6;
+    return `label(textext("{\\switchtobodyfont[7pt]${number}}"), (3.5mm,${y}mm));
+draw fullcircle scaled 4.6mm shifted (10mm,${y}mm) withpen pencircle scaled .7pt;
+draw fullcircle scaled 4.6mm shifted (16mm,${y}mm) withpen pencircle scaled .7pt;
+label(textext("{\\switchtobodyfont[6pt]\\bf C}"), (10mm,${y}mm));
+label(textext("{\\switchtobodyfont[6pt]\\bf E}"), (16mm,${y}mm));`;
   }).join('\n');
-  return `\\vtop{\\hsize=21mm\\switchtobodyfont[7pt]\\starttabulate[|cw(7mm)|cw(14mm)|]
-\\NC {\\switchtobodyfont[6pt]\\bf ITEM} \\NC {\\switchtobodyfont[6pt]\\bf RESPOSTA} \\NC\\NR
+  return `\\vtop{\\hsize=21mm\\startMPcode
+label(textext("{\\switchtobodyfont[6pt]\\bf ITEM}"), (3.5mm,${height - 4}mm));
+label(textext("{\\switchtobodyfont[6pt]\\bf RESPOSTA}"), (13mm,${height - 4}mm));
 ${rows}
-\\stoptabulate}`;
+setbounds currentpicture to unitsquare xscaled 21mm yscaled ${height}mm;
+\\stopMPcode}`;
 }
 
 function judgmentAnswerSheet(questionCount) {

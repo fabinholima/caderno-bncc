@@ -840,13 +840,9 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   const tex = renderAssessment(snapshot);
   assert.ok(tex.indexOf('Julgue o item a seguir') < tex.indexOf('Seis vezes sete é igual a 42'));
   assert.match(tex, /Seis vezes sete é igual a 42/);
-  assert.equal((tex.match(/\\hbox to 29mm\{\\lower \.9mm\\hbox\{/g) || []).length, 2);
-  assert.match(tex, /\\hskip 1\.4mm \\strut\{\}Certo/);
-  assert.match(tex, /\\hskip 1\.4mm \\strut\{\}Errado/);
-  assert.match(tex, /\\hfil\}\\hskip 3mm \\hbox to 29mm/);
-  assert.equal((tex.match(/\\framed\[width=5mm,height=5mm,frame=on,rulethickness=\.7pt,corner=round/g) || []).length, 2);
-  assert.match(tex, /radius=2\.5mm,offset=overlay\]\{\\switchtobodyfont\[7pt\]\\bf C\}/);
-  assert.match(tex, /radius=2\.5mm,offset=overlay\]\{\\switchtobodyfont\[7pt\]\\bf E\}/);
+  assert.equal((tex.match(/draw fullcircle scaled 5mm shifted/g) || []).length, 2);
+  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/);
+  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Errado\}"\)/);
   assert.equal((tex.match(/\\startcitem/g) || []).length, 0);
   assert.ok(!tex.includes('{A}'));
   assert.ok(!tex.includes('{B}'));
@@ -855,12 +851,9 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   assert.match(tex, /\\bf RESPOSTA/);
   assert.match(tex, /\\switchtobodyfont\[6pt\]\\bf C/);
   assert.match(tex, /\\switchtobodyfont\[6pt\]\\bf E/);
-  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]01/);
-  assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,[^\]]*corner=round/g) || []).length, 2);
-  assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,frame=on,rulethickness=\.6pt,corner=round/g) || []).length, 2);
-  assert.match(tex, /offset=overlay\]\{\\switchtobodyfont\[6pt\]\\bf C\}/);
-  assert.match(tex, /offset=overlay\]\{\\switchtobodyfont\[6pt\]\\bf E\}/);
-  assert.doesNotMatch(tex, /\\NC \\NC \\hbox to 14mm/);
+  assert.match(tex, /\\switchtobodyfont\[7pt\]01/);
+  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 2);
+  assert.doesNotMatch(tex, /\\framed\[width=4\.6mm/);
 });
 
 
@@ -881,16 +874,16 @@ test('mantém até 20 respostas C/E em uma coluna e distribui 100 em blocos cons
   }));
   const tex = renderAssessment(snapshot);
   assert.equal((tex.match(/\\bf ITEM/g) || []).length, 5);
-  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]01/);
-  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]21/);
-  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]81/);
-  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]100/);
+  assert.match(tex, /\\switchtobodyfont\[7pt\]01/);
+  assert.match(tex, /\\switchtobodyfont\[7pt\]21/);
+  assert.match(tex, /\\switchtobodyfont\[7pt\]81/);
+  assert.match(tex, /\\switchtobodyfont\[7pt\]100/);
   assert.equal((tex.match(/\\hskip 8mm/g) || []).length, 4);
   snapshot.questions = snapshot.questions.slice(0, 16);
   const compact = renderAssessment(snapshot);
   assert.equal((compact.match(/\\bf ITEM/g) || []).length, 1);
   assert.doesNotMatch(compact, /\\hskip 8mm/);
-  assert.match(compact, /\\NC \\switchtobodyfont\[7pt\]16/);
+  assert.match(compact, /\\switchtobodyfont\[7pt\]16/);
 });
 
 test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura', async () => {
