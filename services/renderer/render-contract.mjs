@@ -203,7 +203,7 @@ function chemicalStructure(node) {
     const caption = node.caption
       ? `\n\\midaligned{${escapeContext(node.caption)}}`
       : '';
-    return `\\startalignment[middle]\n\\externalfigure[${fileName}][maxwidth=.72\\textwidth,maxheight=.28\\textheight]\n${caption}\n\\stopalignment`;
+    return `\\startalignment[middle]\n\\externalfigure[${fileName}][maxwidth=.72\\hsize,maxheight=.28\\textheight]\n${caption}\n\\stopalignment`;
   }
   const structures = {
     benzene: 'SIX,SB246,DB135',
@@ -414,7 +414,7 @@ function richText(nodes = []) {
         ? `\n\\midaligned{${escapeContext(node.caption)}}`
         : '';
       return {
-        content: `\\startalignment[middle]\n\\externalfigure[${fileName}][maxwidth=.88\\textwidth,maxheight=.32\\textheight]\n${caption}\n\\stopalignment`,
+        content: `\\startalignment[middle]\n\\externalfigure[${fileName}][maxwidth=.88\\hsize,maxheight=.32\\textheight]\n${caption}\n\\stopalignment`,
         inline: false,
       };
     }
@@ -516,10 +516,7 @@ export function renderAssessment(snapshot) {
       const heading = section.title
         ? `\\subject{${escapeContext(section.title)}}\n\\blank[small]\n`
         : '';
-      if (
-        Number(section.columns) !== 2 &&
-        snapshot.render?.template !== 'caderno-duas-colunas-v1'
-      ) {
+      if (Number(section.columns) !== 2) {
         return `${pageBreak}${heading}${questions.map(renderQuestion).join('\n\n')}`;
       }
       const compactColumns = [

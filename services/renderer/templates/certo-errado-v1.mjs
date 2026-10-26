@@ -1,6 +1,6 @@
 import { basicExamV1 } from './basicexam-v1.mjs';
 
-const judgmentBubble = label => `\\framed[width=4.6mm,height=4.6mm,frame=on,rulethickness=.6pt,corner=round,radius=2.3mm,offset=overlay]{\\color[answerbubblelabel]{\\switchtobodyfont[6pt]\\bf ${label}}}`;
+const judgmentBubble = label => `\\framed[width=4.6mm,height=4.6mm,frame=on,rulethickness=.6pt,corner=round,radius=2.3mm,offset=overlay]{\\switchtobodyfont[6pt]\\bf ${label}}`;
 
 function judgmentAnswerBlock(start, end) {
   const rows = Array.from({ length: end - start + 1 }, (_, offset) => {
@@ -16,7 +16,7 @@ ${rows}
 function judgmentAnswerSheet(questionCount) {
   const count = Number(questionCount) || 0;
   if (!count) return '';
-  const columns = Math.min(6, Math.ceil(count / 15));
+  const columns = Math.min(6, Math.ceil(count / 20));
   const rowsPerColumn = Math.ceil(count / columns);
   const blocks = Array.from({ length: columns }, (_, column) => {
     const start = column * rowsPerColumn + 1;
@@ -25,7 +25,7 @@ function judgmentAnswerSheet(questionCount) {
       Math.min(start + rowsPerColumn - 1, count),
     );
   });
-  return `\\hbox to \\textwidth{${blocks.join('\\hfill\n')}}`;
+  return `\\hbox{${blocks.join('\\hskip 8mm\n')}}`;
 }
 
 export const judgmentExamV1 = Object.freeze({
@@ -35,7 +35,7 @@ export const judgmentExamV1 = Object.freeze({
       .render({
         ...options,
         answerLabels: ['C', 'E'],
-        answerSheetBody: `\\definecolor[answerbubblelabel][s=.65]\n${judgmentAnswerSheet(options.questionCount)}`,
+        answerSheetBody: judgmentAnswerSheet(options.questionCount),
         content:
           options.mode === 'student'
             ? 'Julgue cada item e marque C para certo ou E para errado.\\blank[medium]\n' +

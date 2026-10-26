@@ -5,7 +5,7 @@ const BLOCK_WIDTH_MM = 41.4;
 
 export function fiveOptionAnswerBlock(start, end, marked = {}) {
   const count = Math.max(0, end - start + 1);
-  const height = count * ROW_STEP_MM + 13;
+  const height = Number((count * ROW_STEP_MM + 13).toFixed(1));
   const commands = [
     `label(textext("{\\switchtobodyfont[6pt]\\bf ITEM}"), (3mm,${height - 3}mm));`,
     `label(textext("{\\switchtobodyfont[6pt]\\bf RESPOSTA}"), (25mm,${height - 3}mm));`,
@@ -19,7 +19,7 @@ export function fiveOptionAnswerBlock(start, end, marked = {}) {
     commands.push(`label(textext("{\\switchtobodyfont[7pt]${String(number).padStart(2, '0')}}"), (3mm,${y}mm));`);
     OPTION_X.forEach((x, index) => {
       commands.push(`draw fullcircle scaled 4.6mm shifted (${x}mm,${y}mm) withpen pencircle scaled .6pt;`);
-      commands.push(`label(textext("{\\switchtobodyfont[6pt]\\bf ${LABELS[index]}}"), (${x}mm,${y}mm)) withcolor .65white;`);
+      commands.push(`label(textext("{\\switchtobodyfont[6pt]\\bf ${LABELS[index]}}"), (${x}mm,${y}mm));`);
       if (marked[number] === LABELS[index])
         commands.push(`fill fullcircle scaled 2.8mm shifted (${x}mm,${y}mm);`);
     });
@@ -31,7 +31,7 @@ export function fiveOptionAnswerBlock(start, end, marked = {}) {
 export function fiveOptionAnswerSheet(questionCount) {
   const count = Number(questionCount) || 0;
   if (!count) return '';
-  const columns = Math.min(4, Math.ceil(count / 15));
+  const columns = Math.min(4, Math.ceil(count / 25));
   const rowsPerColumn = Math.ceil(count / columns);
   const blocks = Array.from({ length: columns }, (_, column) => {
     const start = column * rowsPerColumn + 1;

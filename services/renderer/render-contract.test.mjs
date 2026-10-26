@@ -65,7 +65,7 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\bf E/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
-  assert.equal((tex.match(/\)\) withcolor \.65white;/g) || []).length, 5);
+  assert.equal((tex.match(/\)\) withcolor \.65white;/g) || []).length, 0);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
   assert.match(tex, /\\bold\{Nome completo do aluno\}/);
@@ -108,8 +108,8 @@ test('mantém círculos alinhados no cartão do Simulado sem QR associado', asyn
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 95);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]19\}"\)/);
-  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 41\.4mm yscaled 67mm/);
-  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 41\.4mm yscaled 61\.6mm/);
+  assert.equal((tex.match(/setbounds currentpicture to unitsquare xscaled 41\.4mm/g) || []).length, 1);
+  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 41\.4mm yscaled 115\.6mm/);
 });
 
 test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simplificado', async () => {
@@ -173,7 +173,7 @@ test('renderiza o Modelo 3 em duas colunas com folha de respostas OMR', async ()
     {
       title: 'Matemática',
       subject: 'Matemática',
-      columns: 1,
+      columns: 2,
       startOnNewPage: false,
       questions: snapshot.questions,
     },
@@ -404,7 +404,7 @@ test('organiza disciplinas em seções com uma ou duas colunas', async () => {
   assert.match(tex, /\\page\n\\subject\{Química\}/);
 });
 
-test('interrompe e retoma duas colunas para questão em largura total nos dois layouts', async () => {
+test('interrompe e retoma duas colunas para questão em largura total nos três layouts', async () => {
   const base = JSON.parse(
     await readFile(
       new URL('../../samples/assessment-snapshot.json', import.meta.url),
@@ -426,7 +426,7 @@ test('interrompe e retoma duas colunas para questão em largura total nos dois l
       questions,
     },
   ];
-  for (const template of ['basicexam-v1', 'simulado-v1']) {
+  for (const template of ['basicexam-v1', 'simulado-v1', 'caderno-duas-colunas-v1']) {
     base.render.template = template;
     const tex = renderAssessment(base);
     assert.equal(tex.match(/\\startmixedcolumns\[/g)?.length, 2);
@@ -435,6 +435,21 @@ test('interrompe e retoma duas colunas para questão em largura total nos dois l
       /\\stopmixedcolumns\n\\blank\[medium\]\n\\startquestion\[point=1,showanswer=false\][\s\S]*?\\stopquestion\n\\blank\[medium\]\n\\startmixedcolumns/,
     );
   }
+});
+
+test('respeita uma coluna no Modelo 3 e limita figuras à largura da coluna ativa', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const image = { type: 'image', fileName: 'question-image-1.png' };
+  snapshot.render.template = 'caderno-duas-colunas-v1';
+  snapshot.questions[0].statement.push(image);
+  snapshot.sections = [{ title: 'Matemática', subject: 'Matemática', columns: 1, questions: snapshot.questions }];
+  const single = renderAssessment(snapshot);
+  assert.doesNotMatch(single, /\\startmixedcolumns/);
+  assert.match(single, /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\hsize/);
+  snapshot.sections[0].columns = 2;
+  const double = renderAssessment(snapshot);
+  assert.match(double, /\\startmixedcolumns/);
+  assert.match(double, /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\hsize/);
 });
 
 test('gera gabarito limpo com a letra correta e sem marcações internas', async () => {
@@ -490,7 +505,7 @@ test('renderiza imagem materializada no enunciado com limite de página', async 
   const tex = renderAssessment(snapshot);
   assert.match(
     tex,
-    /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\textwidth,maxheight=\.32\\textheight\]/,
+    /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\hsize,maxheight=\.32\\textheight\]/,
   );
   assert.match(tex, /Figura 1 — Transformação química/);
 });
@@ -838,13 +853,13 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]01/);
   assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,[^\]]*corner=round/g) || []).length, 2);
   assert.equal((tex.match(/\\framed\[width=4.6mm,height=4.6mm,frame=on,rulethickness=\.6pt,corner=round/g) || []).length, 2);
-  assert.match(tex, /offset=overlay\]\{\\color\[answerbubblelabel\]\{\\switchtobodyfont\[6pt\]\\bf C\}\}/);
-  assert.match(tex, /offset=overlay\]\{\\color\[answerbubblelabel\]\{\\switchtobodyfont\[6pt\]\\bf E\}\}/);
+  assert.match(tex, /offset=overlay\]\{\\switchtobodyfont\[6pt\]\\bf C\}/);
+  assert.match(tex, /offset=overlay\]\{\\switchtobodyfont\[6pt\]\\bf E\}/);
   assert.doesNotMatch(tex, /\\NC \\NC \\hbox to 14mm/);
 });
 
 
-test('distribui até 100 respostas C/E em blocos numerados lado a lado', async () => {
+test('mantém até 20 respostas C/E em uma coluna e distribui 100 em blocos consecutivos', async () => {
   const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
   const original = snapshot.questions[0];
   snapshot.render.template = 'certo-errado-v1';
@@ -860,11 +875,17 @@ test('distribui até 100 respostas C/E em blocos numerados lado a lado', async (
     answer: { correctStableKeys: [index % 2 ? 'alt-b' : 'alt-a'] },
   }));
   const tex = renderAssessment(snapshot);
-  assert.equal((tex.match(/\\bf ITEM/g) || []).length, 6);
+  assert.equal((tex.match(/\\bf ITEM/g) || []).length, 5);
   assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]01/);
-  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]18/);
-  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]86/);
+  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]21/);
+  assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]81/);
   assert.match(tex, /\\NC \\switchtobodyfont\[7pt\]100/);
+  assert.equal((tex.match(/\\hskip 8mm/g) || []).length, 4);
+  snapshot.questions = snapshot.questions.slice(0, 16);
+  const compact = renderAssessment(snapshot);
+  assert.equal((compact.match(/\\bf ITEM/g) || []).length, 1);
+  assert.doesNotMatch(compact, /\\hskip 8mm/);
+  assert.match(compact, /\\NC \\switchtobodyfont\[7pt\]16/);
 });
 
 test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura', async () => {
