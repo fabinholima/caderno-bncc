@@ -14,9 +14,11 @@ import {
   ChartNoAxesCombined,
   Sprout,
   Plus,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiFetch } from '@/lib/api-client';
+import { AssessmentPdfPreview } from './assessment-pdf-preview';
 
 const steps = [
   {
@@ -47,6 +49,12 @@ type RecentQuestion = {
   status: string;
 };
 type Assessment = { id: string; title: string; grade: string };
+type RegeneratedJob = {
+  code: string;
+  renderJobId: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  error?: string | null;
+};
 type Application = {
   id: string;
   title: string;
@@ -85,6 +93,40 @@ export function WorkspaceHome({
     apiUrl ? '' : 'Conecte o serviço para consultar suas atividades.',
   );
   const [reload, setReload] = useState(0);
+  const [regeneratingId, setRegeneratingId] = useState('');
+  const [regenerated, setRegenerated] = useState<{ assessmentId: string; jobs: RegeneratedJob[] } | null>(null);
+  const [regenerationError, setRegenerationError] = useState('');
+  async function regenerateSavedAssessment(assessmentId: string) {
+    setRegeneratingId(assessmentId);
+    setRegenerationError('');
+    try {
+      const response = await apiFetch(`${apiUrl}/api/assessments/${assessmentId}/renders`, { method: 'POST' });
+      const body = (await response.json()) as { data?: RegeneratedJob[]; error?: string };
+      if (!response.ok || !body.data?.length) throw new Error(body.error || 'Não foi possível gerar os PDFs novamente.');
+      setRegenerated({ assessmentId, jobs: body.data });
+    } catch (cause) {
+      setRegenerationError(cause instanceof Error ? cause.message : 'Falha ao gerar os PDFs.');
+    } finally {
+      setRegeneratingId('');
+    }
+  }
+  useEffect(() => {
+    if (!regenerated?.jobs.some(job => job.status === 'queued' || job.status === 'running')) return;
+    const timer = window.setInterval(async () => {
+      const jobs = await Promise.all(regenerated.jobs.map(async (job) => {
+        if (job.status === 'completed' || job.status === 'failed') return job;
+        try {
+          const response = await apiFetch(`${apiUrl}/api/render-jobs/${job.renderJobId}`);
+          const body = (await response.json()) as { data?: { status: RegeneratedJob['status']; error?: string | null } };
+          return response.ok && body.data ? { ...job, ...body.data } : job;
+        } catch {
+          return job;
+        }
+      }));
+      setRegenerated(current => current?.assessmentId === regenerated.assessmentId ? { ...current, jobs } : current);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [apiUrl, regenerated]);
   useEffect(() => {
     let cancelled = false;
     async function load<T>(path: string): Promise<T[]> {
@@ -458,30 +500,29 @@ export function WorkspaceHome({
                 </div>
                 <div className="mt-3 space-y-2">
                   {data.assessments.slice(0, 3).map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => onNavigate('Avaliações')}
-                      className="flex w-full items-center gap-3 rounded-lg border border-transparent bg-slate-50 px-3 py-2.5 text-left transition hover:border-blue-100 hover:bg-blue-50/70"
-                    >
-                      <FileOutput
-                        className="size-4 shrink-0 text-slate-500"
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block break-words text-sm font-medium text-slate-800">
-                          {a.title}
+                    <div key={a.id} className="rounded-lg bg-slate-50 p-3">
+                      <div className="flex items-center gap-3">
+                        <FileOutput className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words text-sm font-medium text-slate-800">{a.title}</span>
+                          <span className="mt-0.5 block text-xs text-slate-500">{a.grade}</span>
                         </span>
-                        <span className="mt-0.5 block text-xs text-slate-500">
-                          {a.grade}
-                        </span>
-                      </span>
-                      <ArrowUpRight
-                        className="size-4 shrink-0 text-slate-400"
-                        aria-hidden="true"
-                      />
-                    </button>
+                        <Button type="button" size="sm" variant="outline" disabled={Boolean(regeneratingId)} onClick={() => regenerateSavedAssessment(a.id)}>
+                          <RotateCcw className={regeneratingId === a.id ? 'animate-spin' : ''} aria-hidden="true" />
+                          Gerar PDFs novamente
+                        </Button>
+                      </div>
+                      {regenerated?.assessmentId === a.id && (
+                        <div className="mt-3 space-y-3" aria-live="polite">
+                          {regenerated.jobs.some(job => job.status === 'queued' || job.status === 'running') && <p className="text-sm text-slate-600">Compondo os PDFs no ConTeXt…</p>}
+                          {regenerated.jobs.map(job => job.status === 'completed'
+                            ? <AssessmentPdfPreview key={job.renderJobId} apiUrl={apiUrl} jobId={job.renderJobId} code={job.code} />
+                            : job.status === 'failed' ? <p key={job.renderJobId} role="alert" className="text-sm text-rose-700">Versão {job.code}: {job.error || 'Falha na composição.'}</p> : null)}
+                        </div>
+                      )}
+                    </div>
                   ))}
+                  {regenerationError && <p role="alert" className="text-sm text-rose-700">{regenerationError}</p>}
                 </div>
                 <Button
                   variant="link"
