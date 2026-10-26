@@ -42,13 +42,13 @@ def card(profile, marked=True):
             (text_width, text_height), _ = cv2.getTextSize(profile['labels'][option], cv2.FONT_HERSHEY_SIMPLEX, .27, 1)
             cv2.putText(image, profile['labels'][option],
                         (center[0] - text_width // 2, center[1] + text_height // 2),
-                        cv2.FONT_HERSHEY_SIMPLEX, .27, (166, 166, 166), 1, cv2.LINE_AA)
+                        cv2.FONT_HERSHEY_SIMPLEX, .27, (140, 140, 140), 1, cv2.LINE_AA)
             if marked and option == index % len(profile['labels']):
                 cv2.circle(image, center, round(profile['radiusMm'] * scale * .85), (0, 0, 0), -1)
     return image
 
 
-def standard_judgment_card(question_count=10):
+def standard_judgment_card(question_count=10, marked=True):
     """Synthetic photo for the regular (non-compact) Certo/Errado sheet."""
     image = np.full((1600, 2000, 3), 255, np.uint8)
     payload = 'CBS1:00000000-0000-4000-8000-000000000001:0123456789abcdef0123'
@@ -68,8 +68,8 @@ def standard_judgment_card(question_count=10):
                 label = 'CE'[option]
                 (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, .4, 1)
                 cv2.putText(image, label, (x - text_width // 2, y + text_height // 2),
-                            cv2.FONT_HERSHEY_SIMPLEX, .4, (166, 166, 166), 1, cv2.LINE_AA)
-                if option == index % 2:
+                            cv2.FONT_HERSHEY_SIMPLEX, .4, (0, 0, 0), 1, cv2.LINE_AA)
+                if marked and option == index % 2:
                     cv2.circle(image, (x, y), 11, (0, 0, 0), -1)
     return image
 
@@ -91,7 +91,7 @@ def standard_five_option_card(question_count=100):
             label = 'ABCDE'[option]
             (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, .45, 1)
             cv2.putText(image, label, (x - text_width // 2, y + text_height // 2),
-                        cv2.FONT_HERSHEY_SIMPLEX, .45, (166, 166, 166), 1, cv2.LINE_AA)
+                        cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 0, 0), 1, cv2.LINE_AA)
             if option == index % 5:
                 cv2.circle(image, (x, y), 13, (0, 0, 0), -1)
     if question_count == 100:
@@ -136,6 +136,11 @@ class CompactCardReading(unittest.TestCase):
             [row['selectedLabels'] for row in result['answers']],
             [['C' if index % 2 == 0 else 'E'] for index in range(10)],
         )
+
+    def test_regular_judgment_sheet_does_not_count_printed_letters_as_marks(self):
+        result = self.read(standard_judgment_card(marked=False), {'labels': ['C', 'E']})
+        self.assertTrue(result['requiresReview'])
+        self.assertTrue(all(row['status'] == 'blank' for row in result['answers']))
 
     def test_regular_judgment_sheet_reads_six_vertical_blocks_in_question_order(self):
         result = self.read(standard_judgment_card(100), {'labels': ['C', 'E']})

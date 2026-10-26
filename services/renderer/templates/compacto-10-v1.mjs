@@ -21,7 +21,7 @@ export function compactAnswerCard(profile, qrFileName) {
       commands.push(`label(textext("{\\switchtobodyfont[8pt]${String(number).padStart(2, '0')}}"), (${start + pad - 9}mm,${y}mm));`);
       profile.labels.forEach((label, index) => {
         commands.push(`draw fullcircle scaled ${2 * profile.radiusMm}mm shifted (${start + pad + index * profile.columnSpacingMm}mm,${y}mm) withpen pencircle scaled .65pt;`);
-        commands.push(`label(textext("{\\switchtobodyfont[5pt]\\bf ${label}}"), (${start + pad + index * profile.columnSpacingMm}mm,${y}mm)) withcolor .65white;`);
+        commands.push(`label(textext("{\\switchtobodyfont[5pt]\\bf ${label}}"), (${start + pad + index * profile.columnSpacingMm}mm,${y}mm)) withcolor .55white;`);
       });
     }
   }

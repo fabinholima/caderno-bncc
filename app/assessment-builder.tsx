@@ -2214,7 +2214,7 @@ export function AssessmentBuilder({
                               type="number"
                               min="0.01"
                               max="1000"
-                              step="0.25"
+                              step="0.01"
                               className="w-20 rounded border p-1"
                               value={questionPoints[id] ?? q?.points ?? 1}
                               onChange={(e) =>
