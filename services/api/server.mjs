@@ -1,3 +1,4 @@
+import { importClassStudents } from './student-import.mjs';
 import { regenerateAssessment } from './assessments.mjs';
 import { listClassStudents } from './academic.mjs';
 import {
@@ -89,7 +90,7 @@ import {
   listApplications,
   listClasses,
   listStudents,
-  setStudentActive,
+  updateStudent,
   retryApplicationRenders,
 } from './academic.mjs';
 import {
@@ -716,9 +717,11 @@ const server = createServer(async (request, response) => {
       });
     const studentActiveMatch = request.method === 'PATCH' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})$/i);
     if (studentActiveMatch)
-      return json(response, 200, { data: await setStudentActive({
-        institutionId, studentId: studentActiveMatch[1], active: (await readJson(request)).active,
+      return json(response, 200, { data: await updateStudent({
+        institutionId, studentId: studentActiveMatch[1], input: await readJson(request),
       }) });
+    const studentImportMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import$/i);
+    if (studentImportMatch) return json(response, 200, { data: await importClassStudents({ institutionId, userId, classId: studentImportMatch[1], input: await readJson(request, 2_800_100) }) });
     const enrollmentMatch =
       request.method === 'POST' &&
       url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/enrollments$/i);

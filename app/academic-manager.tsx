@@ -26,6 +26,11 @@ type SchoolClass = {
   schoolYear: number;
   students: number;
 };
+const studentStatuses = [
+  ['ativo', 'Ativo'], ['transferido', 'Transferido'], ['remanejado', 'Remanejado'],
+  ['atestado', 'Atestado'], ['regime_domiciliar', 'Regime domiciliar'],
+] as const;
+type StudentStatus = typeof studentStatuses[number][0];
 type Student = {
   id: string;
   registration: string;
@@ -33,6 +38,8 @@ type Student = {
   access_code?: string;
   selfieDataUrl?: string;
   active: boolean;
+  status: StudentStatus | null;
+  adaptedExam: boolean;
 };
 type Assessment = { id: string; title: string; grade: string };
 type Application = {
@@ -321,6 +328,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   const [studentProgress, setStudentProgress] =
     useState<StudentProgress | null>(null);
   const [message, setMessage] = useState('');
+  const [importingStudents, setImportingStudents] = useState(false);
+  const [savingStudent, setSavingStudent] = useState<string | null>(null);
   const [inviteClass,setInviteClass]=useState<SchoolClass|null>(null);
   const refresh = useCallback(async () => {
     if (!apiUrl) return;
@@ -602,15 +611,21 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     setScanReview(null);
     await refresh();
   };
-  const toggleStudent = async (student: Student) => {
-    const response = await apiFetch(`${apiUrl}/api/students/${student.id}`, {
-      method: 'PATCH', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ active: !student.active }),
-    });
-    const body = (await response.json()) as ApiBody<Student>;
-    if (!response.ok) throw new Error(body.error || 'Não foi possível atualizar o aluno.');
-    setStudents((items) => items.map((item) => item.id === student.id ? { ...item, active: !student.active } : item));
+  const updateStudent = async (student: Student, changes: { status?: StudentStatus; adaptedExam?: boolean }) => {
+    setSavingStudent(student.id);
+    try {
+      const response = await apiFetch(`${apiUrl}/api/students/${student.id}`, {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(changes),
+      });
+      const body = (await response.json()) as ApiBody<Student>;
+      if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível atualizar o aluno.');
+      const updated = body.data;
+      setStudents((items) => items.map((item) => item.id === student.id ? { ...item, ...updated } : item));
+      setMessage('Cadastro do aluno atualizado.');
+    } finally { setSavingStudent(null); }
   };
+
   const reviewCandidate = scanReview?.candidates.find(
     (candidate) => candidate.id === reviewCandidateId,
   );
@@ -678,6 +693,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
                     registration: data.get('registration'),
                     name: data.get('name'),
                     selfieDataUrl,
+                    status: data.get('status'),
+                    adaptedExam: data.get('adaptedExam') === 'on',
                   }),
                 });
                 const body = (await response.json()) as ApiBody<{ access_code?: string }>;
@@ -692,6 +709,14 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           >
             <Input name="name" required placeholder="Nome completo" />
             <Input name="registration" required placeholder="Matrícula" />
+            <label className="block text-sm">Situação
+              <select name="status" defaultValue="ativo" className="mt-1 w-full rounded-md border p-2">
+                {studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input name="adaptedExam" type="checkbox" /> Prova adaptada (laudo)
+            </label>
             <Input name="selfie" type="file" accept="image/png,image/jpeg" />
             <p className="text-xs text-slate-500">Selfie opcional do aluno (PNG/JPEG até 400 KB).</p>
             <Button type="submit" className="w-full">
@@ -736,6 +761,58 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             />
             <Button type="submit" className="w-full">
               Matricular
+            </Button>
+          </form>
+        </Panel>
+      </div>
+      <div className="mt-5">
+        <Panel icon={<UserPlus />} title="Importar alunos por Excel">
+          <p className="mb-4 text-sm text-slate-600">
+            Selecione a turma e envie um arquivo .xlsx de até 2 MB, com até 1.000 alunos.
+            Na primeira aba, use os cabeçalhos Código e Nome na primeira linha.
+            O código será usado como matrícula; formate essa coluna como Texto para preservar zeros à esquerda.
+            Alunos já cadastrados com o mesmo código e nome serão aproveitados, sem duplicar matrículas.
+          </p>
+          <form className="grid gap-3 md:grid-cols-3" onSubmit={async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const data = new FormData(form);
+            const file = data.get('spreadsheet');
+            if (!(file instanceof File) || !file.size) return setMessage('Selecione uma planilha Excel.');
+            if (!file.name.toLowerCase().endsWith('.xlsx') || file.size > 2_000_000)
+              return setMessage('Envie um arquivo .xlsx de até 2 MB.');
+            setImportingStudents(true);
+            setMessage('Validando e importando alunos…');
+            try {
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (typeof reader.result === 'string') resolve(reader.result.split(',')[1]);
+                  else reject(new Error('Não foi possível ler a planilha.'));
+                };
+                reader.onerror = () => reject(new Error('Não foi possível ler a planilha.'));
+                reader.readAsDataURL(file);
+              });
+              const response = await apiFetch(`${apiUrl}/api/classes/${formString(data, 'classId')}/students/import`, {
+                method: 'POST', headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ base64 }),
+              });
+              const body = await response.json() as ApiBody<{ created: number; enrolled: number; alreadyEnrolled: number }>;
+              if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível importar os alunos.');
+              const result = body.data;
+              form.reset();
+              setMessage(`Importação concluída: ${result.created} novos alunos, ${result.enrolled} matrículas na turma e ${result.alreadyEnrolled} já matriculados.`);
+              await refresh();
+            } catch (error) {
+              setMessage(error instanceof Error ? error.message : 'Não foi possível importar os alunos.');
+            } finally {
+              setImportingStudents(false);
+            }
+          }}>
+            <Select name="classId" label="Selecione a turma" items={classes.map((item) => [item.id, `${item.name} · ${item.grade}`])} />
+            <Input name="spreadsheet" aria-label="Planilha de alunos" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required disabled={importingStudents} />
+            <Button type="submit" disabled={importingStudents || !classes.length}>
+              {importingStudents ? 'Importando…' : 'Importar e matricular'}
             </Button>
           </form>
         </Panel>
@@ -1016,13 +1093,29 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         )}
       </section>
       <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <header className="border-b p-4 font-semibold">Alunos cadastrados</header>
+        <header className="border-b p-4">
+          <h2 className="font-semibold">Alunos cadastrados</h2>
+          <p className="mt-1 text-sm text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p>
+        </header>
         {students.length ? students.map((student) => (
-          <div key={student.id} className="flex items-center justify-between border-b px-4 py-3 text-sm last:border-0">
+          <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-0">
             <span><b>{student.name}</b> · {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => toggleStudent(student).catch((error) => setMessage(error.message))}>
-              {student.active ? 'Inativar' : 'Reativar'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2">Situação
+                <select aria-label={`Situação de ${student.name}`} value={student.status ?? ''}
+                  disabled={savingStudent !== null} className="rounded-md border p-2"
+                  onChange={(event) => updateStudent(student, { status: event.target.value as StudentStatus }).catch((error) => setMessage(error.message))}>
+                  {!student.status && <option value="" disabled>Selecione a situação</option>}
+                  {studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" aria-label={`Prova adaptada (laudo) de ${student.name}`}
+                  checked={student.adaptedExam} disabled={savingStudent !== null}
+                  onChange={(event) => updateStudent(student, { adaptedExam: event.target.checked }).catch((error) => setMessage(error.message))} />
+                Prova adaptada (laudo)
+              </label>
+            </div>
           </div>
         )) : <p className="p-6 text-sm text-slate-400">Nenhum aluno cadastrado.</p>}
       </section>
