@@ -755,7 +755,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         <Panel icon={<UserPlus />} title="Importar alunos por Excel">
           <p className="mb-4 text-sm text-slate-600">
             Selecione a turma e envie um arquivo .xlsx de até 2 MB, com até 1.000 alunos.
-            Inclua Código/Matrícula e Nome na mesma linha de cabeçalho (a importação procura nas primeiras 20 linhas das abas). Não inclua foto.
+            Use duas colunas: Código/Matrícula e Nome com cabeçalho, ou código numérico e nome sem cabeçalho. Não inclua foto.
             O aluno adicionará a foto no app após entrar com o código da turma e ter o vínculo aprovado.
             O código será usado como matrícula; formate essa coluna como Texto para preservar zeros à esquerda.
             Alunos já cadastrados com o mesmo código e nome serão aproveitados, sem duplicar matrículas.

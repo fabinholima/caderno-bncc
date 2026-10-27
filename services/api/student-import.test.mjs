@@ -31,6 +31,17 @@ test('finds headers after a title row and skips an empty first worksheet', async
   assert.deepEqual(students.map(({ registration, name }) => [registration, name]), [['A-1', 'Ana Silva']]);
 });
 
+test('imports a two-column roster without a header row', async () => {
+  const students = await parseStudentWorkbook(await file([
+    [1373439, 'ADRIAN GABRIEL DA CONCEIÇÃO DA SILVA'],
+    [1331841, 'ALEXANDRE SANTOS SOUZA'],
+  ]));
+  assert.deepEqual(students.map(({ registration, name }) => [registration, name]), [
+    ['1373439', 'ADRIAN GABRIEL DA CONCEIÇÃO DA SILVA'],
+    ['1331841', 'ALEXANDRE SANTOS SOUZA'],
+  ]);
+});
+
 test('rejects missing headers, incomplete rows, duplicates and formulas with actionable errors', async () => {
   for (const [rows, message] of [
     [[['ID', 'Aluno']], /colunas Código\/Matrícula e Nome/],
