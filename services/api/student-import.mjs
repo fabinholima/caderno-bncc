@@ -13,23 +13,34 @@ export async function parseStudentWorkbook(base64) {
   const workbook = new ExcelJS.Workbook();
   try { await workbook.xlsx.load(Buffer.from(base64, 'base64')); }
   catch { throw invalid('Não foi possível ler o Excel. Salve o arquivo no formato .xlsx.'); }
-  const sheet = workbook.worksheets[0];
-  if (!sheet || sheet.rowCount > 1001) throw invalid('A primeira aba deve conter até 1.000 alunos.');
-  let codeColumn, nameColumn;
-  sheet.getRow(1).eachCell((cell, column) => {
-    const header = normalize(cell.text);
-    if (['codigo', 'matricula', 'codigo do aluno'].includes(header)) {
-      if (codeColumn) throw invalid('Há mais de uma coluna de código.');
-      codeColumn = column;
+  const sheets = workbook.worksheets.filter((sheet) => sheet.rowCount > 0);
+  if (!sheets.length) throw invalid('O arquivo não contém nenhuma aba com dados.');
+  const codeHeaders = ['codigo', 'matricula', 'codigo do aluno', 'matricula do aluno', 'registro', 'ra', 'id do aluno'];
+  const nameHeaders = ['nome', 'nome do aluno', 'nome completo', 'nome completo do aluno', 'aluno', 'estudante', 'nome do estudante'];
+  let sheet, headerRow, codeColumn, nameColumn;
+  for (const candidate of sheets) {
+    // Tolerate title/instruction rows before the header, common in exported spreadsheets.
+    for (let line = 1; line <= Math.min(candidate.rowCount, 20); line++) {
+      let foundCode, foundName;
+      candidate.getRow(line).eachCell((cell, column) => {
+        const header = normalize(cell.text);
+        if (codeHeaders.includes(header)) foundCode = column;
+        if (nameHeaders.includes(header)) foundName = column;
+      });
+      if (foundCode && foundName) {
+        sheet = candidate;
+        headerRow = line;
+        codeColumn = foundCode;
+        nameColumn = foundName;
+        break;
+      }
     }
-    if (['nome', 'nome do aluno', 'nome completo'].includes(header)) {
-      if (nameColumn) throw invalid('Há mais de uma coluna de nome.');
-      nameColumn = column;
-    }
-  });
-  if (!codeColumn || !nameColumn) throw invalid('A primeira linha deve conter as colunas Código e Nome.');
+    if (sheet) break;
+  }
+  if (!sheet) throw invalid('Não encontrei as colunas Código/Matrícula e Nome. Inclua esses títulos na mesma linha (nas primeiras 20 linhas).');
   const students = [], seen = new Set();
-  for (let line = 2; line <= sheet.rowCount; line++) {
+  // Limit scanning as well as imported records; formatting can make Excel report many empty rows.
+  for (let line = headerRow + 1; line <= Math.min(sheet.rowCount, headerRow + 10_000); line++) {
     const row = sheet.getRow(line), code = row.getCell(codeColumn), name = row.getCell(nameColumn);
     if (!code.text.trim() && !name.text.trim()) continue;
     if (code.type === ExcelJS.ValueType.Formula || name.type === ExcelJS.ValueType.Formula)
@@ -41,6 +52,7 @@ export async function parseStudentWorkbook(base64) {
     if (seen.has(registration)) throw invalid(`Linha ${line}: código ${registration} repetido na planilha.`);
     seen.add(registration);
     students.push({ ...result.data, line });
+    if (students.length > 1000) throw invalid('A planilha deve conter até 1.000 alunos.');
   }
   if (!students.length) throw invalid('A planilha não contém alunos.');
   return students;
