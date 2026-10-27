@@ -39,22 +39,29 @@ export async function parseStudentWorkbook(base64) {
   }
   let firstDataRow;
   if (!sheet) {
-    // Some class rosters contain only two columns (numeric student code, then name), without headers.
+    // Some class rosters contain only a numeric code and a name, without headers.
     for (const candidate of sheets) {
-      // Excel may preserve formatting in otherwise empty trailing columns.
-      if (candidate.columnCount < 2) continue;
       for (let line = 1; line <= Math.min(candidate.rowCount, 20); line++) {
         const row = candidate.getRow(line);
-        const code = row.getCell(1), name = row.getCell(2);
-        if (!code.text.trim() && !name.text.trim()) continue;
-        const value = code.text.trim();
-        const looksLikeCode = typeof code.value === 'number' || /^[A-Za-z0-9./_-]*\d[A-Za-z0-9./_-]*$/.test(value);
-        const normalizedName = normalize(name.text);
-        if (!looksLikeCode || codeHeaders.includes(normalize(code.text)) || nameHeaders.includes(normalizedName)) break;
-        if (!studentSchema.safeParse({ registration: value, name: name.text.trim() }).success) break;
+        const values = [];
+        row.eachCell((cell, column) => {
+          if (cell.text.trim()) values.push({ cell, column });
+        });
+        if (values.length !== 2) continue;
+        const codeEntry = values.find(({ cell }) =>
+          typeof cell.value === 'number' || /\d/.test(cell.text.trim()),
+        );
+        const nameEntry = values.find(({ cell, column }) =>
+          column !== codeEntry?.column &&
+          !nameHeaders.includes(normalize(cell.text)) &&
+          studentSchema.safeParse({ registration: '1', name: cell.text.trim() }).success,
+        );
+        if (!codeEntry || !nameEntry || codeHeaders.includes(normalize(codeEntry.cell.text))) continue;
+        const value = codeEntry.cell.text.trim();
+        if (typeof codeEntry.cell.value !== 'number' && !/^[A-Za-z0-9./_\-\s,]+$/.test(value)) continue;
         sheet = candidate;
-        codeColumn = 1;
-        nameColumn = 2;
+        codeColumn = codeEntry.column;
+        nameColumn = nameEntry.column;
         firstDataRow = line;
         break;
       }

@@ -42,6 +42,20 @@ test('imports a two-column roster without a header row', async () => {
   ]);
 });
 
+test('finds headerless code/name data when the populated columns start after column A', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Alunos');
+  sheet.getCell('B1').value = 1373439;
+  sheet.getCell('C1').value = 'ADRIAN GABRIEL DA CONCEIÇÃO DA SILVA';
+  sheet.getCell('B2').value = 1331841;
+  sheet.getCell('C2').value = 'ALEXANDRE SANTOS SOUZA';
+  const students = await parseStudentWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()).toString('base64'));
+  assert.deepEqual(students.map(({ registration, name }) => [registration, name]), [
+    ['1373439', 'ADRIAN GABRIEL DA CONCEIÇÃO DA SILVA'],
+    ['1331841', 'ALEXANDRE SANTOS SOUZA'],
+  ]);
+});
+
 test('rejects missing headers, incomplete rows, duplicates and formulas with actionable errors', async () => {
   for (const [rows, message] of [
     [[['ID', 'Aluno']], /colunas Código\/Matrícula e Nome/],
