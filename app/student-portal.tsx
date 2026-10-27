@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api-client";
@@ -13,11 +14,13 @@ type Activity = {
   requiresManualReview: boolean;
 };
 type Invite = { schoolName: string; className: string; teacherName: string };
+type Profile = { id: string; name: string; registration: string; selfieDataUrl: string };
 export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }) {
   const [code, setCode] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('invite') || ''),
     [invite, setInvite] = useState<Invite | null>(null),
     [requests, setRequests] = useState<Request[]>([]),
     [activities, setActivities] = useState<Activity[]>([]),
+    [profiles, setProfiles] = useState<Profile[]>([]),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
   const call = useCallback(async <T,>(path: string, input?: object): Promise<T> => {
@@ -37,12 +40,14 @@ export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }
   }, [apiUrl]);
   const refresh = useCallback(async () => {
     try {
-      const [list, own] = await Promise.all([
+      const [list, own, linkedProfiles] = await Promise.all([
         call<Request[]>("/api/class-join-requests/me"),
         call<Activity[]>("/api/student/activities"),
+        call<Profile[]>("/api/student/profile"),
       ]);
       setRequests(list);
       setActivities(own);
+      setProfiles(linkedProfiles);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Falha ao atualizar.");
     }
@@ -159,6 +164,38 @@ export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }
             </p>
           </article>
         ))}
+        <h2 className="mt-6 font-semibold">Minha foto de cadastro</h2>
+        {!profiles.length && <p className="mt-2 text-sm">Entre com o código da turma e aguarde o professor vincular sua conta ao cadastro. Depois, adicione sua foto aqui.</p>}
+        {profiles.map(profile => <form key={profile.id} className="mt-3 space-y-3 rounded-xl border p-3" onSubmit={async event => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const file = new FormData(form).get('photo');
+          if (!(file instanceof File) || !file.size || file.size > 400000 || !['image/png', 'image/jpeg'].includes(file.type)) {
+            setMessage('Selecione uma foto PNG/JPEG de até 400 KB.');
+            return;
+          }
+          setBusy(true);
+          try {
+            const selfieDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Não foi possível ler a foto.'));
+              reader.onerror = () => reject(new Error('Não foi possível ler a foto.'));
+              reader.readAsDataURL(file);
+            });
+            await call('/api/student/profile', { studentId: profile.id, selfieDataUrl });
+            form.reset();
+            setMessage('Foto salva no seu cadastro.');
+            await refresh();
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'Não foi possível salvar a foto.');
+          } finally { setBusy(false); }
+        }}>
+          <p>{profile.name} · Código do aluno: {profile.registration}</p>
+          {profile.selfieDataUrl && <Image src={profile.selfieDataUrl} alt="Sua foto de cadastro" width={96} height={96} unoptimized className="size-24 rounded-xl object-cover" />}
+          <label htmlFor={`photo-${profile.id}`} className="block text-sm">Foto PNG/JPEG de até 400 KB</label>
+          <Input id={`photo-${profile.id}`} name="photo" type="file" accept="image/png,image/jpeg" required disabled={busy} />
+          <Button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar minha foto'}</Button>
+        </form>)}
         <h2 className="mt-6 font-semibold">Minhas atividades e resultados</h2>
         {!activities.length && <p className="mt-2 text-sm">Nenhuma atividade disponível.</p>}
         {activities.map((a) => (
