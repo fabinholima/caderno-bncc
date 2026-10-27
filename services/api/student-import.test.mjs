@@ -35,7 +35,7 @@ test('imports a two-column roster without a header row', async () => {
   const students = await parseStudentWorkbook(await file([
     [1373439, 'ADRIAN GABRIEL DA CONCEIÇÃO DA SILVA'],
     [1331841, 'ALEXANDRE SANTOS SOUZA'],
-  ]));
+  ], (sheet) => { sheet.getCell('C1').value = ' '; }));
   assert.deepEqual(students.map(({ registration, name }) => [registration, name]), [
     ['1373439', 'ADRIAN GABRIEL DA CONCEIÇÃO DA SILVA'],
     ['1331841', 'ALEXANDRE SANTOS SOUZA'],

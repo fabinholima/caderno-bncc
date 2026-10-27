@@ -41,7 +41,8 @@ export async function parseStudentWorkbook(base64) {
   if (!sheet) {
     // Some class rosters contain only two columns (numeric student code, then name), without headers.
     for (const candidate of sheets) {
-      if (candidate.columnCount !== 2) continue;
+      // Excel may preserve formatting in otherwise empty trailing columns.
+      if (candidate.columnCount < 2) continue;
       for (let line = 1; line <= Math.min(candidate.rowCount, 20); line++) {
         const row = candidate.getRow(line);
         const code = row.getCell(1), name = row.getCell(2);
