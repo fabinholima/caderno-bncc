@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { apiFetch } from '@/lib/api-client';
 
 type Prices = Record<string, { monthly: number; annual: number }>;
@@ -159,12 +158,12 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            <Link
+            <a
               className="ufa-cta"
               href="/portal"
             >
               {index === 0 ? 'Começar agora' : `Assinar plano ${plan.name}`}
-            </Link>
+            </a>
           </article>
         ))}
       </div>
