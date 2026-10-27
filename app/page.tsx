@@ -1,7 +1,6 @@
 import { ArrowUpRight, BookOpen, Layers3, FileCheck2 } from 'lucide-react';
 import './landing.css';
 import Pricing from './pricing';
-import Link from 'next/link';
 
 export const metadata = {
   title: 'UfaProva — Mais tempo para ensinar. E para você.',
@@ -184,10 +183,10 @@ export default function HomePage() {
         Pular para o conteúdo
       </a>
       <header className="ufa-wrap ufa-header">
-        <Link href="/" className="ufa-logo" aria-label="UfaProva, início">
+        <a href="/" className="ufa-logo" aria-label="UfaProva, início">
           <b className="ufa-mark">u.</b>ufa<span>prova</span>
           <i>✳</i>
-        </Link>
+        </a>
         <nav aria-label="Navegação principal">
           <a href="#recursos">O que você pode fazer</a>
           <a href="#como-funciona">Como funciona</a>
@@ -214,9 +213,9 @@ export default function HomePage() {
               Sua próxima avaliação sem perder o fim de semana. Reúna questões,
               organize suas ideias e gere uma prova com a sua cara.
             </p>
-            <Link className="ufa-cta" href="/portal">
+            <a className="ufa-cta" href="/portal">
               Montar minha avaliação <ArrowUpRight size={21} />
-            </Link>
+            </a>
             <p className="ufa-small">
               Do banco de questões ao PDF pronto para imprimir.
             </p>
@@ -327,20 +326,20 @@ export default function HomePage() {
             <br />
             <em>O fim de semana fica seu.</em>
           </h2>
-          <Link className="ufa-cta" href="/portal">
+          <a className="ufa-cta" href="/portal">
             Vamos preparar sua prova? <ArrowUpRight size={20} />
-          </Link>
+          </a>
         </section>
       </main>
       <footer className="ufa-wrap ufa-footer">
-        <Link href="/" className="ufa-logo">
+        <a href="/" className="ufa-logo">
           ufa<span>prova</span>
-        </Link>
+        </a>
         <p>Mais tempo para ensinar. E para você.</p>
-        <Link href="/portal">Acessar o portal ↗</Link>
+        <a href="/portal">Acessar o portal ↗</a>
         <nav aria-label="Informações legais" className="flex flex-wrap gap-4 text-sm">
-          <Link href="/privacidade">Política de privacidade</Link>
-          <Link href="/contato">Contato</Link>
+          <a href="/privacidade">Política de privacidade</a>
+          <a href="/contato">Contato</a>
         </nav>
       </footer>
     </div>
