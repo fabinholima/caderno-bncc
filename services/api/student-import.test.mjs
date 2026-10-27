@@ -22,6 +22,15 @@ test('accepts reversed columns and matrícula header', async () => {
   assert.equal(students[0].registration, 'A-1');
 });
 
+test('recognizes the combined Código/Matrícula header from the supplied roster format', async () => {
+  const students = await parseStudentWorkbook(await file([
+    ['Código/Matrícula', 'Nome'],
+    ['01', 'Fabio'],
+    ['02', 'Lima'],
+  ]));
+  assert.deepEqual(students.map(({ registration, name }) => [registration, name]), [['01', 'Fabio'], ['02', 'Lima']]);
+});
+
 test('finds headers after a title row and skips an empty first worksheet', async () => {
   const workbook = new ExcelJS.Workbook();
   workbook.addWorksheet('Instruções').addRow(['Planilha de alunos']);
@@ -100,7 +109,7 @@ test('batch import reuses students and enrollments, and rolls back conflicts and
     assert.equal(calls.at(-1), 'COMMIT');
     calls.length = 0;
     conflict = true;
-    await assert.rejects(importClassStudents(args), /outro nome/);
+    await assert.rejects(importClassStudents(args), /já pertence/);
     assert.equal(calls.at(-1), 'ROLLBACK');
     assert.ok(!calls.some(sql => sql.startsWith('INSERT')));
     calls.length = 0;

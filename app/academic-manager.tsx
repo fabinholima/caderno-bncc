@@ -41,6 +41,7 @@ type Student = {
   status: StudentStatus | null;
   adaptedExam: boolean;
 };
+type StudentImportRow = { registration: string; name: string; line: number; status: StudentStatus; existing: boolean; warning: string | null };
 type Assessment = { id: string; title: string; grade: string };
 type Application = {
   id: string;
@@ -321,6 +322,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     useState<StudentProgress | null>(null);
   const [message, setMessage] = useState('');
   const [importingStudents, setImportingStudents] = useState(false);
+  const [studentImportPreview, setStudentImportPreview] = useState<StudentImportRow[]>([]);
+  const [studentImportClassId, setStudentImportClassId] = useState('');
   const [savingStudent, setSavingStudent] = useState<string | null>(null);
   const [inviteClass,setInviteClass]=useState<SchoolClass|null>(null);
   const refresh = useCallback(async () => {
@@ -758,7 +761,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             Use duas colunas: Código/Matrícula e Nome com cabeçalho, ou código numérico e nome sem cabeçalho. Não inclua foto.
             O aluno adicionará a foto no app após entrar com o código da turma e ter o vínculo aprovado.
             O código será usado como matrícula; formate essa coluna como Texto para preservar zeros à esquerda.
-            Alunos já cadastrados com o mesmo código e nome serão aproveitados, sem duplicar matrículas.
+            Após o envio, confira os dados e escolha a situação de cada aluno. A planilha só será gravada quando você confirmar.
           </p>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={async (event) => {
             event.preventDefault();
@@ -769,7 +772,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             if (!file.name.toLowerCase().endsWith('.xlsx') || file.size > 2_000_000)
               return setMessage('Envie um arquivo .xlsx de até 2 MB.');
             setImportingStudents(true);
-            setMessage('Validando e importando alunos…');
+            setMessage('Lendo a planilha…');
             try {
               const base64 = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
@@ -780,16 +783,16 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
                 reader.onerror = () => reject(new Error('Não foi possível ler a planilha.'));
                 reader.readAsDataURL(file);
               });
-              const response = await apiFetch(`${apiUrl}/api/classes/${formString(data, 'classId')}/students/import`, {
+              const classId = formString(data, 'classId');
+              const response = await apiFetch(`${apiUrl}/api/classes/${classId}/students/import/preview`, {
                 method: 'POST', headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ base64 }),
               });
-              const body = await response.json() as ApiBody<{ created: number; enrolled: number; alreadyEnrolled: number }>;
-              if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível importar os alunos.');
-              const result = body.data;
-              form.reset();
-              setMessage(`Importação concluída: ${result.created} novos alunos, ${result.enrolled} matrículas na turma e ${result.alreadyEnrolled} já matriculados.`);
-              await refresh();
+              const body = await response.json() as ApiBody<StudentImportRow[]>;
+              if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível ler os alunos da planilha.');
+              setStudentImportClassId(classId);
+              setStudentImportPreview(body.data);
+              setMessage(`${body.data.length} alunos lidos. Confira os nomes e escolha a situação antes de gravar.`);
             } catch (error) {
               setMessage(error instanceof Error ? error.message : 'Não foi possível importar os alunos.');
             } finally {
@@ -799,9 +802,37 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             <Select name="classId" label="Selecione a turma" items={classes.map((item) => [item.id, `${item.name} · ${item.grade}`])} />
             <Input name="spreadsheet" aria-label="Planilha de alunos" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required disabled={importingStudents} />
             <Button type="submit" disabled={importingStudents || !classes.length}>
-              {importingStudents ? 'Importando…' : 'Importar e matricular'}
+              {importingStudents ? 'Lendo…' : 'Ler planilha'}
             </Button>
           </form>
+          {studentImportPreview.length > 0 && <div className="mt-5 space-y-3">
+            <div className="max-h-[28rem] overflow-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 bg-slate-50 text-slate-700"><tr><th className="p-3">Código</th><th className="p-3">Aluno</th><th className="p-3">Situação</th><th className="p-3">Ação</th></tr></thead>
+                <tbody>{studentImportPreview.map((student, index) => <tr key={`${student.registration}-${student.line}`} className="border-t border-slate-100">
+                  <td className="p-3 font-mono">{student.registration}</td><td className="p-3">{student.name}{student.existing && <span className="ml-2 text-xs text-slate-500">já cadastrado</span>}{student.warning && <p className="mt-1 text-xs text-amber-700">{student.warning}</p>}</td>
+                  <td className="p-3"><select aria-label={`Situação de ${student.name}`} className="rounded-md border border-slate-300 bg-white px-2 py-1.5" value={student.status} onChange={(event) => setStudentImportPreview(rows => rows.map((row, rowIndex) => rowIndex === index ? { ...row, status: event.target.value as StudentStatus } : row))}>{studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td>
+                  <td className="p-3">{student.warning && <button type="button" className="text-xs font-medium text-rose-700 underline" onClick={() => setStudentImportPreview(rows => rows.filter((_, rowIndex) => rowIndex !== index))}>Remover da importação</button>}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" disabled={importingStudents || !studentImportPreview.length || studentImportPreview.some(student => student.warning)} onClick={async () => {
+                setImportingStudents(true); setMessage('Gravando alunos e matrículas…');
+                try {
+                  const response = await apiFetch(`${apiUrl}/api/classes/${studentImportClassId}/students/import`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ students: studentImportPreview.map(({ registration, name, status, line }) => ({ registration, name, status, line })) }) });
+                  const body = await response.json() as ApiBody<{ created: number; enrolled: number; alreadyEnrolled: number }>;
+                  if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível importar os alunos.');
+                  const result = body.data;
+                  setStudentImportPreview([]); setStudentImportClassId('');
+                  setMessage(`Importação concluída: ${result.created} novos alunos, ${result.enrolled} matrículas na turma e ${result.alreadyEnrolled} já matriculados.`);
+                  await refresh();
+                } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível importar os alunos.'); }
+                finally { setImportingStudents(false); }
+              }}>Confirmar e gravar {studentImportPreview.length} alunos</Button>
+              <Button type="button" variant="outline" disabled={importingStudents} onClick={() => { setStudentImportPreview([]); setStudentImportClassId(''); setMessage('Prévia cancelada; nada foi gravado.'); }}>Cancelar</Button>
+            </div>
+          </div>}
         </Panel>
       </div>
       <section className="mt-5 rounded-2xl border border-violet-200 bg-white p-5">

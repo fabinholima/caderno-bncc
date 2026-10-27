@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { studentSchema } from './academic.mjs';
-import { transaction } from './db.mjs';
+import { pool, transaction } from './db.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 
 const invalid = (message) => Object.assign(new Error(message), { statusCode: 422 });
@@ -15,7 +15,7 @@ export async function parseStudentWorkbook(base64) {
   catch { throw invalid('Não foi possível ler o Excel. Salve o arquivo no formato .xlsx.'); }
   const sheets = workbook.worksheets.filter((sheet) => sheet.rowCount > 0);
   if (!sheets.length) throw invalid('O arquivo não contém nenhuma aba com dados.');
-  const codeHeaders = ['codigo', 'matricula', 'codigo do aluno', 'matricula do aluno', 'registro', 'ra', 'id do aluno'];
+  const codeHeaders = ['codigo', 'matricula', 'codigo/matricula', 'matricula/codigo', 'codigo do aluno', 'matricula do aluno', 'registro', 'ra', 'id do aluno'];
   const nameHeaders = ['nome', 'nome do aluno', 'nome completo', 'nome completo do aluno', 'aluno', 'estudante', 'nome do estudante'];
   let sheet, headerRow, codeColumn, nameColumn;
   for (const candidate of sheets) {
@@ -90,8 +90,33 @@ export async function parseStudentWorkbook(base64) {
   return students;
 }
 
-export async function importClassStudents({ institutionId, userId, classId, input }) {
+export async function previewClassStudentImport({ institutionId, classId, input }) {
   const students = await parseStudentWorkbook(input?.base64);
+  const classroom = await pool.query('SELECT id FROM classes WHERE id=$1 AND institution_id=$2', [classId, institutionId]);
+  if (!classroom.rowCount) throw Object.assign(new Error('Turma não encontrada.'), { statusCode: 404 });
+  const existing = await pool.query(
+    'SELECT id,registration,name,active,status FROM students WHERE institution_id=$1 AND registration=ANY($2::text[])',
+    [institutionId, students.map(student => student.registration)],
+  );
+  const byCode = new Map(existing.rows.map(student => [student.registration, student]));
+  return students.map(student => {
+    const found = byCode.get(student.registration);
+    let warning = null;
+    if (found && !found.active) warning = 'A conta de acesso deste aluno está inativa; a situação escolar não reativa a conta.';
+    else if (found && normalize(found.name) !== normalize(student.name)) warning = `Este código já está cadastrado para “${found.name}”.`;
+    return { ...student, status: found?.status || 'ativo', existing: Boolean(found), warning };
+  });
+}
+
+export async function importClassStudents({ institutionId, userId, classId, input }) {
+  const students = Array.isArray(input?.students)
+    ? input.students.map((student, index) => {
+      const result = studentSchema.safeParse(student);
+      if (!result.success) throw invalid(`Aluno ${index + 1}: informe código, nome e situação válidos.`);
+      return { ...result.data, line: student.line || index + 1 };
+    })
+    : await parseStudentWorkbook(input?.base64);
+  if (!students.length || students.length > 1000) throw invalid('Selecione de 1 a 1.000 alunos para importar.');
   return transaction(async (client) => {
     await client.query('SELECT id FROM institutions WHERE id=$1 FOR UPDATE', [institutionId]);
     const classroom = await client.query('SELECT id FROM classes WHERE id=$1 AND institution_id=$2 FOR UPDATE', [classId, institutionId]);
@@ -100,8 +125,10 @@ export async function importClassStudents({ institutionId, userId, classId, inpu
     const byCode = new Map(existing.rows.map(s => [s.registration, s]));
     for (const student of students) {
       const found = byCode.get(student.registration);
-      if (found && (!found.active || normalize(found.name) !== normalize(student.name)))
-        throw invalid(`Linha ${student.line}: código ${student.registration} pertence a um aluno inativo ou com outro nome. Revise o cadastro.`);
+      if (found && !found.active)
+        throw invalid(`Linha ${student.line}: a conta de acesso do aluno ${student.registration} está inativa. A situação escolar não reativa a conta; revise o cadastro do aluno.`);
+      if (found && normalize(found.name) !== normalize(student.name))
+        throw invalid(`Linha ${student.line}: o código ${student.registration} já pertence a “${found.name}”. Revise o cadastro.`);
     }
     const created = students.length - existing.rows.length;
     if (created) await assertInstitutionLimit({ institutionId, kind: 'student', quantity: created, db: client });
@@ -109,8 +136,10 @@ export async function importClassStudents({ institutionId, userId, classId, inpu
     for (const student of students) {
       let id = byCode.get(student.registration)?.id;
       if (!id) {
-        const result = await client.query(`INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id`, [institutionId, student.registration, student.name, userId]);
+        const result = await client.query(`INSERT INTO students(institution_id,registration,name,teacher_id,access_code,status) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)),$5) RETURNING id`, [institutionId, student.registration, student.name, userId, student.status || 'ativo']);
         id = result.rows[0].id;
+      } else {
+        await client.query('UPDATE students SET status=$3 WHERE id=$1 AND institution_id=$2', [id, institutionId, student.status || 'ativo']);
       }
       const result = await client.query('INSERT INTO class_enrollments(class_id,student_id) VALUES($1,$2) ON CONFLICT (class_id,student_id) DO NOTHING', [classId, id]);
       enrolled += result.rowCount;

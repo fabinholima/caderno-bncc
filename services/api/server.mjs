@@ -1,5 +1,5 @@
 import { myStudentProfiles, updateMyStudentPhoto } from "./student-profile.mjs";
-import { importClassStudents } from './student-import.mjs';
+import { importClassStudents, previewClassStudentImport } from './student-import.mjs';
 import { regenerateAssessment } from './assessments.mjs';
 import { listClassStudents } from './academic.mjs';
 import {
@@ -728,6 +728,8 @@ const server = createServer(async (request, response) => {
       }) });
     const studentImportMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import$/i);
     if (studentImportMatch) return json(response, 200, { data: await importClassStudents({ institutionId, userId, classId: studentImportMatch[1], input: await readJson(request, 2_800_100) }) });
+    const studentImportPreviewMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import\/preview$/i);
+    if (studentImportPreviewMatch) return json(response, 200, { data: await previewClassStudentImport({ institutionId, classId: studentImportPreviewMatch[1], input: await readJson(request, 2_800_100) }) });
     const enrollmentMatch =
       request.method === 'POST' &&
       url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/enrollments$/i);
