@@ -223,6 +223,7 @@ export async function decideRequest(identity, requestId, input) {
         institutionId: identity.institutionId,
         kind: "student",
         portalAdmin: identity.portalAdmin,
+        developmentBypass: identity.developmentBypass,
       });
       const s = await db.query(
         "INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id",

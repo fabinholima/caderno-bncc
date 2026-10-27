@@ -118,5 +118,12 @@ test('batch import reuses students and enrollments, and rolls back conflicts and
     await assert.rejects(importClassStudents(args), /Limite de alunos/);
     assert.equal(calls.at(-1), 'ROLLBACK');
     assert.ok(!calls.some(sql => sql.startsWith('INSERT')));
+    for (const privilege of ['developmentBypass', 'portalAdmin']) {
+      calls.length = 0;
+      const privilegedResult = await importClassStudents({ ...args, [privilege]: true });
+      assert.equal(privilegedResult.created, 1);
+      assert.equal(calls.at(-1), 'COMMIT');
+      assert.ok(!calls.some(sql => sql.includes('FROM institution_subscriptions')));
+    }
   } finally { pool.connect = original; }
 });

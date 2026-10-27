@@ -714,6 +714,8 @@ const server = createServer(async (request, response) => {
         data: await createStudent({
           institutionId,
           userId,
+          portalAdmin: identity.portalAdmin,
+          developmentBypass: identity.developmentBypass,
           input: await readJson(request),
         }),
       });
@@ -727,7 +729,7 @@ const server = createServer(async (request, response) => {
         institutionId, studentId: studentActiveMatch[1], input: await readJson(request),
       }) });
     const studentImportMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import$/i);
-    if (studentImportMatch) return json(response, 200, { data: await importClassStudents({ institutionId, userId, classId: studentImportMatch[1], input: await readJson(request, 2_800_100) }) });
+    if (studentImportMatch) return json(response, 200, { data: await importClassStudents({ institutionId, userId, classId: studentImportMatch[1], portalAdmin: identity.portalAdmin, developmentBypass: identity.developmentBypass, input: await readJson(request, 2_800_100) }) });
     const studentImportPreviewMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import\/preview$/i);
     if (studentImportPreviewMatch) return json(response, 200, { data: await previewClassStudentImport({ institutionId, classId: studentImportPreviewMatch[1], input: await readJson(request, 2_800_100) }) });
     const enrollmentMatch =
@@ -1499,6 +1501,7 @@ const server = createServer(async (request, response) => {
           questionBankId: identity.questionBankId,
           userId,
           portalAdmin: identity.portalAdmin,
+          developmentBypass: identity.developmentBypass,
           input: await readJson(request),
         }),
       });

@@ -50,8 +50,8 @@ export async function createClass({ institutionId, input }) {
   });
   return { ...r.rows[0], schoolYear: r.rows[0].school_year };
 }
-export async function createStudent({ institutionId, userId, input }) {
-  await assertInstitutionLimit({ institutionId, kind: 'student' });
+export async function createStudent({ institutionId, userId, portalAdmin = false, developmentBypass = false, input }) {
+  await assertInstitutionLimit({ institutionId, kind: 'student', portalAdmin, developmentBypass });
   const v = studentSchema.parse(input);
   const r = await pool.query({
     text: `INSERT INTO students(institution_id,registration,name,teacher_id,access_code,selfie_data_url,status,adapted_exam) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)),$5,$6,$7) RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active,status,adapted_exam AS "adaptedExam"`,
