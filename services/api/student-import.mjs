@@ -37,10 +37,34 @@ export async function parseStudentWorkbook(base64) {
     }
     if (sheet) break;
   }
-  if (!sheet) throw invalid('Não encontrei as colunas Código/Matrícula e Nome. Inclua esses títulos na mesma linha (nas primeiras 20 linhas).');
+  let firstDataRow;
+  if (!sheet) {
+    // Some class rosters contain only two columns (numeric student code, then name), without headers.
+    for (const candidate of sheets) {
+      if (candidate.columnCount !== 2) continue;
+      for (let line = 1; line <= Math.min(candidate.rowCount, 20); line++) {
+        const row = candidate.getRow(line);
+        const code = row.getCell(1), name = row.getCell(2);
+        if (!code.text.trim() && !name.text.trim()) continue;
+        const value = code.text.trim();
+        const looksLikeCode = typeof code.value === 'number' || /^[A-Za-z0-9./_-]*\d[A-Za-z0-9./_-]*$/.test(value);
+        const normalizedName = normalize(name.text);
+        if (!looksLikeCode || codeHeaders.includes(normalize(code.text)) || nameHeaders.includes(normalizedName)) break;
+        if (!studentSchema.safeParse({ registration: value, name: name.text.trim() }).success) break;
+        sheet = candidate;
+        codeColumn = 1;
+        nameColumn = 2;
+        firstDataRow = line;
+        break;
+      }
+      if (sheet) break;
+    }
+  }
+  if (!sheet) throw invalid('Não encontrei as colunas Código/Matrícula e Nome. Inclua os títulos na mesma linha ou use duas colunas sem cabeçalho: código numérico e nome.');
   const students = [], seen = new Set();
   // Limit scanning as well as imported records; formatting can make Excel report many empty rows.
-  for (let line = headerRow + 1; line <= Math.min(sheet.rowCount, headerRow + 10_000); line++) {
+  const dataStart = firstDataRow || headerRow + 1;
+  for (let line = dataStart; line <= Math.min(sheet.rowCount, dataStart + 10_000); line++) {
     const row = sheet.getRow(line), code = row.getCell(codeColumn), name = row.getCell(nameColumn);
     if (!code.text.trim() && !name.text.trim()) continue;
     if (code.type === ExcelJS.ValueType.Formula || name.type === ExcelJS.ValueType.Formula)
