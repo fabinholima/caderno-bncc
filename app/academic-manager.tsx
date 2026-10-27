@@ -118,14 +118,6 @@ type ScanReview = {
   candidates: ScanReviewCandidate[];
 };
 type ApiBody<T> = { data?: T; error?: string };
-function readImageAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-    reader.onerror = () => reject(new Error('Não foi possível ler a selfie.'));
-    reader.readAsDataURL(file);
-  });
-}
 type ApplicationReport = {
   application: {
     id: string;
@@ -682,17 +674,12 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               const form = e.currentTarget;
               try {
                 const data = new FormData(form);
-                const file = data.get('selfie');
-                const selfieDataUrl = file instanceof File && file.size
-                  ? await readImageAsDataUrl(file)
-                  : '';
                 const response = await apiFetch(`${apiUrl}/api/students`, {
                   method: 'POST',
                   headers: { 'content-type': 'application/json' },
                   body: JSON.stringify({
                     registration: data.get('registration'),
                     name: data.get('name'),
-                    selfieDataUrl,
                     status: data.get('status'),
                     adaptedExam: data.get('adaptedExam') === 'on',
                   }),
@@ -717,8 +704,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             <label className="flex items-center gap-2 text-sm">
               <input name="adaptedExam" type="checkbox" /> Prova adaptada (laudo)
             </label>
-            <Input name="selfie" type="file" accept="image/png,image/jpeg" />
-            <p className="text-xs text-slate-500">Selfie opcional do aluno (PNG/JPEG até 400 KB).</p>
+            <p className="text-xs text-slate-500">A foto será adicionada pelo aluno no app após o vínculo pelo código da turma.</p>
             <Button type="submit" className="w-full">
               Cadastrar aluno
             </Button>
@@ -769,7 +755,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         <Panel icon={<UserPlus />} title="Importar alunos por Excel">
           <p className="mb-4 text-sm text-slate-600">
             Selecione a turma e envie um arquivo .xlsx de até 2 MB, com até 1.000 alunos.
-            Na primeira aba, use os cabeçalhos Código e Nome na primeira linha.
+            Na primeira aba, use apenas Código do aluno e Nome na primeira linha. Não inclua foto.
+            O aluno adicionará a foto no app após entrar com o código da turma e ter o vínculo aprovado.
             O código será usado como matrícula; formate essa coluna como Texto para preservar zeros à esquerda.
             Alunos já cadastrados com o mesmo código e nome serão aproveitados, sem duplicar matrículas.
           </p>

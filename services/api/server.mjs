@@ -1,3 +1,4 @@
+import { myStudentProfiles, updateMyStudentPhoto } from "./student-profile.mjs";
 import { importClassStudents } from './student-import.mjs';
 import { regenerateAssessment } from './assessments.mjs';
 import { listClassStudents } from './academic.mjs';
@@ -389,6 +390,11 @@ const server = createServer(async (request, response) => {
     if (requestDecisionMatch && request.method === 'POST')
       return json(response, 200, { data: await decideRequest(identity, requestDecisionMatch[1], await readJson(request, 8192)) });
     if(request.method==='GET' && url.pathname==='/api/student/activities')return json(response,200,{data:await myActivities(identity)});
+    if (url.pathname === '/api/student/profile' && request.method === 'GET') return json(response, 200, { data: await myStudentProfiles(identity) });
+    if (url.pathname === '/api/student/profile' && request.method === 'POST') {
+      if (requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, { data: await updateMyStudentPhoto(identity, await readJson(request, 560000)) });
+    }
     if(identity.role==='student' && !['/api/auth/me','/api/auth/logout'].includes(url.pathname)) return json(response,403,{error:'Este recurso é exclusivo de professores e gestores.'});
     if (url.pathname === '/api/admin/maintenance') {
       if (request.method === 'GET') {
