@@ -22,9 +22,18 @@ test('accepts reversed columns and matrícula header', async () => {
   assert.equal(students[0].registration, 'A-1');
 });
 
+test('finds headers after a title row and skips an empty first worksheet', async () => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.addWorksheet('Instruções').addRow(['Planilha de alunos']);
+  const sheet = workbook.addWorksheet('Importação');
+  sheet.addRows([['Lista de alunos da turma'], [], ['Nome completo do aluno', 'Matrícula do aluno'], ['Ana Silva', 'A-1']]);
+  const students = await parseStudentWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()).toString('base64'));
+  assert.deepEqual(students.map(({ registration, name }) => [registration, name]), [['A-1', 'Ana Silva']]);
+});
+
 test('rejects missing headers, incomplete rows, duplicates and formulas with actionable errors', async () => {
   for (const [rows, message] of [
-    [[['ID', 'Aluno']], /colunas Código e Nome/],
+    [[['ID', 'Aluno']], /colunas Código\/Matrícula e Nome/],
     [[['Código', 'Nome'], ['1', '']], /Linha 2/],
     [[['Código', 'Nome'], ['1', 'Ana'], ['1', 'Ana']], /Linha 3.*repetido/],
     [[['Código', 'Nome'], [{ formula: '1+1', result: 2 }, 'Ana']], /sem fórmulas/],
