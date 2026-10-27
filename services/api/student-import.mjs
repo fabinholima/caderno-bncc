@@ -108,7 +108,7 @@ export async function previewClassStudentImport({ institutionId, classId, input 
   });
 }
 
-export async function importClassStudents({ institutionId, userId, classId, input }) {
+export async function importClassStudents({ institutionId, userId, classId, portalAdmin = false, developmentBypass = false, input }) {
   const students = Array.isArray(input?.students)
     ? input.students.map((student, index) => {
       const result = studentSchema.safeParse(student);
@@ -131,7 +131,7 @@ export async function importClassStudents({ institutionId, userId, classId, inpu
         throw invalid(`Linha ${student.line}: o código ${student.registration} já pertence a “${found.name}”. Revise o cadastro.`);
     }
     const created = students.length - existing.rows.length;
-    if (created) await assertInstitutionLimit({ institutionId, kind: 'student', quantity: created, db: client });
+    if (created) await assertInstitutionLimit({ institutionId, kind: 'student', portalAdmin, developmentBypass, quantity: created, db: client });
     let enrolled = 0;
     for (const student of students) {
       let id = byCode.get(student.registration)?.id;
