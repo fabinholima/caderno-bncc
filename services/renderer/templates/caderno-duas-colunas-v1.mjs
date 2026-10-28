@@ -57,6 +57,7 @@ export const twoColumnExamV1 = Object.freeze({
       mode === 'student'
         ? `\\page
 \\setupheadertexts[]
+\\setuplayout[topspace=35mm,header=32mm,headerdistance=3mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
 \\setuppagenumbering[state=stop]
 \\noindent\\blackrule[width=7mm,height=7mm]\\hfill\\blackrule[width=7mm,height=7mm]
 \\blank[small]
