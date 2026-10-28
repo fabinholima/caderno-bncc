@@ -110,7 +110,7 @@ export function AssessmentApplicationStep({
     setDownloading(true);
     try {
       const r = await apiFetch(
-        `${apiUrl}/api/assessment-applications/${application.id}/pdf`,
+        `${apiUrl}/api/assessment-applications/${application.id}/answer-cards.pdf`,
       );
       if (!r.ok) {
         const body = (await r.json().catch(() => null)) as { error?: string } | null;
@@ -121,7 +121,7 @@ export function AssessmentApplicationStep({
       const url = URL.createObjectURL(file);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'provas-da-turma.pdf';
+      a.download = 'cartoes-resposta-da-turma.pdf';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -198,7 +198,9 @@ export function AssessmentApplicationStep({
             }
             onClick={download}
           >
-            {downloading ? 'Preparando lote…' : 'Baixar lote para impressão'}
+            {downloading
+              ? 'Preparando cartões-resposta…'
+              : 'Baixar cartões-resposta em lote'}
           </Button>
           <p>
             Abra a área de correção pelo celular e selecione esta aplicação para

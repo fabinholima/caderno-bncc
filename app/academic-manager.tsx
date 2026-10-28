@@ -389,7 +389,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     setMessage('');
     try {
       const response = await apiFetch(
-        `${apiUrl}/api/assessment-applications/${application.id}/pdf`,
+        `${apiUrl}/api/assessment-applications/${application.id}/answer-cards.pdf`,
       );
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as ApiBody<unknown> | null;
@@ -400,12 +400,12 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       const objectUrl = URL.createObjectURL(file);
       const link = document.createElement('a');
       link.href = objectUrl;
-      link.download = 'provas-da-turma.pdf';
+      link.download = 'cartoes-resposta-da-turma.pdf';
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-      setMessage('Lote de provas e cartões-resposta baixado.');
+      setMessage('Lote de cartões-resposta baixado.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Não foi possível baixar o lote.');
     } finally {
@@ -1128,7 +1128,9 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
                     onClick={() => void downloadApplicationBatch(x)}
                   >
                     <Download />
-                    {batchDownloadingId === x.id ? 'Preparando lote…' : 'Baixar lote'}
+                    {batchDownloadingId === x.id
+                      ? 'Preparando cartões…'
+                      : 'Baixar cartões-resposta'}
                   </Button>
                 )}
               </div>

@@ -1,6 +1,13 @@
 import path from 'node:path';
 import { Readable } from 'node:stream';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  copyFile,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import crypto from 'node:crypto';
@@ -8,6 +15,10 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { pool } from './db.mjs';
 import { readRenderArtifact } from './render-artifact-storage.mjs';
+import {
+  hasSeparateFinalAnswerCard,
+  selectFinalAnswerCardPage,
+} from './answer-card-batches.mjs';
 
 const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -120,6 +131,7 @@ export function applicationBatchState(rows) {
 export async function getApplicationBatchFile({
   institutionId,
   applicationId,
+  kind = 'exam',
 }) {
   const application = await pool.query({
     text: `SELECT aa.id,aa.status
@@ -133,7 +145,7 @@ export async function getApplicationBatchFile({
     return { status: 409, error: 'A aplicação foi cancelada.' };
 
   const jobs = await pool.query({
-    text: `SELECT rj.status, rj.output_manifest
+    text: `SELECT rj.status, rj.output_manifest, rj.template_version
            FROM application_students aps
            JOIN students s ON s.id = aps.student_id
            LEFT JOIN class_enrollments ce
@@ -148,6 +160,15 @@ export async function getApplicationBatchFile({
   });
   const state = applicationBatchState(jobs.rows);
   if (state.error) return state;
+  if (
+    kind === 'answer-card' &&
+    jobs.rows.some((job) => !hasSeparateFinalAnswerCard(job.template_version))
+  )
+    return {
+      status: 422,
+      error:
+        'O layout compacto mistura o cartão-resposta com a prova e não permite separá-los neste lote. Use um layout com folha de respostas separada.',
+    };
 
   const batchDirectory = await mkdtemp(path.join(tmpdir(), 'caderno-batch-'));
   try {
@@ -159,16 +180,34 @@ export async function getApplicationBatchFile({
       });
       const source = path.join(batchDirectory, `${index + 1}.pdf`);
       await writeFile(source, contents);
-      sources.push(source);
+      if (kind === 'answer-card') {
+        const pagePrefix = `${index + 1}-page-`;
+        await execFileAsync(
+          'pdfseparate',
+          [source, path.join(batchDirectory, `${pagePrefix}%d.pdf`)],
+          { timeout: 60_000, maxBuffer: 1_000_000 },
+        );
+        const pageFile = selectFinalAnswerCardPage(
+          await readdir(batchDirectory),
+          pagePrefix,
+        );
+        if (!pageFile)
+          throw new Error('Não foi possível localizar a página do cartão-resposta.');
+        sources.push(path.join(batchDirectory, pageFile));
+      } else {
+        sources.push(source);
+      }
     }
     const destination = path.join(
       batchDirectory,
       `${applicationId}-${crypto.randomUUID()}.pdf`,
     );
-    await execFileAsync('pdfunite', [...sources, destination], {
-      timeout: 120_000,
-      maxBuffer: 1_000_000,
-    });
+    if (sources.length === 1) await copyFile(sources[0], destination);
+    else
+      await execFileAsync('pdfunite', [...sources, destination], {
+        timeout: 120_000,
+        maxBuffer: 1_000_000,
+      });
     const contents = await readFile(destination);
     return {
       status: 200,
