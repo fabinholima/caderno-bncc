@@ -71,6 +71,8 @@ export const basicExamV1 = Object.freeze({
       candidateName,
       candidateNumber,
       subjects,
+      title,
+      version,
       headerQr,
     });
     const institutionalHeader = customInstitutionalHeader;

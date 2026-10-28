@@ -48,6 +48,8 @@ export const twoColumnExamV1 = Object.freeze({
       candidateName,
       candidateNumber,
       subjects,
+      title,
+      version,
     });
     const answerHeader = `\\hbox to \\textwidth{${logo}\\hfill\\framed[frame=off,width=105mm,align=middle]{\\tfc\\bold{${institution}}\\par\\switchtobodyfont[8pt]${title}}\\hfill\\framed[frame=off,width=20mm,align=middle]{${qr}}}`;
     const example = `\\vbox{\\hsize=55mm\\framed[frame=off,width=55mm,align=middle]{\\switchtobodyfont[8pt]\\bold{EXEMPLO DE RESPOSTA}}\\blank[1mm]${fiveOptionAnswerBlock(1, 2, { 1: 'A', 2: 'C' })}}`;
@@ -96,12 +98,12 @@ ${fiveOptionAnswerSheet(questionCount)}
 \\definecolor[modelthreeyellow][r=.95,g=.7,b=.12]
 \\definecolor[modelthreeblue][r=.2,g=.45,b=.85]
 \\def\\modelthreeline{\\hbox to \\textwidth{\\color[modelthreegreen]{\\blackrule[width=.33\\textwidth,height=1.2pt]}\\hss\\color[modelthreeyellow]{\\blackrule[width=.34\\textwidth,height=1.2pt]}\\hss\\color[modelthreeblue]{\\blackrule[width=.33\\textwidth,height=1.2pt]}}}
-\\def\\ModelThreeHeader{${compactHeader}}
+\\long\\def\\ModelThreeHeader{${compactHeader}}
 \\def\\ModelThreeFooterLeft{{\\switchtobodyfont[7pt]${institution} \\quad ${title}}}
 \\def\\ModelThreeFooterRight{{\\switchtobodyfont[7pt]Página \\pagenumber}}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=35mm,header=32mm,headerdistance=3mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
+\\setuplayout[topspace=10mm,header=47mm,headerdistance=2mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
 \\setupheadertexts[\\ModelThreeHeader]
 \\setupfootertexts[\\ModelThreeFooterLeft][\\ModelThreeFooterRight]
 \\setuppagenumbering[location=]
