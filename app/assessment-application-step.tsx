@@ -24,6 +24,7 @@ export function AssessmentApplicationStep({
       [],
     ),
     [selected, setSelected] = useState<string[]>([]);
+  const [downloading, setDownloading] = useState(false);
   const [application, setApplication] = useState<{
       id: string;
       assignments: Assignment[];
@@ -106,19 +107,29 @@ export function AssessmentApplicationStep({
   }
   async function download() {
     if (!application) return;
+    setDownloading(true);
     try {
       const r = await apiFetch(
         `${apiUrl}/api/assessment-applications/${application.id}/pdf`,
       );
-      if (!r.ok) throw new Error('O lote ainda não está pronto.');
-      const url = URL.createObjectURL(await r.blob());
+      if (!r.ok) {
+        const body = (await r.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error || 'Não foi possível baixar o lote.');
+      }
+      const file = await r.blob();
+      if (!file.size) throw new Error('O arquivo do lote veio vazio. Tente novamente.');
+      const url = URL.createObjectURL(file);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'provas-da-turma.pdf';
+      document.body.appendChild(a);
       a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
       setError(String(e));
+    } finally {
+      setDownloading(false);
     }
   }
   return (
@@ -180,14 +191,14 @@ export function AssessmentApplicationStep({
             </p>
           ))}
           <Button
-            disabled={
+            disabled={downloading ||
               !application.assignments.every(
                 (a) => a.renderStatus === 'completed',
               )
             }
             onClick={download}
           >
-            Baixar lote para impressão
+            {downloading ? 'Preparando lote…' : 'Baixar lote para impressão'}
           </Button>
           <p>
             Abra a área de correção pelo celular e selecione esta aplicação para
