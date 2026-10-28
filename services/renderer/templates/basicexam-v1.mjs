@@ -3,7 +3,7 @@ import {
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
 import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
-import { renderInstitutionalHeader } from './institutional-header.mjs';
+import { renderCompactExamHeader } from './institutional-header.mjs';
 
 export const basicExamV1 = Object.freeze({
   id: 'basicexam-v1',
@@ -59,7 +59,7 @@ export const basicExamV1 = Object.freeze({
     const logo = logoFileName
       ? `\\externalfigure[${logoFileName}][height=13mm,width=25mm,factor=fit]`
       : '';
-    const customInstitutionalHeader = renderInstitutionalHeader({
+    const customInstitutionalHeader = renderCompactExamHeader({
       institution,
       logoFileName,
       teacherName,

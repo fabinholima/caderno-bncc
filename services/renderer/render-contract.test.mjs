@@ -134,6 +134,8 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
   assert.match(tex, /draw externalfigure "institution-logo\.png" scaled 0\.45/);
   assert.match(tex, /q := externalfigure "assessment-qr\.png" scaled 0\.65/);
   assert.match(tex, /draw q shifted \(15\.0cm,1\.35cm\)/);
+  assert.match(tex, /H := 2\.8cm/);
+  assert.doesNotMatch(tex, /H := 3\.2cm/);
   assert.match(tex, /DISCIPLINA: etex,[\s\S]*?Química etex/);
   assert.match(
     tex,
@@ -475,6 +477,7 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   };
   snapshot.institution.name = snapshot.assessment.header.institutionName;
   snapshot.institution.logoFileName = 'institution-logo.png';
+  snapshot.version.qrFileName = 'assessment-qr.png';
   const tex = renderAssessment(snapshot);
   assert.match(tex, /draw externalfigure "institution-logo\.png"/);
   assert.match(tex, /\\startMPcode/);
@@ -482,6 +485,10 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   assert.match(tex, /7º A/);
   assert.match(tex, /2º bimestre/);
   assert.match(tex, /15\/09\/2026/);
+  assert.match(tex, /H := 3\.2cm/);
+  assert.match(tex, /SÉRIE: etex/);
+  assert.match(tex, /PROFESSOR\(A\): etex/);
+  assert.match(tex, /draw q shifted \(14\.85cm,1\.55cm\)/);
   assert.match(tex, /\\setuppapersize\[A4\]/);
   assert.match(tex, /header=\.1cm/);
 });

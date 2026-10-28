@@ -1,5 +1,5 @@
 import { fiveOptionAnswerBlock, fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
-import { renderInstitutionalHeader } from './institutional-header.mjs';
+import { renderCompactExamHeader } from './institutional-header.mjs';
 
 export const twoColumnExamV1 = Object.freeze({
   id: 'caderno-duas-colunas-v1',
@@ -10,6 +10,9 @@ export const twoColumnExamV1 = Object.freeze({
       institution,
       logoFileName,
       className,
+      teacherName,
+      term,
+      subjects,
       assessmentDate,
       font,
       fontSize,
@@ -33,7 +36,19 @@ export const twoColumnExamV1 = Object.freeze({
     const qr = qrFileName
       ? `\\externalfigure[${qrFileName}][width=18mm,height=18mm]`
       : '';
-    const compactHeader = `\\hbox to \\textwidth{\\vbox{\\hsize=30mm${logo}}\\hfill\\vbox{\\hsize=105mm\\rightaligned{\\switchtobodyfont[8pt]\\bold{${title}}}\\rightaligned{\\switchtobodyfont[7pt]${grade} \\quad VERSÃO ${version}}}}\\blank[1mm]\\modelthreeline`;
+    const compactHeader = renderCompactExamHeader({
+      institution,
+      logoFileName,
+      teacherName,
+      className,
+      term,
+      assessmentDate,
+      grade,
+      qrFileName,
+      candidateName,
+      candidateNumber,
+      subjects,
+    });
     const answerHeader = `\\hbox to \\textwidth{${logo}\\hfill\\framed[frame=off,width=105mm,align=middle]{\\tfc\\bold{${institution}}\\par\\switchtobodyfont[8pt]${title}}\\hfill\\framed[frame=off,width=20mm,align=middle]{${qr}}}`;
     const example = `\\vbox{\\hsize=55mm\\framed[frame=off,width=55mm,align=middle]{\\switchtobodyfont[8pt]\\bold{EXEMPLO DE RESPOSTA}}\\blank[1mm]${fiveOptionAnswerBlock(1, 2, { 1: 'A', 2: 'C' })}}`;
     const answerSheet =
@@ -86,7 +101,7 @@ ${fiveOptionAnswerSheet(questionCount)}
 \\def\\ModelThreeFooterRight{{\\switchtobodyfont[7pt]Página \\pagenumber}}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=27mm,header=28mm,headerdistance=3mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
+\\setuplayout[topspace=35mm,header=32mm,headerdistance=3mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
 \\setupheadertexts[\\ModelThreeHeader]
 \\setupfootertexts[\\ModelThreeFooterLeft][\\ModelThreeFooterRight]
 \\setuppagenumbering[location=]
