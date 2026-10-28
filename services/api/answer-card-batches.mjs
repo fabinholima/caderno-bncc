@@ -23,3 +23,9 @@ export function selectFinalAnswerCardPage(fileNames, prefix) {
     .sort((a, b) => b.pageNumber - a.pageNumber);
   return pages[0]?.fileName ?? null;
 }
+
+export function parsePdfPageCount(pdfInfoOutput) {
+  const match = /^Pages:\s+(\d+)\s*$/m.exec(pdfInfoOutput);
+  const pageCount = Number(match?.[1]);
+  return Number.isSafeInteger(pageCount) && pageCount > 0 ? pageCount : null;
+}

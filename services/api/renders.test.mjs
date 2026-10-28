@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applicationBatchState, formatRenderJob } from './renders.mjs';
+import { createServer } from 'node:http';
+import { Readable } from 'node:stream';
+import {
+  applicationBatchState,
+  formatRenderJob,
+  streamApplicationBatchFile,
+} from './renders.mjs';
 
 const baseRow = {
   id: '10000000-0000-4000-8000-000000000001',
@@ -66,4 +72,35 @@ test('só libera o lote quando todos os PDFs individuais terminaram', () => {
     applicationBatchState([{ status: 'completed' }, { status: 'completed' }]),
     { status: 200 },
   );
+});
+
+test('transmite o PDF do lote e limpa os arquivos temporários após o envio', async (t) => {
+  let cleaned = false;
+  const server = createServer((request, response) => {
+    void streamApplicationBatchFile(
+      response,
+      {
+        size: 3,
+        stream: Readable.from([Buffer.from('pdf')]),
+        cleanup: async () => {
+          cleaned = true;
+        },
+      },
+      'cartoes.pdf',
+      () => ({}),
+    );
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const address = server.address();
+  const response = await fetch(`http://127.0.0.1:${address.port}`);
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get('content-disposition'),
+    'attachment; filename="cartoes.pdf"',
+  );
+  assert.equal(await response.text(), 'pdf');
+  assert.equal(cleaned, true);
 });

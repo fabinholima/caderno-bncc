@@ -1,11 +1,13 @@
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { createReadStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import {
   copyFile,
   mkdtemp,
-  readFile,
   readdir,
   rm,
+  stat,
   writeFile,
 } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
@@ -17,6 +19,7 @@ import { pool } from './db.mjs';
 import { readRenderArtifact } from './render-artifact-storage.mjs';
 import {
   hasSeparateFinalAnswerCard,
+  parsePdfPageCount,
   selectFinalAnswerCardPage,
 } from './answer-card-batches.mjs';
 
@@ -182,9 +185,23 @@ export async function getApplicationBatchFile({
       await writeFile(source, contents);
       if (kind === 'answer-card') {
         const pagePrefix = `${index + 1}-page-`;
+        const info = await execFileAsync('pdfinfo', [source], {
+          timeout: 30_000,
+          maxBuffer: 1_000_000,
+        });
+        const pageCount = parsePdfPageCount(info.stdout);
+        if (!pageCount)
+          throw new Error('Não foi possível identificar as páginas da prova.');
         await execFileAsync(
           'pdfseparate',
-          [source, path.join(batchDirectory, `${pagePrefix}%d.pdf`)],
+          [
+            '-f',
+            String(pageCount),
+            '-l',
+            String(pageCount),
+            source,
+            path.join(batchDirectory, `${pagePrefix}%d.pdf`),
+          ],
           { timeout: 60_000, maxBuffer: 1_000_000 },
         );
         const pageFile = selectFinalAnswerCardPage(
@@ -208,20 +225,44 @@ export async function getApplicationBatchFile({
         timeout: 120_000,
         maxBuffer: 1_000_000,
       });
-    const contents = await readFile(destination);
+    const file = await stat(destination);
+    let cleanupPromise;
     return {
       status: 200,
-      size: contents.length,
-      stream: Readable.from([contents]),
+      size: file.size,
+      stream: createReadStream(destination),
+      cleanup: () =>
+        (cleanupPromise ??= rm(batchDirectory, { recursive: true, force: true })),
     };
   } catch (error) {
+    await rm(batchDirectory, { recursive: true, force: true });
     if (/Manifesto|Provedor/.test(error.message))
       return { status: 500, error: error.message };
     return {
       status: 500,
       error: `Não foi possível montar o PDF em lote: ${String(error.message).slice(0, 300)}`,
     };
+  }
+}
+
+export async function streamApplicationBatchFile(
+  response,
+  file,
+  filename,
+  corsHeaders,
+) {
+  response.writeHead(200, {
+    'content-type': 'application/pdf',
+    'content-length': file.size,
+    'content-disposition': `attachment; filename="${filename}"`,
+    ...corsHeaders(response),
+  });
+  try {
+    await pipeline(file.stream, response);
+  } catch (error) {
+    console.error('Falha ao transmitir PDF em lote:', error);
+    response.destroy();
   } finally {
-    await rm(batchDirectory, { recursive: true, force: true });
+    await file.cleanup?.();
   }
 }
