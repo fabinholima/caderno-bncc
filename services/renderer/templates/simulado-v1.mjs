@@ -3,6 +3,7 @@ import {
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
 import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
+import { renderInstitutionalHeader } from './institutional-header.mjs';
 
 export const simulatedExamV1 = Object.freeze({
   id: 'simulado-v1',
@@ -27,7 +28,10 @@ export const simulatedExamV1 = Object.freeze({
       previewOnly = false,
       points,
       candidate,
+      candidateName,
+      candidateNumber,
       content,
+      subjects,
       transcriptionPhrase,
       instructions,
     } = data;
@@ -35,18 +39,22 @@ export const simulatedExamV1 = Object.freeze({
       throw new Error('Identificador QR inválido.');
     if (mode === 'student' && Number(questionCount) > 90)
       throw new Error('O layout de simulado aceita no máximo 90 questões.');
-    const logo = logoFileName
-      ? `\\externalfigure[${logoFileName}][height=16mm,width=28mm,factor=fit]`
-      : '';
     const qr = qrFileName
       ? `\\externalfigure[${qrFileName}][width=19mm,height=19mm]`
       : '';
-    const examHeader = `\\dontleavehmode\\hbox to \\hsize{
-\\vbox to 20mm{\\hsize=30mm\\vfil\\leftaligned{${logo}}\\vfil}
-\\hfill
-\\vbox to 20mm{\\hsize=\\dimexpr\\hsize-60mm\\relax\\vfil\\midaligned{\\tfd\\bold{${institution}}}\\blank[1mm]\\midaligned{\\tfx\\bold{VERSÃO ${version}}}\\vfil}
-\\hfill
-\\vbox to 20mm{\\hsize=24mm\\vfil\\rightaligned{${qr}}\\vfil}}`;
+    const examHeader = renderInstitutionalHeader({
+      institution,
+      logoFileName,
+      teacherName,
+      className,
+      term,
+      assessmentDate,
+      grade,
+      qrFileName,
+      candidateName,
+      candidateNumber,
+      subjects,
+    });
     const answerCardHeader = renderAnswerCardHeader({
       institution,
       title,

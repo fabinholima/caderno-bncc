@@ -1,4 +1,5 @@
 import { fiveOptionAnswerBlock, fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
+import { renderInstitutionalHeader } from './institutional-header.mjs';
 
 export const twoColumnExamV1 = Object.freeze({
   id: 'caderno-duas-colunas-v1',
@@ -85,7 +86,7 @@ ${fiveOptionAnswerSheet(questionCount)}
 \\def\\ModelThreeFooterRight{{\\switchtobodyfont[7pt]Página \\pagenumber}}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=27mm,header=18mm,headerdistance=3mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
+\\setuplayout[topspace=27mm,header=28mm,headerdistance=3mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
 \\setupheadertexts[\\ModelThreeHeader]
 \\setupfootertexts[\\ModelThreeFooterLeft][\\ModelThreeFooterRight]
 \\setuppagenumbering[location=]
