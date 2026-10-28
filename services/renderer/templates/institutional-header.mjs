@@ -69,50 +69,45 @@ export function renderCompactExamHeader({
   candidateName,
   candidateNumber,
   subjects,
+  title,
+  version,
+  headerQr = true,
 }) {
-  const logoGraphic = logoFileName
-    ? `draw externalfigure "${logoFileName}" scaled 0.15 shifted (0.2cm,2.0cm);`
-    : '';
-  const qrGraphic = qrFileName
-    ? `picture q; q := externalfigure "${qrFileName}" scaled 0.75; draw q shifted (14.85cm,1.55cm);`
-    : '';
+  const contentWidth = '\\dimexpr\\textwidth-6mm\\relax';
+  const logo = logoFileName
+    ? `\\externalfigure[${logoFileName}][width=22mm,height=14mm,factor=fit]`
+    : `\\vbox to 14mm{\\vfil}`;
+  const qr = headerQr && qrFileName
+    ? `\\externalfigure[${qrFileName}][width=15mm,height=15mm]`
+    : `\\hbox to 15mm{}`;
+  const examTitle = title || 'PROVA';
+  const versionLine = version ? `Versão ${version}` : '';
+  const field = (label, value, width) => `\\vbox to 8mm{\\hsize=${width}
+  \\hbox{\\switchtobodyfont[6pt]\\bold{${label}}}
+  \\vfil
+  \\hbox to \\hsize{\\switchtobodyfont[7pt]${value || '\\strut'}\\hss}
+  \\vfil
+  \\blackrule[width=${width},height=.4pt]}`;
+  const gap = '\\hskip 3mm';
 
-  return `\\startMPcode
-prologues := 3;
-numeric W,H; W := 16.5cm; H := 3.2cm;
-path p; p := unitsquare xscaled W yscaled H;
-fill p withcolor (0.96,0.96,0.96);
-draw p withpen pencircle scaled .8pt;
-${logoGraphic}
-${qrGraphic}
-label.top(btex \\switchtobodyfont[10pt]\\bold \\WORD \\ss ${institution} etex, (8.25cm,2.6cm));
-draw (0.25cm,1.35cm)--(16.25cm,1.35cm) withcolor .55white;
-
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss ALUNO(A): etex, (0.35cm,1.08cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${candidateName || ''} etex, (1.5cm,1.08cm));
-draw (1.45cm,0.93cm)--(12.6cm,0.93cm);
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss Nº: etex, (13.05cm,1.08cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${candidateNumber || ''} etex, (13.5cm,1.08cm));
-draw (13.65cm,0.93cm)--(16.0cm,0.93cm);
-
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss DISCIPLINA: etex, (0.35cm,0.64cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${subjects || ''} etex, (2.0cm,0.64cm));
-draw (1.95cm,0.50cm)--(8.25cm,0.50cm);
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss SÉRIE: etex, (8.65cm,0.64cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${grade || ''} etex, (9.48cm,0.64cm));
-draw (9.4cm,0.50cm)--(11.55cm,0.50cm);
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss TURMA: etex, (11.85cm,0.64cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${className || ''} etex, (12.95cm,0.64cm));
-draw (12.7cm,0.50cm)--(16.0cm,0.50cm);
-
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss PROFESSOR(A): etex, (0.35cm,0.22cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${teacherName || ''} etex, (2.35cm,0.22cm));
-draw (2.3cm,0.08cm)--(8.25cm,0.08cm);
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss PERÍODO: etex, (8.65cm,0.22cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${term || ''} etex, (10.0cm,0.22cm));
-draw (9.85cm,0.08cm)--(12.15cm,0.08cm);
-label.rt(btex \\switchtobodyfont[7.5pt]\\ss DATA: etex, (12.45cm,0.22cm));
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${assessmentDate || ''} etex, (13.35cm,0.22cm));
-draw (13.05cm,0.08cm)--(16.0cm,0.08cm);
-\\stopMPcode`;
+  return `\\framed[width=\\textwidth,frame=on,rulethickness=.6pt,offset=3mm]{%
+\\vbox{%
+\\hbox to ${contentWidth}{%
+\\vbox to 14mm{\\vfil${logo}\\vfil}%
+  \\hskip 3mm%
+  \\vbox to 14mm{\\hsize=\\dimexpr\\textwidth-48mm\\relax\\vfil
+    \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[7pt]\\bold{${institution || ''}}}%
+    \\blank[.3mm]%
+    \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[10pt]\\bf ${examTitle}}%
+    \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[6pt]${versionLine}}%
+  \\vfil}%
+  \\hfill\\vbox to 14mm{\\vfil${qr}\\vfil}%
+}%
+\\blank[.5mm]%
+\\hbox to ${contentWidth}{${field('ALUNO(A)', candidateName, '128mm')}${gap}${field('Nº', candidateNumber, '33mm')}}%
+\\blank[.3mm]%
+\\hbox to ${contentWidth}{${field('DISCIPLINA', subjects, '78mm')}${gap}${field('SÉRIE', grade, '39mm')}${gap}${field('TURMA', className, '41mm')}}%
+\\blank[.3mm]%
+\\hbox to ${contentWidth}{${field('PROFESSOR(A)', teacherName, '78mm')}${gap}${field('PERÍODO', term, '39mm')}${gap}${field('DATA', assessmentDate, '41mm')}}%
+}}`;
 }

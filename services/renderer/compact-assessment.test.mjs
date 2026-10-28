@@ -30,9 +30,9 @@ test('compact models put one calibrated card before questions and keep distinct 
     assert.equal((tex.match(/\)\) withcolor \.55white;/g) || []).length, profile.labels.length === 5 ? 50 : 0);
     if (profile.labels.length === 2) assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/);
     assert.equal((tex.match(/fill unitsquare scaled 2.4mm/g) || []).length, 4);
-    assert.equal((tex.match(/\\externalfigure\[qr.png\]/g) || []).length, 1);
-    assert.match(tex, /\\vbox to 48mm\{\\vfil\\externalfigure\[qr\.png\]/);
-    assert.match(tex, /draw q shifted \(14\.85cm,1\.55cm\)/);
+    assert.equal((tex.match(/\\externalfigure\[qr\.png\]/g) || []).length, 1);
+    assert.match(tex, /\\framed\[width=\\textwidth,frame=on/);
+    assert.match(tex, /\\bold\{DISCIPLINA\}/);
     snapshot.render.mode = 'answer-key';
     assert.ok(!renderAssessment(snapshot).includes('QUADRO DE RESPOSTAS'));
     snapshot.render.paper = 'A5';
