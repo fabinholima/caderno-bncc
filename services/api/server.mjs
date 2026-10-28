@@ -816,6 +816,26 @@ const server = createServer(async (request, response) => {
       });
       return file.stream.pipe(response);
     }
+    const answerCardBatchMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/assessment-applications\/([0-9a-f-]{36})\/answer-cards\.pdf$/i,
+      );
+    if (answerCardBatchMatch) {
+      const file = await getApplicationBatchFile({
+        institutionId,
+        applicationId: answerCardBatchMatch[1],
+        kind: 'answer-card',
+      });
+      if (file.error) return json(response, file.status, { error: file.error });
+      response.writeHead(200, {
+        'content-type': 'application/pdf',
+        'content-length': file.size,
+        'content-disposition': `attachment; filename="cartoes-resposta-${answerCardBatchMatch[1]}.pdf"`,
+        ...corsHeaders(response),
+      });
+      return file.stream.pipe(response);
+    }
     const applicationReportExportMatch =
       request.method === 'GET' &&
       url.pathname.match(
