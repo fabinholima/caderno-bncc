@@ -47,7 +47,14 @@ test('prévia de Certo/Errado recompõe opções fixas e mantém somente um gaba
   ]);
   const tex = renderAssessment(snapshotFromQuestion(candidate));
   assert.deepEqual(snapshotFromQuestion(candidate).questions[0].answer.correctStableKeys, ['alt-a']);
-  assert.match(tex, /C — Certo\\quad E — Errado/);
+  assert.match(
+    tex,
+    /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/,
+  );
+  assert.match(
+    tex,
+    /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Errado\}"\)/,
+  );
   assert.doesNotMatch(tex, /\\(?:directlua|ctxlua|startluacode)/);
 });
 test('prévia da resolução mantém alternativas fixas sem inventar resposta ausente', () => {
