@@ -14,7 +14,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ClassInvitePanel } from './class-invite-panel';
 import { apiFetch } from '@/lib/api-client';
@@ -302,6 +302,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   const [students, setStudents] = useState<Student[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [batchDownloadingId, setBatchDownloadingId] = useState('');
   const [lastAssignments, setLastAssignments] = useState<Assignment[]>([]);
   const [applicationDetail, setApplicationDetail] =
     useState<ApplicationDetail | null>(null);
@@ -383,6 +384,34 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     setReport(body.data);
     setReportPdf('');
   }, [apiUrl]);
+  const downloadApplicationBatch = async (application: Application) => {
+    setBatchDownloadingId(application.id);
+    setMessage('');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/assessment-applications/${application.id}/pdf`,
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as ApiBody<unknown> | null;
+        throw new Error(body?.error || 'Não foi possível baixar o lote.');
+      }
+      const file = await response.blob();
+      if (!file.size) throw new Error('O arquivo do lote veio vazio. Tente novamente.');
+      const objectUrl = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = 'provas-da-turma.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setMessage('Lote de provas e cartões-resposta baixado.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Não foi possível baixar o lote.');
+    } finally {
+      setBatchDownloadingId('');
+    }
+  };
   useEffect(() => {
     if (initialApplicationId) {
       Promise.resolve().then(() => loadReport(initialApplicationId)).catch((error) => setMessage(error.message));
@@ -1092,14 +1121,15 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
                   Ver relatório
                 </Button>
                 {x.students > 0 && x.completed === x.students && (
-                  <a
-                    className={buttonVariants({ size: 'sm' })}
-                    href={`${apiUrl}/api/assessment-applications/${x.id}/pdf`}
-                    download
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={batchDownloadingId === x.id}
+                    onClick={() => void downloadApplicationBatch(x)}
                   >
                     <Download />
-                    Baixar lote
-                  </a>
+                    {batchDownloadingId === x.id ? 'Preparando lote…' : 'Baixar lote'}
+                  </Button>
                 )}
               </div>
             </div>

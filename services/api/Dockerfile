@@ -3,7 +3,7 @@ FROM node:22-bookworm-slim
 ENV TEXMFCACHE=/tmp/tex-cache
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates zint librsvg2-bin curl unzip \
+  && apt-get install -y --no-install-recommends ca-certificates zint librsvg2-bin poppler-utils curl unzip \
   && mkdir -p /opt/context \
   && curl -fL --retry 4 --retry-delay 3 https://lmtx.pragma-ade.nl/install-lmtx/context-linux-64.zip -o /tmp/context-linux-64.zip \
   && unzip -q /tmp/context-linux-64.zip -d /opt/context \
