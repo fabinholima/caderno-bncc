@@ -3,6 +3,7 @@ import {
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
 import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
+import { renderInstitutionalHeader } from './institutional-header.mjs';
 
 export const basicExamV1 = Object.freeze({
   id: 'basicexam-v1',
@@ -58,19 +59,21 @@ export const basicExamV1 = Object.freeze({
     const logo = logoFileName
       ? `\\externalfigure[${logoFileName}][height=13mm,width=25mm,factor=fit]`
       : '';
-    const institutionalHeader = `\\dontleavehmode\\hbox to \\hsize{
-\\vbox to 16mm{\\hsize=52mm\\vfil\\dontleavehmode\\hbox to \\hsize{${logo}\\hskip2mm\\vbox{\\hsize=25mm\\leftaligned{\\tfx\\bold{${institution}}}}\\hfill}\\vfil}
-\\hskip3mm\\blackrule[width=.5pt,height=16mm,color=normalheaderrule]\\hskip3mm
-\\vbox to 16mm{\\hsize=\\dimexpr\\hsize-84mm\\relax\\vfil\\leftaligned{\\tfa\\bold{${title}}}\\blank[1mm]\\leftaligned{\\tfx ${subjects || grade} · Versão ${version}}\\vfil}
-\\hfill
-\\vbox to 16mm{\\hsize=18mm\\vfil\\rightaligned{${headerQr ? qr : ''}}\\vfil}}
-\\blank[1mm]
-\\blackrule[width=\\textwidth,height=.5pt,color=normalheaderrule]
-\\blank[1mm]
-\\switchtobodyfont[8.5pt]
-\\dontleavehmode{\\bf Aluno(a):} ${candidateName || '\\thinrules[n=1,width=92mm]'}\\hfill{\\bf Nº:} ${candidateNumber || '\\thinrules[n=1,width=18mm]'}\\par
-\\dontleavehmode{\\bf Disciplina:} ${subjects || '\\thinrules[n=1,width=42mm]'}\\hfill{\\bf Série:} ${grade || '\\thinrules[n=1,width=25mm]'}\\hfill{\\bf Turma:} ${className || '\\thinrules[n=1,width=22mm]'}\\par
-\\dontleavehmode{\\bf Professor(a):} ${teacherName || '\\thinrules[n=1,width=45mm]'}\\hfill${term ? `{\\bf Período:} ${term}\\hfill` : ''}{\\bf Data:} ${assessmentDate || '\\thinrules[n=1,width=25mm]'}`;
+    const customInstitutionalHeader = renderInstitutionalHeader({
+      institution,
+      logoFileName,
+      teacherName,
+      className,
+      term,
+      assessmentDate,
+      grade,
+      qrFileName,
+      candidateName,
+      candidateNumber,
+      subjects,
+      headerQr,
+    });
+    const institutionalHeader = customInstitutionalHeader;
     const answerCardHeader = renderAnswerCardHeader({
       institution,
       title,
@@ -120,9 +123,16 @@ ${
 \\definecolor[normalheaderrule][s=.45]
 \\definecolor[answercardrule][s=.35]
 ${answerCardHeaderPreamble}
-\\setuppapersize[${paper}]
+${compactLayout ? `\\setuppapersize[${paper}]` : '\\setuppapersize[A4]'}
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=13mm,backspace=18mm,width=middle,height=middle${compactLayout ? ',header=0mm,headerdistance=0mm,footer=6mm,footerdistance=4mm' : ''}]
+${compactLayout ? `\\setuplayout[topspace=13mm,backspace=18mm,width=middle,height=middle,header=0mm,headerdistance=0mm,footer=6mm,footerdistance=4mm]` : `\\setuplayout[
+  topspace=1.5cm,
+  backspace=2cm,
+  width=middle,
+  height=middle,
+  header=.1cm,
+  footer=1cm
+]`}
 \\setuppagenumbering[location={footer,right},style=\\tfx]
 \\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
 

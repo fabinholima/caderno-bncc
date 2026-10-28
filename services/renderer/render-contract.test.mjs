@@ -72,8 +72,6 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /AnswerCardNameGridOverlay/);
   assert.match(tex, /\\externalfigure\[qr\.png\]/);
   assert.equal(tex.match(/\\startframedtext\[width=\\textwidth/g)?.length, 1);
-  assert.match(tex, /\\blackrule\[width=\.5pt,height=16mm/);
-  assert.match(tex, /\\blackrule\[width=\\textwidth,height=\.5pt/);
 });
 
 test('mantém o cartão clássico e os círculos mesmo sem QR associado', async () => {
@@ -133,15 +131,10 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
     },
   ];
   const tex = renderAssessment(snapshot);
-  assert.match(
-    tex,
-    /\\vbox to 20mm\{\\hsize=30mm\\vfil\\leftaligned\{\\externalfigure\[institution-logo\.png\]/,
-  );
-  assert.match(
-    tex,
-    /\\vbox to 20mm\{\\hsize=24mm\\vfil\\rightaligned\{\\externalfigure\[assessment-qr\.png\]/,
-  );
-  assert.match(tex, /\\bold\{VERSÃO A\}/);
+  assert.match(tex, /draw externalfigure "institution-logo\.png" scaled 0\.45/);
+  assert.match(tex, /q := externalfigure "assessment-qr\.png" scaled 0\.65/);
+  assert.match(tex, /draw q shifted \(15\.0cm,1\.35cm\)/);
+  assert.match(tex, /DISCIPLINA: etex,[\s\S]*?Química etex/);
   assert.match(
     tex,
     /\\startmixedcolumns\[n=2,balance=yes,distance=8mm,separator=rule,rulethickness=\.5pt,rulecolor=simuladocolumnrule\]/,
@@ -483,11 +476,14 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   snapshot.institution.name = snapshot.assessment.header.institutionName;
   snapshot.institution.logoFileName = 'institution-logo.png';
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /\\externalfigure\[institution-logo\.png\]/);
-  assert.match(tex, /Professor\(a\):\} Prof\. Ana \\& Silva/);
-  assert.match(tex, /Turma:\} 7º A/);
-  assert.match(tex, /Período:\} 2º bimestre/);
-  assert.match(tex, /Data:\} 15\/09\/2026/);
+  assert.match(tex, /draw externalfigure "institution-logo\.png"/);
+  assert.match(tex, /\\startMPcode/);
+  assert.match(tex, /Prof\. Ana \\& Silva/);
+  assert.match(tex, /7º A/);
+  assert.match(tex, /2º bimestre/);
+  assert.match(tex, /15\/09\/2026/);
+  assert.match(tex, /\\setuppapersize\[A4\]/);
+  assert.match(tex, /header=\.1cm/);
 });
 
 test('renderiza imagem materializada no enunciado com limite de página', async () => {

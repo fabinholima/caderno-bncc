@@ -31,6 +31,7 @@ test('compact models put one calibrated card before questions and keep distinct 
     if (profile.labels.length === 2) assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/);
     assert.equal((tex.match(/fill unitsquare scaled 2.4mm/g) || []).length, 4);
     assert.equal((tex.match(/\\externalfigure\[qr.png\]/g) || []).length, 1);
+    assert.match(tex, /\\vbox to 48mm\{\\vfil\\externalfigure\[qr\.png\]/);
     snapshot.render.mode = 'answer-key';
     assert.ok(!renderAssessment(snapshot).includes('QUADRO DE RESPOSTAS'));
     snapshot.render.paper = 'A5';
