@@ -55,6 +55,7 @@ import {
   getApplicationBatchFile,
   getRenderFile,
   getRenderJobStatus,
+  streamApplicationBatchFile,
 } from './renders.mjs';
 import {
   renderFontCatalog,
@@ -808,13 +809,13 @@ const server = createServer(async (request, response) => {
         applicationId: applicationBatchMatch[1],
       });
       if (file.error) return json(response, file.status, { error: file.error });
-      response.writeHead(200, {
-        'content-type': 'application/pdf',
-        'content-length': file.size,
-        'content-disposition': `attachment; filename="provas-${applicationBatchMatch[1]}.pdf"`,
-        ...corsHeaders(response),
-      });
-      return file.stream.pipe(response);
+      await streamApplicationBatchFile(
+        response,
+        file,
+        `provas-${applicationBatchMatch[1]}.pdf`,
+        corsHeaders,
+      );
+      return;
     }
     const answerCardBatchMatch =
       request.method === 'GET' &&
@@ -828,13 +829,13 @@ const server = createServer(async (request, response) => {
         kind: 'answer-card',
       });
       if (file.error) return json(response, file.status, { error: file.error });
-      response.writeHead(200, {
-        'content-type': 'application/pdf',
-        'content-length': file.size,
-        'content-disposition': `attachment; filename="cartoes-resposta-${answerCardBatchMatch[1]}.pdf"`,
-        ...corsHeaders(response),
-      });
-      return file.stream.pipe(response);
+      await streamApplicationBatchFile(
+        response,
+        file,
+        `cartoes-resposta-${answerCardBatchMatch[1]}.pdf`,
+        corsHeaders,
+      );
+      return;
     }
     const applicationReportExportMatch =
       request.method === 'GET' &&
