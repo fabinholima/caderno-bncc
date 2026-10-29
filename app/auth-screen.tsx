@@ -52,7 +52,11 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
       setConfig(body.data);
       const error = new URLSearchParams(window.location.search).get('auth_error');
       if (error) {
-        setMessage(error === 'existing_account' ? 'Já existe uma conta com esses dados. Entre com a senha da conta existente ou procure suporte.' : error === 'registration_required' ? 'Para começar com Google, escolha Criar conta e informe seu CPF.' : 'Login Google não concluído. Tente novamente.');
+        setMessage(error === 'existing_account'
+          ? 'Este e-mail já tem uma conta. Entre com e-mail e senha; depois vá a Configurações → Conta Google → Vincular Google.'
+          : error === 'registration_required'
+            ? 'Para criar uma conta nova com Google, escolha Criar conta e informe seu CPF. Para uma conta existente, entre com a senha e vincule o Google em Configurações.'
+            : 'Login Google não concluído. Tente novamente.');
         if (error === 'registration_required') setMode('register');
         window.history.replaceState(null, '', window.location.pathname);
       }
