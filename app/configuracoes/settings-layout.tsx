@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation';
 import {
   Building2,
   ChevronLeft,
+  CreditCard,
   GraduationCap,
   LogOut,
   Menu,
@@ -30,6 +31,12 @@ export function useSettingsApiUrl() {
   return useContext(SettingsApiUrlContext);
 }
 
+const SettingsRoleContext = createContext('teacher');
+
+export function useSettingsRole() {
+  return useContext(SettingsRoleContext);
+}
+
 const sections = [
   {
     href: '/configuracoes/perfil',
@@ -42,6 +49,12 @@ const sections = [
     label: 'Escolas',
     description: 'Cabeçalho e dados escolares',
     Icon: Building2,
+  },
+  {
+    href: '/configuracoes/assinatura',
+    label: 'Assinatura',
+    description: 'Plano, consumo e pagamentos',
+    Icon: CreditCard,
   },
 ];
 
@@ -267,13 +280,14 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
       </header>
 
       <SettingsApiUrlContext.Provider value={apiUrl}>
+       <SettingsRoleContext.Provider value={identity.role}>
         <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 sm:px-6 sm:py-7 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-8">
           <nav
             aria-label="Seções de configurações"
             className="h-fit rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"
           >
             <p className="hidden px-3 pb-2 pt-2 text-xs font-bold uppercase tracking-wider text-slate-500 lg:block">
-              Conta e escola
+              Conta, escola e plano
             </p>
             <ul className="grid grid-cols-2 gap-2 lg:grid-cols-1">
               {sections.map(({ href, label, description, Icon }) => {
@@ -310,6 +324,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
             {children}
           </section>
         </div>
+       </SettingsRoleContext.Provider>
       </SettingsApiUrlContext.Provider>
     </main>
   );
