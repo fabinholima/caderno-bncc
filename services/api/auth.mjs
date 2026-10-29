@@ -199,7 +199,7 @@ export async function authenticate(request) {
       ? process.env.DEV_AUTH_BYPASS_ROLE
       : 'admin';
     const developmentUser = await pool.query(
-      `SELECT u.id user_id,u.email,u.display_name,u.portal_admin,u.cpf_hash,m.institution_id,m.role,
+      `SELECT u.id user_id,u.email,u.display_name,u.portal_admin,u.cpf_hash,u.google_subject,m.institution_id,m.role,
               i.name institution_name
        FROM users u
        JOIN memberships m ON m.user_id=u.id
@@ -221,6 +221,7 @@ export async function authenticate(request) {
         role: row.role,
         portalAdmin: Boolean(row.portal_admin),
         cpfComplete: Boolean(row.cpf_hash),
+        googleLinked: Boolean(row.google_subject),
         profileComplete: true,
         developmentBypass: true,
       };
@@ -231,7 +232,7 @@ export async function authenticate(request) {
   const token = bearer || /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
   if (!token) return null;
   const result = await pool.query(
-    `SELECT s.id session_id,s.global_bank,u.portal_admin,u.portal_editor,u.id user_id,u.email,u.display_name,u.cpf_hash,
+    `SELECT s.id session_id,s.global_bank,u.portal_admin,u.portal_editor,u.id user_id,u.email,u.display_name,u.cpf_hash,u.google_subject,
             (EXISTS(SELECT 1 FROM educator_profiles ep WHERE ep.user_id=u.id) AND EXISTS(SELECT 1 FROM educator_schools es WHERE es.user_id=u.id)) profile_complete,
             m.institution_id,m.role,i.name institution_name,u.account_type
      FROM user_sessions s JOIN users u ON u.id=s.user_id AND u.active
@@ -250,6 +251,7 @@ export async function authenticate(request) {
     portalAdmin: Boolean(row.portal_admin),
     portalEditor: Boolean(row.portal_editor),
     cpfComplete: Boolean(row.cpf_hash),
+    googleLinked: Boolean(row.google_subject),
     profileComplete: Boolean(row.profile_complete),
     userId: row.user_id,
     email: row.email,

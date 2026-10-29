@@ -11,7 +11,7 @@ export type AuthIdentity = {
   portalEditor?: boolean;
   portalRole?: 'admin' | 'editor' | 'teacher' | 'student';
   globalBank?: boolean;
-  user: { id: string; email: string; displayName: string; cpfComplete?: boolean; profileComplete?: boolean };
+  user: { id: string; email: string; displayName: string; cpfComplete?: boolean; profileComplete?: boolean; googleLinked?: boolean };
   institution: { id: string; name: string };
   role: 'admin' | 'coordinator' | 'teacher' | 'student';
 };

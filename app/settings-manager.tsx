@@ -32,12 +32,14 @@ export function SettingsManager({
   apiUrl,
   role,
   email,
+  googleLinked,
   portalAdmin = false,
   canEditCatalog = false,
 }: {
   apiUrl: string;
   role: string;
   email: string;
+  googleLinked: boolean;
   portalAdmin?: boolean;
   canEditCatalog?: boolean;
 }) {
@@ -126,7 +128,7 @@ export function SettingsManager({
       {portalAdmin && <PortalEditorManager apiUrl={apiUrl} />}
       {portalAdmin && <SubscriptionAdmin apiUrl={apiUrl} />}
       <BillingManager apiUrl={apiUrl} role={role} />
-      {role !== 'student' && <GoogleAccountLink apiUrl={apiUrl} email={email} />}
+      {role !== 'student' && <GoogleAccountLink apiUrl={apiUrl} email={email} linked={googleLinked} />}
       <EducatorProfile apiUrl={apiUrl} />
       {message && (
         <p aria-live="polite" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm">
