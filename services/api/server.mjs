@@ -86,6 +86,7 @@ import {
   cancelApplication,
   createApplication,
   createClass,
+  deleteClass,
   createStudent,
   enrollStudent,
   getApplication,
@@ -708,6 +709,16 @@ const server = createServer(async (request, response) => {
         data: await createClass({
           institutionId,
           input: await readJson(request),
+        }),
+      });
+    const classMatch = url.pathname.match(
+      /^\/api\/classes\/([0-9a-f-]{36})$/i,
+    );
+    if (classMatch && request.method === 'DELETE')
+      return json(response, 200, {
+        data: await deleteClass({
+          institutionId,
+          classId: classMatch[1],
         }),
       });
     if (request.method === 'POST' && url.pathname === '/api/students')
