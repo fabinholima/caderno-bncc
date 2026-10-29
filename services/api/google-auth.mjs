@@ -31,13 +31,30 @@ export async function startGoogle(input = {}) {
   await pool.query('DELETE FROM oauth_login_attempts WHERE expires_at<now()');
   const cpfHash = input.cpf ? cpfFingerprint(input.cpf) : null;
   await pool.query('INSERT INTO oauth_login_attempts(state_hash,browser_hash,verifier,cpf_hash,account_type) VALUES($1,$2,$3,$4,$5)', [hash(state),hash(browser),verifier,cpfHash,accountType]);
+  return { url: authorizationUrl(state, verifier), browser };
+}
+
+function authorizationUrl(state, verifier) {
   const target = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   target.search = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID, redirect_uri: process.env.GOOGLE_REDIRECT_URI,
     response_type: 'code', scope: 'openid email profile', state,
     code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256', prompt: 'select_account',
   }).toString();
-  return { url: target.href, browser };
+  return target.href;
+}
+
+export async function startGoogleLink(userId) {
+  if (!googleConfigured()) throw failure('Login Google ainda não configurado.', 503);
+  if (typeof userId !== 'string' || !userId) throw failure('Entre na sua conta antes de vincular o Google.', 401);
+  const state = random(), browser = random(), verifier = random();
+  await pool.query('DELETE FROM oauth_login_attempts WHERE expires_at<now()');
+  await pool.query(
+    `INSERT INTO oauth_login_attempts(state_hash,browser_hash,verifier,account_type,purpose,user_id)
+     VALUES($1,$2,$3,'educator','link',$4)`,
+    [hash(state),hash(browser),verifier,userId],
+  );
+  return { url: authorizationUrl(state, verifier), browser };
 }
 
 export async function finishGoogle(url, cookie, fetcher = fetch) {
@@ -49,8 +66,10 @@ export async function finishGoogle(url, cookie, fetcher = fetch) {
   // The native flow still binds its callback to the browser cookie in
   // mobile-google-auth-core before calling this function.
   if (!state || state.length > 200) throw failure('Tentativa de login inválida ou expirada.');
-  const attempt = await pool.query(`DELETE FROM oauth_login_attempts WHERE state_hash=$1 AND expires_at>now() RETURNING verifier,cpf_hash,account_type`, [hash(state)]);
+  const attempt = await pool.query(`DELETE FROM oauth_login_attempts WHERE state_hash=$1 AND expires_at>now() RETURNING verifier,cpf_hash,account_type,purpose,user_id`, [hash(state)]);
   if (!attempt.rowCount) throw failure('Tentativa de login inválida ou expirada.');
+  const purpose = attempt.rows[0].purpose;
+  try {
   const code = url.searchParams.get('code');
   if (url.searchParams.has('error') || !code || code.length > 4096) throw failure('Autorização Google não concluída.');
   // The authorization code is exchanged server-to-server with PKCE. Identity is
@@ -69,5 +88,40 @@ export async function finishGoogle(url, cookie, fetcher = fetch) {
     headers: { Authorization: `Bearer ${token.access_token}` }, signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) throw failure('Não foi possível consultar sua conta Google.');
-  return loginWithGoogle(validateGoogleProfile(await response.json()), attempt.rows[0].cpf_hash,attempt.rows[0].account_type);
+  const profile = validateGoogleProfile(await response.json());
+  if (purpose === 'link') return await linkGoogleAccount(profile, attempt.rows[0].user_id);
+  return loginWithGoogle(profile, attempt.rows[0].cpf_hash,attempt.rows[0].account_type);
+  } catch (error) {
+    if (purpose === 'link') error.googleLink = true;
+    throw error;
+  }
+}
+
+async function linkGoogleAccount(profile, userId) {
+  return pool.connect().then(async (client) => {
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`google:${profile.sub}`]);
+      const result = await client.query('SELECT id,email,google_subject,active FROM users WHERE id=$1 FOR UPDATE', [userId]);
+      const user = result.rows[0];
+      if (!user || !user.active) throw failure('A conta que iniciou a vinculação não está disponível.', 403);
+      if (user.email.toLowerCase() !== profile.email) throw failure('A conta Google precisa usar o mesmo e-mail da conta do portal.', 409);
+      const owner = await client.query('SELECT id FROM users WHERE google_subject=$1 AND id<>$2', [profile.sub,userId]);
+      if (owner.rowCount) throw failure('Esta conta Google já está vinculada a outro usuário.', 409);
+      if (user.google_subject && user.google_subject !== profile.sub) throw failure('Esta conta do portal já está vinculada a outra conta Google.', 409);
+      if (!user.google_subject) {
+        await client.query('UPDATE users SET google_subject=$2 WHERE id=$1', [userId,profile.sub]);
+        const membership = await client.query('SELECT institution_id FROM memberships WHERE user_id=$1 ORDER BY role=\'admin\' DESC LIMIT 1', [userId]);
+        await client.query("INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.google.link')", [membership.rows[0]?.institution_id || null,userId]);
+      }
+      await client.query('COMMIT');
+      return { linked: true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error.code === '23505') throw failure('Esta conta Google já está vinculada a outro usuário.', 409);
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
 }

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { BillingManager } from './billing-manager';
 import { EducatorProfile } from './educator-profile';
+import { GoogleAccountLink } from './google-account-link';
 import { MaintenanceManager } from './maintenance-manager';
 import { PortalEditorManager } from './portal-editor-manager';
 import { SubscriptionAdmin } from './subscription-admin';
@@ -30,11 +31,13 @@ type CurriculumCatalog = { version: number; subjects: CatalogSubject[] };
 export function SettingsManager({
   apiUrl,
   role,
+  email,
   portalAdmin = false,
   canEditCatalog = false,
 }: {
   apiUrl: string;
   role: string;
+  email: string;
   portalAdmin?: boolean;
   canEditCatalog?: boolean;
 }) {
@@ -123,6 +126,7 @@ export function SettingsManager({
       {portalAdmin && <PortalEditorManager apiUrl={apiUrl} />}
       {portalAdmin && <SubscriptionAdmin apiUrl={apiUrl} />}
       <BillingManager apiUrl={apiUrl} role={role} />
+      {role !== 'student' && <GoogleAccountLink apiUrl={apiUrl} email={email} />}
       <EducatorProfile apiUrl={apiUrl} />
       {message && (
         <p aria-live="polite" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm">
