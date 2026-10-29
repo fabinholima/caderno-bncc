@@ -67,9 +67,10 @@ ${answerHeader}
 \\blank[small]
 \\starttabulate[|p(.76\\textwidth)|p(.2\\textwidth)|]
 \\NC Escola: \\NC Data: ${assessmentDate || ''} \\NC\\NR
-\\NC Nome do(a) estudante: ${candidateName || ''} \\NC Série: ${grade} \\NC\\NR
+\\NC Aluno(a): ${candidateName || ''} \\NC Série: ${grade} \\NC\\NR
 \\NC Turma: ${className || ''} \\quad Número: ${candidateNumber || ''} \\NC Versão: ${version} \\NC\\NR
 \\stoptabulate
+\\noindent{\\tfx\\bold{Assinatura do Aluno:}} \\thinrules[n=1,width=100mm]\\par
 \\blank[medium]
 \\hbox to \\textwidth{\\vbox{\\hsize=.5\\textwidth\\switchtobodyfont[8pt]\\bold{COMO PREENCHER}\\blank[1mm]\n• Marque somente uma alternativa por questão.\\par\n• Preencha completamente o círculo com caneta preta ou azul.\\par\n• Não rasure, não dobre e não danifique o QR Code ou as marcas de alinhamento.}\\hfill${example}}
 \\blank[small]

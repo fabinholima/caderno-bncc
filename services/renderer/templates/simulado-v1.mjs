@@ -1,5 +1,4 @@
 import {
-  answerCardHeaderPreamble,
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
 import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
@@ -21,7 +20,6 @@ export const simulatedExamV1 = Object.freeze({
       fontSize,
       title,
       grade,
-      version,
       qrPayload,
       qrFileName,
       questionCount,
@@ -60,6 +58,8 @@ export const simulatedExamV1 = Object.freeze({
       title,
       grade,
       className,
+      candidateName,
+      candidateNumber,
       qr,
     });
     const details = [
@@ -144,8 +144,6 @@ ${answerCardHeader}
 \\definecolor[simuladoaccent][s=.25]
 \\definecolor[simuladobackground][s=.92]
 \\definecolor[simuladocolumnrule][s=.65]
-\\definecolor[answercardrule][s=.35]
-${answerCardHeaderPreamble}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
 \\setuplayout[topspace=13mm,backspace=14mm,width=middle,height=middle]

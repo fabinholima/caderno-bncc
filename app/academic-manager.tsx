@@ -25,7 +25,9 @@ type SchoolClass = {
   grade: string;
   schoolYear: number;
   students: number;
+  schoolName?: string | null;
 };
+type AcademicPanel = 'classes' | 'students' | 'applications' | 'correction' | 'results';
 const studentStatuses = [
   ['ativo', 'Ativo'], ['transferido', 'Transferido'], ['remanejado', 'Remanejado'],
   ['atestado', 'Atestado'], ['regime_domiciliar', 'Regime domiciliar'],
@@ -298,6 +300,14 @@ type StudentProgress = {
 };
 
 export function AcademicManager({ apiUrl, initialSection, initialApplicationId }: { apiUrl: string; initialSection?: 'correction' | 'reports'; initialApplicationId?: string }) {
+  const [activePanel, setActivePanel] = useState<AcademicPanel>(
+    initialSection === 'correction' ? 'correction' : initialSection === 'reports' ? 'results' : 'classes',
+  );
+  const [classSearch, setClassSearch] = useState('');
+  const [classGradeFilter, setClassGradeFilter] = useState('');
+  const [classYearFilter, setClassYearFilter] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentStatusFilter, setStudentStatusFilter] = useState('');
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -653,25 +663,64 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   const reviewCandidate = scanReview?.candidates.find(
     (candidate) => candidate.id === reviewCandidateId,
   );
+  const visibleClasses = classes.filter((item) => {
+    const query = classSearch.trim().toLocaleLowerCase('pt-BR');
+    return (!query || `${item.name} ${item.grade} ${item.schoolName || ''}`.toLocaleLowerCase('pt-BR').includes(query))
+      && (!classGradeFilter || item.grade === classGradeFilter)
+      && (!classYearFilter || String(item.schoolYear) === classYearFilter);
+  });
+  const visibleStudents = students.filter((item) => {
+    const query = studentSearch.trim().toLocaleLowerCase('pt-BR');
+    return (!query || `${item.name} ${item.registration} ${item.access_code || ''}`.toLocaleLowerCase('pt-BR').includes(query))
+      && (!studentStatusFilter || (item.status || 'ativo') === studentStatusFilter);
+  });
+  const panelNavigation: Array<{ id: AcademicPanel; label: string; icon: React.ReactNode }> = [
+    { id: 'classes', label: 'Turmas e escolas', icon: <GraduationCap /> },
+    { id: 'students', label: 'Alunos', icon: <Users /> },
+    { id: 'applications', label: 'Aplicações e impressão', icon: <CalendarCheck /> },
+    { id: 'correction', label: 'Correção', icon: <Download /> },
+    { id: 'results', label: 'Resultados', icon: <BarChart3 /> },
+  ];
   return (
     <main className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-blue-600">
         Gestão acadêmica
       </p>
       <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-        {initialSection === 'correction' ? 'Correção de cartões' : initialSection === 'reports' ? 'Diagnóstico e resultados' : 'Turmas e alunos'}
+        {panelNavigation.find((item) => item.id === activePanel)?.label}
       </h1>
       <p className="mt-2 text-sm text-slate-500">
-        Organize as turmas, matricule estudantes e associe uma avaliação para
-        gerar cartões identificados.
+        {activePanel === 'classes'
+          ? 'Organize as turmas por etapa, ano letivo e escola vinculada.'
+          : activePanel === 'students'
+            ? 'Cadastre, importe e matricule estudantes com controle da situação escolar.'
+            : activePanel === 'applications'
+              ? 'Associe uma avaliação à turma e imprima cartões já identificados por aluno.'
+              : activePanel === 'correction'
+                ? 'Envie cartões-resposta e revise as leituras feitas pelo aplicativo.'
+                : 'Acompanhe resultados, habilidades e evolução das turmas.'}
       </p>
       {message && (
         <output className="mt-4 block rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
           {message}
         </output>
       )}
-      <div className="mt-7 grid gap-5 xl:grid-cols-3">
-        <Panel icon={<GraduationCap />} title="Nova turma">
+      <div aria-label="Seções da gestão acadêmica" role="tablist" className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3 xl:grid-cols-5">
+        {panelNavigation.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={activePanel === item.id}
+            onClick={() => setActivePanel(item.id)}
+            className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${activePanel === item.id ? 'bg-[var(--navy)] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+          >
+            <span className="size-4">{item.icon}</span>{item.label}
+          </button>
+        ))}
+      </div>
+      <div className={`mt-6 grid gap-5 ${activePanel === 'students' ? 'xl:grid-cols-2' : ''}`}>
+        {activePanel === 'classes' && <Panel icon={<GraduationCap />} title="Criar turma">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -683,22 +732,25 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               })).catch((x) => setMessage(x.message));
             }}
           >
-            <Input name="name" required placeholder="Ex.: 3º A" />
-            <Input name="grade" required placeholder="Ensino Médio" />
-            <Input
+            <label htmlFor="new-class-name" className="block text-sm font-medium text-slate-700">Nome da turma<Input id="new-class-name" name="name" required placeholder="Ex.: 3º A" className="mt-1" /></label>
+            <label htmlFor="new-class-grade" className="block text-sm font-medium text-slate-700">Etapa de ensino<Input id="new-class-grade" name="grade" required placeholder="Ex.: 3ª série do Ensino Médio" className="mt-1" /></label>
+            <label htmlFor="new-class-year" className="block text-sm font-medium text-slate-700">Ano letivo<Input
+              id="new-class-year"
               name="schoolYear"
               type="number"
               min="2000"
               max="2100"
               defaultValue="2026"
               required
-            />
+              className="mt-1"
+            /></label>
+            <p className="rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-900">A escola é definida pelo cadastro institucional. Para associar uma escola específica à turma, use <b>Convidar alunos</b> depois de criá-la.</p>
             <Button type="submit" className="w-full">
-              Criar turma
+              <GraduationCap /> Criar turma
             </Button>
           </form>
-        </Panel>
-        <Panel icon={<UserPlus />} title="Novo aluno">
+        </Panel>}
+        {activePanel === 'students' && <Panel icon={<UserPlus />} title="Cadastrar aluno">
           <form
             className="space-y-3"
             onSubmit={async (e) => {
@@ -741,8 +793,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               Cadastrar aluno
             </Button>
           </form>
-        </Panel>
-        <Panel icon={<Users />} title="Matricular na turma">
+        </Panel>}
+        {activePanel === 'students' && <Panel icon={<Users />} title="Matricular na turma">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -781,9 +833,9 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               Matricular
             </Button>
           </form>
-        </Panel>
+        </Panel>}
       </div>
-      <div className="mt-5">
+      {activePanel === 'students' && <div className="mt-5">
         <Panel icon={<UserPlus />} title="Importar alunos por Excel">
           <p className="mb-4 text-sm text-slate-600">
             Selecione a turma e envie um arquivo .xlsx de até 2 MB, com até 1.000 alunos.
@@ -863,8 +915,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             </div>
           </div>}
         </Panel>
-      </div>
-      <section className="mt-5 rounded-2xl border border-violet-200 bg-white p-5">
+      </div>}
+      {activePanel === 'results' && <section className="mt-5 rounded-2xl border border-violet-200 bg-white p-5">
         <div className="flex items-center gap-2">
           <BarChart3 className="size-5 text-violet-700" />
           <div>
@@ -1016,8 +1068,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             </div>
           </div>
         )}
-      </section>
-      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+      </section>}
+      {activePanel === 'applications' && <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2">
           <CalendarCheck className="size-5 text-blue-600" />
           <h2 className="font-display text-xl font-bold">
@@ -1054,8 +1106,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           <Input name="scheduledAt" type="datetime-local" required />
           <Button type="submit">Agendar aplicação</Button>
         </form>
-      </section>
-      {lastAssignments.length > 0 && (
+      </section>}
+      {activePanel === 'applications' && lastAssignments.length > 0 && (
         <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
           <h2 className="font-display text-lg font-bold text-emerald-900">
             Distribuição criada
@@ -1080,7 +1132,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
-      <section id="academic-applications" className="mt-5 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      {(activePanel === 'applications' || activePanel === 'results') && <section id="academic-applications" className="mt-5 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="border-b p-4 font-semibold">
           Aplicações e PDFs individuais
         </header>
@@ -1141,35 +1193,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             Nenhuma aplicação agendada.
           </p>
         )}
-      </section>
-      <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <header className="border-b p-4">
-          <h2 className="font-semibold">Alunos cadastrados</h2>
-          <p className="mt-1 text-sm text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p>
-        </header>
-        {students.length ? students.map((student) => (
-          <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-0">
-            <span><b>{student.name}</b> · {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2">Situação
-                <select aria-label={`Situação de ${student.name}`} value={student.status ?? ''}
-                  disabled={savingStudent !== null} className="rounded-md border p-2"
-                  onChange={(event) => updateStudent(student, { status: event.target.value as StudentStatus }).catch((error) => setMessage(error.message))}>
-                  {!student.status && <option value="" disabled>Selecione a situação</option>}
-                  {studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" aria-label={`Prova adaptada (laudo) de ${student.name}`}
-                  checked={student.adaptedExam} disabled={savingStudent !== null}
-                  onChange={(event) => updateStudent(student, { adaptedExam: event.target.checked }).catch((error) => setMessage(error.message))} />
-                Prova adaptada (laudo)
-              </label>
-            </div>
-          </div>
-        )) : <p className="p-6 text-sm text-slate-400">Nenhum aluno cadastrado.</p>}
-      </section>
-      {applicationDetail && (
+      </section>}
+      {activePanel === 'applications' && applicationDetail && (
         <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -1277,7 +1302,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
-      {report && (
+      {activePanel === 'results' && report && (
         <section id="academic-report" className="mt-5 scroll-mt-24 rounded-2xl border border-blue-200 bg-white p-5">
           <div className="flex flex-wrap items-center gap-2">
             <BarChart3 className="size-5 text-blue-600" />
@@ -1543,7 +1568,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
-      {studentReport && (
+      {activePanel === 'results' && studentReport && (
         <section className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5">
           <div className="flex flex-wrap items-center gap-2">
             <GraduationCap className="size-5 text-emerald-700" />
@@ -1691,7 +1716,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
-      <section id="academic-correction" className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5">
+      {activePanel === 'correction' && <section id="academic-correction" className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="font-display text-xl font-bold">
           Corrigir cartão-resposta
         </h2>
@@ -1817,8 +1842,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             </div>
           ))}
         </div>
-      </section>
-      {scanReview && (
+      </section>}
+      {activePanel === 'correction' && scanReview && (
         <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/40 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -1958,31 +1983,56 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
-      <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      {activePanel === 'classes' && <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="border-b p-4 font-semibold">
-          Turmas cadastradas
-        </header>
-        {classes.length ? (
-          classes.map((x) => (
-            <div
-              key={x.id}
-              className="flex justify-between border-b px-4 py-3 text-sm last:border-0"
-            >
-              <span>
-                <b>{x.name}</b> · {x.grade}
-              </span>
-              <span className="flex items-center gap-3 text-slate-500">
-                {x.schoolYear} · {x.students} alunos
-                <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setInviteClass(x)}>Convidar alunos</Button>
-              </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="font-semibold">Turmas cadastradas</h2><p className="mt-1 text-xs font-normal text-slate-500">{visibleClasses.length} de {classes.length} turmas · escola vinculada pelo convite da turma</p></div>
+            <div className="flex flex-wrap gap-2">
+              <Input aria-label="Buscar turma ou escola" placeholder="Buscar turma ou escola" value={classSearch} onChange={(event) => setClassSearch(event.target.value)} className="h-9 w-52" />
+              <select aria-label="Filtrar por etapa" value={classGradeFilter} onChange={(event) => setClassGradeFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as etapas</option>{Array.from(new Set(classes.map((item) => item.grade))).sort().map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select>
+              <select aria-label="Filtrar por ano letivo" value={classYearFilter} onChange={(event) => setClassYearFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todos os anos</option>{Array.from(new Set(classes.map((item) => item.schoolYear))).sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}</select>
             </div>
-          ))
+          </div>
+        </header>
+        {visibleClasses.length ? (
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleClasses.map((x) => (
+            <article key={x.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><GraduationCap /></span><div className="min-w-0"><h3 className="truncate font-semibold text-slate-900">{x.name}</h3><p className="mt-1 text-sm text-slate-600">{x.grade} · {x.schoolYear}</p><p className="mt-2 truncate text-xs text-slate-500">{x.schoolName || 'Escola não vinculada ao convite'}</p></div></div>
+              <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-sm font-medium text-slate-600">{x.students} alunos</span><Button type="button" variant="outline" className="h-9" onClick={() => setInviteClass(x)}><Users /> Escola e convites</Button></div>
+            </article>
+          ))}
+          </div>
         ) : (
-          <p className="p-6 text-sm text-slate-400">
-            Nenhuma turma cadastrada.
+          <p className="p-6 text-sm text-slate-500">
+            {classes.length ? 'Nenhuma turma corresponde aos filtros selecionados.' : 'Nenhuma turma cadastrada. Crie uma turma acima para começar.'}
           </p>
         )}
-      </section>
+      </section>}
+      {activePanel === 'students' && <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 className="font-semibold">Alunos cadastrados</h2><p className="mt-1 text-xs text-slate-500">{visibleStudents.length} de {students.length} alunos</p><p className="mt-1 text-xs text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p></div><div className="flex flex-wrap gap-2"><Input aria-label="Buscar aluno" placeholder="Nome, matrícula ou código" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} className="h-9 w-56" /><select aria-label="Filtrar situação do aluno" value={studentStatusFilter} onChange={(event) => setStudentStatusFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{studentStatuses.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></header>
+        {visibleStudents.length ? visibleStudents.map((student) => (
+          <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-0">
+            <span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span></span>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2">Situação
+                <select aria-label={`Situação de ${student.name}`} value={student.status ?? ''}
+                  disabled={savingStudent !== null} className="rounded-md border p-2"
+                  onChange={(event) => updateStudent(student, { status: event.target.value as StudentStatus }).catch((error) => setMessage(error.message))}>
+                  {!student.status && <option value="" disabled>Selecione a situação</option>}
+                  {studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" aria-label={`Prova adaptada (laudo) de ${student.name}`}
+                  checked={student.adaptedExam} disabled={savingStudent !== null}
+                  onChange={(event) => updateStudent(student, { adaptedExam: event.target.checked }).catch((error) => setMessage(error.message))} />
+                Prova adaptada
+              </label>
+            </div>
+          </div>
+        )) : <p className="p-6 text-sm text-slate-500">{students.length ? 'Nenhum aluno corresponde aos filtros selecionados.' : 'Nenhum aluno cadastrado.'}</p>}
+      </div>}
       {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
     </main>
   );
