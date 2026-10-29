@@ -18,7 +18,8 @@ export async function searchSchools({ q = '', uf = '' } = {}) {
   if (/^\d{8}$/.test(query)) {
     values.push(query); filters.push(`inep_code = $${values.length}`);
   } else {
-    values.push(`${normalized}%`); filters.push(`name_normalized LIKE $${values.length}`);
+    const nameSearch = normalized.replace(/[\\%_]/g, '\\$&');
+    values.push(`%${nameSearch}%`); filters.push(`name_normalized LIKE $${values.length} ESCAPE E'\\\\'`);
   }
   values.push(10);
   const result = await pool.query(
