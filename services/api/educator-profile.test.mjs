@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { educatorSchema } from './educator-profile.mjs';
+import { educatorProfileSchema, educatorSchema } from './educator-profile.mjs';
 const school = {
   name: 'Escola Exemplo',
   schoolType: 'estadual',
@@ -39,6 +39,17 @@ test('coordinator requires stages, not an administrative role', () => {
   assert.throws(() =>
     educatorSchema.parse({ professionalRole: 'admin', school }),
   );
+});
+test('perfil profissional pode ser salvo sem escola e as listas legadas continuam aceitas', () => {
+  const profile = educatorProfileSchema.parse({
+    professionalRole: 'teacher',
+    phone: '(67) 99999-0000',
+    subjects: ['Química', 'Componente antigo'],
+    grades: ['1ª série'],
+  });
+  assert.deepEqual(profile.subjects, ['Química', 'Componente antigo']);
+  assert.throws(() => educatorProfileSchema.parse({ professionalRole: 'teacher', subjects: [], grades: [] }));
+  assert.equal(educatorProfileSchema.parse({ professionalRole: 'coordinator', stages: ['EJA'] }).professionalRole, 'coordinator');
 });
 test('school rejects external logo URLs and malformed optional identifiers', () => {
   const data = {

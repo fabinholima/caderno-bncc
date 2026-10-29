@@ -1189,7 +1189,7 @@ export default function Home() {
         ) : (active === 'Receitas' || active === 'Assinantes') && identity.portalAdmin ? (
           <AdminDashboard key={active} apiUrl={apiUrl} view={active === 'Receitas' ? 'revenue' : 'subscribers'} />
         ) : active === 'Minhas escolas' ? (
-          <div className="mx-auto max-w-5xl p-6"><EducatorProfile apiUrl={apiUrl} /></div>
+          <div className="mx-auto max-w-5xl p-6"><EducatorProfile apiUrl={apiUrl} onContinueToClasses={() => setActive('Turmas e alunos')} /></div>
         ) : active === 'Avaliações' ? (
           <AssessmentBuilder
             questions={questions.filter(

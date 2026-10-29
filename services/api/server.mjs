@@ -18,7 +18,7 @@ import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
 import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
-import { getEducatorProfile, saveEducatorProfile } from './educator-profile.mjs';
+import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
 import { searchSchools } from './inep-schools.mjs';
 import { googleConfigured, startGoogle, finishGoogle } from './google-auth.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
@@ -456,6 +456,23 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname === '/api/educator-profile') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
       return json(response, 200, { data: await saveEducatorProfile(userId, await readJson(request, 650000)) });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/educator-profile/profile') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, { data: await saveEducatorProfileOnly(userId, await readJson(request, 650000)) });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/educator-profile/schools') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, { data: await saveEducatorSchool(userId, await readJson(request, 650000)) });
+    }
+    const educatorSchoolMatch = url.pathname.match(/^\/api\/educator-profile\/schools\/([0-9a-f-]{36})(?:\/(header-default))?$/i);
+    if (educatorSchoolMatch && request.method === 'DELETE' && !educatorSchoolMatch[2]) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, { data: await deleteEducatorSchool(userId, educatorSchoolMatch[1]) });
+    }
+    if (educatorSchoolMatch && request.method === 'PATCH' && educatorSchoolMatch[2]) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, { data: await setHeaderSchool(userId, educatorSchoolMatch[1]) });
     }
     if (identity.role !== 'student' && !identity.portalAdmin && !identity.profileComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
       return json(response, 428, { error: 'Complete seu perfil e cadastre sua escola para continuar.' });
