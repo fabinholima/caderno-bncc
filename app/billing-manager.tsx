@@ -11,6 +11,7 @@ type Billing = {
     plan_id: string;
     months: number;
     amount_cents: number;
+    checkout_url?: string | null;
     base_amount_cents?: number | null;
     discount_cents?: number;
     coupon_code?: string | null;
@@ -42,6 +43,10 @@ const labels: Record<string, string> = {
   rejected: 'Recusado',
   refunded: 'Estornado',
   charged_back: 'Contestado',
+};
+const planLabels: Record<string, string> = {
+  professor: 'Professor',
+  escola: 'Escola',
 };
 
 async function loadBilling(apiUrl: string) {
@@ -142,11 +147,11 @@ export function BillingManager({
   }
   return (
     <section
-      className="mt-5 rounded-2xl border bg-white p-5"
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
       aria-labelledby="billing-heading"
     >
       <h2 id="billing-heading" className="font-display text-xl font-bold">
-        Minha assinatura · Mercado Pago
+        Cobrança e pagamentos
       </h2>
       <p className="mt-2 text-sm text-slate-600">
         Pagamento em ambiente seguro do Mercado Pago. O plano é liberado após
@@ -169,12 +174,17 @@ export function BillingManager({
           )}
           {data.contract && (
             <p className="mt-3 text-sm">
-              {data.contract.plan_id} ·{' '}
+              Plano {planLabels[data.contract.plan_id] || data.contract.plan_id} ·{' '}
               {labels[data.contract.status] || data.contract.status} ·{' '}
               {money(data.contract.amount_cents)} /{' '}
               {data.contract.months === 12 ? 'ano' : 'mês'}
               {data.contract.coupon_code && data.contract.discount_cents ? ` · cupom ${data.contract.coupon_code} (${money(data.contract.discount_cents)} de desconto)` : ''}
             </p>
+          )}
+          {data.contract?.status === 'pending' && data.contract.checkout_url && (
+            <a className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" href={data.contract.checkout_url}>
+              Continuar pagamento
+            </a>
           )}
           {role === 'admin' ? (
             <>
