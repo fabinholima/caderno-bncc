@@ -23,7 +23,7 @@ A validação não consulta a Receita Federal nem comprova titularidade. CPF de 
 
 O fluxo usa authorization code com PKCE e estado aleatório de uso único no PostgreSQL, com validade de 10 minutos. O retorno web depende do `state` de uso único, não de cookie cross-site; isso permite funcionar quando frontend e API usam domínios diferentes e o navegador bloqueia cookies de terceiros. O fluxo nativo ainda vincula a tentativa ao dispositivo com cookie HttpOnly. O backend troca o código e consulta o endpoint UserInfo do Google usando o token obtido diretamente. Não decodifica JWT sem validação nem aceita perfil enviado pelo navegador; não armazena tokens Google. Escopos: openid, email e profile (não Gmail/Drive).
 
-Primeiro cadastro com Google: escolher Criar conta e informar CPF, depois Continuar com Google. O espaço pessoal e período de sete dias são criados uma única vez. Login seguinte identifica pelo subject imutável do Google. Para contas antigas de senha com o mesmo e-mail, a associação é recusada; não há vinculação de contas neste primeiro módulo.
+Primeiro cadastro com Google: escolher Criar conta e informar CPF, depois Continuar com Google. O espaço pessoal e período de sete dias são criados uma única vez. Login seguinte identifica pelo subject imutável do Google. Para uma conta existente, entre primeiro com a senha e use Configurações → Conta Google → Vincular Google. A conta Google precisa ter o mesmo e-mail verificado; cada identidade Google só pode pertencer a um usuário. A vinculação é auditada e não cria uma conta duplicada.
 
 ## Limites antes de produção
 

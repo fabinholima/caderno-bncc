@@ -20,7 +20,7 @@ import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashbo
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
 import { schoolCatalogReady, searchSchools } from './inep-schools.mjs';
-import { googleConfigured, startGoogle, finishGoogle } from './google-auth.mjs';
+import { googleConfigured, startGoogle, startGoogleLink, finishGoogle } from './google-auth.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
 import { billingStatus, createCheckout, cancelBilling, billingWebhook, previewBillingCoupon } from './billing.mjs';
 import { publicBillingPlans, listBillingSettings, updateBillingPlan, saveBillingCoupon } from './billing-admin.mjs';
@@ -271,7 +271,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
       if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/google/start', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
+      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/google/start', '/api/auth/google/link/start', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
         if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
           return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
       }
@@ -296,6 +296,15 @@ const server = createServer(async (request, response) => {
       response.setHeader('set-cookie', oauthCookie(result.browser, 600));
       return json(response, 200, { data: { url: result.url } });
     }
+    if (request.method === 'POST' && url.pathname === '/api/auth/google/link/start') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      const identity = await authenticate(request);
+      if (!identity) return json(response, 401, { error: 'Entre na conta que deseja vincular antes de continuar.' });
+      if (identity.role === 'student') return json(response, 403, { error: 'A vinculação do Google está disponível para contas de professores e gestores.' });
+      const result = await startGoogleLink(identity.userId);
+      response.setHeader('set-cookie', oauthCookie(result.browser, 600));
+      return json(response, 200, { data: { url: result.url } });
+    }
     if (request.method === 'GET' && url.pathname === '/api/auth/google/callback') {
       if (!googleConfigured()) return json(response, 503, { error: 'Login Google não configurado.' });
       const mobile = await mobileGoogleAuth.callback(url, request.headers.cookie);
@@ -309,15 +318,17 @@ const server = createServer(async (request, response) => {
       const destination = new URL('/portal', process.env.AUTH_FRONTEND_URL);
       try {
         const result = await finishGoogle(url, request.headers.cookie);
-        setSessionCookie(response, result.token);
-        response.setHeader('set-cookie', [response.getHeader('set-cookie'), oauthCookie('', 0)]);
+        if (result.linked) destination.searchParams.set('google_link', 'success');
+        else setSessionCookie(response, result.token);
+        const sessionCookie = response.getHeader('set-cookie');
+        response.setHeader('set-cookie', [...(Array.isArray(sessionCookie) ? sessionCookie : sessionCookie ? [sessionCookie] : []), oauthCookie('', 0)]);
       } catch (error) {
         console.error('Google OAuth callback failed', {
           message: error instanceof Error ? error.message : String(error),
           code: error?.code || null,
           statusCode: error?.statusCode || null,
         });
-        destination.searchParams.set('auth_error', error.statusCode === 428 ? 'registration_required' : error.statusCode === 409 || error.code === '23505' ? 'existing_account' : 'google_failed');
+        destination.searchParams.set(error.googleLink ? 'google_link_error' : 'auth_error', error.statusCode === 428 ? 'registration_required' : error.statusCode === 409 || error.code === '23505' ? 'existing_account' : 'google_failed');
         response.setHeader('set-cookie', oauthCookie('', 0));
       }
       response.writeHead(303, { location: destination.href, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });

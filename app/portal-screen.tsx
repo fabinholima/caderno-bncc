@@ -508,6 +508,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('google_link');
+    const error = params.get('google_link_error');
+    if (!result && !error) return;
+    const notice = result === 'success'
+      ? 'Conta Google vinculada. Você já pode usar esse Google para entrar no portal.'
+      : error === 'existing_account'
+      ? 'Este Google já está vinculado a outra conta do portal.'
+      : error === 'google_failed'
+        ? 'Não foi possível validar a conta Google. Tente novamente.'
+        : 'Não foi possível vincular. Confirme que entrou na conta do portal correta e use o Google com o mesmo e-mail.';
+    queueMicrotask(() => setNotice(notice));
+    params.delete('google_link');
+    params.delete('google_link_error');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, []);
+
+  useEffect(() => {
     if (!apiUrl) return;
     const authParams = new URLSearchParams(window.location.hash.slice(1));
     if (authParams.has('reset_token') || authParams.has('verify_token')) {
@@ -1292,7 +1311,7 @@ export default function Home() {
             }}
           />
         ) : active === 'Configurações' ? (
-          <SettingsManager apiUrl={apiUrl} role={identity.role as 'admin' | 'coordinator' | 'teacher'} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
+          <SettingsManager apiUrl={apiUrl} email={identity.user.email} role={identity.role as 'admin' | 'coordinator' | 'teacher'} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
         ) : active === 'Planejamento' ? (
           <CurriculumManager
             items={curriculum}
