@@ -161,6 +161,10 @@ export function EducatorProfile({ apiUrl, onboarding = false, onContinueToClasse
       try {
         const params = new URLSearchParams({ q: schoolQuery.trim(), uf: searchUf });
         const response = await apiFetch(`${apiUrl}/api/escolas?${params}`);
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.toLowerCase().includes('application/json')) {
+          throw new Error(`O servidor da API respondeu com uma página HTML (HTTP ${response.status}). Confira se o endereço da API está correto e atualizado.`);
+        }
         const body = (await response.json()) as ApiReply<SchoolSuggestion[]>;
         if (!response.ok) throw new Error(body.error || 'Não foi possível consultar o catálogo.');
         if (active) { setSuggestions(body.data || []); setCatalogAvailable(body.catalogAvailable ?? true); setSearchError(''); }
