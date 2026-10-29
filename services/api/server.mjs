@@ -21,6 +21,7 @@ import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-acc
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
 import { schoolCatalogReady, searchSchools } from './inep-schools.mjs';
 import { googleConfigured, startGoogle, startGoogleLink, finishGoogle } from './google-auth.mjs';
+import { createGoogleSessionExchange, claimGoogleSessionExchange } from './google-session-exchange.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
 import { billingStatus, createCheckout, cancelBilling, billingWebhook, previewBillingCoupon } from './billing.mjs';
 import { publicBillingPlans, listBillingSettings, updateBillingPlan, saveBillingCoupon } from './billing-admin.mjs';
@@ -271,7 +272,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
       if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/google/start', '/api/auth/google/link/start', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
+      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/google/start', '/api/auth/google/link/start', '/api/auth/google/claim', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
         if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
           return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
       }
@@ -293,8 +294,14 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/google/start') {
       const result = await startGoogle(await readJson(request, 4096));
-      response.setHeader('set-cookie', oauthCookie(result.browser, 600));
       return json(response, 200, { data: { url: result.url } });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/auth/google/claim') {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      const { code } = await readJson(request, 4096);
+      const token = await claimGoogleSessionExchange(code);
+      setSessionCookie(response, token);
+      return json(response, 200, { data: { authenticated: true } });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/google/link/start') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
@@ -319,7 +326,7 @@ const server = createServer(async (request, response) => {
       try {
         const result = await finishGoogle(url, request.headers.cookie);
         if (result.linked) destination.searchParams.set('google_link', 'success');
-        else setSessionCookie(response, result.token);
+        else destination.searchParams.set('google_session', await createGoogleSessionExchange(result.sessionId));
         const sessionCookie = response.getHeader('set-cookie');
         response.setHeader('set-cookie', [...(Array.isArray(sessionCookie) ? sessionCookie : sessionCookie ? [sessionCookie] : []), oauthCookie('', 0)]);
       } catch (error) {

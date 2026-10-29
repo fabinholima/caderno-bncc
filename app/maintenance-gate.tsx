@@ -9,7 +9,7 @@ type Status = {enabled:boolean;message:string};
 export function MaintenanceGate({children}:{children:ReactNode}) {
   const [status,setStatus]=useState<Status|null>(null);
   const [admin,setAdmin]=useState(false);
-  const apiUrl=process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8788` : '');
+  const apiUrl=process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? process.env.NODE_ENV === 'production' ? window.location.origin : `${window.location.protocol}//${window.location.hostname}:8788` : '');
   const [error,setError]=useState(false);
   const [adminLogin]=useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('maintenance_admin'));
   useEffect(()=>{

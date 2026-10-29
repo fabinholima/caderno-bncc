@@ -495,7 +495,9 @@ export default function Home() {
   );
 
   useEffect(() => {
-    const fallback = `${window.location.protocol}//${window.location.hostname}:8788`;
+    const fallback = process.env.NODE_ENV === 'production'
+      ? window.location.origin
+      : `${window.location.protocol}//${window.location.hostname}:8788`;
     try {
       const target = new URL(configuredApiUrl || fallback);
       // Usa o mesmo host aberto pelo usuário. Assim o cookie funciona tanto em
@@ -533,14 +535,31 @@ export default function Home() {
       queueMicrotask(() => { setIdentity(null); setAuthReady(true); });
       return;
     }
-    apiFetch(`${apiUrl}/api/auth/me`)
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return ((await response.json()) as { data: AuthIdentity }).data;
-      })
-      .then(setIdentity)
-      .catch(() => setIdentity(null))
-      .finally(() => setAuthReady(true));
+    async function loadIdentity() {
+      const params = new URLSearchParams(window.location.search);
+      const sessionCode = params.get('google_session');
+      if (sessionCode) {
+        try {
+          const response = await apiFetch(`${apiUrl}/api/auth/google/claim`, {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: sessionCode }),
+          });
+          if (!response.ok) throw new Error('A sessão Google não pôde ser confirmada.');
+          params.delete('google_session');
+          const query = params.toString();
+          window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+        } catch {
+          params.delete('google_session');
+          params.set('auth_error', 'google_failed');
+          window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+          setIdentity(null);
+          return;
+        }
+      }
+      const response = await apiFetch(`${apiUrl}/api/auth/me`);
+      if (!response.ok) { setIdentity(null); return; }
+      setIdentity(((await response.json()) as { data: AuthIdentity }).data);
+    }
+    loadIdentity().catch(() => setIdentity(null)).finally(() => setAuthReady(true));
   }, [apiUrl]);
 
   useEffect(() => {
