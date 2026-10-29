@@ -1,6 +1,7 @@
 'use client';
 
 import { SubmitEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import Link from 'next/link';
 import { restoreQuestionClassification } from '@/lib/question-editor-classification.mjs';
 import { QuestionBankDrawer } from './question-bank-drawer';
 import { questionBankSummary } from '@/lib/question-bank-summary.mjs';
@@ -44,7 +45,6 @@ import { AuthScreen, type AuthIdentity } from './auth-screen';
 import { StudentPortal } from './student-portal';
 import { CompleteCpf } from './complete-cpf';
 import { EducatorProfile } from './educator-profile';
-import { SettingsManager } from './settings-manager';
 import { AdminDashboard } from './admin-dashboard';
 import { ExamImportManager } from './exam-import-manager';
 import {
@@ -1134,15 +1134,10 @@ export default function Home() {
           <WorkspaceNavigation active={active} canEditCatalog={canEditCatalog} portalAdmin={Boolean(identity.portalAdmin)} questionCount={questions.length} onNavigate={view=>{setInitialApplicationId('');setActive(view);window.scrollTo({top:0});}} />
         </nav>
         <div className="border-t border-white/10 p-3">
-          {<button
-            type="button"
-            aria-current={active==='Configurações'?'page':undefined}
-            onClick={() => {setInitialApplicationId('');setActive('Configurações');window.scrollTo({top:0});}}
-            className={`flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm ${active==='Configurações'?'bg-white/12 text-white':'text-slate-300 hover:bg-white/7'}`}
-          >
+          <Link href="/configuracoes/perfil" className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7 hover:text-white">
             <Settings className="size-[18px]" />
             Configurações
-          </button>}
+          </Link>
           <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/6 p-3">
             <span className="grid size-9 place-items-center rounded-full bg-cyan-200 text-xs font-bold text-cyan-950">
               {identity.user.displayName
@@ -1329,8 +1324,6 @@ export default function Home() {
               void editQuestion(questionId);
             }}
           />
-        ) : active === 'Configurações' ? (
-          <SettingsManager apiUrl={apiUrl} email={identity.user.email} googleLinked={Boolean(identity.user.googleLinked)} role={identity.role as 'admin' | 'coordinator' | 'teacher'} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
         ) : active === 'Planejamento' ? (
           <CurriculumManager
             items={curriculum}

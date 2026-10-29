@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { canManageInstitutionTeam } from './institution-permissions.mjs';
 import { educatorSchema, saveEducatorProfileWithClient } from './educator-profile.mjs';
 import { cpfFingerprint, normalizeCpf } from './cpf.mjs';
 import { resolveUnifiedContext } from './portal-access.mjs';
@@ -349,7 +350,7 @@ export async function resetPassword(input) {
 }
 
 export async function createInvitation(identity, input) {
-  if (!['admin', 'coordinator'].includes(identity.role))
+  if (!canManageInstitutionTeam(identity))
     throw Object.assign(new Error('Permissão insuficiente.'), {
       statusCode: 403,
     });

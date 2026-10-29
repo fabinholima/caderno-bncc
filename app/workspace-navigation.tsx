@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   BarChart3,
   BookOpenCheck,
@@ -165,7 +166,10 @@ export function WorkspaceNavigation({
       {mobile && (
         <div className="mt-4 border-t border-slate-200 pt-4">
           {heading('Conta')}
-          {item('Configurações', Settings)}
+          <Link href="/configuracoes/perfil" className={`mb-1 flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium ${muted} ${hover}`}>
+            <Settings className="size-[18px] shrink-0" aria-hidden="true" />
+            <span>Configurações</span>
+          </Link>
         </div>
       )}
     </div>
