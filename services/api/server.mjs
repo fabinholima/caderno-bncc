@@ -1559,6 +1559,8 @@ const server = createServer(async (request, response) => {
           institutionId,
           userId,
           assessmentId: assessmentMatch[1],
+          unlinkUnsentApplications:
+            url.searchParams.get('unlinkUnsentApplications') === 'true',
         }),
       });
     if (assessmentMatch && request.method === 'GET') {

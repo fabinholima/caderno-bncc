@@ -32,6 +32,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { AssessmentApplicationStep } from './assessment-application-step';
 import { AssessmentPdfPreview } from './assessment-pdf-preview';
 import { apiFetch } from '@/lib/api-client';
@@ -256,6 +264,11 @@ export function AssessmentBuilder({
   >([]);
   const [offset, setOffset] = useState(0);
   const [deletingWorkspaceId, setDeletingWorkspaceId] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<
+    (typeof recent)[number] | null
+  >(null);
+  const [unlinkUnsentApplications, setUnlinkUnsentApplications] =
+    useState(false);
   const [selectedRecentIds, setSelectedRecentIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -341,10 +354,13 @@ export function AssessmentBuilder({
     [apiUrl],
   );
   const deleteRecentItem = useCallback(
-    async (item: (typeof recent)[number]) => {
+    async (
+      item: (typeof recent)[number],
+      unlinkApplications = false,
+    ) => {
       if (item.assessmentId) {
         const response = await apiFetch(
-          `${apiUrl}/api/assessments/${item.assessmentId}`,
+          `${apiUrl}/api/assessments/${item.assessmentId}${unlinkApplications ? '?unlinkUnsentApplications=true' : ''}`,
           { method: 'DELETE' },
         );
         const body = (await response.json()) as { error?: string };
@@ -355,6 +371,37 @@ export function AssessmentBuilder({
       }
     },
     [apiUrl, workspaceRequest],
+  );
+  const confirmRecentDelete = useCallback(
+    async (
+      item: (typeof recent)[number],
+      unlinkApplications = false,
+    ) => {
+      setDeletingWorkspaceId(item.id);
+      try {
+        await deleteRecentItem(item, unlinkApplications);
+        setRecent(await workspaceRequest<typeof recent>(`?offset=${offset}`));
+        setMessage(
+          item.assessmentId
+            ? unlinkApplications
+              ? 'Aplicações ainda não aplicadas desvinculadas e prova excluída.'
+              : 'Prova gerada excluída.'
+            : 'Rascunho excluído.',
+        );
+        setSelectedRecentIds((current) => {
+          const next = new Set(current);
+          next.delete(item.id);
+          return next;
+        });
+        setPendingDelete(null);
+        setUnlinkUnsentApplications(false);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : String(error));
+      } finally {
+        setDeletingWorkspaceId('');
+      }
+    },
+    [deleteRecentItem, offset, workspaceRequest],
   );
   useEffect(() => {
     if (step !== 0) return;
@@ -1287,6 +1334,74 @@ export function AssessmentBuilder({
         </div>
       )}
       {message && <output className="my-3 block text-sm">{message}</output>}
+      <Dialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deletingWorkspaceId) {
+            setPendingDelete(null);
+            setUnlinkUnsentApplications(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir prova gerada?</DialogTitle>
+            <DialogDescription>
+              “{pendingDelete?.title || 'Prova sem título'}” e seus arquivos
+              serão removidos. Aplicações com cartões gerados, enviados ou
+              respondidos sempre serão preservadas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+            <input
+              id="unlink-unsent-applications"
+              type="checkbox"
+              checked={unlinkUnsentApplications}
+              onChange={(event) =>
+                setUnlinkUnsentApplications(event.target.checked)
+              }
+              className="mt-0.5 size-4 shrink-0 accent-amber-700"
+            />
+            <label
+              htmlFor="unlink-unsent-applications"
+              className="cursor-pointer"
+            >
+              <span className="block font-semibold">
+                Desvincular aplicações sem cartões
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-amber-900">
+                Remove somente aplicações agendadas ou canceladas que ainda
+                não tiveram cartões gerados nem enviados. A turma e os alunos
+                não serão excluídos.
+              </span>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(deletingWorkspaceId)}
+              onClick={() => setPendingDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="bg-rose-700 text-white hover:bg-rose-800"
+              disabled={!pendingDelete || Boolean(deletingWorkspaceId)}
+              onClick={() =>
+                pendingDelete &&
+                void confirmRecentDelete(
+                  pendingDelete,
+                  unlinkUnsentApplications,
+                )
+              }
+            >
+              {deletingWorkspaceId ? 'Excluindo…' : 'Excluir prova'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {step === 0 && (
         <section className="space-y-4 rounded-xl border bg-white p-5">
           <div className="flex gap-3">
@@ -1514,38 +1629,17 @@ export function AssessmentBuilder({
                     }
                     className="w-full border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800 sm:w-auto"
                     onClick={async () => {
-                      const detail = r.assessmentId
-                        ? 'A prova gerada e os arquivos serão removidos. Provas com aplicações ou respostas vinculadas não podem ser excluídas.'
-                        : 'Esta ação remove o rascunho salvo.';
+                      if (r.assessmentId) {
+                        setUnlinkUnsentApplications(false);
+                        setPendingDelete(r);
+                        return;
+                      }
                       if (
-                        !window.confirm(
-                          `Excluir “${r.title || 'Prova sem título'}” da lista? ${detail}`,
+                        window.confirm(
+                          `Excluir “${r.title || 'Prova sem título'}” da lista? Esta ação remove o rascunho salvo.`,
                         )
                       )
-                        return;
-                      setDeletingWorkspaceId(r.id);
-                      try {
-                        await deleteRecentItem(r);
-                        setRecent(
-                          await workspaceRequest<typeof recent>(
-                            `?offset=${offset}`,
-                          ),
-                        );
-                        setMessage(
-                          r.assessmentId
-                            ? 'Prova gerada excluída.'
-                            : 'Rascunho excluído.',
-                        );
-                        setSelectedRecentIds((current) => {
-                          const next = new Set(current);
-                          next.delete(r.id);
-                          return next;
-                        });
-                      } catch (e) {
-                        setMessage(e instanceof Error ? e.message : String(e));
-                      } finally {
-                        setDeletingWorkspaceId('');
-                      }
+                        await confirmRecentDelete(r);
                     }}
                   >
                     {deletingWorkspaceId === r.id ? (
