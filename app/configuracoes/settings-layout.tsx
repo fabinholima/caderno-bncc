@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Building2, ChevronLeft, UserRound } from 'lucide-react';
@@ -8,6 +8,11 @@ import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from '../auth-screen';
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+const SettingsApiUrlContext = createContext('');
+
+export function useSettingsApiUrl() {
+  return useContext(SettingsApiUrlContext);
+}
 const sections = [
   { href: '/configuracoes/perfil', label: 'Perfil profissional', description: 'Seus dados e atuação', Icon: UserRound },
   { href: '/configuracoes/escolas', label: 'Escolas', description: 'Cabeçalho e dados escolares', Icon: Building2 },
@@ -59,6 +64,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
           <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 sm:inline">{identity.user.displayName}</span>
         </div>
       </header>
+      <SettingsApiUrlContext.Provider value={apiUrl}>
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:px-6 sm:py-7 lg:grid-cols-[260px_minmax(0,1fr)] lg:px-8">
         <nav aria-label="Seções de configurações" className="h-fit rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
           <p className="hidden px-3 pb-2 pt-2 text-xs font-bold uppercase tracking-wider text-slate-500 lg:block">Conta e escola</p>
@@ -71,6 +77,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
         </nav>
         <section aria-label="Conteúdo das configurações" className="min-w-0">{children}</section>
       </div>
+      </SettingsApiUrlContext.Provider>
     </main>
   );
 }
