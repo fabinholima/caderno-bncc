@@ -102,9 +102,11 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
       }
       return {ok:true,json:async()=>({sub:'google-test',email:'google@example.com',name:'Google Test',email_verified:true})};
     };
-    await assert.rejects(finishGoogle(callback,'caderno_oauth=wrong',fetcher),/expirada/);
+    await assert.rejects(finishGoogle(new URL(process.env.GOOGLE_REDIRECT_URI),'',fetcher),/expirada/);
     assert.equal(calls,0);
-    const google = await finishGoogle(callback,`caderno_oauth=${started.browser}`,fetcher);
+    // The browser cookie can be unavailable when the portal and API are
+    // cross-site; the one-use OAuth state and PKCE still bind the callback.
+    const google = await finishGoogle(callback,'',fetcher);
     assert.ok(google.token);
     await assert.rejects(finishGoogle(callback,`caderno_oauth=${started.browser}`,fetcher),/expirada/);
     await loginWithGoogle({sub:'google-test',email:'google@example.com',name:'Google Test'});
