@@ -62,12 +62,12 @@ function slugify(value) {
 
 async function createSession(client, userId) {
   const token = randomToken();
-  await client.query(
+  const session = await client.query(
     `INSERT INTO user_sessions(user_id,token_hash,expires_at,global_bank)
-     SELECT id,$2,now()+interval '30 days',portal_admin FROM users WHERE id=$1`,
+     SELECT id,$2,now()+interval '30 days',portal_admin FROM users WHERE id=$1 RETURNING id`,
     [userId, tokenHash(token)],
   );
-  return token;
+  return { token, sessionId: session.rows[0].id };
 }
 
 export async function register(input) {
@@ -144,9 +144,9 @@ export async function loginWithGoogle(profile, cpfHash, accountType = 'educator'
     }
     const membership = await client.query('SELECT institution_id FROM memberships WHERE user_id=$1 LIMIT 1', [user.id]);
     if (!membership.rowCount && (await client.query('SELECT account_type FROM users WHERE id=$1',[user.id])).rows[0]?.account_type !== 'student') throw Object.assign(new Error('Conta sem instituição vinculada.'), {statusCode:403});
-    const token = await createSession(client,user.id);
+    const session = await createSession(client,user.id);
     await client.query("INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.google.login')", [membership.rows[0]?.institution_id || null,user.id]);
-    return { token };
+    return { ...session, userId: user.id };
   });
 }
 
@@ -167,7 +167,7 @@ export async function login(input) {
     });
   if (row.email_verification_required && !row.email_verified_at)
     throw Object.assign(new Error('Confirme seu e-mail antes de entrar. Você pode reenviar o link de confirmação.'), { statusCode: 403 });
-  const token = await transaction((client) => createSession(client, row.id));
+  const { token } = await transaction((client) => createSession(client, row.id));
   await pool.query(
     `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id)
      VALUES($1::uuid,$2::uuid,'auth.login','user',($2::uuid)::text)`,

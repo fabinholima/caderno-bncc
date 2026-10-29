@@ -23,6 +23,7 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
   const { register,login,authenticate,logout,loginWithGoogle,completeCpf,requestPasswordReset,resetPassword,verifyEmail,requestEmailVerification } = await import('./auth.mjs');
   const { cpfFingerprint } = await import('./cpf.mjs');
   const { startGoogle,startGoogleLink,finishGoogle } = await import('./google-auth.mjs');
+  const { createGoogleSessionExchange,claimGoogleSessionExchange } = await import('./google-session-exchange.mjs');
   try {
     await pool.query(`CREATE TABLE institutions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),name text,slug text UNIQUE);
       CREATE TABLE users(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),email text UNIQUE,display_name text,password_hash text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false,account_type text DEFAULT 'educator');
@@ -32,7 +33,7 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
       CREATE TABLE password_reset_tokens(user_id uuid,token_hash text,expires_at timestamptz,used_at timestamptz);
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text DEFAULT 'trialing',period_started_at timestamptz,period_ends_at timestamptz);
       CREATE TABLE audit_log(institution_id uuid,user_id uuid,action text,entity_type text,entity_id text);`);
-    for (const path of ['../../database/042_google_auth.sql','../../database/043_unique_cpf.sql','../../database/044_educator_schools.sql','../../database/067_auth_email_verification.sql','../../database/100_google_account_linking.sql']) await pool.query(await readFile(new URL(path,import.meta.url),'utf8'));
+    for (const path of ['../../database/042_google_auth.sql','../../database/043_unique_cpf.sql','../../database/044_educator_schools.sql','../../database/067_auth_email_verification.sql','../../database/100_google_account_linking.sql','../../database/101_google_session_exchange.sql']) await pool.query(await readFile(new URL(path,import.meta.url),'utf8'));
     await pool.query("ALTER TABLE oauth_login_attempts ADD COLUMN account_type text DEFAULT 'educator'");
     await pool.query('ALTER TABLE educator_profiles ADD COLUMN selfie_data_url text');
     const account = { institutionName:'Test Space',displayName:'Test Teacher',email:'teacher@example.com',password:'TestPassword123!',cpf:'12345678909' };
@@ -108,6 +109,10 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
     // cross-site; the one-use OAuth state and PKCE still bind the callback.
     const google = await finishGoogle(callback,'',fetcher);
     assert.ok(google.token);
+    const exchangeCode = await createGoogleSessionExchange(google.sessionId);
+    const firstPartySession = await claimGoogleSessionExchange(exchangeCode);
+    assert.equal((await authenticate({headers:{cookie:`caderno_session=${firstPartySession}`}})).email,'google@example.com');
+    await assert.rejects(claimGoogleSessionExchange(exchangeCode),/inválido ou expirado/);
     await assert.rejects(finishGoogle(callback,`caderno_oauth=${started.browser}`,fetcher),/expirada/);
     await loginWithGoogle({sub:'google-test',email:'google@example.com',name:'Google Test'});
     assert.equal((await pool.query('SELECT count(*)::int n FROM institutions')).rows[0].n,2);
