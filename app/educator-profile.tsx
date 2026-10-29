@@ -31,7 +31,7 @@ export type EducatorData = {
   schools: School[];
 };
 type SchoolSuggestion = Omit<School, 'id' | 'logoDataUrl' | 'isHeaderDefault'> & { addressNumber?: string };
-type ApiReply<T> = { data?: T; error?: string };
+type ApiReply<T> = { data?: T; error?: string; catalogAvailable?: boolean };
 type View = 'profile' | 'schools';
 type SchoolEditorMode = 'search' | 'source' | 'edit' | 'manual';
 
@@ -106,6 +106,8 @@ export function EducatorProfile({ apiUrl, onboarding = false, onContinueToClasse
   const [searchUf, setSearchUf] = useState('MS');
   const [suggestions, setSuggestions] = useState<SchoolSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [catalogAvailable, setCatalogAvailable] = useState<boolean | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -145,14 +147,20 @@ export function EducatorProfile({ apiUrl, onboarding = false, onContinueToClasse
     let active = true;
     const timer = window.setTimeout(async () => {
       setSearching(true);
+      setSearchError('');
       try {
         const params = new URLSearchParams({ q: schoolQuery.trim(), uf: searchUf });
         const response = await apiFetch(`${apiUrl}/api/escolas?${params}`);
         const body = (await response.json()) as ApiReply<SchoolSuggestion[]>;
         if (!response.ok) throw new Error(body.error || 'Não foi possível consultar o catálogo.');
-        if (active) setSuggestions(body.data || []);
-      } catch (reason) { if (active) setError(reason instanceof Error ? reason.message : 'Falha na busca.'); }
-      finally { if (active) setSearching(false); }
+        if (active) { setSuggestions(body.data || []); setCatalogAvailable(body.catalogAvailable ?? true); setSearchError(''); }
+      } catch (reason) {
+        if (active) {
+          setSuggestions([]);
+          setCatalogAvailable(null);
+          setSearchError(reason instanceof Error ? reason.message : 'Não foi possível consultar o catálogo de escolas.');
+        }
+      } finally { if (active) setSearching(false); }
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
   }, [apiUrl, editorOpen, editorMode, schoolQuery, searchUf]);
@@ -164,16 +172,16 @@ export function EducatorProfile({ apiUrl, onboarding = false, onContinueToClasse
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [editorOpen]);
-  function startNewSchool() { setSchool({ ...blank }); setSchoolQuery(''); setSearchUf('MS'); setSuggestions([]); setSearching(false); setEditorMode('search'); setEditorOpen(true); setError(''); }
-  function startEditSchool(item: School) { setSchool({ ...item }); setSchoolQuery(item.name); setSearchUf(item.state || 'MS'); setSuggestions([]); setEditorMode('edit'); setEditorOpen(true); setError(''); }
+  function startNewSchool() { setSchool({ ...blank }); setSchoolQuery(''); setSearchUf('MS'); setSuggestions([]); setSearching(false); setSearchError(''); setCatalogAvailable(null); setEditorMode('search'); setEditorOpen(true); setError(''); }
+  function startEditSchool(item: School) { setSchool({ ...item }); setSchoolQuery(item.name); setSearchUf(item.state || 'MS'); setSuggestions([]); setSearchError(''); setEditorMode('edit'); setEditorOpen(true); setError(''); }
   function chooseSuggestion(item: SchoolSuggestion) {
     setSchool({ ...blank, name: item.name, schoolType: item.schoolType || 'estadual', cnpj: item.cnpj || '', inep: item.inep || '', address: [item.address, item.addressNumber].filter(Boolean).join(', '), city: item.city || '', state: item.state || searchUf, postalCode: item.postalCode || '', phone: item.phone || '', email: item.email || '' });
-    setSchoolQuery(item.name); setSuggestions([]); setEditorMode('source'); setError('');
+    setSchoolQuery(item.name); setSuggestions([]); setSearchError(''); setCatalogAvailable(null); setEditorMode('source'); setError('');
   }
   function chooseManual() {
     const codeSearch = /^\d{8}$/.test(schoolQuery.trim());
     setSchool({ ...blank, name: codeSearch ? '' : schoolQuery.trim(), inep: codeSearch ? schoolQuery.trim() : '', state: searchUf });
-    setEditorMode('manual'); setSuggestions([]); setError('');
+    setEditorMode('manual'); setSuggestions([]); setSearchError(''); setCatalogAvailable(null); setError('');
   }
 
   async function saveProfile(event: SubmitEvent<HTMLFormElement>) {
@@ -278,7 +286,7 @@ export function EducatorProfile({ apiUrl, onboarding = false, onContinueToClasse
     </>}
 
     {editorOpen && <dialog open aria-modal="true" aria-labelledby="school-editor-title" className="fixed inset-0 z-50 m-0 flex h-full w-full max-w-none justify-end overflow-hidden border-0 bg-slate-950/50 p-0"><section className="h-full w-full max-w-2xl overflow-y-auto bg-white p-4 shadow-2xl sm:p-7"><div className="mb-6 flex items-start justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-800">Cadastro de escola</p><h2 id="school-editor-title" className="mt-1 text-xl font-bold text-slate-950">{school.id ? 'Editar escola' : 'Adicionar escola'}</h2><p className="mt-1 text-sm text-slate-600">Dados da escola para identificação nas provas.</p></div><button type="button" className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" aria-label="Fechar painel" onClick={closeEditor}><X className="size-5"/></button></div>
-      {editorMode === 'search' ? <div className="space-y-4"><label className={label} htmlFor="school-search">Buscar pelo nome ou código INEP<input id="school-search" autoFocus className={input} autoComplete="off" value={schoolQuery} onChange={(event) => { setSchoolQuery(event.target.value); if (event.target.value.trim().length < 3) setSuggestions([]); }} placeholder="Digite 3 caracteres ou 8 dígitos"/><span className="mt-1 block text-sm font-normal text-slate-600">A busca consulta o catálogo local do Censo Escolar.</span></label><label className={label} htmlFor="school-search-uf">Filtrar por UF<select id="school-search-uf" className={input} value={searchUf} onChange={(event) => setSearchUf(event.target.value)}>{STATES.map((state) => <option key={state}>{state}</option>)}</select></label>{searching && <p className="text-sm text-slate-600">Buscando…</p>}{suggestions.length > 0 && <div className="overflow-hidden rounded-xl border border-slate-200" aria-label="Sugestões de escolas">{suggestions.map((item) => <button type="button" key={item.inep} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-slate-100 p-3 text-left text-sm last:border-0 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700" onClick={() => chooseSuggestion(item)}><span><strong className="block text-slate-950">{item.name}</strong><span className="text-slate-600">{item.city}/{item.state} · INEP {item.inep}</span></span><ChevronRight className="size-4 shrink-0 text-slate-500"/></button>)}</div>}{schoolQuery.trim().length >= 3 && !searching && !suggestions.length && <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">Escola não encontrada. Você pode preencher os dados manualmente.</p>}<button type="button" className="text-left text-sm font-semibold text-blue-800 underline decoration-blue-300 underline-offset-4 hover:text-blue-950" onClick={chooseManual}>Não encontrei minha escola: cadastrar manualmente</button></div> : <form onSubmit={saveSchool} className="space-y-6">
+      {editorMode === 'search' ? <div className="space-y-4"><label className={label} htmlFor="school-search">Buscar pelo nome ou código INEP<input id="school-search" autoFocus className={input} autoComplete="off" value={schoolQuery} onChange={(event) => { setSchoolQuery(event.target.value); setSuggestions([]); setSearchError(''); setCatalogAvailable(null); }} placeholder="Digite 3 caracteres ou 8 dígitos"/><span className="mt-1 block text-sm font-normal text-slate-600">A busca consulta o catálogo local do Censo Escolar.</span></label><label className={label} htmlFor="school-search-uf">Filtrar por UF<select id="school-search-uf" className={input} value={searchUf} onChange={(event) => { setSearchUf(event.target.value); setSuggestions([]); setSearchError(''); setCatalogAvailable(null); }}>{STATES.map((state) => <option key={state}>{state}</option>)}</select></label>{searching && <output className="block text-sm text-slate-600">Buscando no catálogo…</output>}{searchError && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900" role="alert"><strong>Não foi possível fazer a busca.</strong><span className="mt-1 block">{searchError} Você ainda pode cadastrar a escola manualmente.</span></div>}{suggestions.length > 0 && <div className="overflow-hidden rounded-xl border border-slate-200" aria-label="Sugestões de escolas">{suggestions.map((item) => <button type="button" key={item.inep} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-slate-100 p-3 text-left text-sm last:border-0 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700" onClick={() => chooseSuggestion(item)}><span><strong className="block text-slate-950">{item.name}</strong><span className="text-slate-600">{item.city}/{item.state} · INEP {item.inep}</span></span><ChevronRight className="size-4 shrink-0 text-slate-500"/></button>)}</div>}{schoolQuery.trim().length >= 3 && !searching && !searchError && !suggestions.length && <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{catalogAvailable === false ? 'O catálogo oficial do INEP ainda não foi carregado. Cadastre a escola manualmente por enquanto.' : 'Escola não encontrada no catálogo. Você pode preencher os dados manualmente.'}</p>}<button type="button" className="text-left text-sm font-semibold text-blue-800 underline decoration-blue-300 underline-offset-4 hover:text-blue-950" onClick={chooseManual}>Não encontrei minha escola: cadastrar manualmente</button></div> : <form onSubmit={saveSchool} className="space-y-6">
         {editorMode === 'source' && <div className="flex items-start justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950"><p>Dados disponíveis no catálogo do INEP. Os campos sem informação podem ser completados ao editar.</p><button type="button" className="shrink-0 font-semibold underline" onClick={() => setEditorMode('edit')}>Editar</button></div>}
         <fieldset disabled={busy || editorMode === 'source'} className="space-y-5 disabled:opacity-80"><legend className="text-lg font-semibold text-slate-950">Identificação</legend><div className="grid gap-4 sm:grid-cols-2">{formField('name','Nome da escola',true)}<label className={label}>Rede / tipo <span className="text-rose-700">*</span><select className={input} required value={school.schoolType} onChange={(event) => setSchool((current) => ({ ...current, schoolType: event.target.value }))}><option value="estadual">Estadual</option><option value="municipal">Municipal</option><option value="federal">Federal</option><option value="privada">Privada</option>{school.schoolType === 'outra' && <option value="outra">Outra (cadastro existente)</option>}</select></label>{formField('inep','Código INEP',false,'Opcional. O código INEP tem 8 dígitos.')}{formField('cnpj','CNPJ',false,'Opcional. Informe quando aplicável.')}</div></fieldset>
         <fieldset disabled={busy || editorMode === 'source'} className="space-y-4 disabled:opacity-80"><legend className="text-lg font-semibold text-slate-950">Localização</legend><div className="grid gap-4 sm:grid-cols-2">{formField('address','Endereço e número',true)}{formField('postalCode','CEP',false,'8 dígitos.')}{formField('city','Município',true)}<label className={label}>UF <span className="text-rose-700">*</span><select className={input} required value={school.state} onChange={(event) => setSchool((current) => ({ ...current, state: event.target.value }))}>{STATES.map((state) => <option key={state}>{state}</option>)}</select></label></div></fieldset>

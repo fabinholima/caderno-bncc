@@ -29,3 +29,8 @@ export async function searchSchools({ q = '', uf = '' } = {}) {
   );
   return result.rows;
 }
+
+export async function schoolCatalogReady() {
+  const result = await pool.query('SELECT EXISTS (SELECT 1 FROM escolas) AS available');
+  return result.rows[0]?.available === true;
+}

@@ -19,7 +19,7 @@ import { authOriginAllowed } from './auth-origin.mjs';
 import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
-import { searchSchools } from './inep-schools.mjs';
+import { schoolCatalogReady, searchSchools } from './inep-schools.mjs';
 import { googleConfigured, startGoogle, finishGoogle } from './google-auth.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
 import { billingStatus, createCheckout, cancelBilling, billingWebhook, previewBillingCoupon } from './billing.mjs';
@@ -451,8 +451,10 @@ const server = createServer(async (request, response) => {
       return json(response, 428, { error: 'Complete o cadastro com seu CPF para continuar.' });
     if (request.method === 'GET' && url.pathname === '/api/educator-profile')
       return json(response, 200, { data: await getEducatorProfile(userId) });
-    if (request.method === 'GET' && url.pathname === '/api/escolas')
-      return json(response, 200, { data: await searchSchools({ q: url.searchParams.get('q') || '', uf: url.searchParams.get('uf') || '' }) });
+    if (request.method === 'GET' && url.pathname === '/api/escolas') {
+      const data = await searchSchools({ q: url.searchParams.get('q') || '', uf: url.searchParams.get('uf') || '' });
+      return json(response, 200, { data, catalogAvailable: data.length > 0 || await schoolCatalogReady() });
+    }
     if (request.method === 'POST' && url.pathname === '/api/educator-profile') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
       return json(response, 200, { data: await saveEducatorProfile(userId, await readJson(request, 650000)) });

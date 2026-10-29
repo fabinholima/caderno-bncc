@@ -18,13 +18,13 @@ Passe o caminho do CSV e o ano censitário. Exemplo para 2025:
 pnpm --filter @caderno/api import:inep-schools -- "/caminho/para/Tabela_Escola_2025_V2.csv" 2025
 ```
 
-O importador lê o arquivo em fluxo, exige as colunas de nome, código INEP, dependência, situação, município e UF, conserva somente escolas com `TP_SITUACAO_FUNCIONAMENTO = 1` e atualiza registros pelo código INEP. O cabeçalho aceita também alguns nomes alternativos usados em edições anteriores. A codificação esperada é UTF-8 e o separador é ponto e vírgula, como no arquivo de escolas 2025.
+O importador lê o arquivo em fluxo, exige as colunas de nome, código INEP, dependência, situação, município e UF, conserva somente escolas com `TP_SITUACAO_FUNCIONAMENTO = 1` e atualiza registros pelo código INEP. O cabeçalho aceita também alguns nomes alternativos usados em edições anteriores. O importador decodifica o CSV oficial 2025 em Windows-1252 e usa ponto e vírgula como separador.
 
 ## Campos e limitações da fonte
 
 O programa mapeia nome, dependência, código INEP, endereço, número, CEP, município, UF, DDD/telefone, CNPJ da escola e e-mail quando as respectivas colunas estão presentes. Campo ausente fica vazio. Não usa CNPJ da mantenedora como CNPJ da escola.
 
-Na edição 2025 consultada, `Tabela_Escola_2025_V2.csv` contém nome, código, dependência, município e UF, além de `NU_CNPJ_ESCOLA`, mas não tem endereço, número, CEP, telefone ou e-mail. Assim, essas informações permanecem em branco para edição manual no formulário. O logotipo nunca vem do arquivo e continua sendo enviado pelo usuário (PNG/JPEG até 400 KB).
+Na edição 2025 consultada, `Tabela_Escola_2025_V2.csv` contém nome, código, dependência, município e UF, além de `NU_CNPJ_ESCOLA_PRIVADA`, mas não tem endereço, número, CEP, telefone ou e-mail. Assim, essas informações permanecem em branco para edição manual no formulário. O logotipo nunca vem do arquivo e continua sendo enviado pelo usuário (PNG/JPEG até 400 KB).
 
 ## Testar a busca
 

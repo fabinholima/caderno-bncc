@@ -20,6 +20,15 @@ test('mapeia campos presentes sem inventar campos ausentes', () => {
   assert.equal(school.email, '');
 });
 
+test('lê o nome real do CNPJ de escola publicado no Censo 2025', () => {
+  const school = mapInepSchoolRow({
+    NO_ENTIDADE: 'Escola Exemplo', CO_ENTIDADE: '12345678', TP_DEPENDENCIA: '4',
+    TP_SITUACAO_FUNCIONAMENTO: '1', NO_MUNICIPIO: 'Campo Grande', SG_UF: 'MS',
+    NU_CNPJ_ESCOLA_PRIVADA: '11222333000181',
+  }, 2025);
+  assert.equal(school.cnpj, '11222333000181');
+});
+
 test('converte dependência, CEP e telefone quando as colunas existem', () => {
   assert.equal(dependencyType('1'), 'federal');
   assert.equal(dependencyType('4'), 'privada');
