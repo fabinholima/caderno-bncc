@@ -438,7 +438,12 @@ export async function getAssessment({ institutionId, assessmentId }) {
   };
 }
 
-export async function deleteAssessment({ institutionId, userId, assessmentId }) {
+export async function deleteAssessment({
+  institutionId,
+  userId,
+  assessmentId,
+  unlinkUnsentApplications = false,
+}) {
   return transaction(async (client) => {
     const assessment = await client.query(
       `SELECT id FROM assessments
@@ -451,23 +456,80 @@ export async function deleteAssessment({ institutionId, userId, assessmentId }) 
         statusCode: 404,
       });
 
-    const linked = await client.query(
-      `SELECT EXISTS (
-         SELECT 1 FROM assessment_applications WHERE assessment_id = $1
-       ) OR EXISTS (
-         SELECT 1 FROM assessment_versions av
-         JOIN assessment_submissions s ON s.assessment_version_id = av.id
-         WHERE av.assessment_id = $1
-       ) AS has_history`,
+    const applications = await client.query(
+      `SELECT id, status FROM assessment_applications
+       WHERE assessment_id = $1 ORDER BY id FOR UPDATE`,
       [assessmentId],
     );
-    if (linked.rows[0].has_history)
+    const versions = await client.query(
+      `SELECT id FROM assessment_versions WHERE assessment_id = $1 FOR UPDATE`,
+      [assessmentId],
+    );
+    const versionIds = versions.rows.map((row) => row.id);
+    const submissions = versionIds.length
+      ? await client.query(
+          `SELECT id FROM assessment_submissions
+           WHERE assessment_version_id = ANY($1::uuid[]) LIMIT 1`,
+          [versionIds],
+        )
+      : { rowCount: 0 };
+    if (submissions.rowCount)
       throw Object.assign(
-        new Error(
-          'Esta prova já possui aplicações ou respostas vinculadas e não pode ser excluída para preservar o histórico dos alunos.',
-        ),
+        new Error('Esta prova já tem respostas registradas e não pode ser excluída para preservar o histórico dos alunos.'),
         { statusCode: 409 },
       );
+
+    if (applications.rowCount) {
+      if (!unlinkUnsentApplications)
+        throw Object.assign(
+          new Error('Esta prova está vinculada a uma ou mais aplicações. Marque “Desvincular aplicações sem cartões” para excluir, se nenhum cartão foi gerado ou respondido.'),
+          { statusCode: 409 },
+        );
+
+      if (applications.rows.some((application) => !['scheduled', 'cancelled'].includes(application.status)))
+        throw Object.assign(
+          new Error('Não é possível desvincular: existe uma aplicação aberta ou encerrada. O histórico dos alunos foi preservado.'),
+          { statusCode: 409 },
+        );
+
+      const applicationIds = applications.rows.map((application) => application.id);
+      const assignments = await client.query(
+        `SELECT id FROM application_students
+         WHERE application_id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+        [applicationIds],
+      );
+      const assignmentIds = assignments.rows.map((assignment) => assignment.id);
+      const jobs = assignmentIds.length
+        ? await client.query(
+            `SELECT id, status FROM render_jobs
+             WHERE application_student_id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+            [assignmentIds],
+          )
+        : { rows: [] };
+      const scans = await client.query(
+        `SELECT 1 FROM card_scans
+         WHERE expected_application_id = ANY($1::uuid[])
+            OR application_student_id = ANY($2::uuid[])
+         LIMIT 1`,
+        [applicationIds, assignmentIds],
+      );
+      if (scans.rowCount)
+        throw Object.assign(
+          new Error('Não é possível desvincular: já existe cartão enviado ou leitura vinculada a esta aplicação.'),
+          { statusCode: 409 },
+        );
+      if (jobs.rows.some((job) => ['running', 'completed'].includes(job.status)))
+        throw Object.assign(
+          new Error('Não é possível desvincular: há cartões em geração ou já gerados. Excluí-los poderia quebrar o histórico dos alunos.'),
+          { statusCode: 409 },
+        );
+
+      // Remove somente aplicações sem cartões; turma e alunos permanecem intactos.
+      await client.query(
+        'DELETE FROM assessment_applications WHERE id = ANY($1::uuid[])',
+        [applicationIds],
+      );
+    }
 
     await client.query('DELETE FROM assessment_workspaces WHERE assessment_id = $1', [assessmentId]);
     await client.query('DELETE FROM assessments WHERE id = $1', [assessmentId]);

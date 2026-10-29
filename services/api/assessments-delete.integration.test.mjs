@@ -35,7 +35,24 @@ test(
         );
         CREATE TABLE assessment_applications(
           id uuid PRIMARY KEY,
-          assessment_id uuid NOT NULL REFERENCES assessments(id) ON DELETE CASCADE
+          assessment_id uuid NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+          status text NOT NULL DEFAULT 'scheduled'
+        );
+        CREATE TABLE application_students(
+          id uuid PRIMARY KEY,
+          application_id uuid NOT NULL REFERENCES assessment_applications(id) ON DELETE CASCADE,
+          assessment_version_id uuid NOT NULL REFERENCES assessment_versions(id) ON DELETE RESTRICT
+        );
+        CREATE TABLE render_jobs(
+          id uuid PRIMARY KEY,
+          assessment_version_id uuid NOT NULL REFERENCES assessment_versions(id) ON DELETE CASCADE,
+          application_student_id uuid REFERENCES application_students(id) ON DELETE CASCADE,
+          status text NOT NULL DEFAULT 'queued'
+        );
+        CREATE TABLE card_scans(
+          id uuid PRIMARY KEY,
+          expected_application_id uuid REFERENCES assessment_applications(id) ON DELETE RESTRICT,
+          application_student_id uuid REFERENCES application_students(id) ON DELETE SET NULL
         );
       `);
       await admin.query(
@@ -104,13 +121,123 @@ test(
         institutionId,
         userId,
       ]);
-      await admin.query('INSERT INTO assessment_applications VALUES ($1, $2)', [
-        randomUUID(),
+      const applicationId = randomUUID();
+      const appliedVersionId = randomUUID();
+      const assignmentId = randomUUID();
+      await admin.query('INSERT INTO assessment_versions VALUES ($1, $2)', [
+        appliedVersionId,
         appliedId,
       ]);
+      await admin.query(
+        'INSERT INTO assessment_applications(id, assessment_id) VALUES ($1, $2)',
+        [applicationId, appliedId],
+      );
+      await admin.query(
+        'INSERT INTO application_students(id, application_id, assessment_version_id) VALUES ($1, $2, $3)',
+        [assignmentId, applicationId, appliedVersionId],
+      );
+      await admin.query(
+        'INSERT INTO render_jobs(id, assessment_version_id, application_student_id, status) VALUES ($1, $2, $3, $4)',
+        [randomUUID(), appliedVersionId, assignmentId, 'queued'],
+      );
       await assert.rejects(
         deleteAssessment({ institutionId, userId, assessmentId: appliedId }),
         { statusCode: 409 },
+      );
+      assert.deepEqual(
+        await deleteAssessment({
+          institutionId,
+          userId,
+          assessmentId: appliedId,
+          unlinkUnsentApplications: true,
+        }),
+        { id: appliedId, deleted: true },
+      );
+      assert.equal(
+        (await admin.query('SELECT 1 FROM assessment_applications WHERE id = $1', [applicationId])).rowCount,
+        0,
+      );
+      assert.equal(
+        (await admin.query('SELECT 1 FROM assessments WHERE id = $1', [appliedId])).rowCount,
+        0,
+      );
+
+      const printedId = randomUUID();
+      const printedVersionId = randomUUID();
+      const printedApplicationId = randomUUID();
+      const printedAssignmentId = randomUUID();
+      await admin.query('INSERT INTO assessments VALUES ($1, $2, $3)', [
+        printedId,
+        institutionId,
+        userId,
+      ]);
+      await admin.query('INSERT INTO assessment_versions VALUES ($1, $2)', [
+        printedVersionId,
+        printedId,
+      ]);
+      await admin.query(
+        'INSERT INTO assessment_applications(id, assessment_id) VALUES ($1, $2)',
+        [printedApplicationId, printedId],
+      );
+      await admin.query(
+        'INSERT INTO application_students(id, application_id, assessment_version_id) VALUES ($1, $2, $3)',
+        [printedAssignmentId, printedApplicationId, printedVersionId],
+      );
+      await admin.query(
+        'INSERT INTO render_jobs(id, assessment_version_id, application_student_id, status) VALUES ($1, $2, $3, $4)',
+        [randomUUID(), printedVersionId, printedAssignmentId, 'completed'],
+      );
+      await assert.rejects(
+        deleteAssessment({
+          institutionId,
+          userId,
+          assessmentId: printedId,
+          unlinkUnsentApplications: true,
+        }),
+        { statusCode: 409 },
+      );
+      assert.equal(
+        (await admin.query('SELECT 1 FROM assessments WHERE id = $1', [printedId])).rowCount,
+        1,
+      );
+
+      const scannedId = randomUUID();
+      const scannedVersionId = randomUUID();
+      const scannedApplicationId = randomUUID();
+      const scannedAssignmentId = randomUUID();
+      await admin.query('INSERT INTO assessments VALUES ($1, $2, $3)', [
+        scannedId,
+        institutionId,
+        userId,
+      ]);
+      await admin.query('INSERT INTO assessment_versions VALUES ($1, $2)', [
+        scannedVersionId,
+        scannedId,
+      ]);
+      await admin.query(
+        'INSERT INTO assessment_applications(id, assessment_id) VALUES ($1, $2)',
+        [scannedApplicationId, scannedId],
+      );
+      await admin.query(
+        'INSERT INTO application_students(id, application_id, assessment_version_id) VALUES ($1, $2, $3)',
+        [scannedAssignmentId, scannedApplicationId, scannedVersionId],
+      );
+      await admin.query(
+        'INSERT INTO card_scans(id, expected_application_id, application_student_id) VALUES ($1, $2, $3)',
+        [randomUUID(), scannedApplicationId, scannedAssignmentId],
+      );
+      await assert.rejects(
+        deleteAssessment({
+          institutionId,
+          userId,
+          assessmentId: scannedId,
+          unlinkUnsentApplications: true,
+        }),
+        { statusCode: 409 },
+      );
+      assert.equal(
+        (await admin.query('SELECT 1 FROM assessments WHERE id = $1', [scannedId])).rowCount,
+        1,
       );
       await assert.rejects(
         deleteAssessment({

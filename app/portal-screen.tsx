@@ -1,7 +1,6 @@
 'use client';
 
 import { SubmitEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import Link from 'next/link';
 import { restoreQuestionClassification } from '@/lib/question-editor-classification.mjs';
 import { QuestionBankDrawer } from './question-bank-drawer';
 import { questionBankSummary } from '@/lib/question-bank-summary.mjs';
@@ -1134,10 +1133,11 @@ export default function Home() {
           <WorkspaceNavigation active={active} canEditCatalog={canEditCatalog} portalAdmin={Boolean(identity.portalAdmin)} questionCount={questions.length} onNavigate={view=>{setInitialApplicationId('');setActive(view);window.scrollTo({top:0});}} />
         </nav>
         <div className="border-t border-white/10 p-3">
-          <Link href="/configuracoes/perfil" className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7 hover:text-white">
+          {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
+          <a href="/configuracoes/perfil" className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7 hover:text-white">
             <Settings className="size-[18px]" />
             Configurações
-          </Link>
+          </a>
           <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/6 p-3">
             <span className="grid size-9 place-items-center rounded-full bg-cyan-200 text-xs font-bold text-cyan-950">
               {identity.user.displayName
