@@ -65,13 +65,13 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\bf E/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
-  assert.equal((tex.match(/\)\) withcolor \.65white;/g) || []).length, 0);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
-  assert.match(tex, /\\bold\{Nome completo do aluno\}/);
-  assert.match(tex, /AnswerCardNameGridOverlay/);
+  assert.match(tex, /Aluno\(a\):\} Aluno Demonstração/);
+  assert.doesNotMatch(tex, /Nome completo do aluno/);
+  assert.doesNotMatch(tex, /AnswerCardNameGrid/);
   assert.match(tex, /\\externalfigure\[qr\.png\]/);
-  assert.equal(tex.match(/\\startframedtext\[width=\\textwidth/g)?.length, 1);
+  assert.equal((tex.match(/\\startframedtext\[width=\\textwidth/g) || []).length, 0);
 });
 
 test('mantém o cartão clássico e os círculos mesmo sem QR associado', async () => {
@@ -83,6 +83,7 @@ test('mantém o cartão clássico e os círculos mesmo sem QR associado', async 
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
+  assert.match(tex, /Aluno\(a\):/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.doesNotMatch(tex, /\\externalfigure\[undefined\]/);
   snapshot.render.previewOnly = true;
@@ -180,7 +181,8 @@ test('renderiza o Modelo 3 em duas colunas com folha de respostas OMR', async ()
     /\\startmixedcolumns\[n=2,balance=yes,distance=8mm,separator=rule,rulethickness=\.5pt,rulecolor=modelthreerule\]/,
   );
   assert.match(tex, /\\bold\{FOLHA DE RESPOSTAS\}/);
-  assert.match(tex, /Nome do\(a\) estudante: Estudante Modelo/);
+  assert.match(tex, /Aluno\(a\): Estudante Modelo/);
+  assert.match(tex, /Assinatura do Aluno:/);
   assert.match(tex, /Versão: A/);
   assert.match(tex, /\\externalfigure\[assessment-qr\.png\]/);
   assert.match(tex, /\\blackrule\[width=7mm,height=7mm\]/);

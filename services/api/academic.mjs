@@ -31,7 +31,15 @@ export const applicationSchema = z.object({
 });
 export async function listClasses({ institutionId }) {
   const r = await pool.query({
-    text: `SELECT c.id,c.name,c.grade,c.school_year,COUNT(ce.student_id)::int students FROM classes c LEFT JOIN class_enrollments ce ON ce.class_id=c.id WHERE c.institution_id=$1 GROUP BY c.id ORDER BY c.school_year DESC,c.name`,
+    text: `SELECT c.id,c.name,c.grade,c.school_year,es.name school_name,
+                  COUNT(ce.student_id)::int students
+           FROM classes c
+           LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+           LEFT JOIN class_invites ci ON ci.class_id=c.id AND ci.active
+           LEFT JOIN educator_schools es ON es.id=ci.school_id
+           WHERE c.institution_id=$1
+           GROUP BY c.id,es.name
+           ORDER BY c.school_year DESC,c.name`,
     values: [institutionId],
   });
   return r.rows.map((x) => ({
@@ -40,6 +48,7 @@ export async function listClasses({ institutionId }) {
     grade: x.grade,
     schoolYear: x.school_year,
     students: x.students,
+    schoolName: x.school_name || null,
   }));
 }
 export async function createClass({ institutionId, input }) {
@@ -94,24 +103,18 @@ export async function enrollStudent({ institutionId, classId, input }) {
 export async function createApplication({ institutionId, userId, input }) {
   const v = applicationSchema.parse(input);
   return transaction(async (client) => {
-    const r = await client.query({
-      text: `INSERT INTO assessment_applications(institution_id,assessment_id,class_id,scheduled_at,created_by) SELECT $1,a.id,c.id,$4,$5 FROM assessments a JOIN classes c ON c.id=$3 AND c.institution_id=$1 WHERE a.id=$2 AND a.institution_id=$1 RETURNING id,assessment_id,class_id,scheduled_at,status`,
-      values: [
-        institutionId,
-        v.assessmentId,
-        v.classId,
-        v.scheduledAt || null,
-        userId,
-      ],
-    });
-    if (!r.rowCount)
-      throw Object.assign(new Error('Avaliação ou turma não encontrada.'), {
+    const versions = await client.query(
+      `SELECT av.id,av.code
+       FROM assessment_versions av
+       JOIN assessments a ON a.id=av.assessment_id
+       WHERE av.assessment_id=$1 AND a.institution_id=$2
+       ORDER BY av.code`,
+      [v.assessmentId, institutionId],
+    );
+    if (!versions.rowCount)
+      throw Object.assign(new Error('Avaliação não encontrada ou sem versões.'), {
         statusCode: 404,
       });
-    const versions = await client.query(
-      'SELECT id,code FROM assessment_versions WHERE assessment_id=$1 ORDER BY code',
-      [v.assessmentId],
-    );
     const students = await client.query(
       `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
       [v.classId,institutionId,v.studentIds||null],
@@ -126,6 +129,54 @@ export async function createApplication({ institutionId, userId, input }) {
         new Error('A turma não possui alunos matriculados.'),
         { statusCode: 422 },
       );
+
+    const created = await client.query({
+      text: `INSERT INTO assessment_applications(institution_id,assessment_id,class_id,scheduled_at,created_by)
+             SELECT $1,a.id,c.id,$4,$5
+             FROM assessments a
+             JOIN classes c ON c.id=$3 AND c.institution_id=$1
+             WHERE a.id=$2 AND a.institution_id=$1
+             ON CONFLICT (assessment_id,class_id) DO NOTHING
+             RETURNING id,assessment_id,class_id,scheduled_at,status`,
+      values: [institutionId,v.assessmentId,v.classId,v.scheduledAt || null,userId],
+    });
+
+    if (!created.rowCount) {
+      const existing = await client.query({
+        text: `SELECT id,assessment_id,class_id,scheduled_at,status
+               FROM assessment_applications
+               WHERE assessment_id=$1 AND class_id=$2 AND institution_id=$3
+               FOR UPDATE`,
+        values: [v.assessmentId,v.classId,institutionId],
+      });
+      if (!existing.rowCount)
+        throw Object.assign(new Error('Avaliação ou turma não encontrada.'), {
+          statusCode: 404,
+        });
+
+      const application = existing.rows[0];
+      if (application.status === 'cancelled') {
+        await client.query(
+          `UPDATE assessment_applications
+           SET status='scheduled',scheduled_at=COALESCE($2,scheduled_at)
+           WHERE id=$1`,
+          [application.id,v.scheduledAt || null],
+        );
+      }
+      await client.query(
+        `UPDATE render_jobs rj
+         SET status='queued',error_message=NULL,completed_at=NULL,output_manifest=NULL
+         FROM application_students aps
+         WHERE aps.application_id=$1
+           AND rj.application_student_id=aps.id
+           AND rj.status='failed'`,
+        [application.id],
+      );
+      const assignments = await listApplicationAssignments(client, application.id);
+      return { ...application, status: application.status === 'cancelled' ? 'scheduled' : application.status, assignments, reused: true };
+    }
+
+    const application = created.rows[0];
     const assignments = [];
     for (let index = 0; index < students.rows.length; index++) {
       const student = students.rows[index];
@@ -158,8 +209,40 @@ export async function createApplication({ institutionId, userId, input }) {
         status: 'queued',
       });
     }
-    return { ...r.rows[0], assignments };
+    return { ...application, assignments, reused: false };
   });
+}
+
+async function listApplicationAssignments(client, applicationId) {
+  const result = await client.query({
+    text: `SELECT aps.id,s.name student_name,s.registration,ce.number,
+                  av.code version_code,rj.id render_job_id,rj.status render_status
+           FROM application_students aps
+           JOIN assessment_versions av ON av.id=aps.assessment_version_id
+           JOIN students s ON s.id=aps.student_id
+           LEFT JOIN assessment_applications aa ON aa.id=aps.application_id
+           LEFT JOIN class_enrollments ce ON ce.class_id=aa.class_id AND ce.student_id=s.id
+           LEFT JOIN LATERAL (
+             SELECT j.id,j.status
+             FROM render_jobs j
+             WHERE j.application_student_id=aps.id
+             ORDER BY j.created_at DESC NULLS LAST,j.id DESC
+             LIMIT 1
+           ) rj ON true
+           WHERE aps.application_id=$1
+           ORDER BY ce.number NULLS LAST,s.name`,
+    values: [applicationId],
+  });
+  return result.rows.map((row) => ({
+    id: row.id,
+    studentName: row.student_name,
+    registration: row.registration,
+    number: row.number,
+    versionCode: row.version_code,
+    renderJobId: row.render_job_id,
+    renderStatus: row.render_status || 'queued',
+    status: row.render_status || 'queued',
+  }));
 }
 
 export async function listApplications({ institutionId }) {

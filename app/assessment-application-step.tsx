@@ -16,7 +16,7 @@ export function AssessmentApplicationStep({
   apiUrl: string;
   assessmentId: string;
 }) {
-  const [classes, setClasses] = useState<Array<{ id: string; name: string }>>(
+  const [classes, setClasses] = useState<Array<{ id: string; name: string; grade?: string; schoolYear?: number; students?: number; schoolName?: string | null }>>(
       [],
     ),
     [classId, setClassId] = useState('');
@@ -25,8 +25,10 @@ export function AssessmentApplicationStep({
     ),
     [selected, setSelected] = useState<string[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const [notice, setNotice] = useState('');
   const [application, setApplication] = useState<{
       id: string;
+      reused?: boolean;
       assignments: Assignment[];
     } | null>(null),
     [busy, setBusy] = useState(false),
@@ -91,14 +93,16 @@ export function AssessmentApplicationStep({
   async function create() {
     setBusy(true);
     setError('');
+    setNotice('');
     try {
-      setApplication(
-        await request('assessment-applications', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ assessmentId, classId, studentIds: selected }),
-        }),
-      );
+      const result = await request<NonNullable<typeof application>>('assessment-applications', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ assessmentId, classId, studentIds: selected }),
+      });
+      setApplication(result);
+      if (result.reused)
+        setNotice('Esta avaliação já estava aplicada a esta turma. Mantivemos a mesma aplicação e retomamos os PDFs pendentes.');
     } catch (e) {
       setError(String(e));
     } finally {
@@ -139,43 +143,64 @@ export function AssessmentApplicationStep({
         Os cartões personalizados vinculam cada aluno, aplicação e versão por QR
         code. Use estes arquivos na impressão e na correção pelo celular.
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
+      {notice && <output className="block rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{notice}</output>}
       {!application ? (
         <>
-          <select
-            aria-label="Turma da aplicação"
-            className="rounded border p-2"
-            value={classId}
-            onChange={(e) => {
-              setClassId(e.target.value);
-              setStudents([]);
-              setSelected([]);
-            }}
-          >
-            <option value="">Selecione a turma</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          {students.map((s) => (
-            <label key={s.id} className="block">
-              <input
-                type="checkbox"
-                checked={selected.includes(s.id)}
-                onChange={(e) =>
-                  setSelected((ids) =>
-                    e.target.checked
-                      ? [...ids, s.id]
-                      : ids.filter((id) => id !== s.id),
-                  )
-                }
-              />{' '}
-              {s.name}
-            </label>
-          ))}
-          <Button disabled={busy || !selected.length} onClick={create}>
+          <div className="grid gap-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-[minmax(220px,.8fr)_minmax(0,1.2fr)]">
+            <div>
+              <label className="block text-sm font-semibold text-slate-800" htmlFor="application-class">Turma e escola</label>
+              <select
+                id="application-class"
+                aria-label="Turma da aplicação"
+                className="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-3"
+                value={classId}
+                onChange={(e) => {
+                  setClassId(e.target.value);
+                  setStudents([]);
+                  setSelected([]);
+                  setError('');
+                  setNotice('');
+                }}
+              >
+                <option value="">Selecione a turma</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.grade ? ` · ${c.grade}` : ''}{c.schoolYear ? ` · ${c.schoolYear}` : ''}{c.schoolName ? ` · ${c.schoolName}` : ''}
+                  </option>
+                ))}
+              </select>
+              {classId && <p className="mt-2 text-xs text-slate-500">A lista mostra estudantes ativos matriculados na turma escolhida.</p>}
+            </div>
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-800">Estudantes da aplicação</p>
+                <span className="text-xs text-slate-500">{selected.length} de {students.length} selecionados</span>
+              </div>
+              {classId ? students.length ? (
+                <div className="max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white p-2">
+                  {students.map((s) => (
+                    <label key={s.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-blue-700"
+                        checked={selected.includes(s.id)}
+                        onChange={(e) =>
+                          setSelected((ids) =>
+                            e.target.checked
+                              ? [...ids, s.id]
+                              : ids.filter((id) => id !== s.id),
+                          )
+                        }
+                      />
+                      <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">Esta turma ainda não tem estudantes ativos matriculados.</p> : <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">Selecione uma turma para conferir os estudantes.</p>}
+            </div>
+          </div>
+          <Button disabled={busy || !classId || !selected.length} onClick={create}>
             {busy
               ? 'Preparando…'
               : `Gerar cartões para ${selected.length} alunos`}

@@ -1,5 +1,4 @@
 import {
-  answerCardHeaderPreamble,
   renderAnswerCardHeader,
 } from './answer-card-header.mjs';
 import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
@@ -56,9 +55,6 @@ export const basicExamV1 = Object.freeze({
     const qr = qrFileName
       ? `\\externalfigure[${qrFileName}][width=14mm,height=14mm]`
       : '';
-    const logo = logoFileName
-      ? `\\externalfigure[${logoFileName}][height=13mm,width=25mm,factor=fit]`
-      : '';
     const customInstitutionalHeader = renderCompactExamHeader({
       institution,
       logoFileName,
@@ -81,6 +77,8 @@ export const basicExamV1 = Object.freeze({
       title,
       grade,
       className,
+      candidateName,
+      candidateNumber,
       qr,
     });
     const header = previewOnly
@@ -123,8 +121,6 @@ ${
 \\define[1]\\HabilidadeBNCC{{\\switchtobodyfont[cursor]#1}}
 \\define[1]\\DescritorSAEB{{\\switchtobodyfont[cursor]#1}}
 \\definecolor[normalheaderrule][s=.45]
-\\definecolor[answercardrule][s=.35]
-${answerCardHeaderPreamble}
 ${compactLayout ? `\\setuppapersize[${paper}]` : '\\setuppapersize[A4]'}
 \\setupbodyfont[${font},${fontSize}pt]
 ${compactLayout ? `\\setuplayout[topspace=13mm,backspace=18mm,width=middle,height=middle,header=0mm,headerdistance=0mm,footer=6mm,footerdistance=4mm]` : `\\setuplayout[
