@@ -34,6 +34,7 @@ export function WorkspaceNavigation({
   canEditCatalog,
   portalAdmin,
   questionCount,
+  showQuestionCount = true,
   mobile = false,
 }: {
   active: string;
@@ -41,6 +42,7 @@ export function WorkspaceNavigation({
   canEditCatalog: boolean;
   portalAdmin: boolean;
   questionCount: number;
+  showQuestionCount?: boolean;
   mobile?: boolean;
 }) {
   const [preparationOverride, setPreparationOverride] = useState<
@@ -75,7 +77,7 @@ export function WorkspaceNavigation({
       >
         <Icon className="size-[18px] shrink-0" aria-hidden="true" />
         <span>{label}</span>
-        {label === 'Questões' && (
+        {label === 'Questões' && showQuestionCount && (
           <span
             className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${mobile ? 'bg-slate-100 text-slate-600' : 'bg-white/10 text-slate-300'}`}
           >

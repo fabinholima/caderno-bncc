@@ -353,6 +353,28 @@ export default function Home() {
   const [bankQuestionTypeFilter,setBankQuestionTypeFilter]=useState('');
   const [active, setActive] = useState('Início');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    const requestedView = new URLSearchParams(window.location.search).get('view');
+    const availableViews = new Set([
+      'Início',
+      'Preparar',
+      'Questões',
+      'Avaliações',
+      'Planejamento',
+      'Importar provas',
+      'Corrigir',
+      'Diagnosticar',
+      'Recuperar',
+      'Turmas e alunos',
+      'Minhas escolas',
+      'Assinantes',
+      'Receitas',
+    ]);
+    if (requestedView && availableViews.has(requestedView)) {
+      // oxlint-disable-next-line react-compiler -- Restore the view requested by the portal sidebar after a full-page settings navigation.
+      setActive(requestedView);
+    }
+  }, []);
   const [initialApplicationId, setInitialApplicationId] = useState('');
   const [curriculum, setCurriculum] = useState(curriculumDemo);
   const [highSchoolCurriculum, setHighSchoolCurriculum] = useState<
