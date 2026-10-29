@@ -59,6 +59,36 @@ export async function createClass({ institutionId, input }) {
   });
   return { ...r.rows[0], schoolYear: r.rows[0].school_year };
 }
+export async function deleteClass({ institutionId, classId }) {
+  return transaction(async (client) => {
+    const schoolClass = await client.query(
+      'SELECT id FROM classes WHERE id=$1 AND institution_id=$2 FOR UPDATE',
+      [classId, institutionId],
+    );
+    if (!schoolClass.rowCount)
+      throw Object.assign(new Error('Turma não encontrada.'), {
+        statusCode: 404,
+      });
+
+    const applications = await client.query(
+      'SELECT EXISTS(SELECT 1 FROM assessment_applications WHERE class_id=$1) AS linked',
+      [classId],
+    );
+    if (applications.rows[0]?.linked)
+      throw Object.assign(
+        new Error(
+          'Esta turma possui provas aplicadas ou histórico de respostas e não pode ser excluída.',
+        ),
+        { statusCode: 409 },
+      );
+
+    await client.query(
+      'DELETE FROM classes WHERE id=$1 AND institution_id=$2',
+      [classId, institutionId],
+    );
+    return { id: classId, deleted: true };
+  });
+}
 export async function createStudent({ institutionId, userId, portalAdmin = false, developmentBypass = false, input }) {
   await assertInstitutionLimit({ institutionId, kind: 'student', portalAdmin, developmentBypass });
   const v = studentSchema.parse(input);

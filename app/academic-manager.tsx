@@ -10,6 +10,7 @@ import {
   Eye,
   GraduationCap,
   RefreshCw,
+  Trash2,
   UserPlus,
   Users,
   XCircle,
@@ -336,6 +337,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   const [studentImportPreview, setStudentImportPreview] = useState<StudentImportRow[]>([]);
   const [studentImportClassId, setStudentImportClassId] = useState('');
   const [savingStudent, setSavingStudent] = useState<string | null>(null);
+  const [deletingClass, setDeletingClass] = useState<string | null>(null);
   const [inviteClass,setInviteClass]=useState<SchoolClass|null>(null);
   const refresh = useCallback(async () => {
     if (!apiUrl) return;
@@ -658,6 +660,29 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       setStudents((items) => items.map((item) => item.id === student.id ? { ...item, ...updated } : item));
       setMessage('Cadastro do aluno atualizado.');
     } finally { setSavingStudent(null); }
+  };
+
+  const removeClass = async (schoolClass: SchoolClass) => {
+    const studentCount = schoolClass.students || 0;
+    if (!window.confirm(
+      `Excluir a turma “${schoolClass.name}” do ano ${schoolClass.schoolYear}? As matrículas e convites serão removidos, mas os cadastros dos ${studentCount} alunos serão preservados. Turmas com provas aplicadas não podem ser excluídas.`,
+    )) return;
+    setDeletingClass(schoolClass.id);
+    setMessage('');
+    try {
+      const response = await apiFetch(`${apiUrl}/api/classes/${schoolClass.id}`, {
+        method: 'DELETE',
+      });
+      const body = (await response.json()) as ApiBody<{ deleted: boolean }>;
+      if (!response.ok || !body.data?.deleted)
+        throw new Error(body.error || 'Não foi possível excluir a turma.');
+      setClasses((current) => current.filter((item) => item.id !== schoolClass.id));
+      setMessage(`A turma ${schoolClass.name} foi excluída. Os cadastros dos alunos foram preservados.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro ao excluir a turma.');
+    } finally {
+      setDeletingClass(null);
+    }
   };
 
   const reviewCandidate = scanReview?.candidates.find(
@@ -1999,7 +2024,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           {visibleClasses.map((x) => (
             <article key={x.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><GraduationCap /></span><div className="min-w-0"><h3 className="truncate font-semibold text-slate-900">{x.name}</h3><p className="mt-1 text-sm text-slate-600">{x.grade} · {x.schoolYear}</p><p className="mt-2 truncate text-xs text-slate-500">{x.schoolName || 'Escola não vinculada ao convite'}</p></div></div>
-              <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-sm font-medium text-slate-600">{x.students} alunos</span><Button type="button" variant="outline" className="h-9" onClick={() => setInviteClass(x)}><Users /> Escola e convites</Button></div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-sm font-medium text-slate-600">{x.students} alunos</span><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" className="h-9" onClick={() => setInviteClass(x)}><Users /> Escola e convites</Button><Button type="button" variant="outline" className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={deletingClass !== null} onClick={() => void removeClass(x)}><Trash2 />{deletingClass === x.id ? 'Excluindo…' : 'Excluir turma'}</Button></div></div>
             </article>
           ))}
           </div>
