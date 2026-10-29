@@ -32,8 +32,20 @@ async function* csvRecords(stream, delimiter = ';') {
   if (field.length || row.length) { row.push(field); yield row; }
 }
 
-const stream = fs.createReadStream(csvPath, { encoding: 'utf8' });
-const reader = csvRecords(stream);
+// O CSV oficial do Censo 2025 está em Windows-1252 (compatível com ISO-8859-1).
+// O TextDecoder preserva os caracteres acentuados e também trata arquivos UTF-8.
+async function* decodeCsv(stream) {
+  const decoder = new TextDecoder('windows-1252');
+  for await (const chunk of stream) {
+    const decoded = decoder.decode(chunk, { stream: true });
+    if (decoded) yield decoded;
+  }
+  const remainder = decoder.decode();
+  if (remainder) yield remainder;
+}
+
+const stream = fs.createReadStream(csvPath);
+const reader = csvRecords(decodeCsv(stream));
 const headerRow = await reader.next();
 if (headerRow.done) throw new Error('O arquivo CSV está vazio.');
 const headers = headerRow.value.map((value, index) => (index === 0 ? value.replace(/^\uFEFF/, '') : value).trim().toUpperCase());

@@ -30,7 +30,7 @@ export function mapInepSchoolRow(row, year) {
   if (!/^\d{8}$/.test(code) || !name || !/^[A-Z]{2}$/.test(state) || !city) return null;
   const address = first(row, 'DS_ENDERECO', 'NO_ENDERECO', 'ENDERECO');
   const number = first(row, 'NU_ENDERECO', 'NUMERO_ENDERECO', 'NUMERO');
-  const cnpj = digits(first(row, 'CNPJ', 'NU_CNPJ_ESCOLA')).slice(0, 14);
+  const cnpj = digits(first(row, 'CNPJ', 'NU_CNPJ_ESCOLA', 'NU_CNPJ_ESCOLA_PRIVADA')).slice(0, 14);
   const email = first(row, 'DS_EMAIL', 'NO_EMAIL', 'EMAIL');
   const ddd = first(row, 'NU_DDD', 'DDD');
   const phone = first(row, 'NU_TELEFONE', 'TELEFONE');

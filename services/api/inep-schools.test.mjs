@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pool } from './db.mjs';
-import { searchSchools } from './inep-schools.mjs';
+import { searchSchools, schoolCatalogReady } from './inep-schools.mjs';
 
 test('busca escolas por nome normalizado e UF, limitada a dez resultados', async () => {
   const original = pool.query;
@@ -31,4 +31,11 @@ test('busca por INEP usa código exato e ignora filtro UF inválido', async () =
     assert.match(captured.sql, /inep_code = \$2/);
     assert.deepEqual(captured.values, ['MS', '12345678', 10]);
   } finally { pool.query = original; }
+});
+
+test('detecta quando o catálogo local do Censo ainda está vazio', async () => {
+  const original = pool.query;
+  pool.query = async () => ({ rows: [{ available: false }] });
+  try { assert.equal(await schoolCatalogReady(), false); }
+  finally { pool.query = original; }
 });
