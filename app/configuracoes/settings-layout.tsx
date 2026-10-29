@@ -71,7 +71,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
           <ul className="grid grid-cols-2 gap-2 lg:grid-cols-1">
             {sections.map(({ href, label, description, Icon }) => {
               const active = pathname === href;
-              return <li key={href}><Link href={href} aria-current={active ? 'page' : undefined} className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-700 ${active ? 'bg-blue-50 text-blue-950 ring-1 ring-blue-200' : 'text-slate-700 hover:bg-slate-50'}`}><Icon aria-hidden="true" className={`size-5 shrink-0 ${active ? 'text-blue-700' : 'text-slate-500'}`} /><span className="min-w-0"><span className="block text-sm font-semibold">{label}</span><span className="hidden text-xs text-slate-500 lg:block">{description}</span></span></Link></li>;
+              return <li key={href}><a href={href} aria-current={active ? 'page' : undefined} className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-700 ${active ? 'bg-blue-50 text-blue-950 ring-1 ring-blue-200' : 'text-slate-700 hover:bg-slate-50'}`}><Icon aria-hidden="true" className={`size-5 shrink-0 ${active ? 'text-blue-700' : 'text-slate-500'}`} /><span className="min-w-0"><span className="block text-sm font-semibold">{label}</span><span className="hidden text-xs text-slate-500 lg:block">{description}</span></span></a></li>;
             })}
           </ul>
         </nav>
