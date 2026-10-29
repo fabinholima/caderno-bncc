@@ -16,7 +16,22 @@ test('busca escolas por nome normalizado e UF, limitada a dez resultados', async
     assert.match(captured.sql, /name_normalized LIKE/);
     assert.match(captured.sql, /state = \$1/);
     assert.match(captured.sql, /LIMIT \$3/);
-    assert.deepEqual(captured.values, ['MS', 'sao joao%', 10]);
+    assert.deepEqual(captured.values, ['MS', '%sao joao%', 10]);
+  } finally { pool.query = original; }
+});
+
+test('busca pelo nome sem restringir UF e encontra termo no meio do nome', async () => {
+  const original = pool.query;
+  let captured;
+  pool.query = async (sql, values) => {
+    captured = { sql, values };
+    return { rows: [] };
+  };
+  try {
+    await searchSchools({ q: 'Jose Mamede' });
+    assert.match(captured.sql, /name_normalized LIKE/);
+    assert.doesNotMatch(captured.sql, /state =/);
+    assert.deepEqual(captured.values, ['%jose mamede%', 10]);
   } finally { pool.query = original; }
 });
 
