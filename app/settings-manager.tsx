@@ -190,7 +190,7 @@ export function SettingsManager({
               Convidar professor
             </h2>
           </div>
-          {portalAdmin ? (
+          {portalAdmin || role === 'admin' ? (
             <form className="mt-4 space-y-3" onSubmit={invite}>
               <Input
                 type="email"
@@ -214,7 +214,7 @@ export function SettingsManager({
             </form>
           ) : (
             <p className="mt-4 text-sm text-slate-500">
-              Apenas administradores e coordenadores podem convidar usuários.
+              Somente o administrador da instituição pode convidar membros da equipe.
             </p>
           )}
         </section>

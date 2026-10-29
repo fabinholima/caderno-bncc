@@ -22,6 +22,7 @@ import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEduc
 import { schoolCatalogReady, searchSchools } from './inep-schools.mjs';
 import { googleConfigured, startGoogle, startGoogleLink, finishGoogle } from './google-auth.mjs';
 import { createGoogleSessionExchange, claimGoogleSessionExchange } from './google-session-exchange.mjs';
+import { canManageInstitutionTeam } from './institution-permissions.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
 import { billingStatus, createCheckout, cancelBilling, billingWebhook, previewBillingCoupon } from './billing.mjs';
 import { publicBillingPlans, listBillingSettings, updateBillingPlan, saveBillingCoupon } from './billing-admin.mjs';
@@ -461,12 +462,14 @@ const server = createServer(async (request, response) => {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
       return json(response,200,{data:await setPortalEditor(identity,await readJson(request,4096))});
     }
-    if (request.method === 'POST' && url.pathname === '/api/invitations' && !identity.portalAdmin)
-      return json(response,403,{error:'Somente o administrador geral pode gerenciar permissões.'});
+    if (request.method === 'POST' && url.pathname === '/api/invitations' && !canManageInstitutionTeam(identity))
+      return json(response,403,{error:'Somente o administrador da instituição pode convidar membros da equipe.'});
     if (request.method === 'POST' && url.pathname === '/api/auth/complete-cpf')
       return json(response, 200, { data: await completeCpf(identity, await readJson(request, 4096)) });
     if (identity.role !== 'student' && !identity.portalAdmin && !identity.cpfComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
       return json(response, 428, { error: 'Complete o cadastro com seu CPF para continuar.' });
+    if (identity.role === 'student' && (url.pathname.startsWith('/api/educator-profile') || url.pathname === '/api/escolas'))
+      return json(response, 403, { error: 'Esta área é exclusiva para professores e gestores.' });
     if (request.method === 'GET' && url.pathname === '/api/educator-profile')
       return json(response, 200, { data: await getEducatorProfile(userId) });
     if (request.method === 'GET' && url.pathname === '/api/escolas') {
