@@ -43,9 +43,13 @@ export async function startGoogle(input = {}) {
 export async function finishGoogle(url, cookie, fetcher = fetch) {
   if (!googleConfigured()) throw failure('Login Google ainda não configurado.', 503);
   const state = url.searchParams.get('state');
-  const browser = /(?:^|;\s*)caderno_oauth=([A-Za-z0-9_-]+)/.exec(cookie || '')?.[1];
-  if (!state || state.length > 200 || !browser) throw failure('Tentativa de login inválida ou expirada.');
-  const attempt = await pool.query(`DELETE FROM oauth_login_attempts WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING verifier,cpf_hash,account_type`, [hash(state),hash(browser)]);
+  // OAuth state is a 256-bit, one-use value stored only as a hash. Binding the
+  // web callback to a cookie breaks the flow when the portal and API are on
+  // different sites: browsers reject the cross-site Lax cookie set by fetch.
+  // The native flow still binds its callback to the browser cookie in
+  // mobile-google-auth-core before calling this function.
+  if (!state || state.length > 200) throw failure('Tentativa de login inválida ou expirada.');
+  const attempt = await pool.query(`DELETE FROM oauth_login_attempts WHERE state_hash=$1 AND expires_at>now() RETURNING verifier,cpf_hash,account_type`, [hash(state)]);
   if (!attempt.rowCount) throw failure('Tentativa de login inválida ou expirada.');
   const code = url.searchParams.get('code');
   if (url.searchParams.has('error') || !code || code.length > 4096) throw failure('Autorização Google não concluída.');
