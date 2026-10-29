@@ -1311,7 +1311,7 @@ export default function Home() {
             }}
           />
         ) : active === 'Configurações' ? (
-          <SettingsManager apiUrl={apiUrl} email={identity.user.email} role={identity.role as 'admin' | 'coordinator' | 'teacher'} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
+          <SettingsManager apiUrl={apiUrl} email={identity.user.email} googleLinked={Boolean(identity.user.googleLinked)} role={identity.role as 'admin' | 'coordinator' | 'teacher'} portalAdmin={Boolean(identity.portalAdmin)} canEditCatalog={canEditCatalog} />
         ) : active === 'Planejamento' ? (
           <CurriculumManager
             items={curriculum}

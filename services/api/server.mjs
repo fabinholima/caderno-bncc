@@ -517,6 +517,7 @@ const server = createServer(async (request, response) => {
             displayName: identity.displayName,
             cpfComplete: Boolean(identity.cpfComplete),
             profileComplete: Boolean(identity.profileComplete),
+            googleLinked: Boolean(identity.googleLinked),
           },
           institution: {
             id: identity.institutionId,
