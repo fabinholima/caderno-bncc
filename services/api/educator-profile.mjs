@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { isValidCnpj } from './inep-school-data.mjs';
 
 const list = z.array(z.string().trim().min(1).max(100)).max(30).default([]);
 export const schoolSchema = z.object({
@@ -9,6 +10,7 @@ export const schoolSchema = z.object({
   cnpj: z
     .string()
     .regex(/^(?:\d{14})?$/, 'Use 14 dígitos no CNPJ.')
+    .refine(isValidCnpj, 'Informe um CNPJ válido.')
     .default(''),
   inep: z
     .string()
