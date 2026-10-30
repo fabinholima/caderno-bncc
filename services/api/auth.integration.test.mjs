@@ -29,11 +29,13 @@ test('email, CPF and Google OAuth lifecycle in isolated database', { skip: !proc
       CREATE TABLE users(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),email text UNIQUE,display_name text,password_hash text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false,account_type text DEFAULT 'educator');
       CREATE TABLE portal_settings(id integer PRIMARY KEY,question_bank_id uuid REFERENCES institutions(id));
       CREATE TABLE memberships(institution_id uuid,user_id uuid,role text);
-      CREATE TABLE user_sessions(id uuid DEFAULT gen_random_uuid(),user_id uuid,token_hash text,expires_at timestamptz,last_seen_at timestamptz,global_bank boolean DEFAULT false,last_ip inet,user_agent text);
+      CREATE TABLE user_sessions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,token_hash text,expires_at timestamptz,last_seen_at timestamptz,global_bank boolean DEFAULT false,last_ip inet,user_agent text);
       CREATE TABLE password_reset_tokens(user_id uuid,token_hash text,expires_at timestamptz,used_at timestamptz);
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text DEFAULT 'trialing',period_started_at timestamptz,period_ends_at timestamptz);
       CREATE TABLE audit_log(institution_id uuid,user_id uuid,action text,entity_type text,entity_id text);`);
     for (const path of ['../../database/042_google_auth.sql','../../database/043_unique_cpf.sql','../../database/044_educator_schools.sql','../../database/067_auth_email_verification.sql','../../database/100_google_account_linking.sql','../../database/101_google_session_exchange.sql']) await pool.query(await readFile(new URL(path,import.meta.url),'utf8'));
+    // Coluna criada pela 099, que depende de tabelas fora do escopo deste teste.
+    await pool.query('ALTER TABLE educator_schools ADD COLUMN IF NOT EXISTS is_header_default boolean NOT NULL DEFAULT false');
     await pool.query("ALTER TABLE oauth_login_attempts ADD COLUMN account_type text DEFAULT 'educator'");
     await pool.query('ALTER TABLE educator_profiles ADD COLUMN selfie_data_url text');
     const account = { institutionName:'Test Space',displayName:'Test Teacher',email:'teacher@example.com',password:'TestPassword123!',cpf:'12345678909' };

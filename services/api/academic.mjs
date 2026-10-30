@@ -217,7 +217,7 @@ export async function createApplication({ institutionId, userId, input }) {
       const qrPayload = `CBS1:${id}:${signature}`;
       await client.query(
         'INSERT INTO application_students(id,application_id,student_id,assessment_version_id,qr_payload) VALUES($1,$2,$3,$4,$5)',
-        [id, r.rows[0].id, student.id, version.id, qrPayload],
+        [id, application.id, student.id, version.id, qrPayload],
       );
       const job = await client.query(
         `INSERT INTO render_jobs(assessment_version_id,template_version,application_student_id) SELECT $1,template_version,$2 FROM render_jobs WHERE assessment_version_id=$1 ORDER BY created_at LIMIT 1 RETURNING id`,
