@@ -1659,7 +1659,7 @@ export function AssessmentBuilder({
           {!recent.length && (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
               <FileOutput
-                className="mx-auto size-8 text-slate-400"
+                className="mx-auto size-8 text-slate-500"
                 aria-hidden="true"
               />
               <p className="mt-3 font-medium text-slate-800">
@@ -1798,7 +1798,7 @@ export function AssessmentBuilder({
                         event.stopPropagation();
                         removeSection(section.id);
                       }}
-                      className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                      className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -1993,7 +1993,7 @@ export function AssessmentBuilder({
                 value={questionSubtopic}
                 disabled={!availableSubtopics.length}
                 onChange={(event) => setQuestionSubtopic(event.target.value)}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 disabled:bg-slate-100 disabled:text-slate-400"
+                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 disabled:bg-slate-100 disabled:text-slate-500"
               >
                 <option value="">Todos os subtópicos</option>
                 {availableSubtopics.map((item) => (
@@ -2114,10 +2114,10 @@ export function AssessmentBuilder({
                         >
                           {question.skill}
                         </Badge>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-500">
                           {question.grade} · {question.difficulty}
                         </span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-500">
                           {question.sourceInstitution} {question.sourceYear}
                         </span>
                         {topicParts(question).topic && (
@@ -2492,7 +2492,7 @@ export function AssessmentBuilder({
             </label>
             <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-3">
               <div className="flex items-center gap-3">
-                <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-50 text-slate-400">
+                <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-50 text-slate-500">
                   {logoDataUrl ? (
                     <div
                       aria-hidden="true"
@@ -2816,7 +2816,7 @@ export function AssessmentBuilder({
                 <span className="text-sm font-semibold">
                   Prévia do cabeçalho
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-500">
                   {fontSize} pt · {paper}
                 </span>
               </div>
@@ -2831,7 +2831,7 @@ export function AssessmentBuilder({
                   }}
                 >
                   <div className="grid grid-cols-[48px_1fr] items-center gap-3">
-                    <div className="grid h-8 place-items-center overflow-hidden text-slate-400">
+                    <div className="grid h-8 place-items-center overflow-hidden text-slate-500">
                       {logoDataUrl ? (
                         <div
                           aria-hidden="true"
@@ -3012,7 +3012,7 @@ export function AssessmentBuilder({
                           )}
                         </>
                       ) : (
-                        <span className="col-span-2 inline-flex h-9 items-center justify-center rounded-lg bg-slate-50 text-xs font-medium text-slate-400">
+                        <span className="col-span-2 inline-flex h-9 items-center justify-center rounded-lg bg-slate-50 text-xs font-medium text-slate-500">
                           Downloads liberados após a composição
                         </span>
                       )}

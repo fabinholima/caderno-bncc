@@ -44,22 +44,22 @@ function Mimeograph() {
       </title>
       <defs>
         <linearGradient id="roller" x2="0" y2="1">
-          <stop stopColor="#e4dceb" />
-          <stop offset=".5" stopColor="#b29acb" />
-          <stop offset="1" stopColor="#806594" />
+          <stop stopColor="#dbe4fa" />
+          <stop offset=".5" stopColor="#8ea6ec" />
+          <stop offset="1" stopColor="#3d5fcf" />
         </linearGradient>
       </defs>
-      <ellipse cx="305" cy="427" rx="222" ry="20" fill="#233c3b" opacity=".1" />
+      <ellipse cx="305" cy="427" rx="222" ry="20" fill="#172b4d" opacity=".1" />
       <path
         d="m120 305 277-8 127 107-326 19Z"
-        fill="#bea7cb"
-        stroke="#273e49"
+        fill="#a3b6ee"
+        stroke="#1d3359"
         strokeWidth="3"
       />
       <path
         d="m198 423 326-19v13l-326 19-78-117v-14Z"
-        fill="#324b58"
-        stroke="#273e49"
+        fill="#2c4265"
+        stroke="#1d3359"
         strokeWidth="3"
       />
       <g className="printed-sheet">
@@ -69,7 +69,7 @@ function Mimeograph() {
           stroke="#ddd3c4"
           strokeWidth="2"
         />
-        <g fill="#765891" fontFamily="Arial,sans-serif">
+        <g fill="#2f55d4" fontFamily="Arial,sans-serif">
           <text x="243" y="325" fontSize="12" fontWeight="bold">
             AVALIAÇÃO · TURMA A
           </text>
@@ -80,27 +80,27 @@ function Mimeograph() {
             Ⓐ Ⓑ Ⓒ Ⓓ Ⓔ
           </text>
         </g>
-        <path d="m244 332 163-3m-138 24 153-3" stroke="#d7c9df" />
+        <path d="m244 332 163-3m-138 24 153-3" stroke="#c9d5f7" />
       </g>
       <path
         d="m135 213 276-8 30 111-307 13Z"
-        fill="#334d5b"
-        stroke="#203643"
+        fill="#2d4367"
+        stroke="#182c4f"
         strokeWidth="4"
       />
-      <path d="m155 225 238-6 19 59-264 9Z" fill="#7b8b96" />
+      <path d="m155 225 238-6 19 59-264 9Z" fill="#7d8aa3" />
       <path d="m152 256 255-7" stroke="#d1d6d8" strokeWidth="5" />
-      <path d="m135 307 302-11 4 20-307 13Z" fill="#1a303c" />
+      <path d="m135 307 302-11 4 20-307 13Z" fill="#132645" />
       <path
         d="M141 216v-94q0-17 20-17h238v105Z"
-        fill="#c5b3d4"
-        stroke="#273e49"
+        fill="#b9c8f5"
+        stroke="#1d3359"
         strokeWidth="4"
       />
       <path
         d="m169 116 29-81 187-5 28 80Z"
-        fill="#405967"
-        stroke="#273e49"
+        fill="#3a4f78"
+        stroke="#1d3359"
         strokeWidth="4"
       />
       <path
@@ -111,13 +111,13 @@ function Mimeograph() {
       />
       <path
         d="m220 61 124-3m-128 19 138-4m-143 21 86-3"
-        stroke="#c0acd1"
+        stroke="#a9bcf2"
         strokeWidth="3"
       />
       <path
         d="M171 122h217v103H171Z"
         fill="url(#roller)"
-        stroke="#344550"
+        stroke="#2c3f63"
         strokeWidth="3"
       />
       <ellipse
@@ -125,8 +125,8 @@ function Mimeograph() {
         cy="173"
         rx="31"
         ry="51"
-        fill="#3c5461"
-        stroke="#203643"
+        fill="#36496f"
+        stroke="#182c4f"
         strokeWidth="4"
       />
       <ellipse
@@ -134,20 +134,20 @@ function Mimeograph() {
         cy="173"
         rx="31"
         ry="51"
-        fill="#c5b3d4"
-        stroke="#344550"
+        fill="#b9c8f5"
+        stroke="#2c3f63"
         strokeWidth="3"
       />
       <path
         className="roller-line"
         d="M175 145h209"
-        stroke="#f7edf9"
+        stroke="#eef2fd"
         strokeWidth="3"
       />
-      <circle cx="388" cy="173" r="13" fill="#405967" />
+      <circle cx="388" cy="173" r="13" fill="#3a4f78" />
       <path
         d="M401 173h38"
-        stroke="#233b49"
+        stroke="#1b3055"
         strokeWidth="10"
         strokeLinecap="round"
       />
@@ -155,7 +155,7 @@ function Mimeograph() {
         <path
           d="M439 173v53h37"
           fill="none"
-          stroke="#344d5b"
+          stroke="#2e4468"
           strokeWidth="10"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -166,8 +166,8 @@ function Mimeograph() {
           width="45"
           height="27"
           rx="12"
-          fill="#9677af"
-          stroke="#263d49"
+          fill="#5f7fe0"
+          stroke="#1c3157"
           strokeWidth="3"
         />
       </g>
@@ -177,7 +177,7 @@ function Mimeograph() {
         width="98"
         height="25"
         rx="4"
-        fill="#e3d8be"
+        fill="#ffd84d"
         transform="rotate(-2 224 265)"
       />
       <text
@@ -185,13 +185,13 @@ function Mimeograph() {
         y="282"
         fontFamily="Georgia,serif"
         fontSize="16"
-        fill="#263d49"
+        fill="#1c3157"
       >
         ufa, prova!
       </text>
       <path
         d="m172 428-3 13m303-22 4 12"
-        stroke="#1c3340"
+        stroke="#15284a"
         strokeWidth="12"
         strokeLinecap="round"
       />

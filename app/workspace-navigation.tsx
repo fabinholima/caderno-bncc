@@ -9,7 +9,9 @@ import {
   FileOutput,
   LayoutDashboard,
   LibraryBig,
+  ListTree,
   ScanLine,
+  School,
   Settings,
   Sprout,
   Users,
@@ -19,7 +21,7 @@ import {
 const preparation: ReadonlyArray<readonly [string, LucideIcon]> = [
   ['Questões', LibraryBig],
   ['Avaliações', FileOutput],
-  ['Planejamento', BookOpenCheck],
+  ['Planejamento', ListTree],
   ['Importar provas', FileInput],
 ];
 const workflow: ReadonlyArray<readonly [string, LucideIcon]> = [
@@ -79,7 +81,7 @@ export function WorkspaceNavigation({
         <span>{label}</span>
         {label === 'Questões' && showQuestionCount && (
           <span
-            className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${mobile ? 'bg-slate-100 text-slate-600' : 'bg-white/10 text-slate-300'}`}
+            className={`ml-auto rounded-full px-2 py-0.5 text-xs font-bold ${mobile ? 'bg-slate-100 text-slate-600' : 'bg-white/10 text-slate-300'}`}
           >
             {questionCount}
           </span>
@@ -90,7 +92,7 @@ export function WorkspaceNavigation({
   function heading(label: string) {
     return (
       <p
-        className={`mb-2 px-3 text-[10px] font-bold uppercase tracking-[.16em] ${mobile ? 'text-slate-500' : 'text-slate-400'}`}
+        className={`mb-2 px-3 text-xs font-bold uppercase tracking-[.16em] ${mobile ? 'text-slate-500' : 'text-slate-300'}`}
       >
         {label}
       </p>
@@ -153,7 +155,7 @@ export function WorkspaceNavigation({
       >
         {heading('Gestão escolar')}
         {item('Turmas e alunos', Users)}
-        {item('Minhas escolas', BookOpenCheck)}
+        {item('Minhas escolas', School)}
       </div>
       {portalAdmin && (
         <div
