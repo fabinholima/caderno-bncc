@@ -18,3 +18,10 @@ test('summary stays bounded and retains readable prose and percentages', () => {
     /draw|origin/,
   );
 });
+test('summary keeps currency values and drops formula delimiters', () => {
+  assert.equal(
+    questionBankSummary('Um táxi cobra R$ 5,00 fixos mais R$ 2,50 por km.'),
+    'Um táxi cobra R$ 5,00 fixos mais R$ 2,50 por km.',
+  );
+  assert.equal(questionBankSummary('Custa US$10 e vale $x+1$.'), 'Custa US$10 e vale x+1.');
+});
