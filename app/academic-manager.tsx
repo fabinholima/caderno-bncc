@@ -740,7 +740,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             onClick={() => setActivePanel(item.id)}
             className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${activePanel === item.id ? 'bg-[var(--navy)] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
           >
-            <span className="size-4">{item.icon}</span>{item.label}
+            <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center [&>svg]:size-4">{item.icon}</span>{item.label}
           </button>
         ))}
       </div>
@@ -1214,7 +1214,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             </div>
           ))
         ) : (
-          <p className="p-6 text-sm text-slate-400">
+          <p className="p-6 text-sm text-slate-500">
             Nenhuma aplicação agendada.
           </p>
         )}
@@ -2103,7 +2103,7 @@ function ReportPerformance({
           ))}
         </div>
       ) : (
-        <p className="mt-3 text-sm text-slate-400">{empty}</p>
+        <p className="mt-3 text-sm text-slate-500">{empty}</p>
       )}
     </div>
   );

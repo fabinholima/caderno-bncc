@@ -1,4 +1,5 @@
 'use client';
+import { BrandMark } from '@/components/brand-mark';
 
 import { SubmitEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { restoreQuestionClassification } from '@/lib/question-editor-classification.mjs';
@@ -16,7 +17,6 @@ import {
   CircleHelp,
   FileInput,
   Eye,
-  GraduationCap,
   Info,
   LayoutDashboard,
   LibraryBig,
@@ -1140,13 +1140,13 @@ export default function Home() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
         <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6">
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]">
-            <GraduationCap className="size-5" />
+            <BrandMark />
           </span>
           <div>
             <p className="font-display text-[17px] font-bold leading-tight">
               UfaProva
             </p>
-            <p className="text-[11px] font-medium tracking-[.12em] text-slate-400">
+            <p className="text-xs font-medium tracking-[.12em] text-slate-300">
               AVALIAÇÕES BNCC
             </p>
           </div>
@@ -1173,7 +1173,7 @@ export default function Home() {
               <p className="truncate text-sm font-semibold">
                 {identity.user.displayName}
               </p>
-              <p className="truncate text-xs text-slate-400">
+              <p className="truncate text-xs text-slate-300">
                 {identity.portalAdmin ? 'Administrador do portal' : identity.portalEditor ? 'Editor' : 'Professor'}
               </p>
             </div>
@@ -1198,8 +1198,8 @@ export default function Home() {
       <section className="pb-24 lg:pb-0 lg:pl-[252px]">
         <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/90 px-5 backdrop-blur-xl sm:px-8">
           <div className="lg:hidden">
-            <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-white">
-              <GraduationCap className="size-5" />
+            <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-[var(--lime)]">
+              <BrandMark />
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -1225,7 +1225,7 @@ export default function Home() {
               <p className="text-xs font-semibold">
                 {identity.institution.name}
               </p>
-              <p className="text-[11px] text-slate-500">Ano letivo 2026</p>
+              <p className="text-xs text-slate-500">Ano letivo 2026</p>
             </div>
           </div>
         </header>
@@ -1471,14 +1471,14 @@ export default function Home() {
                       )}
                     </span>
                   </div>
-                  <p className="mt-4 text-xs text-slate-400">{note}</p>
+                  <p className="mt-4 text-xs text-slate-500">{note}</p>
                 </article>
               ))}
             </div>
             <section className="relative mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
               <div className="flex flex-col gap-3 border-b border-slate-200 p-4 2xl:flex-row 2xl:items-center">
                 <div className="relative min-w-0 flex-1 2xl:min-w-80">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
                   <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -1584,7 +1584,7 @@ export default function Home() {
                           setSubtopicFilter(event.target.value);
                           setTopicDetailFilter('');
                         }}
-                        className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-400"
+                        className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
                       >
                         <option value="">Todos os subtópicos</option>
                         {pedagogicalTopics
@@ -1653,7 +1653,7 @@ export default function Home() {
                         setKnowledgeObjectFilter(event.target.value)
                       }
                       disabled={subject === 'Todas'}
-                      className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-400"
+                      className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
                     >
                       <option value="">Todos os objetos</option>
                       {Array.from(
@@ -1772,7 +1772,7 @@ export default function Home() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[920px] border-collapse text-left">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-[.08em] text-slate-500">
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold uppercase tracking-[.08em] text-slate-500">
                       {identity.portalAdmin && <th className="w-12 px-3 py-3"><QuestionApprovalSelection /></th>}
                       <th className="w-[47%] px-5 py-3">Questão</th>
                       <th className="px-4 py-3">Classificação</th>
@@ -1793,7 +1793,7 @@ export default function Home() {
                         {identity.portalAdmin && <QuestionApprovalTableCell question={q} />}
                         <td aria-label={`Questão ${q.code}`} className="px-5 py-4">
                           <div className="flex gap-3">
-                            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-[10px] font-bold text-slate-500">
+                            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-xs font-bold text-slate-500">
                               {q.type === 'essay'
                                 ? 'DIS'
                                 : q.type === 'true_false' ? 'C/E'
@@ -1801,17 +1801,17 @@ export default function Home() {
                             </span>
                             <div>
                               <div className="mb-1 flex items-center gap-2">
-                                <span className="font-mono text-[11px] font-semibold text-[var(--blue)]">
+                                <span className="font-mono text-xs font-semibold text-[var(--blue)]">
                                   {q.code}
                                 </span>
-                                <span className="text-[11px] text-slate-400">
+                                <span className="text-xs text-slate-500">
                                   {q.subject} · {q.grade} ·{' '}
                                   {q.sourceInstitution} {q.sourceYear}
                                 </span>
                               </div>
                               <button type="button" onClick={() => setBankQuestionId(q.id)} className="block max-w-xl text-left text-sm font-medium leading-5 text-slate-800 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`Abrir detalhes de ${q.code}`}><span className="line-clamp-2">{questionBankSummary(q.statement)}</span></button>
-                              {/\\startMPcode|\\externalfigure/.test(q.statement) && <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-500"><Eye className="size-3"/> Com ilustração</span>}
-                              {q.hasResolution && <span className="ml-2 mt-1 inline-flex items-center gap-1 text-[11px] text-slate-500"><BookOpenCheck className="size-3"/> Com resolução</span>}
+                              {/\\startMPcode|\\externalfigure/.test(q.statement) && <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><Eye className="size-3"/> Com ilustração</span>}
+                              {q.hasResolution && <span className="ml-2 mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><BookOpenCheck className="size-3"/> Com resolução</span>}
                             </div>
                           </div>
                         </td>
@@ -1864,7 +1864,7 @@ export default function Home() {
                     <p className="font-semibold text-slate-700">
                       Nenhuma questão encontrada
                     </p>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-slate-500">
                       Tente remover um filtro ou pesquisar outro termo.
                     </p>
                   </div>
@@ -1883,7 +1883,7 @@ export default function Home() {
       </section>
 
       <nav aria-label="Atalhos no celular" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white px-1 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-sm lg:hidden">
-        {([['Início', LayoutDashboard], ['Preparar', BookOpenCheck], ['Corrigir', ScanLine], ['Diagnosticar', BarChart3], ['Menu', Menu]] as const).map(([label, Icon]) => <button key={label} type="button" aria-current={active === label ? 'page' : undefined} aria-expanded={label === 'Menu' ? mobileMenuOpen : undefined} onClick={() => { if (label === 'Menu') { setMobileMenuOpen(value => !value); window.scrollTo({ top: 0 }); } else { setInitialApplicationId(''); setActive(label); setMobileMenuOpen(false); window.scrollTo({ top: 0 }); } }} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${active === label || label === 'Menu' && mobileMenuOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}><Icon className="size-5" aria-hidden="true" />{label === 'Diagnosticar' ? 'Diagnóstico' : label}</button>)}
+        {([['Início', LayoutDashboard], ['Preparar', BookOpenCheck], ['Corrigir', ScanLine], ['Diagnosticar', BarChart3], ['Menu', Menu]] as const).map(([label, Icon]) => <button key={label} type="button" aria-current={active === label ? 'page' : undefined} aria-expanded={label === 'Menu' ? mobileMenuOpen : undefined} onClick={() => { if (label === 'Menu') { setMobileMenuOpen(value => !value); window.scrollTo({ top: 0 }); } else { setInitialApplicationId(''); setActive(label); setMobileMenuOpen(false); window.scrollTo({ top: 0 }); } }} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs font-semibold ${active === label || label === 'Menu' && mobileMenuOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}><Icon className="size-5" aria-hidden="true" />{label === 'Diagnosticar' ? 'Diagnóstico' : label}</button>)}
       </nav>
 
       {open && (
@@ -1946,7 +1946,7 @@ export default function Home() {
             >
               <div className="grid items-start lg:grid-cols-[260px_minmax(0,1fr)]">
                 <aside className="hidden border-r border-slate-200 bg-white p-6 lg:sticky lg:top-[93px] lg:block lg:h-[calc(100vh-127px)]">
-                  <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-400">
+                  <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">
                     Etapas do cadastro
                   </p>
                   <nav className="mt-4 space-y-1" aria-label="Etapas do cadastro da questão">
@@ -2444,7 +2444,7 @@ export default function Home() {
                             name="pedagogicalTopicId"
                             value={selectedPedagogicalTopicId}
                           />
-                          <span className="text-xs text-slate-400 sm:col-span-3">
+                          <span className="text-xs text-slate-500 sm:col-span-3">
                             Classificação pedagógica: tópico → subtópico →
                             detalhamento, quando disponível.
                           </span>
@@ -2616,7 +2616,7 @@ export default function Home() {
                       value="UFA Prova"
                       className="bg-slate-50 text-slate-600"
                     />
-                    <span className="mt-1.5 block text-xs text-slate-400">
+                    <span className="mt-1.5 block text-xs text-slate-500">
                       Definida pela conta autenticada e aplicada
                       automaticamente.
                     </span>

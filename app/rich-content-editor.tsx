@@ -313,7 +313,7 @@ export function RichContentEditor({
           className="rounded-xl border border-slate-200 bg-white p-2"
         >
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               {block.type === 'paragraph'
                 ? 'Texto'
                 : block.type === 'romanList'
@@ -343,7 +343,7 @@ export function RichContentEditor({
                 onClick={() =>
                   setBlocks((current) => current.filter((_, i) => i !== index))
                 }
-                className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                className="rounded p-1 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
               >
                 <Trash2 className="size-3.5" />
               </button>
@@ -839,7 +839,7 @@ draw fullcircle scaled 2cm;
                   placeholder="Legenda opcional"
                 />
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 PNG ou JPEG, até 400 KB. Você também pode colar uma imagem aqui
                 com Ctrl+V.
               </p>
@@ -949,7 +949,7 @@ function StructurePreview({
             className="max-h-52 w-full object-contain"
           />
         ) : (
-          <p className="px-4 text-center text-xs text-slate-400">{empty}</p>
+          <p className="px-4 text-center text-xs text-slate-500">{empty}</p>
         )}
       </div>
       {children}

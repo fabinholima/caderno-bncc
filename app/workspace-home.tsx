@@ -193,7 +193,7 @@ export function WorkspaceHome({
           >
             <div className="flex items-center justify-between">
               <Icon className="size-6 text-[var(--blue)]" aria-hidden="true" />
-              <span className="text-xs font-semibold text-slate-400">
+              <span className="text-xs font-semibold text-slate-500">
                 0{index + 1}
               </span>
             </div>

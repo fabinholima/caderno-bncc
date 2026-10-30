@@ -692,12 +692,12 @@ export function CurriculumManager({
             {subjects.map((item) => {
               const subjectObjects = objects.filter((object) => object.subject_id === item.subject_id);
               return <article key={item.subject_id} className="rounded-xl border border-slate-200 p-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">{fundamentalAreaBySubject[item.subject] || 'Componente curricular'}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">{fundamentalAreaBySubject[item.subject] || 'Componente curricular'}</p>
                 <h3 className="mt-1 font-semibold text-[var(--navy)]">{item.subject}</h3>
                 <p className="mt-1 text-xs text-slate-500">{subjectObjects.length} objeto(s) de conhecimento</p>
                 <ul className="mt-3 space-y-1 text-sm text-slate-600">
                   {subjectObjects.slice(0, 8).map((object) => <li key={object.knowledge_object_id}>• {object.knowledge_object}{object.grade_range ? ` · ${object.grade_range}` : ''}</li>)}
-                  {!subjectObjects.length && <li className="text-xs text-slate-400">Objetos ainda não cadastrados.</li>}
+                  {!subjectObjects.length && <li className="text-xs text-slate-500">Objetos ainda não cadastrados.</li>}
                 </ul>
               </article>;
             })}
@@ -710,7 +710,7 @@ export function CurriculumManager({
                 <h3 className="font-semibold text-[var(--navy)]">{area.area}</h3>
                 <p className="mt-1 text-xs text-slate-600">{highSchoolSubjectsByArea[area.area_source_key]?.join(' · ')}</p>
                 <p className="mt-1 text-xs text-slate-500">{new Set(skills.map((item) => item.skill_code)).size} habilidades oficiais</p>
-                <div className="mt-3 flex flex-wrap gap-1">{[...new Set(skills.map((item) => item.skill_code))].slice(0, 12).map((code) => <Badge key={code} variant="outline" className="font-mono text-[11px]">{code}</Badge>)}</div>
+                <div className="mt-3 flex flex-wrap gap-1">{[...new Set(skills.map((item) => item.skill_code))].slice(0, 12).map((code) => <Badge key={code} variant="outline" className="font-mono text-xs">{code}</Badge>)}</div>
               </article>;
             })}
           </div>
@@ -1200,7 +1200,7 @@ export function CurriculumManager({
                             <p className="text-sm font-semibold text-slate-800">
                               {object.knowledge_object}
                             </p>
-                            <p className="mt-0.5 text-xs text-slate-400">
+                            <p className="mt-0.5 text-xs text-slate-500">
                               {object.grade_range}
                             </p>
                           </div>
@@ -1227,7 +1227,7 @@ export function CurriculumManager({
                               item.knowledge_object_id ===
                                 object.knowledge_object_id && item.skill_code,
                           ) && (
-                            <span className="text-xs text-slate-400">
+                            <span className="text-xs text-slate-500">
                               Nenhuma habilidade vinculada
                             </span>
                           )}
@@ -1237,7 +1237,7 @@ export function CurriculumManager({
                   {!objects.some(
                     (item) => item.subject_id === subject.subject_id,
                   ) && (
-                    <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
+                    <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
                       Cadastre o primeiro objeto de conhecimento.
                     </p>
                   )}
