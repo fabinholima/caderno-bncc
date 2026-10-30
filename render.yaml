@@ -17,6 +17,8 @@ services:
           property: connectionString
       - key: DEV_AUTH_BYPASS
         value: "false"
+      # Defina no painel com todas as origens do portal, separadas por vírgula:
+      # https://ufaprova.com.br,https://www.ufaprova.com.br,https://ufaprova-frontend.onrender.com
       - key: CORS_ORIGIN
         sync: false
       - key: AUTH_FRONTEND_URL
