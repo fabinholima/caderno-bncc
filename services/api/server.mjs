@@ -16,7 +16,7 @@ import { requirePortalAdmin } from './portal-admin.mjs';
 import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './maintenance.mjs';
 import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
-import { apiSecurityHeaders, clientIp, mutationOriginAllowed } from './request-security.mjs';
+import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
 import { qrSigningSecret } from './qr-signing.mjs';
 import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
@@ -168,20 +168,8 @@ const port = Number(process.env.PORT || 8788);
 const maxConcurrentPreviews = Number(process.env.PREVIEW_CONCURRENCY || 2);
 let activePreviewCount = 0;
 const activePreviewUsers = new Set();
-const allowedOrigins = new Set(
-  (process.env.CORS_ORIGIN || 'http://localhost:3000')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean),
-);
-// O portal também é acessado pelo domínio oficial. Mantemos esses aliases
-// permitidos mesmo quando o CORS_ORIGIN do Render ainda estiver apontando
-// somente para o endereço *.onrender.com.
-for (const origin of [
-  'https://ufaprova.com.br',
-  'https://www.ufaprova.com.br',
-  'https://ufaprova-frontend.onrender.com',
-]) allowedOrigins.add(origin);
+const allowedOrigins = configuredOrigins();
+console.log(`Origens autorizadas: ${[...allowedOrigins].join(', ')}`);
 
 function corsHeaders(response) {
   return response.corsOrigin
@@ -264,6 +252,8 @@ const server = createServer(async (request, response) => {
     if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/') &&
       !mutationOriginAllowed({ method: request.method, origin: requestOrigin, cookie: request.headers.cookie, mobileClient: request.headers['x-client'], allowedOrigins }))
       return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+    if (url.pathname.startsWith('/api/') && !jsonBodyAllowed({ method: request.method, headers: request.headers }))
+      return json(response, 415, { error: 'Envie os dados no formato JSON.' });
     if (request.method === 'GET' && url.pathname === '/api/maintenance') {
       response.setHeader('cache-control','no-store');
       return json(response,200,{data:await maintenanceStatus()});

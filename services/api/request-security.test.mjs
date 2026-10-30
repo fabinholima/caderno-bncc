@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { apiSecurityHeaders, clientIp, mutationOriginAllowed } from './request-security.mjs';
+import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
 
 const request = (remoteAddress, forwarded) => ({
   socket: { remoteAddress },
@@ -45,4 +45,25 @@ test('HSTS só é enviado em produção', () => {
   assert.equal(apiSecurityHeaders({ production: false })['strict-transport-security'], undefined);
   assert.match(apiSecurityHeaders({ production: true })['strict-transport-security'], /max-age=/);
   assert.equal(apiSecurityHeaders({ production: false })['x-content-type-options'], 'nosniff');
+});
+
+const browser = { cookie: 'caderno_session=x', 'content-length': '20' };
+test('navegador com sessão precisa enviar JSON nas alterações', () => {
+  assert.equal(jsonBodyAllowed({ method: 'POST', headers: { ...browser, 'content-type': 'application/json; charset=utf-8' } }), true);
+  assert.equal(jsonBodyAllowed({ method: 'POST', headers: { ...browser, 'content-type': 'text/plain' } }), false);
+  assert.equal(jsonBodyAllowed({ method: 'PUT', headers: { ...browser, 'content-type': 'application/x-www-form-urlencoded' } }), false);
+  assert.equal(jsonBodyAllowed({ method: 'POST', headers: { ...browser } }), false);
+});
+
+test('não exige JSON sem corpo, sem sessão, no aplicativo ou em leituras', () => {
+  assert.equal(jsonBodyAllowed({ method: 'DELETE', headers: { cookie: 'caderno_session=x' } }), true);
+  assert.equal(jsonBodyAllowed({ method: 'POST', headers: { 'content-length': '20', 'content-type': 'text/plain' } }), true);
+  assert.equal(jsonBodyAllowed({ method: 'POST', headers: { ...browser, 'x-client': 'mobile' } }), true);
+  assert.equal(jsonBodyAllowed({ method: 'GET', headers: { ...browser } }), true);
+});
+
+test('origens vêm de CORS_ORIGIN e AUTH_FRONTEND_URL', () => {
+  const origins = configuredOrigins({ CORS_ORIGIN: 'https://a.example/, https://b.example', AUTH_FRONTEND_URL: 'https://app.example/portal' });
+  assert.deepEqual([...origins].sort(), ['https://a.example', 'https://app.example', 'https://b.example']);
+  assert.deepEqual([...configuredOrigins({})], ['http://localhost:3000']);
 });
