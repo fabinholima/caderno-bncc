@@ -48,6 +48,8 @@ test(
       await pool.query('INSERT INTO assessments(id,institution_id) VALUES($1,$2)', [assessmentId,institutionId]);
       await pool.query('INSERT INTO classes(id,institution_id,name,grade,school_year) VALUES($1,$2,$3,$4,$5)', [classId,institutionId,'2º Ano D','Ensino Médio',2026]);
       await pool.query('INSERT INTO assessment_versions(id,assessment_id,code) VALUES($1,$2,$3)', [versionId,assessmentId,'A']);
+      // Em produção, a criação da avaliação já enfileira um job por versão; a aplicação herda seu layout.
+      await pool.query("INSERT INTO render_jobs(assessment_version_id,template_version,status) VALUES($1,'basicexam-v1','completed')", [versionId]);
       await pool.query('INSERT INTO students(id,institution_id,name,registration) VALUES($1,$2,$3,$4)', [studentId,institutionId,'Estudante Teste','001']);
       await pool.query('INSERT INTO class_enrollments(class_id,student_id,number) VALUES($1,$2,1)', [classId,studentId]);
 
