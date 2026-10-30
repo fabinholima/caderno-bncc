@@ -32,8 +32,6 @@ export function MaintenanceGate({children}:{children:ReactNode}) {
     const timer=setInterval(refresh,15000);
     return ()=>{active=false;clearInterval(timer)};
   },[apiUrl]);
-  // Keep legal information accessible even while the portal is closed.
-  if(typeof window!=='undefined' && ['/privacidade','/contato'].includes(window.location.pathname))return children;
   if(status && (!status.enabled || admin))return children;
   if(status?.enabled && adminLogin && apiUrl)return <AuthScreen apiUrl={apiUrl}/>;
   return <main className="grid min-h-screen place-items-center bg-slate-50 px-6 py-12">
