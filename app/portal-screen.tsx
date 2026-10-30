@@ -1161,7 +1161,7 @@ export default function Home() {
             Configurações
           </a>
           <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/6 p-3">
-            <span className="grid size-9 place-items-center rounded-full bg-cyan-200 text-xs font-bold text-cyan-950">
+            <span className="grid size-9 place-items-center rounded-full bg-blue-200 text-xs font-bold text-blue-950">
               {identity.user.displayName
                 .split(/\s+/)
                 .slice(0, 2)
@@ -1476,8 +1476,8 @@ export default function Home() {
               ))}
             </div>
             <section className="relative mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
-              <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center">
-                <div className="relative min-w-0 flex-1">
+              <div className="flex flex-col gap-3 border-b border-slate-200 p-4 2xl:flex-row 2xl:items-center">
+                <div className="relative min-w-0 flex-1 2xl:min-w-80">
                   <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     value={query}
