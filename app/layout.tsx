@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { MaintenanceGate } from './maintenance-gate';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -14,8 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Caderno — Avaliações BNCC',
-  description: 'Banco de questões, planejamento pedagógico e avaliações alinhadas à BNCC.',
+  title: 'UfaProva — Avaliações alinhadas à BNCC',
+  description: 'Organize questões, prepare avaliações alinhadas à BNCC e gere provas prontas para imprimir.',
+  icons: { icon: '/favicon.svg' },
+  openGraph: {
+    siteName: 'UfaProva',
+    locale: 'pt_BR',
+    type: 'website',
+    title: 'UfaProva — Mais tempo para ensinar. E para você.',
+    description: 'Organize questões, prepare avaliações alinhadas à BNCC e gere provas prontas para imprimir.',
+  },
 };
 
 export default function RootLayout({
@@ -23,13 +30,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // As variáveis das fontes ficam no <html>, onde o globals.css aplica font-sans.
   return (
-    <html lang="pt-BR">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <MaintenanceGate>{children}</MaintenanceGate>
-      </body>
+    <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

@@ -1,13 +1,12 @@
 import { isIP } from 'node:net';
+import { clientIp } from './request-security.mjs';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
 
 export const reportSchema=z.object({year:z.coerce.number().int().min(2000).max(2100)});
 export function sessionNetwork(request) {
-  const raw=request.socket?.remoteAddress || '';
-  const ip=raw.startsWith('::ffff:')?raw.slice(7):raw;
-  return {ip:isIP(ip)?ip:null,agent:String(request.headers['user-agent'] || '').slice(0,512)};
+  return {ip:clientIp(request),agent:String(request.headers['user-agent'] || '').slice(0,512)};
 }
 export async function revenueReport(identity,input) {
   requirePortalAdmin(identity);

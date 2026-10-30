@@ -2,6 +2,7 @@ import { z } from 'zod';
 import crypto from 'node:crypto';
 import { pool, transaction } from './db.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
+import { signQrId } from './qr-signing.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -212,14 +213,7 @@ export async function createApplication({ institutionId, userId, input }) {
       const student = students.rows[index];
       const version = versions.rows[index % versions.rows.length];
       const id = crypto.randomUUID();
-      const signature = crypto
-        .createHmac(
-          'sha256',
-          process.env.QR_SIGNING_SECRET || 'caderno-local-development',
-        )
-        .update(id)
-        .digest('hex')
-        .slice(0, 20);
+      const signature = signQrId(id);
       const qrPayload = `CBS1:${id}:${signature}`;
       await client.query(
         'INSERT INTO application_students(id,application_id,student_id,assessment_version_id,qr_payload) VALUES($1,$2,$3,$4,$5)',
