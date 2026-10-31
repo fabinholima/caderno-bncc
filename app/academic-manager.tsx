@@ -54,6 +54,8 @@ type Application = {
   completed: number;
   scheduledAt: string;
   status: string;
+  classId?: string;
+  corrected?: number;
 };
 type Assignment = {
   id: string;
@@ -324,6 +326,9 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     {},
   );
   const [report, setReport] = useState<ApplicationReport | null>(null);
+  const [resultsClassId, setResultsClassId] = useState('');
+  const [progressClassId, setProgressClassId] = useState('');
+  const [progressStudents, setProgressStudents] = useState<Array<Pick<Student, 'id' | 'name' | 'registration'>> | null>(null);
   const [reportPdf, setReportPdf] = useState('');
   const [reportPdfLoading, setReportPdfLoading] = useState(false);
   const [studentReport, setStudentReport] =
@@ -424,6 +429,11 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       setBatchDownloadingId('');
     }
   };
+  useEffect(() => {
+    if (activePanel !== 'results' || report || initialApplicationId) return;
+    const latest = applications.find((item) => item.status !== 'cancelled');
+    if (latest) Promise.resolve().then(() => loadReport(latest.id)).catch((error) => setMessage(error.message));
+  }, [activePanel, applications, initialApplicationId, loadReport, report]);
   useEffect(() => {
     if (initialApplicationId) {
       Promise.resolve().then(() => loadReport(initialApplicationId)).catch((error) => setMessage(error.message));
@@ -706,16 +716,20 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     { id: 'correction', label: 'Correção', icon: <Download /> },
     { id: 'results', label: 'Resultados', icon: <BarChart3 /> },
   ];
+  // Diagnosticar e Corrigir são itens próprios do menu: sem as abas da gestão acadêmica.
+  const standalone = Boolean(initialSection);
   return (
-    <main className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
+    <section aria-labelledby="academic-title" className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-blue-600">
-        Gestão acadêmica
+        {standalone ? 'Fluxo de avaliação' : 'Gestão acadêmica'}
       </p>
-      <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-        {panelNavigation.find((item) => item.id === activePanel)?.label}
+      <h1 id="academic-title" className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
+        {initialSection === 'reports' ? 'Diagnóstico da turma' : initialSection === 'correction' ? 'Correção' : panelNavigation.find((item) => item.id === activePanel)?.label}
       </h1>
       <p className="mt-2 text-sm text-slate-500">
-        {activePanel === 'classes'
+        {initialSection === 'reports'
+          ? 'Escolha uma aplicação para ver o desempenho por habilidade, competência e descritor, e as prioridades de intervenção.'
+          : activePanel === 'classes'
           ? 'Organize as turmas por etapa, ano letivo e escola vinculada.'
           : activePanel === 'students'
             ? 'Cadastre, importe e matricule estudantes com controle da situação escolar.'
@@ -730,7 +744,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           {message}
         </output>
       )}
-      <div aria-label="Seções da gestão acadêmica" role="tablist" className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3 xl:grid-cols-5">
+      {!standalone && <div aria-label="Seções da gestão acadêmica" role="tablist" className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3 xl:grid-cols-5">
         {panelNavigation.map((item) => (
           <button
             key={item.id}
@@ -743,7 +757,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center [&>svg]:size-4">{item.icon}</span>{item.label}
           </button>
         ))}
-      </div>
+      </div>}
       <div className={`mt-6 grid gap-5 ${activePanel === 'students' ? 'xl:grid-cols-2' : ''}`}>
         {activePanel === 'classes' && <Panel icon={<GraduationCap />} title="Criar turma">
           <form
@@ -941,159 +955,6 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>}
         </Panel>
       </div>}
-      {activePanel === 'results' && <section className="mt-5 rounded-2xl border border-violet-200 bg-white p-5">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="size-5 text-violet-700" />
-          <div>
-            <h2 className="font-display text-xl font-bold">
-              Evolução longitudinal
-            </h2>
-            <p className="text-sm text-slate-500">
-              Acompanhe o aluno entre provas, habilidades BNCC e descritores
-              SAEB.
-            </p>
-          </div>
-        </div>
-        <form
-          className="mt-4 flex flex-col gap-3 sm:flex-row"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const data = new FormData(event.currentTarget);
-            loadStudentProgress(formString(data, 'progressStudentId')).catch(
-              (error) => setMessage(error.message),
-            );
-          }}
-        >
-          <div className="min-w-0 flex-1">
-            <Select
-              name="progressStudentId"
-              label="Selecione o aluno"
-              items={students.map((student) => [
-                student.id,
-                `${student.name} · ${student.registration}`,
-              ])}
-            />
-          </div>
-          <Button type="submit" className="sm:self-end">
-            <BarChart3 /> Ver evolução
-          </Button>
-        </form>
-        {studentProgress && (
-          <div className="mt-6 border-t border-slate-100 pt-5">
-            <h3 className="font-display text-lg font-bold">
-              {studentProgress.student.name}
-            </h3>
-            <p className="text-sm text-slate-500">
-              Matrícula {studentProgress.student.registration}
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {[
-                ['Avaliações', studentProgress.summary.assessments],
-                ['Média', `${studentProgress.summary.averagePercentage}%`],
-                [
-                  'Melhor resultado',
-                  `${studentProgress.summary.bestPercentage}%`,
-                ],
-                [
-                  'Resultado atual',
-                  `${studentProgress.summary.currentPercentage}%`,
-                ],
-                [
-                  'Evolução',
-                  `${studentProgress.summary.trend > 0 ? '+' : ''}${studentProgress.summary.trend} p.p.`,
-                ],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-xl bg-violet-50 p-3">
-                  <p className="text-xs font-semibold uppercase text-violet-700">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-            {studentProgress.timeline.length ? (
-              <div className="mt-5 rounded-xl border border-slate-200 p-4">
-                <h4 className="font-semibold">Histórico de resultados</h4>
-                <div className="mt-4 space-y-4">
-                  {studentProgress.timeline.map((item) => (
-                    <div key={item.applicationId}>
-                      <div className="flex flex-wrap justify-between gap-2 text-sm">
-                        <span>
-                          <b>{item.title}</b> · {item.className} ·{' '}
-                          {new Date(item.scheduledAt).toLocaleDateString(
-                            'pt-BR',
-                          )}
-                        </span>
-                        <span className="font-semibold">
-                          {item.percentage}%
-                          {item.change != null &&
-                            ` · ${item.change > 0 ? '+' : ''}${item.change} p.p.`}
-                        </span>
-                      </div>
-                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className="h-full rounded-full bg-violet-600"
-                          style={{
-                            width: `${Math.max(0, Math.min(100, item.percentage))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                Ainda não há avaliações corrigidas para este aluno.
-              </p>
-            )}
-            <div className="mt-5 grid gap-5 xl:grid-cols-2">
-              <ReportPerformance
-                title="Habilidades acumuladas"
-                empty="Nenhuma habilidade consolidada."
-                items={studentProgress.skills.map((item) => ({
-                  key: item.code,
-                  label: item.code,
-                  detail: `${item.correct}/${item.total} acertos em ${item.assessments} avaliação(ões) · ${item.classification}`,
-                  percentage: item.percentage,
-                }))}
-              />
-              <ReportPerformance
-                title="Descritores acumulados"
-                empty="Nenhum descritor SAEB consolidado."
-                items={studentProgress.saebDescriptors.map((item) => ({
-                  key: item.code,
-                  label: `${item.code} · ${item.topic}`,
-                  detail: `${item.correct}/${item.validAnswers} respostas válidas em ${item.assessments} avaliação(ões)`,
-                  percentage: item.percentage,
-                }))}
-              />
-              <ReportPerformance
-                title="Competências acumuladas"
-                empty="Nenhuma competência consolidada."
-                items={studentProgress.competencies.map((item) => ({
-                  key: item.sourceKey,
-                  label: `${item.code} · ${item.area}`,
-                  detail: `${item.description} · ${item.assessments} avaliação(ões)`,
-                  percentage: item.percentage,
-                }))}
-              />
-              <ReportPerformance
-                title="Tópicos prioritários acumulados"
-                empty="Nenhum tópico pedagógico consolidado."
-                items={studentProgress.topics.map((item) => ({
-                  key: item.code,
-                  label: item.topic,
-                  detail: `${item.correct}/${item.validAnswers} respostas válidas em ${item.assessments} avaliação(ões) · ${item.classification}`,
-                  percentage: item.percentage,
-                }))}
-              />
-            </div>
-          </div>
-        )}
-      </section>}
       {activePanel === 'applications' && <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2">
           <CalendarCheck className="size-5 text-blue-600" />
@@ -1157,7 +1018,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
-      {(activePanel === 'applications' || activePanel === 'results') && <section id="academic-applications" className="mt-5 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      {activePanel === 'applications' && <section id="academic-applications-print" className="mt-5 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="border-b p-4 font-semibold">
           Aplicações e PDFs individuais
         </header>
@@ -1327,6 +1188,44 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
+      {activePanel === 'results' && <section id="academic-applications" aria-labelledby="results-applications-title" className="mt-6 scroll-mt-24 rounded-2xl border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-end justify-between gap-3 p-5 pb-3">
+          <div>
+            <h2 id="results-applications-title" className="font-display text-lg font-bold text-[var(--navy)]">Aplicações</h2>
+            <p className="text-sm text-slate-500">Escolha uma aplicação para abrir o relatório pedagógico.</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-sm font-medium" htmlFor="results-class">Turma
+              <select id="results-class" value={resultsClassId} onChange={(event) => setResultsClassId(event.target.value)} className="mt-1 block h-10 min-w-44 rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                <option value="">Todas as turmas</option>
+                {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+            {!standalone && <Button type="button" variant="outline" onClick={() => setActivePanel('applications')}><CalendarCheck />Agendar aplicação</Button>}
+          </div>
+        </div>
+        {(() => {
+          const visible = applications.filter((item) => item.status !== 'cancelled' && (!resultsClassId || item.classId === resultsClassId));
+          if (!visible.length) return <p className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">{applications.length ? 'Nenhuma aplicação para esta turma.' : 'Nenhuma aplicação agendada ainda. Aplique uma avaliação a uma turma em Turmas e alunos › Aplicações e impressão.'}</p>;
+          return <ul className="grid gap-2 p-5 pt-2 md:grid-cols-2 xl:grid-cols-3">{visible.map((item) => {
+            const corrected = item.corrected ?? 0;
+            const progress = item.students ? corrected / item.students : 0;
+            const selected = report?.application.id === item.id;
+            const state = !corrected ? { label: 'Sem correções', className: 'bg-slate-100 text-slate-700' } : corrected < item.students ? { label: 'Em correção', className: 'bg-blue-50 text-blue-800' } : { label: 'Corrigida', className: 'bg-emerald-50 text-emerald-800' };
+            return <li key={item.id}>
+              <button type="button" aria-pressed={selected} aria-label={`${item.title}, ${item.className}: ${state.label.toLowerCase()}, ${corrected} de ${item.students} corrigidos`} onClick={() => loadReport(item.id).catch((error) => setMessage(error.message))}
+                className={`block h-full w-full rounded-xl border p-4 text-left transition ${selected ? 'border-[var(--navy)] bg-blue-50/60 ring-1 ring-[var(--navy)]' : 'border-slate-200 hover:border-blue-300'}`}>
+                <span className="flex items-start justify-between gap-2">
+                  <span className="min-w-0"><span className="block truncate font-semibold text-slate-900">{item.title}</span><span className="block text-sm text-slate-600">{item.className}{item.scheduledAt ? ` · ${new Date(item.scheduledAt).toLocaleDateString('pt-BR')}` : ''}</span></span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${state.className}`}>{state.label}</span>
+                </span>
+                <span className="mt-3 flex justify-between text-xs text-slate-600"><span>Corrigidos</span><span className="tabular-nums">{corrected} de {item.students}</span></span>
+                <span aria-hidden="true" className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full rounded-full ${progress === 1 ? 'bg-emerald-600' : 'bg-blue-600'}`} style={{ width: `${progress * 100}%` }} /></span>
+              </button>
+            </li>;
+          })}</ul>;
+        })()}
+      </section>}
       {activePanel === 'results' && report && (
         <section id="academic-report" className="mt-5 scroll-mt-24 rounded-2xl border border-blue-200 bg-white p-5">
           <div className="flex flex-wrap items-center gap-2">
@@ -1432,7 +1331,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               </p>
             )}
           </div>
-          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <div className="mt-5 grid items-start gap-5 xl:grid-cols-2">
             <ReportPerformance
               title="Desempenho por habilidade BNCC"
               empty="As correções ainda não possuem habilidades consolidadas."
@@ -1741,6 +1640,170 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
+      {activePanel === 'results' && <section aria-labelledby="student-progress-title" className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2">
+          <BarChart3 aria-hidden="true" className="size-5 text-blue-700" />
+          <div>
+            <h2 id="student-progress-title" className="font-display text-lg font-bold text-[var(--navy)]">
+              Evolução por aluno
+            </h2>
+            <p className="text-sm text-slate-500">
+              Acompanhe um aluno ao longo das provas: habilidades BNCC,
+              competências e descritores SAEB.
+            </p>
+          </div>
+        </div>
+        <form
+          className="mt-4 flex flex-col gap-3 sm:flex-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            loadStudentProgress(formString(data, 'progressStudentId')).catch(
+              (error) => setMessage(error.message),
+            );
+          }}
+        >
+          <label className="text-sm font-medium sm:w-56" htmlFor="progress-class">Turma
+            <select id="progress-class" value={progressClassId} onChange={(event) => {
+              const classId = event.target.value;
+              setProgressClassId(classId);
+              setProgressStudents(null);
+              if (classId) apiFetch(`${apiUrl}/api/classes/${classId}/students`).then((response) => response.json() as Promise<ApiBody<Array<Pick<Student, 'id' | 'name' | 'registration'>>>>).then((body) => setProgressStudents(body.data || [])).catch(() => setMessage('Não foi possível carregar os alunos da turma.'));
+            }} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+              <option value="">Todas as turmas</option>
+              {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+          <div className="min-w-0 flex-1">
+            <Select
+              name="progressStudentId"
+              label="Selecione o aluno"
+              items={(progressClassId ? progressStudents || [] : students).map((student) => [
+                student.id,
+                `${student.name} · ${student.registration}`,
+              ])}
+            />
+          </div>
+          <Button type="submit" className="sm:self-end">
+            <BarChart3 /> Ver evolução
+          </Button>
+        </form>
+        {studentProgress && (
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <h3 className="font-display text-lg font-bold">
+              {studentProgress.student.name}
+            </h3>
+            <p className="text-sm text-slate-500">
+              Matrícula {studentProgress.student.registration}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {[
+                ['Avaliações', studentProgress.summary.assessments],
+                ['Média', `${studentProgress.summary.averagePercentage}%`],
+                [
+                  'Melhor resultado',
+                  `${studentProgress.summary.bestPercentage}%`,
+                ],
+                [
+                  'Resultado atual',
+                  `${studentProgress.summary.currentPercentage}%`,
+                ],
+                [
+                  'Evolução',
+                  `${studentProgress.summary.trend > 0 ? '+' : ''}${studentProgress.summary.trend} p.p.`,
+                ],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl bg-violet-50 p-3">
+                  <p className="text-xs font-semibold uppercase text-violet-700">
+                    {label}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {studentProgress.timeline.length ? (
+              <div className="mt-5 rounded-xl border border-slate-200 p-4">
+                <h4 className="font-semibold">Histórico de resultados</h4>
+                <div className="mt-4 space-y-4">
+                  {studentProgress.timeline.map((item) => (
+                    <div key={item.applicationId}>
+                      <div className="flex flex-wrap justify-between gap-2 text-sm">
+                        <span>
+                          <b>{item.title}</b> · {item.className} ·{' '}
+                          {new Date(item.scheduledAt).toLocaleDateString(
+                            'pt-BR',
+                          )}
+                        </span>
+                        <span className="font-semibold">
+                          {item.percentage}%
+                          {item.change != null &&
+                            ` · ${item.change > 0 ? '+' : ''}${item.change} p.p.`}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-violet-600"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, item.percentage))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+                Ainda não há avaliações corrigidas para este aluno.
+              </p>
+            )}
+            <div className="mt-5 grid items-start gap-5 xl:grid-cols-2">
+              <ReportPerformance
+                title="Habilidades acumuladas"
+                empty="Nenhuma habilidade consolidada."
+                items={studentProgress.skills.map((item) => ({
+                  key: item.code,
+                  label: item.code,
+                  detail: `${item.correct}/${item.total} acertos em ${item.assessments} avaliação(ões) · ${item.classification}`,
+                  percentage: item.percentage,
+                }))}
+              />
+              <ReportPerformance
+                title="Descritores acumulados"
+                empty="Nenhum descritor SAEB consolidado."
+                items={studentProgress.saebDescriptors.map((item) => ({
+                  key: item.code,
+                  label: `${item.code} · ${item.topic}`,
+                  detail: `${item.correct}/${item.validAnswers} respostas válidas em ${item.assessments} avaliação(ões)`,
+                  percentage: item.percentage,
+                }))}
+              />
+              <ReportPerformance
+                title="Competências acumuladas"
+                empty="Nenhuma competência consolidada."
+                items={studentProgress.competencies.map((item) => ({
+                  key: item.sourceKey,
+                  label: `${item.code} · ${item.area}`,
+                  detail: `${item.description} · ${item.assessments} avaliação(ões)`,
+                  percentage: item.percentage,
+                }))}
+              />
+              <ReportPerformance
+                title="Tópicos prioritários acumulados"
+                empty="Nenhum tópico pedagógico consolidado."
+                items={studentProgress.topics.map((item) => ({
+                  key: item.code,
+                  label: item.topic,
+                  detail: `${item.correct}/${item.validAnswers} respostas válidas em ${item.assessments} avaliação(ões) · ${item.classification}`,
+                  percentage: item.percentage,
+                }))}
+              />
+            </div>
+          </div>
+        )}
+      </section>}
       {activePanel === 'correction' && <section id="academic-correction" className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="font-display text-xl font-bold">
           Corrigir cartão-resposta
@@ -2059,7 +2122,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         )) : <p className="p-6 text-sm text-slate-500">{students.length ? 'Nenhum aluno corresponde aos filtros selecionados.' : 'Nenhum aluno cadastrado.'}</p>}
       </div>}
       {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
-    </main>
+    </section>
   );
 }
 
@@ -2140,6 +2203,7 @@ function Select({
     <select
       name={name}
       required
+      aria-label={label}
       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
     >
       <option value="">{label}</option>
