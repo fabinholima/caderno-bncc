@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import './dark-theme.css';
 @custom-variant dark (&:is(.dark *));
 @theme inline { --color-background: var(--background); --color-foreground: var(--foreground); --font-sans: var(--font-geist-sans); --font-mono: var(--font-geist-mono); --font-heading: var(--font-geist-sans); --color-ring: var(--ring); --color-input: var(--input); --color-border: var(--border); --color-destructive: var(--destructive); --color-accent-foreground: var(--accent-foreground); --color-accent: var(--accent); --color-muted-foreground: var(--muted-foreground); --color-muted: var(--muted); --color-secondary-foreground: var(--secondary-foreground); --color-secondary: var(--secondary); --color-primary-foreground: var(--primary-foreground); --color-primary: var(--primary); --color-popover-foreground: var(--popover-foreground); --color-popover: var(--popover); --color-card-foreground: var(--card-foreground); --color-card: var(--card); --radius-sm: calc(var(--radius) * .65); --radius-md: calc(var(--radius) * .82); --radius-lg: var(--radius); --radius-xl: calc(var(--radius) * 1.35); }
 /* Identidade UfaProva "Caderno": tinta azul-escura (#172b4d), azul de caneta
@@ -33,3 +34,10 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Tamanho da fonte escolhido nos botões A− / A+ do portal (escala do rem). */
+html[data-font-scale="1"] { font-size: 112.5%; }
+html[data-font-scale="2"] { font-size: 125%; }
+/* Atalho "Pular para o conteúdo": aparece só ao receber o foco pelo teclado. */
+.skip-link { position: absolute; left: 1rem; top: -4rem; z-index: 100; border-radius: .5rem; background: var(--lime); color: #172b4d; padding: .75rem 1rem; font-weight: 700; text-decoration: none; }
+.skip-link:focus { top: 1rem; }
