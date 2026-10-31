@@ -444,6 +444,7 @@ export async function getStudentApplicationReport({
   if (!classReport) return null;
   const result = await pool.query({
     text: `SELECT s.id AS student_id,s.name AS student_name,s.registration,ce.number,
+                  NULLIF(s.selfie_data_url,'') AS selfie_data_url,
                   av.code AS version_code,scan.status AS scan_status,
                   sub.id AS submission_id,sub.score,sub.max_score,
                   sub.requires_manual_review,sub.result,av.snapshot AS version_snapshot
@@ -458,7 +459,8 @@ export async function getStudentApplicationReport({
              ORDER BY cs.completed_at DESC NULLS LAST,cs.created_at DESC LIMIT 1
            ) scan ON true
            LEFT JOIN assessment_submissions sub ON sub.id=scan.submission_id
-           WHERE aps.application_id=$1 AND aps.student_id=$2 AND aa.institution_id=$3`,
+           WHERE aps.application_id=$1 AND aps.student_id=$2 AND aa.institution_id=$3
+             AND s.institution_id=$3`,
     values: [applicationId, studentId, institutionId],
   });
   if (!result.rowCount) return null;
@@ -504,6 +506,7 @@ export async function getStudentApplicationReport({
       registration: row.registration,
       number: row.number,
       versionCode: row.version_code,
+      selfieDataUrl: row.selfie_data_url || null,
     },
     summary: {
       score: Number(row.score),
