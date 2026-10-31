@@ -9,6 +9,7 @@ import {
   Download,
   Eye,
   GraduationCap,
+  Plus,
   RefreshCw,
   Trash2,
   UserPlus,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ClassInvitePanel } from './class-invite-panel';
 import { apiFetch } from '@/lib/api-client';
 
@@ -374,6 +376,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       setMessage('Não foi possível carregar os dados acadêmicos.'),
     );
   }, [refresh]);
+  const [classDialogOpen, setClassDialogOpen] = useState(false);
+  const [classFormError, setClassFormError] = useState('');
   const post = async (
     path: string,
     form: HTMLFormElement,
@@ -759,36 +763,6 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         ))}
       </div>}
       <div className={`mt-6 grid gap-5 ${activePanel === 'students' ? 'xl:grid-cols-2' : ''}`}>
-        {activePanel === 'classes' && <Panel icon={<GraduationCap />} title="Criar turma">
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              post('/api/classes', e.currentTarget, (d) => ({
-                name: d.get('name'),
-                grade: d.get('grade'),
-                schoolYear: Number(d.get('schoolYear')),
-              })).catch((x) => setMessage(x.message));
-            }}
-          >
-            <label htmlFor="new-class-name" className="block text-sm font-medium text-slate-700">Nome da turma<Input id="new-class-name" name="name" required placeholder="Ex.: 3º A" className="mt-1" /></label>
-            <label htmlFor="new-class-grade" className="block text-sm font-medium text-slate-700">Etapa de ensino<Input id="new-class-grade" name="grade" required placeholder="Ex.: 3ª série do Ensino Médio" className="mt-1" /></label>
-            <label htmlFor="new-class-year" className="block text-sm font-medium text-slate-700">Ano letivo<Input
-              id="new-class-year"
-              name="schoolYear"
-              type="number"
-              min="2000"
-              max="2100"
-              defaultValue="2026"
-              required
-              className="mt-1"
-            /></label>
-            <p className="rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-900">A escola é definida pelo cadastro institucional. Para associar uma escola específica à turma, use <b>Convidar alunos</b> depois de criá-la.</p>
-            <Button type="submit" className="w-full">
-              <GraduationCap /> Criar turma
-            </Button>
-          </form>
-        </Panel>}
         {activePanel === 'students' && <Panel icon={<UserPlus />} title="Cadastrar aluno">
           <form
             className="space-y-3"
@@ -2071,11 +2045,55 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
+      <Dialog open={classDialogOpen} onOpenChange={(open) => { setClassDialogOpen(open); if (!open) setClassFormError(''); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova turma</DialogTitle>
+            <DialogDescription>Informe o nome, a etapa e o ano letivo. Os alunos são cadastrados depois.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setClassFormError('');
+              post('/api/classes', e.currentTarget, (d) => ({
+                name: d.get('name'),
+                grade: d.get('grade'),
+                schoolYear: Number(d.get('schoolYear')),
+              }))
+                .then(() => setClassDialogOpen(false))
+                .catch((x) => setClassFormError(x.message));
+            }}
+          >
+            <label htmlFor="new-class-name" className="block text-sm font-medium text-slate-700">Nome da turma<Input id="new-class-name" name="name" required placeholder="Ex.: 3º A" className="mt-1" /></label>
+            <label htmlFor="new-class-grade" className="block text-sm font-medium text-slate-700">Etapa de ensino<Input id="new-class-grade" name="grade" required placeholder="Ex.: 3ª série do Ensino Médio" className="mt-1" /></label>
+            <label htmlFor="new-class-year" className="block text-sm font-medium text-slate-700">Ano letivo<Input
+              id="new-class-year"
+              name="schoolYear"
+              type="number"
+              min="2000"
+              max="2100"
+              defaultValue="2026"
+              required
+              className="mt-1"
+            /></label>
+            <p className="rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-900">A escola é definida pelo cadastro institucional. Para associar uma escola específica à turma, use <b>Convidar alunos</b> depois de criá-la.</p>
+            {classFormError && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{classFormError}</p>}
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancelar</DialogClose>
+              <Button type="submit">
+                <GraduationCap /> Criar turma
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       {activePanel === 'classes' && <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="border-b p-4 font-semibold">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="font-semibold">Turmas cadastradas</h2><p className="mt-1 text-xs font-normal text-slate-500">{visibleClasses.length} de {classes.length} turmas · escola vinculada pelo convite da turma</p></div>
             <div className="flex flex-wrap gap-2">
+              <Button type="button" className="h-9" onClick={() => setClassDialogOpen(true)}><Plus /> Nova turma</Button>
               <Input aria-label="Buscar turma ou escola" placeholder="Buscar turma ou escola" value={classSearch} onChange={(event) => setClassSearch(event.target.value)} className="h-9 w-52" />
               <select aria-label="Filtrar por etapa" value={classGradeFilter} onChange={(event) => setClassGradeFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as etapas</option>{Array.from(new Set(classes.map((item) => item.grade))).sort().map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select>
               <select aria-label="Filtrar por ano letivo" value={classYearFilter} onChange={(event) => setClassYearFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todos os anos</option>{Array.from(new Set(classes.map((item) => item.schoolYear))).sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}</select>
