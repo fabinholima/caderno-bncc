@@ -472,14 +472,15 @@ export function renderAssessment(snapshot) {
       )
       .join('\n');
     const judgmentChoices = question.type === 'true_false'
-      ? `\\blank[small]\n\\dontleavehmode\\hbox{\\startMPcode
-draw fullcircle scaled 5mm shifted (2.5mm,3mm) withpen pencircle scaled .7pt;
-draw fullcircle scaled 5mm shifted (34mm,3mm) withpen pencircle scaled .7pt;
-label(textext("{\\switchtobodyfont[7pt]\\bf C}"), (2.5mm,3mm));
-label(textext("{\\switchtobodyfont[7pt]\\bf E}"), (34mm,3mm));
-label.rt(textext("{\\switchtobodyfont[9pt]${mode === 'answer-key' && correct.has('alt-a') ? '\\bf ' : ''}Certo}"), (6.5mm,3mm));
-label.rt(textext("{\\switchtobodyfont[9pt]${mode === 'answer-key' && correct.has('alt-b') ? '\\bf ' : ''}Errado}"), (38mm,3mm));
-setbounds currentpicture to unitsquare xscaled 66mm yscaled 6mm;
+      // Linha compacta: círculos de 4 mm e rótulos de 8 pt logo abaixo do item.
+      ? `\\blank[2pt]\n\\dontleavehmode\\hbox{\\startMPcode
+draw fullcircle scaled 4mm shifted (2mm,2.3mm) withpen pencircle scaled .6pt;
+draw fullcircle scaled 4mm shifted (22mm,2.3mm) withpen pencircle scaled .6pt;
+label(textext("{\\switchtobodyfont[6pt]\\bf C}"), (2mm,2.3mm));
+label(textext("{\\switchtobodyfont[6pt]\\bf E}"), (22mm,2.3mm));
+label.rt(textext("{\\switchtobodyfont[8pt]${mode === 'answer-key' && correct.has('alt-a') ? '\\bf ' : ''}Certo}"), (4.8mm,2.3mm));
+label.rt(textext("{\\switchtobodyfont[8pt]${mode === 'answer-key' && correct.has('alt-b') ? '\\bf ' : ''}Errado}"), (24.8mm,2.3mm));
+setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
 \\stopMPcode}`
       : '';
     const choiceBlock = judgmentChoices || (choices
@@ -490,7 +491,7 @@ setbounds currentpicture to unitsquare xscaled 66mm yscaled 6mm;
     const questionGap = addGap
       ? mode === 'answer-key'
         ? '\\blank[small]'
-        : isCompactTemplate(snapshot.render?.template) ? '\\blank[small]' : '\\blank[medium]'
+        : '\\blank[small]'
       : '';
     const questionTex = `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${adoteNote(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\n${questionGap}` : ''}`;
     const nodes = [...(question.statement ?? []), ...(question.alternatives ?? []).flatMap(answer => answer.content ?? [])];

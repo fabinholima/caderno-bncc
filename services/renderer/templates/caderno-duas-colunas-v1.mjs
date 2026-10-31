@@ -105,11 +105,11 @@ ${fiveOptionAnswerSheet(questionCount)}
 \\def\\ModelThreeFooterRight{{\\switchtobodyfont[7pt]Página \\pagenumber}}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=10mm,header=47mm,headerdistance=2mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
+\\setuplayout[topspace=10mm,header=33mm,headerdistance=2mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
 \\setupheadertexts[\\ModelThreeHeader]
 \\setupfootertexts[\\ModelThreeFooterLeft][\\ModelThreeFooterRight]
 \\setuppagenumbering[location=]
-\\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
+\\setupalign[hyphenated,hz,hanging,tolerant,stretch]
 \\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 ${mode === 'answer-key' ? `\\setupheadertexts[]\\midaligned{\\tfb\\bold{${title}}}\\blank[medium]` : ''}
