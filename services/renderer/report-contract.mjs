@@ -177,6 +177,19 @@ ${questionAnalysisTable(snapshot.questions ?? [])}
 `;
 }
 
+function studentHeader(snapshot) {
+  const { student, application } = snapshot;
+  const lines = `{\\bf ${escapeContext(student.name)}}\\crlf
+${student.registration ? `Matrícula ${escapeContext(student.registration)}\\crlf\n` : ''}${escapeContext(application.title)} \\quad ${escapeContext(application.className)} \\quad Versão ${escapeContext(student.versionCode)}`;
+  const photoFile = /^student-photo\.(png|jpg)$/.test(student.photoFileName ?? '')
+    ? student.photoFileName
+    : '';
+  if (!photoFile)
+    return `\\midaligned{\\bf ${escapeContext(student.name)}}
+\\midaligned{${escapeContext(application.title)} \\quad ${escapeContext(application.className)} \\quad Versão ${escapeContext(student.versionCode)}}`;
+  return `\\midaligned{\\hbox{\\framed[frame=on,rulethickness=.4pt,offset=0pt,width=fit,height=fit]{\\externalfigure[${photoFile}][height=28mm]}\\hskip 6mm\\framed[frame=off,width=fit,height=28mm,align={flushleft,lohi}]{${lines}}}}`;
+}
+
 export function renderStudentReport(snapshot) {
   if (
     snapshot?.schemaVersion !== '1.0' ||
@@ -215,8 +228,7 @@ export function renderStudentReport(snapshot) {
 \\starttext
 \\midaligned{\\tfc Relatório individual de aprendizagem}
 \\blank[small]
-\\midaligned{\\bf ${escapeContext(snapshot.student.name)}}
-\\midaligned{${escapeContext(snapshot.application.title)} \\quad ${escapeContext(snapshot.application.className)} \\quad Versão ${escapeContext(snapshot.student.versionCode)}}
+${studentHeader(snapshot)}
 \\blank[big]
 
 \\startcombination[5*1]

@@ -1,7 +1,7 @@
 import { myStudentProfiles, updateMyStudentPhoto } from "./student-profile.mjs";
 import { importClassStudents, previewClassStudentImport } from './student-import.mjs';
 import { regenerateAssessment } from './assessments.mjs';
-import { listClassStudents } from './academic.mjs';
+import { getClassRoster, listClassStudents } from './academic.mjs';
 import {
   listWorkspaces,
   getWorkspace,
@@ -744,6 +744,8 @@ const server = createServer(async (request, response) => {
     }
     const classStudentsMatch=request.method==='GET' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students$/i);
     if(classStudentsMatch) return json(response,200,{data:await listClassStudents({institutionId,classId:classStudentsMatch[1]})});
+    const classRosterMatch=request.method==='GET' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/roster$/i);
+    if(classRosterMatch) return json(response,200,{data:await getClassRoster({institutionId,userId,classId:classRosterMatch[1]})});
     if (request.method === 'GET' && url.pathname === '/api/classes')
       return json(response, 200, {
         data: await listClasses({ institutionId }),
