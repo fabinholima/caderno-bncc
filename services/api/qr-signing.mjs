@@ -2,13 +2,17 @@ import crypto from 'node:crypto';
 
 const developmentSecret = 'caderno-local-development';
 
-// Em produção, a assinatura dos QR codes nunca pode usar o segredo público de
-// desenvolvimento: sem QR_SIGNING_SECRET, a operação falha.
+// Sem QR_SIGNING_SECRET, os QR codes continuam assinados com o segredo
+// anterior. Assim, os cartões já impressos seguem válidos. Em produção, isso
+// gera um aviso: o segredo deve ser configurado no Render.
 export function qrSigningSecret(environment = process.env) {
-  if (environment.QR_SIGNING_SECRET) return environment.QR_SIGNING_SECRET;
-  if (environment.NODE_ENV === 'production')
-    throw new Error('QR_SIGNING_SECRET não configurado no ambiente de produção.');
-  return developmentSecret;
+  return environment.QR_SIGNING_SECRET || developmentSecret;
+}
+
+export function qrSigningWarning(environment = process.env) {
+  if (environment.NODE_ENV === 'production' && !environment.QR_SIGNING_SECRET)
+    return 'AVISO: QR_SIGNING_SECRET não configurado. Os QR codes usam o segredo padrão; configure-o no Render.';
+  return '';
 }
 
 export function signQrId(id, environment = process.env) {
