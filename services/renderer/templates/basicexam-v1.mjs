@@ -79,6 +79,7 @@ export const basicExamV1 = Object.freeze({
       className,
       candidateName,
       candidateNumber,
+      version,
       qr,
     });
     const header = previewOnly

@@ -60,7 +60,8 @@ draw (9cm,0.55cm)--(14.75cm,0.55cm);
 // Cabeçalho compacto da folha da prova (~31 mm), em três linhas:
 //  1. logotipo, escola, título e versão, QR code (15 mm, o mesmo tamanho
 //     de antes: ele identifica a versão na correção);
-//  2. "Aluno(a)" e "Nº", os únicos campos preenchidos à mão;
+//  2. aluno: com aluno vinculado, nome e Nº impressos e só a assinatura para
+//     preencher; sem aluno (PDF da versão), linhas para nome e Nº;
 //  3. dados já impressos numa linha só (disciplina, série, turma, período,
 //     professor) e a data.
 export function renderCompactExamHeader({
@@ -100,6 +101,12 @@ export function renderCompactExamHeader({
     teacherName ? `Professor(a): ${teacherName}` : '',
   ].filter(Boolean).join(' \\enspace·\\enspace ');
   const date = `Data: ${assessmentDate || '\\hbox to 22mm{\\leaders\\hrule height .4pt\\hfill}'}`;
+  // Aluno vinculado (prova gerada pela aplicação da turma): nome e número
+  // impressos e só a assinatura para preencher. Sem aluno (PDF da versão),
+  // ficam as linhas para nome e número.
+  const studentRow = candidateName
+    ? `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}${candidateNumber ? `\\hskip 3mm Nº ${candidateNumber}` : ''}\\hskip 6mm\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}`
+    : `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}`;
   const logoWidth = logo ? '25mm' : '0mm';
   const qrWidth = qr ? '18mm' : '0mm';
 
@@ -114,7 +121,7 @@ export function renderCompactExamHeader({
   \\hbox to ${qrWidth}{\\hss\\vbox to 15mm{\\vfil\\hbox{${qr}}\\vfil}}%
 }%
 \\blank[2mm]%
-\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm${candidateName ? `${candidateName}\\hfill` : '\\leaders\\hrule height .4pt\\hfill'}\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}%
+${studentRow}%
 \\blank[1.5mm]%
 \\hbox to ${contentWidth}{\\switchtobodyfont[7pt]\\vtop{\\hsize=\\dimexpr${contentWidth}-34mm\\relax\\setupalign[flushleft,nothyphenated]\\noindent ${details}\\par}\\hfill\\vtop{\\hbox{${date}}}}%
 }}`;

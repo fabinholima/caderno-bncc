@@ -66,8 +66,12 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
-  assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
-  assert.match(tex, /Aluno\(a\):\} Aluno Demonstração/);
+  // Nome impresso a partir da turma; o único campo para preencher é a assinatura.
+  assert.match(tex, /\\bold\{Assinatura do\(a\) aluno\(a\):\}/);
+  assert.match(tex, /Aluno\(a\):\}\}\\hskip 2mm\{\\tfa\\bold\{Aluno Demonstração\}\}/);
+  const card = tex.slice(tex.indexOf('CARTÃO-RESPOSTA'));
+  assert.equal((card.match(/Assinatura do\(a\) aluno\(a\)/g) || []).length, 1);
+  assert.doesNotMatch(card, /Nome completo|\\NC Escola:/);
   assert.doesNotMatch(tex, /Nome completo do aluno/);
   assert.doesNotMatch(tex, /AnswerCardNameGrid/);
   assert.match(tex, /\\externalfigure\[qr\.png\]/);
@@ -147,8 +151,8 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
     tex,
     /\\setuppagenumbering\[location=\{footer,right\},style=\\tfx\]/,
   );
-  assert.match(tex, /Assinatura do Aluno:/);
-  assert.match(tex, /Turma:/);
+  assert.match(tex, /Assinatura do\(a\) aluno\(a\):/);
+  assert.match(tex, /Aluno\(a\):/);
   assert.doesNotMatch(tex, /Nº\/Matrícula:/);
   assert.doesNotMatch(tex, /Data de nascimento:/);
 });
@@ -181,9 +185,10 @@ test('renderiza o Modelo 3 em duas colunas com folha de respostas OMR', async ()
     /\\startmixedcolumns\[n=2,balance=yes,distance=8mm,separator=rule,rulethickness=\.5pt,rulecolor=modelthreerule\]/,
   );
   assert.match(tex, /\\bold\{FOLHA DE RESPOSTAS\}/);
-  assert.match(tex, /Aluno\(a\): Estudante Modelo/);
-  assert.match(tex, /Assinatura do Aluno:/);
-  assert.match(tex, /Versão: A/);
+  assert.match(tex, /\\tfa\\bold\{Estudante Modelo\}/);
+  assert.match(tex, /Assinatura do\(a\) aluno\(a\):/);
+  assert.match(tex, /Versão A/);
+  assert.doesNotMatch(tex, /\\NC Escola:/);
   assert.match(tex, /\\externalfigure\[assessment-qr\.png\]/);
   assert.match(tex, /\\blackrule\[width=7mm,height=7mm\]/);
   assert.match(tex, /\\bf ITEM/);
@@ -913,4 +918,18 @@ test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura'
   assert.throws(() => renderAssessment(snapshot), /somente questões de Certo/);
   snapshot.render.template = 'basicexam-v1';
   assert.throws(() => renderAssessment(snapshot), /não podem ser mescladas/);
+});
+
+test('prova vinculada a um aluno imprime nome e número e deixa só a assinatura', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  snapshot.candidate = { name: 'Ana Souza', number: '12' };
+  const tex = renderAssessment(snapshot);
+  const header = tex.slice(tex.indexOf('\\framed[width=\\textwidth,frame=on'), tex.indexOf('CARTÃO-RESPOSTA'));
+  assert.match(header, /\\bold\{Ana Souza\}\}\\hskip 3mm Nº 12/);
+  assert.match(header, /\\bold\{Assinatura:\}/);
+  assert.doesNotMatch(header, /\\bold\{Nº\}/);
+  delete snapshot.candidate;
+  const generic = renderAssessment(snapshot);
+  assert.match(generic, /\\bold\{Aluno\(a\):\}\\hskip 1\.5mm\\leaders\\hrule/);
+  assert.match(generic, /Cartão sem aluno vinculado/);
 });
