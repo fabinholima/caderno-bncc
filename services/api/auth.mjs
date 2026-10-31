@@ -182,6 +182,16 @@ export async function login(input) {
   };
 }
 
+// Registra IP e navegador já na criação da sessão, para a tela Assinantes
+// mostrar de onde veio um login mesmo antes de a sessão ser usada de novo.
+export async function recordSessionNetwork(token, request) {
+  const network = sessionNetwork(request);
+  await pool.query(
+    "UPDATE user_sessions SET last_ip=$2::inet,user_agent=NULLIF($3,''),last_seen_at=now() WHERE token_hash=$1",
+    [tokenHash(token), network.ip, network.agent],
+  );
+}
+
 export async function completeCpf(identity, input) {
   const fingerprint = cpfFingerprint(input?.cpf);
   const updated = await pool.query('UPDATE users SET cpf_hash=$2 WHERE id=$1 AND cpf_hash IS NULL RETURNING id', [identity.userId,fingerprint]);

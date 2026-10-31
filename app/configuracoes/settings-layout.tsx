@@ -1,4 +1,5 @@
 'use client';
+import { BrandMark } from '@/components/brand-mark';
 
 import {
   createContext,
@@ -13,7 +14,6 @@ import {
   Building2,
   ChevronLeft,
   CreditCard,
-  GraduationCap,
   LogOut,
   Menu,
   Settings,
@@ -152,13 +152,13 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
           className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6"
         >
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]">
-            <GraduationCap className="size-5" aria-hidden="true" />
+            <BrandMark />
           </span>
           <span>
             <span className="block text-[17px] font-bold leading-tight">
               UfaProva
             </span>
-            <span className="block text-[11px] font-medium tracking-[.12em] text-slate-400">
+            <span className="block text-xs font-medium tracking-[.12em] text-slate-300">
               AVALIAÇÕES BNCC
             </span>
           </span>
@@ -199,7 +199,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
               <span className="block truncate text-sm font-semibold">
                 {identity.user.displayName}
               </span>
-              <span className="block truncate text-xs text-slate-400">
+              <span className="block truncate text-xs text-slate-300">
                 {roleLabel}
               </span>
             </span>

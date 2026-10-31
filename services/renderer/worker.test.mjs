@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import {
   materializeInstitutionLogo,
   materializeQuestionImages,
@@ -96,7 +97,10 @@ test('materializa imagens dos enunciados somente na pasta do trabalho', async ()
   }
 });
 
-test('materializa SVG aprovado de estrutura química', async () => {
+// A conversão usa o rsvg-convert do sistema (instalado na CI e no Docker).
+const rsvgAvailable = !spawnSync('rsvg-convert', ['--version']).error;
+
+test('materializa SVG aprovado de estrutura química', { skip: !rsvgAvailable && 'rsvg-convert não instalado' }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'caderno-structure-'));
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="160"><path d="M0 0"/></svg>';

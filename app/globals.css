@@ -3,7 +3,33 @@
 @import 'shadcn/tailwind.css';
 @custom-variant dark (&:is(.dark *));
 @theme inline { --color-background: var(--background); --color-foreground: var(--foreground); --font-sans: var(--font-geist-sans); --font-mono: var(--font-geist-mono); --font-heading: var(--font-geist-sans); --color-ring: var(--ring); --color-input: var(--input); --color-border: var(--border); --color-destructive: var(--destructive); --color-accent-foreground: var(--accent-foreground); --color-accent: var(--accent); --color-muted-foreground: var(--muted-foreground); --color-muted: var(--muted); --color-secondary-foreground: var(--secondary-foreground); --color-secondary: var(--secondary); --color-primary-foreground: var(--primary-foreground); --color-primary: var(--primary); --color-popover-foreground: var(--popover-foreground); --color-popover: var(--popover); --color-card-foreground: var(--card-foreground); --color-card: var(--card); --radius-sm: calc(var(--radius) * .65); --radius-md: calc(var(--radius) * .82); --radius-lg: var(--radius); --radius-xl: calc(var(--radius) * 1.35); }
-:root { --canvas: #f4f7fa; --navy: #10243e; --blue: #2563eb; --lime: #bef264; --background: #fff; --foreground: #10243e; --card: #fff; --card-foreground: #10243e; --popover: #fff; --popover-foreground: #10243e; --primary: #10243e; --primary-foreground: #fff; --secondary: #eef2f6; --secondary-foreground: #24364b; --muted: #eef2f6; --muted-foreground: #64748b; --accent: #e9eff6; --accent-foreground: #10243e; --destructive: #dc2626; --border: #dce3ea; --input: #dce3ea; --ring: #60a5fa; --radius: .65rem; }
-.dark { --background: #10243e; --foreground: #f8fafc; --card: #172d48; --card-foreground: #f8fafc; --popover: #172d48; --popover-foreground: #f8fafc; --primary: #bef264; --primary-foreground: #10243e; --secondary: #243b56; --secondary-foreground: #f8fafc; --muted: #243b56; --muted-foreground: #b6c2d2; --accent: #2a435f; --accent-foreground: #fff; --destructive: #f87171; --border: rgb(255 255 255 / 12%); --input: rgb(255 255 255 / 16%); --ring: #60a5fa; }
+/* Identidade UfaProva "Caderno": tinta azul-escura (#172b4d), azul de caneta
+   (#2f55d4), amarelo marca-texto (#ffd84d) e fundo papel (#fbfaf5). A escala
+   "blue" do Tailwind é remapeada para o azul da marca, então as classes
+   bg-blue-*, text-blue-* etc. seguem a paleta. Contrastes verificados (WCAG AA). */
+@theme {
+  --color-blue-50: #f5f6fd; --color-blue-100: #e6ebfa; --color-blue-200: #cbd4f4;
+  --color-blue-300: #a1b2ec; --color-blue-400: #6d88e1; --color-blue-500: #4869d9;
+  --color-blue-600: #2f55d4; --color-blue-700: #2848b1; --color-blue-800: #223b91;
+  --color-blue-900: #1c3074; --color-blue-950: #162251;
+  /* Cinza médio um pouco mais escuro: mantém 4.5:1 também sobre fundos cinza e azul-claro. */
+  --color-slate-500: #556378;
+}
+:root { --canvas: #fbfaf5; --navy: #172b4d; --blue: #2f55d4; --lime: #ffd84d; --background: #fff; --foreground: #172b4d; --card: #fff; --card-foreground: #172b4d; --popover: #fff; --popover-foreground: #172b4d; --primary: #172b4d; --primary-foreground: #fff; --secondary: #eef1f7; --secondary-foreground: #1f3358; --muted: #eef1f7; --muted-foreground: #556070; --accent: #e8edfb; --accent-foreground: #172b4d; --destructive: #c62828; --border: #dfe2ea; --input: #808a9d; --ring: #2f55d4; --field-border: #808a9d; --radius: .65rem; }
+.dark { --background: #172b4d; --foreground: #f8fafc; --card: #1f3358; --card-foreground: #f8fafc; --popover: #1f3358; --popover-foreground: #f8fafc; --primary: #ffd84d; --primary-foreground: #172b4d; --secondary: #243b56; --secondary-foreground: #f8fafc; --muted: #243b56; --muted-foreground: #b6c2d2; --accent: #2a435f; --accent-foreground: #fff; --destructive: #f87171; --border: rgb(255 255 255 / 12%); --input: rgb(255 255 255 / 16%); --ring: #a1b2ec; }
 @layer base { * { @apply border-border outline-ring/50; } html { @apply font-sans; } body { @apply bg-background text-foreground; } button, select { cursor: pointer; } }
 .font-display { font-family: var(--font-geist-sans), Arial, sans-serif; }
+
+/* Acessibilidade (fora de @layer, para prevalecer sobre as classes utilitárias).
+   Foco sempre visível ao navegar pelo teclado, inclusive onde há outline-none. */
+:where(a, button, input, select, textarea, summary, [tabindex], [role="button"]):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+/* Campos de formulário com borda clara demais ganham contraste mínimo de 3:1. */
+:is(input, select, textarea):is([class*="border-slate-1"], [class*="border-slate-2"], [class*="border-input"], [class*="border-gray-2"]):not([type="checkbox"], [type="radio"], [type="range"]) {
+  border-color: var(--field-border);
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
