@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import {
   materializeInstitutionLogo,
   materializeQuestionImages,
+  materializeStudentPhoto,
   validatePdf,
 } from './worker.mjs';
 
@@ -51,6 +52,41 @@ test('materializa o logotipo institucional somente na pasta do trabalho', async 
       await readFile(path.join(directory, 'institution-logo.png')),
       png,
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('materializa a foto do aluno e descarta foto inválida sem falhar', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'caderno-photo-'));
+  const jpeg = Buffer.from('ffd8ffe000104a464946ffd9', 'hex');
+  try {
+    const snapshot = await materializeStudentPhoto(
+      {
+        student: {
+          name: 'Ana',
+          selfieDataUrl: `data:image/jpeg;base64,${jpeg.toString('base64')}`,
+        },
+      },
+      directory,
+    );
+    assert.equal(snapshot.student.photoFileName, 'student-photo.jpg');
+    assert.equal(snapshot.student.selfieDataUrl, undefined);
+    assert.deepEqual(
+      await readFile(path.join(directory, 'student-photo.jpg')),
+      jpeg,
+    );
+    const invalid = await materializeStudentPhoto(
+      {
+        student: {
+          name: 'Bruno',
+          selfieDataUrl: `data:image/png;base64,${jpeg.toString('base64')}`,
+        },
+      },
+      directory,
+    );
+    assert.equal(invalid.student.photoFileName, undefined);
+    assert.equal(invalid.student.selfieDataUrl, undefined);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
