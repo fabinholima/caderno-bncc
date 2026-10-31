@@ -2,7 +2,10 @@
 // Gera o .tex de uma prova de exemplo (Certo/Errado em duas colunas) para
 // conferir o layout no ConTeXt local, sem banco nem API:
 //
-//   node services/renderer/preview-sample.mjs saida.tex [modelo]
+//   node services/renderer/preview-sample.mjs saida.tex [modelo] [aluno]
+//
+// Com "aluno" no terceiro argumento, gera a prova personalizada (nome e Nº
+// impressos e QR individual), como nos cartões da aplicação da turma.
 //   context saida.tex
 //
 // modelo: certo-errado-v1 (padrão), basicexam-v1, caderno-duas-colunas-v1...
@@ -17,10 +20,14 @@ const qrcodeModule = 'qrcode';
 const { default: QRCode } = await import(qrcodeModule);
 import { renderAssessment } from './render-contract.mjs';
 
-const [output = 'amostra-prova.tex', template = 'certo-errado-v1'] = process.argv.slice(2);
+const [output = 'amostra-prova.tex', template = 'certo-errado-v1', mode = ''] = process.argv.slice(2);
+const personalized = mode === 'aluno';
 const directory = path.dirname(path.resolve(output));
 // Mesmo formato do identificador real (CB1:<uuid da versão>:<assinatura>).
-const qrPayload = 'CB1:49de6dd7-2236-4fab-b260-5daa54e2bc09:0123456789abcdef0123';
+// CB1 identifica a versão; CBS1 identifica o aluno na aplicação.
+const qrPayload = personalized
+  ? 'CBS1:c07a8f8f-7d5e-4b34-9cc0-2d7dc36eee95:759d74e761c57f8cf0d0'
+  : 'CB1:49de6dd7-2236-4fab-b260-5daa54e2bc09:0123456789abcdef0123';
 await QRCode.toFile(path.join(directory, 'assessment-qr.png'), qrPayload, { margin: 1, width: 300 });
 await copyFile(new URL('../../public/assets/colegio-horizonte-logo.png', import.meta.url), path.join(directory, 'institution-logo.png'));
 const base = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url), 'utf8'));
@@ -66,6 +73,7 @@ const snapshot = {
   sections: [{ title: 'Química', subject: 'Química', columns: 2, startOnNewPage: false, questions }],
   totals: { points: questions.length, questions: questions.length },
   render: { ...base.render, template, mode: 'student' },
+  ...(personalized ? { candidate: { name: 'Ana Beatriz Souza', number: '12' } } : {}),
 };
 
 await writeFile(output, renderAssessment(snapshot), 'utf8');
