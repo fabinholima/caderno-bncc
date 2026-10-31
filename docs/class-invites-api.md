@@ -34,6 +34,26 @@ Todos autenticados e restritos ao perfil student:
 
 Código inválido/desativado: 404. Consulta e solicitação limitadas por usuário: 429. Mutação no navegador exige origem autorizada; aplicativo envia x-client:mobile e Bearer. Aluno não acessa gestão, catálogo, listas de colegas ou digitalização.
 
+## Código individual do aluno
+
+Cada cadastro de aluno tem um código próprio (`students.access_code`, `UFA-` + 8 caracteres hexadecimais), mostrado ao professor na lista de alunos. Com ele, o aluno se vincula ao próprio cadastro na hora, sem aprovação do professor. A migração 102 torna `class_join_requests.invite_id` opcional e grava a origem do vínculo em `source` (`invite` ou `access_code`); vínculos por convite existentes continuam com `source='invite'`.
+
+Aluno (somente `role=student`; mutação no navegador exige origem autorizada, o aplicativo envia `x-client:mobile` e Bearer):
+
+- `POST /api/student/access-code/inspect`: `{code}`. Aceita maiúsculas ou minúsculas, com ou sem `UFA-`. Responde `{data:{studentName,schoolName,classes:[{className}]}}` com o cadastro ativo e as turmas em que está matriculado. Não grava nada.
+- `POST /api/student/access-code/claim`: `{code}`. Numa transação, cria `student_account_links` (`linked_by` = a própria conta), a membership de aluno e uma solicitação `approved` com `source='access_code'` para cada turma matriculada (uma solicitação pendente por convite na mesma turma passa a aprovada). As turmas passam a aparecer em `GET /api/class-join-requests/me`, `GET /api/student/activities` e `GET /api/student/profile`. Responde `{data:{studentId,classes:[{className,schoolName}]}}`. Repetir com a mesma conta e o mesmo cadastro é idempotente (200). Registra `student_link.access_code` no audit_log quando algo muda.
+
+Escola exibida quando o vínculo não veio de convite: escola da turma (`classes.school_id`), senão a do convite mais recente da turma, senão o nome da instituição.
+
+Erros (mensagem em `error`): código inexistente, malformado ou de aluno inativo → 404; cadastro já ligado a outra conta, ou esta conta já ligada a outro cadastro na mesma instituição → 409; cadastro sem turma → 422; excesso de tentativas → 429 (mesmo limite por usuário dos convites, 30 tentativas em 15 minutos, somando consulta, vínculo e convites). Conta que não é de aluno recebe 403 (o aplicativo trata 403 como servidor sem estas rotas).
+
+Professor e gestor:
+
+- `GET /api/students`: cada aluno traz `linkedAccountName` e `linkedAccountEmail` (null quando não há conta vinculada).
+- `DELETE /api/students/:studentId/account-link`: só professor, coordenador ou administrador da instituição do cadastro. Remove o vínculo, as solicitações daquela conta ligadas ao cadastro e a membership de aluno da conta naquela instituição; gera um novo `access_code` (o antigo deixa de valer). Responde `{data:{studentId,unlinked:true,accessCode}}`. Cadastro de outra instituição → 404; cadastro sem conta → 409. Registra `student_link.unlinked`.
+
+Portal: Alunos cadastrados mostra a conta vinculada (nome e e-mail) e a ação "Desvincular conta", com confirmação.
+
 ## Telas
 
 Portal: Turmas → Convidar alunos. Escolha a escola, compartilhe código/link/QR Code; QR gerado localmente. A mesma tela lista pendências e exige confirmação explícita do cadastro escolhido.
@@ -42,6 +62,6 @@ Link: `/portal?invite=ABCD-EFGH`. Aluno entra na conta, confere os dados e solic
 
 ## Testes
 
-`CLASS_INVITES_TEST_DATABASE_URL=... node --test services/api/class-invites.integration.test.mjs`
+`CLASS_INVITES_TEST_DATABASE_URL=... node --test services/api/class-invites.integration.test.mjs services/api/student-access-code.integration.test.mjs`
 
-Use somente PostgreSQL descartável. Cobre confirmação, Google de aluno, permissões entre instituições, duplicação, renovação/desativação, decisões e geração concorrentes, reutilização e criação de cadastro, auditoria e isolamento de resultados. Todas as 71 migrações também foram aplicadas em banco descartável para verificar compatibilidade.
+Use somente PostgreSQL descartável. Cobre confirmação, Google de aluno, permissões entre instituições, duplicação, renovação/desativação, decisões e geração concorrentes, reutilização e criação de cadastro, auditoria e isolamento de resultados. O teste do código do aluno cobre consulta, vínculo, idempotência, 404/409/422/429, disputa simultânea pelo mesmo cadastro, conversão de solicitação pendente, isolamento entre instituições, atividades/perfil/solicitações após o vínculo e desvinculação com troca de código. Todas as 71 migrações também foram aplicadas em banco descartável para verificar compatibilidade.
