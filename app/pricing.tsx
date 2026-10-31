@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 
@@ -158,12 +159,12 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            <a
+            <Link
               className="ufa-cta"
               href="/portal"
             >
               {index === 0 ? 'Começar agora' : `Assinar plano ${plan.name}`}
-            </a>
+            </Link>
           </article>
         ))}
       </div>

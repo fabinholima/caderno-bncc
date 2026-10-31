@@ -335,7 +335,7 @@ function ContextTextField({
               variant="outline"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => insert(command)}
-              className="h-7 px-2 font-mono text-[11px]"
+              className="h-7 px-2 font-mono text-xs"
             >
               \\{command}
               {'{ }'}
@@ -347,7 +347,7 @@ function ContextTextField({
             variant="outline"
             onMouseDown={(event) => event.preventDefault()}
             onClick={insertFormula}
-            className="h-7 px-2 font-mono text-[11px]"
+            className="h-7 px-2 font-mono text-xs"
           >
             \\startformula
           </Button>
@@ -825,7 +825,7 @@ function AiSuggestionReview({
         </p>
       )}
       <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
-        <div className="grid min-w-[720px] grid-cols-[42px_150px_1fr_1fr_96px] bg-slate-100 px-2 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+        <div className="grid min-w-[720px] grid-cols-[42px_150px_1fr_1fr_96px] bg-slate-100 px-2 py-2 text-xs font-bold uppercase tracking-wide text-slate-600">
           <span />
           <span>Campo</span>
           <span>Atual</span>
@@ -857,7 +857,7 @@ function AiSuggestionReview({
               <span className="pr-3 text-slate-600">{row.current}</span>
               <span className="pr-3 text-violet-900">{row.suggested}</span>
               <span
-                className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${isAccepted ? 'bg-emerald-100 text-emerald-800' : isRejected ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'}`}
+                className={`w-fit rounded-full px-2 py-0.5 text-xs font-bold ${isAccepted ? 'bg-emerald-100 text-emerald-800' : isRejected ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'}`}
               >
                 {isAccepted ? 'Aceito' : isRejected ? 'Rejeitado' : 'Pendente'}
               </span>
@@ -884,7 +884,7 @@ function AiSuggestionReview({
           Rejeitar selecionados
         </Button>
         {candidate.aiReview?.reviewedAt && (
-          <span className="text-[11px] text-slate-500">
+          <span className="text-xs text-slate-500">
             Última decisão:{' '}
             {new Date(candidate.aiReview.reviewedAt).toLocaleString('pt-BR')}
             {candidate.aiReview.history?.length
@@ -2369,7 +2369,7 @@ export function ExamImportManager({
                     {selectedImportId === item.id ? (
                       <ChevronDown className="size-5 shrink-0 text-violet-700" />
                     ) : (
-                      <ChevronRight className="size-5 shrink-0 text-slate-400" />
+                      <ChevronRight className="size-5 shrink-0 text-slate-500" />
                     )}
                     <div className="min-w-0">
                       <h3 className="truncate font-semibold text-[var(--navy)]">
@@ -2799,7 +2799,7 @@ export function ExamImportManager({
                                 (check) => (
                                   <span
                                     key={check.label}
-                                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${check.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
+                                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${check.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
                                   >
                                     {check.ok ? '✓' : '!'} {check.label}
                                   </span>
@@ -3168,7 +3168,7 @@ export function ExamImportManager({
                         ))}
                       </div>
                     </section>
-                    <p className="mt-3 text-xs text-slate-400">
+                    <p className="mt-3 text-xs text-slate-500">
                       Criada em{' '}
                       {new Date(item.createdAt).toLocaleString('pt-BR')} ·{' '}
                       {item.detectedQuestions} detectadas ·{' '}

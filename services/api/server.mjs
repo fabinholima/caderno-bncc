@@ -16,7 +16,9 @@ import { requirePortalAdmin } from './portal-admin.mjs';
 import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './maintenance.mjs';
 import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
-import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
+import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
+import { qrSigningWarning } from './qr-signing.mjs';
+import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
 import { schoolCatalogReady, searchSchools } from './inep-schools.mjs';
@@ -126,12 +128,13 @@ import {
 } from './report-exports.mjs';
 import {
   acceptInvitation,
-  authenticate,
+  authenticate as authenticateSession,
   completeCpf,
   createInvitation,
   getSubscription,
   login,
   logout,
+  recordSessionNetwork,
   register,
   registerStudent,
   requestPasswordReset,
@@ -166,20 +169,8 @@ const port = Number(process.env.PORT || 8788);
 const maxConcurrentPreviews = Number(process.env.PREVIEW_CONCURRENCY || 2);
 let activePreviewCount = 0;
 const activePreviewUsers = new Set();
-const allowedOrigins = new Set(
-  (process.env.CORS_ORIGIN || 'http://localhost:3000')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean),
-);
-// O portal também é acessado pelo domínio oficial. Mantemos esses aliases
-// permitidos mesmo quando o CORS_ORIGIN do Render ainda estiver apontando
-// somente para o endereço *.onrender.com.
-for (const origin of [
-  'https://ufaprova.com.br',
-  'https://www.ufaprova.com.br',
-  'https://ufaprova-frontend.onrender.com',
-]) allowedOrigins.add(origin);
+const allowedOrigins = configuredOrigins();
+console.log(`Origens autorizadas: ${[...allowedOrigins].join(', ')}`);
 
 function corsHeaders(response) {
   return response.corsOrigin
@@ -206,7 +197,7 @@ async function readJson(request, maxBytes = 8_500_000) {
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > maxBytes) throw new Error('Payload muito grande');
+    if (size > maxBytes) throw Object.assign(new Error('Conteúdo enviado é grande demais.'), { statusCode: 413 });
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
@@ -233,24 +224,36 @@ function clearSessionCookie(response) {
 }
 
 const authAttempts = new Map();
-function allowAuthAttempt(key) {
+function allowAuthAttempt(key, max = 30) {
   const now = Date.now();
   for (const [ip, value] of authAttempts) if (value.until <= now) authAttempts.delete(ip);
   const current = authAttempts.get(key) || { count: 0, until: now + 15 * 60_000 };
   if (!authAttempts.has(key) && authAttempts.size >= 10000) return false;
   authAttempts.set(key, current);
-  return ++current.count <= 30;
+  return ++current.count <= max;
 }
 function oauthCookie(value, age) {
   return `caderno_oauth=${value}; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=${age}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
 
+if (qrSigningWarning()) console.warn(qrSigningWarning());
+const securityHeaders = apiSecurityHeaders();
+
 const server = createServer(async (request, response) => {
   const requestOrigin = request.headers.origin;
   response.corsOrigin = allowedOrigins.has(requestOrigin) ? requestOrigin : '';
+  for (const [name, value] of Object.entries(securityHeaders)) response.setHeader(name, value);
   if (request.method === 'OPTIONS') return json(response, 204, null);
+  // A identidade é consultada antes do roteamento e nas rotas: resolve uma vez só.
+  let identityPromise;
+  const authenticate = (req) => (identityPromise ??= authenticateSession(req));
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
+    if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/') &&
+      !mutationOriginAllowed({ method: request.method, origin: requestOrigin, cookie: request.headers.cookie, mobileClient: request.headers['x-client'], allowedOrigins }))
+      return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+    if (url.pathname.startsWith('/api/') && !jsonBodyAllowed({ method: request.method, headers: request.headers }))
+      return json(response, 415, { error: 'Envie os dados no formato JSON.' });
     if (request.method === 'GET' && url.pathname === '/api/maintenance') {
       response.setHeader('cache-control','no-store');
       return json(response,200,{data:await maintenanceStatus()});
@@ -274,7 +277,7 @@ const server = createServer(async (request, response) => {
       if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
       if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/google/start', '/api/auth/google/link/start', '/api/auth/google/claim', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
-        if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown'))
+        if (!allowAuthAttempt(clientIp(request) || 'unknown'))
           return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
       }
     }
@@ -287,7 +290,7 @@ const server = createServer(async (request, response) => {
       return json(response, 200, { data: await mobileGoogleAuth.status(await readJson(request, 4096)) });
     }
     if (request.method === 'GET' && url.pathname === '/api/auth/google/mobile/browser') {
-      if (!allowAuthAttempt(request.socket.remoteAddress || 'unknown')) return json(response, 429, { error: 'Muitas tentativas. Aguarde e tente novamente.' });
+      if (!allowAuthAttempt(clientIp(request) || 'unknown')) return json(response, 429, { error: 'Muitas tentativas. Aguarde e tente novamente.' });
       const result = await mobileGoogleAuth.browser(url.searchParams.get('ticket'));
       response.setHeader('set-cookie', oauthCookie(result.browser, 600));
       response.writeHead(303, { location: result.url, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
@@ -301,6 +304,7 @@ const server = createServer(async (request, response) => {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
       const { code } = await readJson(request, 4096);
       const token = await claimGoogleSessionExchange(code);
+      await recordSessionNetwork(token, request);
       setSessionCookie(response, token);
       return json(response, 200, { data: { authenticated: true } });
     }
@@ -351,11 +355,16 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/student/register') return json(response,201,{data:await registerStudent(await readJson(request,4096))});
     if (request.method === 'POST' && url.pathname === '/api/auth/register') {
-      const result = await register(await readJson(request));
+      const result = await register(await readJson(request, 16384));
       return json(response, 201, { data: result });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/login') {
-      const result = await login(await readJson(request));
+      const credentials = await readJson(request, 16384);
+      // Além do limite por IP, limita tentativas por conta contra ataques distribuídos.
+      if (!allowAuthAttempt(`login:${String(credentials?.email || '').trim().toLowerCase()}`, 10))
+        return json(response, 429, { error: 'Muitas tentativas para esta conta. Aguarde 15 minutos e tente novamente.' });
+      const result = await login(credentials);
+      await recordSessionNetwork(result.token, request);
       setSessionCookie(response, result.token);
       const { token: _token, ...data } = result;
       if (request.headers['x-client'] === 'mobile') data.token = result.token;
@@ -366,14 +375,14 @@ const server = createServer(async (request, response) => {
       url.pathname === '/api/auth/forgot-password'
     )
       return json(response, 202, {
-        data: await requestPasswordReset(await readJson(request)),
+        data: await requestPasswordReset(await readJson(request, 16384)),
       });
     if (
       request.method === 'POST' &&
       url.pathname === '/api/auth/reset-password'
     )
       return json(response, 200, {
-        data: await resetPassword(await readJson(request)),
+        data: await resetPassword(await readJson(request, 16384)),
       });
     if (request.method === 'POST' && url.pathname === '/api/auth/resend-verification')
       return json(response, 202, { data: await requestEmailVerification(await readJson(request, 4096)) });
@@ -429,6 +438,12 @@ const server = createServer(async (request, response) => {
       }
     }
     if (url.pathname.startsWith('/api/admin/')) response.setHeader('cache-control','no-store');
+    if (request.method === 'GET' && url.pathname === '/api/admin/revenue.csv') {
+      const year=url.searchParams.get('year') || new Date().getFullYear();
+      const csv=await revenueReportCsv(identity,{year});
+      response.writeHead(200,{'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="receitas-${Number(year)}.csv"`,'cache-control':'no-store',...corsHeaders(response)});
+      return response.end(csv);
+    }
     if (request.method === 'GET' && url.pathname === '/api/admin/revenue')
       return json(response,200,{data:await revenueReport(identity,{year:url.searchParams.get('year') || new Date().getFullYear()})});
     if (url.pathname === '/api/admin/billing-settings') {
@@ -446,7 +461,7 @@ const server = createServer(async (request, response) => {
       return json(response, 200, { data: await saveBillingCoupon(identity, await readJson(request, 4096)) });
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/subscribers')
-      return json(response,200,{data:await listSubscribers(identity,{q:url.searchParams.get('q') || '',ip:url.searchParams.get('ip') || '',page:url.searchParams.get('page') || 1})});
+      return json(response,200,{data:await listSubscribers(identity,Object.fromEntries(['q','ip','status','plan','sort','page'].map(key=>[key,url.searchParams.get(key) || undefined])))});
     if (request.method === 'POST' && url.pathname === '/api/admin/subscribers') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
       return json(response,200,{data:await manageSubscriber(identity,await readJson(request,4096))});

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import crypto from 'node:crypto';
 import { pool, transaction } from './db.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
+import { signQrId } from './qr-signing.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -212,18 +213,11 @@ export async function createApplication({ institutionId, userId, input }) {
       const student = students.rows[index];
       const version = versions.rows[index % versions.rows.length];
       const id = crypto.randomUUID();
-      const signature = crypto
-        .createHmac(
-          'sha256',
-          process.env.QR_SIGNING_SECRET || 'caderno-local-development',
-        )
-        .update(id)
-        .digest('hex')
-        .slice(0, 20);
+      const signature = signQrId(id);
       const qrPayload = `CBS1:${id}:${signature}`;
       await client.query(
         'INSERT INTO application_students(id,application_id,student_id,assessment_version_id,qr_payload) VALUES($1,$2,$3,$4,$5)',
-        [id, r.rows[0].id, student.id, version.id, qrPayload],
+        [id, application.id, student.id, version.id, qrPayload],
       );
       const job = await client.query(
         `INSERT INTO render_jobs(assessment_version_id,template_version,application_student_id) SELECT $1,template_version,$2 FROM render_jobs WHERE assessment_version_id=$1 ORDER BY created_at LIMIT 1 RETURNING id`,
@@ -277,7 +271,7 @@ async function listApplicationAssignments(client, applicationId) {
 
 export async function listApplications({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 GROUP BY aa.id,a.title,c.name ORDER BY aa.created_at DESC`,
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 GROUP BY aa.id,a.title,c.name ORDER BY aa.created_at DESC`,
     values: [institutionId],
   });
   return result.rows.map((x) => ({
@@ -290,6 +284,7 @@ export async function listApplications({ institutionId }) {
     status: x.status,
     students: x.students,
     completed: x.completed,
+    corrected: x.corrected,
   }));
 }
 

@@ -1,7 +1,8 @@
 'use client';
+import { BrandMark } from '@/components/brand-mark';
 
 import { type SubmitEvent, useEffect, useState } from 'react';
-import { Eye, EyeOff, GraduationCap, ShieldCheck, UserPlus, KeyRound, MailCheck } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, UserPlus, KeyRound, MailCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
@@ -152,18 +153,18 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
     }
   }
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#edf4ff_0%,#f8fafc_52%,#e8f7f2_100%)] px-4 py-5 font-sans sm:px-6 sm:py-8">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eef2fd_0%,#fbfaf5_55%,#fff8dc_100%)] px-4 py-5 font-sans sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-blue-200/30 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -right-20 size-96 rounded-full bg-emerald-200/25 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -right-20 size-96 rounded-full bg-amber-200/25 blur-3xl" />
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur lg:grid-cols-[.9fr_1.1fr]">
         <div className="hidden flex-col justify-between bg-[var(--navy)] p-10 text-white lg:flex">
-          <div><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-200">UfaProva</p><h2 className="mt-5 font-display text-4xl font-bold leading-tight">Avaliações mais claras para ensinar melhor.</h2><p className="mt-5 max-w-sm text-sm leading-6 text-slate-300">Organize seu banco de questões, monte provas e acompanhe a aprendizagem em um só lugar.</p></div>
+          <div><p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--lime)]">UfaProva</p><h2 className="mt-5 font-display text-4xl font-bold leading-tight">Avaliações mais claras para ensinar melhor.</h2><p className="mt-5 max-w-sm text-sm leading-6 text-slate-300">Organize seu banco de questões, monte provas e acompanhe a aprendizagem em um só lugar.</p></div>
           <div className="space-y-3 text-sm text-slate-300"><p>✓ Banco de questões com BNCC</p><p>✓ Pré-visualização dos seus layouts</p><p>✓ Resultados e histórico por turma</p></div>
         </div>
         <div className="p-6 sm:p-9 lg:p-11">
         <div className="flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-2xl bg-[var(--navy)] text-white shadow-lg shadow-blue-950/15">
-            <GraduationCap />
+          <span className="grid size-11 place-items-center rounded-2xl bg-[var(--navy)] text-[var(--lime)] shadow-lg shadow-blue-950/15">
+            <BrandMark className="text-xl" />
           </span>
           <div>
             <h1 className="font-display text-xl font-bold tracking-tight text-slate-950">UfaProva</h1>
@@ -205,7 +206,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
             Continuar com Google
           </Button>
           {!config.google && <p className="mt-2 text-xs text-slate-500">Login Google aguardando configuração. Você pode usar e-mail e senha.</p>}
-          <div className="mt-4 flex items-center gap-3 text-center text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>ou use e-mail e senha</span><span className="h-px flex-1 bg-slate-200" /></div>
+          <div className="mt-4 flex items-center gap-3 text-center text-xs text-slate-500"><span className="h-px flex-1 bg-slate-200" /><span>ou use e-mail e senha</span><span className="h-px flex-1 bg-slate-200" /></div>
         </div>}
         <form className="mt-5 space-y-3" onSubmit={submit}>
           {mode === 'register' && (

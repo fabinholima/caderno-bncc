@@ -10,6 +10,7 @@ import {
   renderTemplateIds,
 } from '../../lib/render-templates.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
+import { signQrId } from './qr-signing.mjs';
 import { pool, transaction } from './db.mjs';
 import { schoolHeader } from './educator-profile.mjs';
 
@@ -281,14 +282,7 @@ export async function createAssessment({ institutionId, questionBankId = institu
           code,
           seed,
           generatedAt: new Date().toISOString(),
-          qrPayload: `CB1:${versionId}:${crypto
-            .createHmac(
-              'sha256',
-              process.env.QR_SIGNING_SECRET || 'caderno-local-development',
-            )
-            .update(versionId)
-            .digest('hex')
-            .slice(0, 20)}`,
+          qrPayload: `CB1:${versionId}:${signQrId(versionId)}`,
         },
         candidateFields: ['name', 'class', 'number', 'date'],
         sections: snapshotSections,
