@@ -134,6 +134,7 @@ import {
   getSubscription,
   login,
   logout,
+  recordSessionNetwork,
   register,
   registerStudent,
   requestPasswordReset,
@@ -304,6 +305,7 @@ const server = createServer(async (request, response) => {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
       const { code } = await readJson(request, 4096);
       const token = await claimGoogleSessionExchange(code);
+      await recordSessionNetwork(token, request);
       setSessionCookie(response, token);
       return json(response, 200, { data: { authenticated: true } });
     }
@@ -363,6 +365,7 @@ const server = createServer(async (request, response) => {
       if (!allowAuthAttempt(`login:${String(credentials?.email || '').trim().toLowerCase()}`, 10))
         return json(response, 429, { error: 'Muitas tentativas para esta conta. Aguarde 15 minutos e tente novamente.' });
       const result = await login(credentials);
+      await recordSessionNetwork(result.token, request);
       setSessionCookie(response, result.token);
       const { token: _token, ...data } = result;
       if (request.headers['x-client'] === 'mobile') data.token = result.token;
@@ -453,7 +456,7 @@ const server = createServer(async (request, response) => {
       return json(response, 200, { data: await saveBillingCoupon(identity, await readJson(request, 4096)) });
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/subscribers')
-      return json(response,200,{data:await listSubscribers(identity,{q:url.searchParams.get('q') || '',ip:url.searchParams.get('ip') || '',page:url.searchParams.get('page') || 1})});
+      return json(response,200,{data:await listSubscribers(identity,Object.fromEntries(['q','ip','status','plan','sort','page'].map(key=>[key,url.searchParams.get(key) || undefined])))});
     if (request.method === 'POST' && url.pathname === '/api/admin/subscribers') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
       return json(response,200,{data:await manageSubscriber(identity,await readJson(request,4096))});
