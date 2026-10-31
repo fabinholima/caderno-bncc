@@ -7,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Wallet, Undo2, CircleDollarSign, BadgeCheck, Users, CalendarDays, ChartColumn, Search, RotateCcw, Building2, LockKeyhole, LockKeyholeOpen, Trash2, Monitor, LogOut, ChevronLeft, ChevronRight, Info, MoreHorizontal, Clock3, Network, PanelRightOpen } from 'lucide-react';
+import { Wallet, Undo2, CircleDollarSign, BadgeCheck, Users, ChartColumn, Search, RotateCcw, Building2, LockKeyhole, LockKeyholeOpen, Trash2, Monitor, LogOut, ChevronLeft, ChevronRight, Info, MoreHorizontal, Clock3, Network, PanelRightOpen, Download, TriangleAlert, TrendingUp, TrendingDown, Receipt } from 'lucide-react';
 
 type Month={month:number;payments:number;gross:string;refunded:string;net:string;subscribers:number};
-type Report={months:Month[];unreconciledRefunds:number;refundBasis:string;subscriberBasis:string};
+type Report={year:number;months:Month[];previousTotals:{gross:number;refunded:number;net:number;payments:number};byPlan:{planId:string;plan:string;billing:'monthly'|'annual';payments:number;gross:string}[];years:number[];unreconciledRefunds:number;refundBasis:string;subscriberBasis:string};
 type Session={id:string;ip:string|null;agent:string|null;lastSeen:string|null};
 type Subscription={institution:string;planId:string|null;plan:string|null;status:string|null};
 type Account={id:string;email:string;display_name:string;active:boolean;deleted_at:string|null;portal_admin:boolean;created_at:string;last_access:string|null;sessions:Session[];subscriptions:Subscription[]};
@@ -42,32 +42,108 @@ export function AdminDashboard({apiUrl,view}:{apiUrl:string;view:'revenue'|'subs
   </section>;
 }
 
+type Totals={gross:number;refunded:number;net:number;payments:number};
+const sumMonths=(months:Month[]):Totals=>months.reduce((t,m)=>({gross:t.gross+Number(m.gross),refunded:t.refunded+Number(m.refunded),net:t.net+Number(m.net),payments:t.payments+m.payments}),{gross:0,refunded:0,net:0,payments:0});
+const percent=(value:number)=>new Intl.NumberFormat('pt-BR',{style:'percent',maximumFractionDigits:1}).format(value);
+const moneyOrDash=(cents:number,future=false)=>future||cents===0?'—':money(cents);
+// Variação em relação ao ano anterior, em texto (nunca só por cor).
+function Change({current,previous,year}:{current:number;previous:number;year:number}) {
+  if(!previous) return <p className="mt-2 text-xs text-slate-500">Sem dados de {year-1} para comparar</p>;
+  const change=(current-previous)/Math.abs(previous);
+  const Icon=change>=0?TrendingUp:TrendingDown;
+  return <p className={`mt-2 flex items-center gap-1 text-xs font-medium ${change>=0?'text-emerald-800':'text-amber-800'}`}><Icon aria-hidden="true" className="size-3.5"/>{change>=0?'+':''}{percent(change)} em relação a {year-1}</p>;
+}
+
 function RevenueView({apiUrl}:{apiUrl:string}) {
-  const [year,setYear]=useState(new Date().getFullYear());
+  const now=new Date();
+  const [year,setYear]=useState(now.getFullYear());
   const [report,setReport]=useState<Report|null>(null);
   const [error,setError]=useState('');
+  const [exporting,setExporting]=useState(false);
+  const [hovered,setHovered]=useState<number|null>(null);
   useEffect(()=>{
     let active=true;queueMicrotask(()=>{if(active){setReport(null);setError('')}});
     apiFetch(`${apiUrl}/api/admin/revenue?year=${year}`).then(dataFrom<Report>).then(v=>{if(active)setReport(v)}).catch(e=>{if(active)setError(String(e.message))});
     return()=>{active=false};
   },[apiUrl,year]);
-  const totals=report?.months.reduce((a,m)=>({gross:a.gross+Number(m.gross),refund:a.refund+Number(m.refunded),net:a.net+Number(m.net),payments:a.payments+m.payments}),{gross:0,refund:0,net:0,payments:0});
-  const metricIcons=[Wallet,Undo2,CircleDollarSign,BadgeCheck];
+  async function exportCsv() {
+    setExporting(true);setError('');
+    try {
+      const response=await apiFetch(`${apiUrl}/api/admin/revenue.csv?year=${year}`);
+      if(!response.ok) throw new Error('Não foi possível gerar a planilha.');
+      const url=URL.createObjectURL(await response.blob());
+      const link=document.createElement('a');link.href=url;link.download=`receitas-${year}.csv`;link.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {setError(e instanceof Error?e.message:'Não foi possível gerar a planilha.')}
+    finally {setExporting(false)}
+  }
+  // Meses ainda não encerrados do ano corrente aparecem como "—", não como zero.
+  const isFuture=(month:number)=>year>now.getFullYear()||(year===now.getFullYear()&&month>now.getMonth()+1);
+  const totals=report?sumMonths(report.months):null;
+  const previous=report?.previousTotals;
+  const ticket=totals&&totals.payments?totals.gross/totals.payments:0;
+  const maxGross=Math.max(1,...(report?.months.map(m=>Number(m.gross))||[0]));
+  const scaleTop=Math.ceil(maxGross/100_000)*100_000||100_000;
+  const planTotal=report?.byPlan.reduce((n,p)=>n+Number(p.gross),0)||0;
+  const shown=hovered!=null?report?.months.find(m=>m.month===hovered):null;
   return <>
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <label className="text-sm font-medium" htmlFor="revenue-year">Ano
+        <select id="revenue-year" value={year} onChange={e=>setYear(Number(e.target.value))} className="mt-1.5 block h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm">{(report?.years||[year]).map(y=><option key={y} value={y}>{y}</option>)}</select>
+      </label>
+      <Button variant="outline" disabled={!report||exporting} onClick={()=>{void exportCsv()}}><Download aria-hidden="true"/>{exporting?'Gerando…':'Exportar planilha (CSV)'}</Button>
+    </div>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[
-      ['Receita bruta',totals?money(totals.gross):'—'],['Estornos',totals?money(totals.refund):'—'],['Líquida de estornos',totals?money(totals.net):'—'],['Pagamentos aprovados',totals?String(totals.payments):'—'],
-    ].map(([label,value],i)=>{const Icon=metricIcons[i];return <article key={label} className={`rounded-2xl border p-5 shadow-sm ${i===2?'border-blue-900 bg-[var(--navy)] text-white':'border-slate-200 bg-white'}`}><div className="flex items-center justify-between gap-3"><p className={`text-sm ${i===2?'text-slate-300':'text-slate-500'}`}>{label}</p><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${i===2?'bg-white/10 text-[var(--lime)]':i===1?'bg-amber-50 text-amber-700':'bg-blue-50 text-blue-700'}`}><Icon aria-hidden="true" className="size-5"/></span></div><p className="mt-3 text-2xl font-bold tabular-nums">{value}</p><p className={`mt-2 text-xs ${i===2?'text-slate-300':'text-slate-500'}`}>Acumulado de {year}</p></article>})}</div>
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4"><h2 className="flex items-center gap-2 text-xl font-semibold"><ChartColumn aria-hidden="true" className="size-5 text-blue-700"/>Receita mensal</h2><label className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm font-medium"><CalendarDays aria-hidden="true" className="size-4 text-slate-500"/>Ano <select aria-label="Ano do relatório" value={year} onChange={e=>setYear(Number(e.target.value))} className="rounded-lg border border-slate-200 bg-white p-2">{Array.from({length:new Date().getFullYear()-1999},(_,i)=>new Date().getFullYear()-i).map(y=><option key={y}>{y}</option>)}</select></label></div>
-      <p className="my-3 text-sm text-slate-600">Valores recebidos em reais. Receita líquida de estornos, sem dedução de taxas ou impostos. Assinantes são instituições pagantes, não número de professores.</p>
-      {!report?<p aria-live="polite" className="py-12 text-center text-slate-500">{error?'Relatório indisponível.':'Carregando relatório…'}</p>:<>
-        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{['Mês','Pagamentos aprovados','Receita bruta','Estornos','Líquida de estornos','Assinantes pagantes'].map(t=><th className="p-3" key={t}>{t}</th>)}</tr></thead><tbody>{report.months.map(m=><tr className="border-t" key={m.month}><th className="p-3">{monthNames[m.month-1]}</th><td className="p-3">{m.payments}</td><td className="p-3">{money(m.gross)}</td><td className="p-3">{money(m.refunded)}</td><td className="p-3">{money(m.net)}</td><td className="p-3">{m.subscribers}</td></tr>)}</tbody></table></div>
-        <p className="mt-4 font-semibold">Total líquido no ano: {money(report.months.reduce((n,m)=>n+Number(m.net),0))}</p>
-        <p className="mt-3 flex items-start gap-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-600"><Info aria-hidden="true" className="mt-0.5 size-4 shrink-0"/><span>{report.refundBasis} {report.subscriberBasis}</span></p>
-        {report.unreconciledRefunds>0&&<p role="alert" className="mt-3 text-amber-800">Há {report.unreconciledRefunds} pagamento(s) estornado(s) sem valor reconciliado. O relatório ainda está incompleto para esses registros.</p>}
-      </>}
+    {report&&report.unreconciledRefunds>0&&<p role="alert" className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><TriangleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0"/><span><strong>Relatório incompleto.</strong> {report.unreconciledRefunds===1?'Há 1 pagamento estornado sem valor reconciliado.':`Há ${report.unreconciledRefunds} pagamentos estornados sem valor reconciliado.`} Os estornos e a receita líquida podem estar menores ou maiores do que o real até a conciliação com o Mercado Pago.</span></p>}
+
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><p className="flex items-center gap-2 text-sm text-slate-500"><Wallet aria-hidden="true" className="size-4"/>Receita bruta</p><p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl">{totals?money(totals.gross):'—'}</p>{totals&&previous&&<Change current={totals.gross} previous={previous.gross} year={year}/>}</article>
+      <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><p className="flex items-center gap-2 text-sm text-slate-500"><Undo2 aria-hidden="true" className="size-4"/>Estornos</p><p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl">{totals?money(totals.refunded):'—'}</p>{totals&&<p className="mt-2 text-xs text-slate-500">{totals.gross?`${percent(totals.refunded/totals.gross)} da receita bruta`:'Sem receita no período'}</p>}</article>
+      <article className="col-span-2 rounded-2xl border border-[var(--navy)] bg-[var(--navy)] p-4 text-white sm:p-5 lg:col-span-1"><p className="flex items-center gap-2 text-sm text-slate-300"><CircleDollarSign aria-hidden="true" className="size-4 text-[var(--lime)]"/>Receita líquida</p><p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl">{totals?money(totals.net):'—'}</p>{totals&&previous&&(previous.net?<p className="mt-2 text-xs font-medium text-slate-200">{totals.net>=previous.net?'+':''}{percent((totals.net-previous.net)/Math.abs(previous.net))} em relação a {year-1}</p>:<p className="mt-2 text-xs text-slate-300">Sem dados de {year-1} para comparar</p>)}</article>
+      <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><p className="flex items-center gap-2 text-sm text-slate-500"><BadgeCheck aria-hidden="true" className="size-4"/>Pagamentos</p><p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl">{totals?totals.payments:'—'}</p>{totals&&previous&&<Change current={totals.payments} previous={previous.payments} year={year}/>}</article>
+      <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><p className="flex items-center gap-2 text-sm text-slate-500"><Receipt aria-hidden="true" className="size-4"/>Ticket médio</p><p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl">{totals?money(ticket):'—'}</p><p className="mt-2 text-xs text-slate-500">Receita bruta ÷ pagamentos</p></article>
+    </div>
+
+    {!report?<p aria-live="polite" className="rounded-2xl border border-slate-200 bg-white py-12 text-center text-slate-500">{error?'Relatório indisponível.':'Carregando relatório…'}</p>:<>
+    <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+      <section aria-labelledby="revenue-chart-title" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 id="revenue-chart-title" className="text-lg font-semibold">Receita bruta por mês</h2><p aria-live="polite" className="min-h-5 text-sm text-slate-600">{shown?`${monthNames[shown.month-1]}: ${money(Number(shown.gross))} bruta · ${money(Number(shown.refunded))} em estornos · ${shown.payments} pagamentos`:'Passe o mouse ou use Tab nas barras para ver os valores.'}</p></div>
+        <div className="relative mt-8 h-56">
+          {[1,0.5,0].map(f=><div key={f} aria-hidden="true" className="absolute inset-x-0 flex items-center gap-2" style={{bottom:`${f*100}%`}}><span className="w-14 shrink-0 -translate-y-1/2 text-right text-[12px] tabular-nums text-slate-500">{f===0?'0':`R$ ${(scaleTop*f/100_000).toLocaleString('pt-BR',{maximumFractionDigits:1})} mil`}</span><span className="-translate-y-1/2 flex-1 border-t border-slate-200"/></div>)}
+          <ol className="absolute inset-y-0 left-16 right-0 flex items-end gap-1 sm:gap-2">{report.months.map(m=>{const value=Number(m.gross);const future=isFuture(m.month);return <li key={m.month} className="flex h-full flex-1 flex-col justify-end">
+            <button type="button" disabled={future} onMouseEnter={()=>setHovered(m.month)} onMouseLeave={()=>setHovered(null)} onFocus={()=>setHovered(m.month)} onBlur={()=>setHovered(null)} aria-label={future?`${monthNames[m.month-1]}: mês ainda não encerrado`:`${monthNames[m.month-1]}: ${money(value)} de receita bruta`} className="group flex h-full w-full items-end rounded-t px-0.5 disabled:cursor-default">
+              <span className={`w-full rounded-t-[4px] transition-colors ${future?'h-0':hovered===m.month?'bg-blue-800':'bg-blue-600 group-hover:bg-blue-800'}`} style={{height:future?0:`${Math.max(value?2:0,value/scaleTop*100)}%`}}/>
+            </button></li>})}</ol>
+        </div>
+        <ol aria-hidden="true" className="ml-16 mt-2 flex gap-1 text-center text-[12px] text-slate-500 sm:gap-2">{report.months.map(m=><li key={m.month} className="flex-1"><span className="sm:hidden">{monthNames[m.month-1][0]}</span><span className="hidden sm:inline">{monthNames[m.month-1].slice(0,3)}</span></li>)}</ol>
+      </section>
+      <section aria-labelledby="revenue-plans-title" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+        <h2 id="revenue-plans-title" className="text-lg font-semibold">Receita por plano</h2>
+        {!report.byPlan.length?<p className="mt-4 text-sm text-slate-500">Nenhum pagamento em {year}.</p>:<ul className="mt-4 space-y-4">{report.byPlan.map(p=>{const share=planTotal?Number(p.gross)/planTotal:0;return <li key={`${p.planId}-${p.billing}`}>
+          <div className="flex items-baseline justify-between gap-3 text-sm"><span className="font-medium text-slate-900">{p.plan} · {p.billing==='annual'?'anual':'mensal'}</span><span className="tabular-nums text-slate-700">{percent(share)}</span></div>
+          <div aria-hidden="true" className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-blue-600" style={{width:`${share*100}%`}}/></div>
+          <p className="mt-1 text-xs tabular-nums text-slate-500">{money(Number(p.gross))} · {p.payments} {p.payments===1?'pagamento':'pagamentos'}</p>
+        </li>})}</ul>}
+      </section>
+    </div>
+
+    <section aria-labelledby="revenue-table-title" className="rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3"><h2 id="revenue-table-title" className="text-lg font-semibold">Detalhamento mensal</h2><p className="text-sm text-slate-500">Valores em reais, sem taxas ou impostos</p></div>
+      <div className="hidden overflow-x-auto md:block"><table className="w-full text-sm">
+        <caption className="sr-only">Receita de {year} por mês: pagamentos, receita bruta, estornos, receita líquida e assinantes pagantes</caption>
+        <thead className="border-y border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600"><tr><th scope="col" className="px-5 py-3 text-left">Mês</th>{['Pagamentos','Receita bruta','Estornos','Receita líquida','Assinantes'].map(t=><th scope="col" key={t} className="px-4 py-3 text-right">{t}</th>)}</tr></thead>
+        <tbody className="tabular-nums">{report.months.map(m=>{const future=isFuture(m.month);return <tr key={m.month} className={`border-b border-slate-100 ${future?'text-slate-500':''}`}><th scope="row" className="px-5 py-2.5 text-left font-medium">{monthNames[m.month-1]}{future&&<span className="ml-2 text-xs font-normal">(em aberto)</span>}</th><td className="px-4 py-2.5 text-right">{future||!m.payments?'—':m.payments}</td><td className="px-4 py-2.5 text-right">{moneyOrDash(Number(m.gross),future)}</td><td className="px-4 py-2.5 text-right">{moneyOrDash(Number(m.refunded),future)}</td><td className="px-4 py-2.5 text-right font-medium">{moneyOrDash(Number(m.net),future)}</td><td className="px-4 py-2.5 text-right">{future||!m.subscribers?'—':m.subscribers}</td></tr>})}</tbody>
+        {totals&&<tfoot className="tabular-nums"><tr className="border-t-2 border-slate-300 font-semibold"><th scope="row" className="px-5 py-3 text-left">Total de {year}</th><td className="px-4 py-3 text-right">{totals.payments}</td><td className="px-4 py-3 text-right">{money(totals.gross)}</td><td className="px-4 py-3 text-right">{money(totals.refunded)}</td><td className="px-4 py-3 text-right">{money(totals.net)}</td><td className="px-4 py-3 text-right">—</td></tr></tfoot>}
+      </table></div>
+      <ul className="space-y-2 px-4 pb-4 md:hidden">{report.months.filter(m=>!isFuture(m.month)).map(m=><li key={m.month} className="rounded-xl border border-slate-200 p-3">
+        <p className="flex items-baseline justify-between font-semibold"><span>{monthNames[m.month-1]}</span><span className="tabular-nums">{moneyOrDash(Number(m.net))}</span></p>
+        <dl className="mt-1 grid grid-cols-3 gap-2 text-xs text-slate-600"><div><dt>Bruta</dt><dd className="tabular-nums text-slate-900">{moneyOrDash(Number(m.gross))}</dd></div><div><dt>Estornos</dt><dd className="tabular-nums text-slate-900">{moneyOrDash(Number(m.refunded))}</dd></div><div><dt>Pagamentos</dt><dd className="tabular-nums text-slate-900">{m.payments||'—'}</dd></div></dl>
+      </li>)}{totals&&<li className="rounded-xl bg-slate-50 p-3 font-semibold"><p className="flex justify-between"><span>Total de {year}</span><span className="tabular-nums">{money(totals.net)}</span></p></li>}</ul>
+      <details className="border-t border-slate-200 px-5 py-4 text-sm"><summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-md font-medium text-blue-700"><Info aria-hidden="true" className="size-4"/>Como os valores são calculados</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600"><li>Receita bruta: pagamentos com data de aprovação no mês, no fuso de Mato Grosso do Sul.</li><li>Receita líquida: bruta menos estornos, sem dedução de taxas ou impostos.</li><li>{report.refundBasis}</li><li>{report.subscriberBasis}</li></ul>
+      </details>
     </section>
+    </>}
   </>;
 }
 

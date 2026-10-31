@@ -18,7 +18,7 @@ import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
 import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
 import { qrSigningSecret } from './qr-signing.mjs';
-import { revenueReport, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
+import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
 import { schoolCatalogReady, searchSchools } from './inep-schools.mjs';
@@ -439,6 +439,12 @@ const server = createServer(async (request, response) => {
       }
     }
     if (url.pathname.startsWith('/api/admin/')) response.setHeader('cache-control','no-store');
+    if (request.method === 'GET' && url.pathname === '/api/admin/revenue.csv') {
+      const year=url.searchParams.get('year') || new Date().getFullYear();
+      const csv=await revenueReportCsv(identity,{year});
+      response.writeHead(200,{'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="receitas-${Number(year)}.csv"`,'cache-control':'no-store',...corsHeaders(response)});
+      return response.end(csv);
+    }
     if (request.method === 'GET' && url.pathname === '/api/admin/revenue')
       return json(response,200,{data:await revenueReport(identity,{year:url.searchParams.get('year') || new Date().getFullYear()})});
     if (url.pathname === '/api/admin/billing-settings') {
