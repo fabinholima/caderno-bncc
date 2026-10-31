@@ -8,7 +8,7 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
   await control.query(`CREATE SCHEMA ${schema}`);
   const url=new URL(process.env.AUTH_TEST_DATABASE_URL);url.searchParams.set('options',`-c search_path=${schema}`);process.env.DATABASE_URL=url.href;
   const {pool}=await import('./db.mjs');
-  const {revenueReport,listSubscribers,manageSubscriber}=await import('./admin-dashboard.mjs');
+  const {revenueReport,revenueReportCsv,listSubscribers,manageSubscriber}=await import('./admin-dashboard.mjs');
   const admin={userId:randomUUID(),sessionId:randomUUID(),portalAdmin:true};
   const userId=randomUUID(),institution=randomUUID(),contract=randomUUID(),session=randomUUID();
   try {
@@ -19,7 +19,7 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
       CREATE TABLE subscription_plans(id text PRIMARY KEY,name text);
       CREATE TABLE user_sessions(id uuid PRIMARY KEY,user_id uuid,last_ip inet,user_agent text,expires_at timestamptz,last_seen_at timestamptz DEFAULT now());
       CREATE TABLE audit_log(user_id uuid,action text,entity_type text,entity_id text,metadata jsonb,created_at timestamptz NOT NULL DEFAULT now());
-      CREATE TABLE billing_contracts(id uuid PRIMARY KEY,institution_id uuid);
+      CREATE TABLE billing_contracts(id uuid PRIMARY KEY,institution_id uuid,plan_id text DEFAULT 'professor',months int DEFAULT 1);
       CREATE TABLE billing_payments(provider_id text,status text,contract_id uuid,amount_cents int,refund_cents int DEFAULT 0,paid_at timestamptz);
       CREATE TABLE billing_refund_events(payment_id text,amount_cents int,observed_at timestamptz);`);
     await pool.query("INSERT INTO users(id,email,display_name,portal_admin) VALUES($1,'admin@test.local','Admin',true),($2,'prof@test.local','Professor',false)",[admin.userId,userId]);
@@ -34,6 +34,12 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
     const report=await revenueReport(admin,{year:2026});
     assert.equal(report.months.length,12);assert.equal(report.months[0].gross,'2990');assert.equal(report.months[0].subscribers,1);assert.equal(report.months[1].net,'-1000');
     assert.equal((await revenueReport(admin,{year:2025})).months.every(m=>m.gross==='0'),true);
+    assert.ok(report.years.includes(2026));
+    assert.deepEqual(report.previousTotals,{gross:0,refunded:0,net:0,payments:0});
+    assert.deepEqual(report.byPlan.map(p=>[p.planId,p.billing,p.gross]),[['professor','monthly','2990']]);
+    const csv=await revenueReportCsv(admin,{year:2026});
+    assert.ok(csv.startsWith('\uFEFF"Mês";"Pagamentos"'));
+    assert.match(csv,/"Total";"1";"29,90";"10,00";"19,90"/);
     assert.equal((await listSubscribers(admin,{ip:'192.0.2.10'})).users.length,1);
     assert.equal((await listSubscribers(admin,{ip:'192.0.2.11'})).users.length,0);
     const listed=await listSubscribers(admin,{});
