@@ -101,7 +101,7 @@ export async function createStudent({ institutionId, userId, portalAdmin = false
 }
 export async function listStudents({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id WHERE s.institution_id=$1 ORDER BY s.name`,
+    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name,lu.display_name AS "linkedAccountName",lu.email AS "linkedAccountEmail" FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id LEFT JOIN student_account_links l ON l.student_id=s.id AND l.institution_id=s.institution_id LEFT JOIN users lu ON lu.id=l.user_id WHERE s.institution_id=$1 ORDER BY s.name`,
     values: [institutionId],
   });
   return result.rows;

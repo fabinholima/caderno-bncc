@@ -28,7 +28,7 @@ test(
  CREATE TABLE memberships(institution_id uuid REFERENCES institutions(id),user_id uuid REFERENCES users(id),role text CHECK(role IN('admin','coordinator','teacher')),PRIMARY KEY(institution_id,user_id));
  CREATE TABLE user_sessions(id uuid DEFAULT gen_random_uuid(),user_id uuid,token_hash text UNIQUE,expires_at timestamptz,last_seen_at timestamptz,global_bank boolean DEFAULT false,last_ip inet,user_agent text);
  CREATE TABLE audit_log(institution_id uuid,user_id uuid,action text,entity_type text,entity_id text);
- CREATE TABLE classes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,name text);
+ CREATE TABLE classes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,name text,school_id uuid);
  CREATE TABLE students(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,name text,registration text,active boolean DEFAULT true,teacher_id uuid,access_code text,UNIQUE(institution_id,registration));
  CREATE TABLE class_enrollments(class_id uuid,student_id uuid,PRIMARY KEY(class_id,student_id));
  CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text DEFAULT 'trialing',period_started_at timestamptz,period_ends_at timestamptz);
@@ -48,7 +48,8 @@ test(
         "067_auth_email_verification.sql",
         "069_mobile_google_login.sql",
         "070_class_invites.sql",
-      "071_student_accounts_class_links.sql",
+        "071_student_accounts_class_links.sql",
+        "102_student_access_code_links.sql",
       ])
         await pool.query(
           await readFile(new URL("../../database/" + name, import.meta.url), "utf8"),
@@ -76,7 +77,7 @@ test(
         otherSchool,
         otherTeacher,
       ]);
-      await pool.query("INSERT INTO classes VALUES($1,$2,'Turma A')", [classId, school]);
+      await pool.query("INSERT INTO classes VALUES($1,$2,'Turma A',NULL)", [classId, school]);
       await pool.query(
         "INSERT INTO students(id,institution_id,name,registration) VALUES($1,$2,'Aluno existente','001')",
         [existingStudent, school],

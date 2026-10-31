@@ -42,6 +42,8 @@ type Student = {
   registration: string;
   name: string;
   access_code?: string;
+  linkedAccountName?: string | null;
+  linkedAccountEmail?: string | null;
   selfieDataUrl?: string;
   active: boolean;
   status: StudentStatus | null;
@@ -674,6 +676,25 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       const updated = body.data;
       setStudents((items) => items.map((item) => item.id === student.id ? { ...item, ...updated } : item));
       setMessage('Cadastro do aluno atualizado.');
+    } finally { setSavingStudent(null); }
+  };
+
+  const unlinkStudentAccount = async (student: Student) => {
+    const account = student.linkedAccountName || student.linkedAccountEmail || 'a conta vinculada';
+    if (!window.confirm(
+      `Desvincular ${account} do cadastro de ${student.name}? A conta perde o acesso às turmas e atividades deste cadastro, e um novo código será gerado (o código atual deixa de valer).`,
+    )) return;
+    setSavingStudent(student.id);
+    setMessage('');
+    try {
+      const response = await apiFetch(`${apiUrl}/api/students/${student.id}/account-link`, { method: 'DELETE' });
+      const body = (await response.json()) as ApiBody<{ accessCode: string }>;
+      if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível desvincular a conta.');
+      const accessCode = body.data.accessCode;
+      setStudents((items) => items.map((item) => item.id === student.id ? { ...item, access_code: accessCode, linkedAccountName: null, linkedAccountEmail: null } : item));
+      setMessage(`Conta desvinculada de ${student.name}. Novo código: ${accessCode}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro ao desvincular a conta.');
     } finally { setSavingStudent(null); }
   };
 
@@ -2107,8 +2128,12 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 className="font-semibold">Alunos cadastrados</h2><p className="mt-1 text-xs text-slate-500">{visibleStudents.length} de {students.length} alunos</p><p className="mt-1 text-xs text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p></div><div className="flex flex-wrap gap-2"><Input aria-label="Buscar aluno" placeholder="Nome, matrícula ou código" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} className="h-9 w-56" /><select aria-label="Filtrar situação do aluno" value={studentStatusFilter} onChange={(event) => setStudentStatusFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{studentStatuses.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></header>
         {visibleStudents.length ? visibleStudents.map((student) => (
           <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-0">
-            <span className="flex min-w-0 items-center gap-3"><StudentPhoto src={student.selfieDataUrl} name={student.name} /><span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>{!student.selfieDataUrl && <span className="block text-xs text-slate-400">sem foto</span>}</span></span>
+            <span className="flex min-w-0 items-center gap-3"><StudentPhoto src={student.selfieDataUrl} name={student.name} /><span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>{!student.selfieDataUrl && <span className="block text-xs text-slate-400">sem foto</span>}
+              <span className="mt-0.5 block text-xs text-slate-500">{student.linkedAccountName || student.linkedAccountEmail
+                ? <>Conta vinculada: <span className="text-slate-700">{student.linkedAccountName || student.linkedAccountEmail}</span>{student.linkedAccountName && student.linkedAccountEmail ? ` (${student.linkedAccountEmail})` : ''}</>
+                : 'Sem conta vinculada'}</span></span></span>
             <div className="flex flex-wrap items-center gap-3">
+              {(student.linkedAccountName || student.linkedAccountEmail) && <Button type="button" variant="outline" className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={savingStudent !== null} onClick={() => void unlinkStudentAccount(student)}>{savingStudent === student.id ? 'Desvinculando…' : 'Desvincular conta'}</Button>}
               <label className="flex items-center gap-2">Situação
                 <select aria-label={`Situação de ${student.name}`} value={student.status ?? ''}
                   disabled={savingStudent !== null} className="rounded-md border p-2"
