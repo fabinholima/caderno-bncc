@@ -180,6 +180,31 @@ export async function compileAndValidate(source, cwd, resultName) {
   }
 }
 
+export async function materializeStudentPhoto(snapshot, directory) {
+  const dataUrl = snapshot.student?.selfieDataUrl;
+  if (!dataUrl) return snapshot;
+  const student = { ...snapshot.student, selfieDataUrl: undefined };
+  const match = dataUrl.match(
+    /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/,
+  );
+  const contents = match ? Buffer.from(match[2], 'base64') : Buffer.alloc(0);
+  const isPng =
+    match?.[1] === 'png' &&
+    contents.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+  const isJpeg =
+    match?.[1] === 'jpeg' &&
+    contents[0] === 0xff &&
+    contents[1] === 0xd8 &&
+    contents.at(-2) === 0xff &&
+    contents.at(-1) === 0xd9;
+  // Foto inválida não impede o relatório: ele sai sem a foto.
+  if (contents.length > 400_000 || (!isPng && !isJpeg))
+    return { ...snapshot, student };
+  const fileName = `student-photo.${isPng ? 'png' : 'jpg'}`;
+  await writeFile(path.join(directory, fileName), contents);
+  return { ...snapshot, student: { ...student, photoFileName: fileName } };
+}
+
 export async function materializeInstitutionLogo(snapshot, directory) {
   const dataUrl = snapshot.institution?.logoDataUrl;
   if (!dataUrl) return snapshot;
@@ -474,7 +499,11 @@ export async function tick() {
         reportJob.snapshot?.scope?.type === 'student'
           ? renderStudentReport
           : renderClassReport;
-      await writeFile(source, renderReport(reportJob.snapshot), 'utf8');
+      const reportSnapshot =
+        reportJob.snapshot?.scope?.type === 'student'
+          ? await materializeStudentPhoto(reportJob.snapshot, directory)
+          : reportJob.snapshot;
+      await writeFile(source, renderReport(reportSnapshot), 'utf8');
       await compileAndValidate(source, directory, 'relatorio');
       const [pdf, storedSource] = await Promise.all([
         storeRenderArtifact({
