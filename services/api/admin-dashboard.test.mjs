@@ -15,3 +15,9 @@ test('IP uses peer address, ignores untrusted forwarding headers and caps user-a
   assert.throws(()=>subscriberFilter.parse({ip:'not-an-ip'}));
   assert.throws(()=>reportSchema.parse({year:'2026 OR true'}));
 });
+test('subscriber filter accepts status, plan and sort with safe defaults',()=>{
+  assert.deepEqual(subscriberFilter.parse({}),{q:'',ip:'',status:'all',plan:'',sort:'recent',page:1});
+  assert.equal(subscriberFilter.parse({status:'blocked',sort:'access',page:'2'}).page,2);
+  assert.throws(()=>subscriberFilter.parse({status:'paid'}));
+  assert.throws(()=>subscriberFilter.parse({sort:'created_at; DROP TABLE users'}));
+});

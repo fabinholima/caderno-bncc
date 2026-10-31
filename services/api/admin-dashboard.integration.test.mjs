@@ -16,8 +16,9 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
       CREATE TABLE institutions(id uuid PRIMARY KEY,name text);
       CREATE TABLE memberships(user_id uuid,institution_id uuid);
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text);
+      CREATE TABLE subscription_plans(id text PRIMARY KEY,name text);
       CREATE TABLE user_sessions(id uuid PRIMARY KEY,user_id uuid,last_ip inet,user_agent text,expires_at timestamptz,last_seen_at timestamptz DEFAULT now());
-      CREATE TABLE audit_log(user_id uuid,action text,entity_type text,entity_id text,metadata jsonb);
+      CREATE TABLE audit_log(user_id uuid,action text,entity_type text,entity_id text,metadata jsonb,created_at timestamptz NOT NULL DEFAULT now());
       CREATE TABLE billing_contracts(id uuid PRIMARY KEY,institution_id uuid);
       CREATE TABLE billing_payments(provider_id text,status text,contract_id uuid,amount_cents int,refund_cents int DEFAULT 0,paid_at timestamptz);
       CREATE TABLE billing_refund_events(payment_id text,amount_cents int,observed_at timestamptz);`);
@@ -25,6 +26,7 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
     await pool.query("INSERT INTO institutions VALUES($1,'Escola')",[institution]);
     await pool.query('INSERT INTO memberships VALUES($1,$2)',[userId,institution]);
     await pool.query("INSERT INTO institution_subscriptions VALUES($1,'professor','active')",[institution]);
+    await pool.query("INSERT INTO subscription_plans VALUES('professor','Professor'),('interno','Plano sem assinantes')");
     await pool.query("INSERT INTO user_sessions(id,user_id,last_ip,user_agent,expires_at) VALUES($1,$2,'192.0.2.10','Test browser',now()+interval '1 day')",[session,userId]);
     await pool.query('INSERT INTO billing_contracts VALUES($1,$2)',[contract,institution]);
     await pool.query("INSERT INTO billing_payments VALUES('p1','refunded',$1,2990,1000,'2026-01-15T12:00:00Z'),('p2','pending',$1,2990,0,NULL)",[contract]);
@@ -34,8 +36,17 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
     assert.equal((await revenueReport(admin,{year:2025})).months.every(m=>m.gross==='0'),true);
     assert.equal((await listSubscribers(admin,{ip:'192.0.2.10'})).users.length,1);
     assert.equal((await listSubscribers(admin,{ip:'192.0.2.11'})).users.length,0);
+    const listed=await listSubscribers(admin,{});
+    assert.deepEqual(listed.summary,{total:2,active:2,blocked:0,deleted:0,trialing:0,paying:1});
+    assert.deepEqual(listed.plans,[{id:'professor',name:'Professor'}]);
+    assert.equal(listed.users.find(u=>u.id===userId).subscriptions[0].plan,'Professor');
+    assert.equal(listed.totalPages,1);
+    assert.equal((await listSubscribers(admin,{plan:'professor'})).total,1);
+    await manageSubscriber(admin,{userId,action:'revoke-all-sessions'});
+    assert.equal((await pool.query('SELECT count(*)::int n FROM user_sessions WHERE user_id=$1',[userId])).rows[0].n,0);
     await assert.rejects(manageSubscriber(admin,{userId:admin.userId,action:'block'}),{statusCode:403});
     await manageSubscriber(admin,{userId,action:'block'});
+    assert.deepEqual((await listSubscribers(admin,{status:'blocked'})).users.map(u=>u.id),[userId]);
     assert.equal((await pool.query('SELECT count(*)::int n FROM user_sessions')).rows[0].n,0);
     await manageSubscriber(admin,{userId,action:'delete'});
     await assert.rejects(manageSubscriber(admin,{userId,action:'unblock'}),{statusCode:422});
