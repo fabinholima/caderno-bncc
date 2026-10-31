@@ -32,3 +32,13 @@ test('summary turns common math notation into readable text', () => {
   assert.equal(questionBankSummary(String.raw`Se $x \geq 2$ e $y \neq 0$, então $x \cdot y$.`), 'Se x ≥ 2 e y ≠ 0, então x · y.');
   assert.equal(questionBankSummary(String.raw`$\Delta S = v \times t$ com $10^{-3}$`), 'ΔS = v × t com 10⁻³');
 });
+test('summary reads ConTeXt chemistry and units like the PDF shows them', () => {
+  assert.equal(questionBankSummary(String.raw`Gás \chemical{{C\ell_{2}}} e íon \chemical{{C\ell^{-}(aq)}}.`), 'Gás Cℓ₂ e íon Cℓ⁻(aq).');
+  assert.equal(
+    questionBankSummary(String.raw`\startformula \chemical{} \chemical{2HI(g)} \chemical{GIVES} \chemical{H_2(g)} \chemical{PLUS} \chemical{I_2(g)} \stopformula`),
+    '2HI(g) → H₂(g) + I₂(g)',
+  );
+  assert.equal(questionBankSummary(String.raw`ΔH = \unit{-52,8 kilo joule inverse mol} a \unit{25 degrees celsius}.`), 'ΔH = -52,8 kJ/mol a 25 °C.');
+  assert.equal(questionBankSummary(String.raw`\unit{0,1 mole inverse liter}, \unit{10 meter per second}, \unit{3 square meter}, \unit{10 gram}, \unit{2e-5}`), '0,1 mol/L, 10 m/s, 3 m², 10 g, 2×10⁻⁵');
+  assert.equal(questionBankSummary(String.raw`\m{\frac{a}{b} + \Delta H} e x\high{2}, H\low{2}O`), 'a/b + ΔH e x², H₂O');
+});
