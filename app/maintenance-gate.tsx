@@ -34,7 +34,7 @@ export function MaintenanceGate({children}:{children:ReactNode}) {
   },[apiUrl]);
   if(status && (!status.enabled || admin))return children;
   if(status?.enabled && adminLogin && apiUrl)return <AuthScreen apiUrl={apiUrl}/>;
-  return <main className="grid min-h-screen place-items-center bg-slate-50 px-6 py-12">
+  return <main className="theme-light grid min-h-screen place-items-center bg-slate-50 px-6 py-12">
     <section className="max-w-lg text-center">
       <p className="mb-8 text-2xl font-bold text-slate-900">ufa<span className="text-blue-700">prova</span></p>
       <div className="mx-auto mb-6 grid size-20 place-items-center rounded-3xl bg-blue-100 text-blue-700"><Wrench size={36} aria-hidden="true"/></div>
