@@ -15,7 +15,7 @@ test('converte o contrato imutável para t-basicexam e escapa conteúdo', async 
   assert.match(tex, /\\mainlanguage\[pt\]/);
   assert.match(
     tex,
-    /\\setupalign\[nothyphenated,hz,hanging,tolerant,stretch\]/,
+    /\\setupalign\[hyphenated,hz,hanging,tolerant,stretch\]/,
   );
   assert.match(tex, /layout basicexam-v1/);
   assert.match(tex, /Prova 100\\% segura \\& versionada/);
@@ -481,15 +481,15 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   snapshot.institution.logoFileName = 'institution-logo.png';
   snapshot.version.qrFileName = 'assessment-qr.png';
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /\\externalfigure\[institution-logo\.png\]\[width=22mm,height=14mm,factor=fit\]/);
+  assert.match(tex, /\\externalfigure\[institution-logo\.png\]\[width=20mm,height=11mm,factor=fit\]/);
   assert.match(tex, /\\framed\[width=\\textwidth,frame=on/);
   assert.match(tex, /Prof\. Ana \\& Silva/);
   assert.match(tex, /7º A/);
   assert.match(tex, /2º bimestre/);
   assert.match(tex, /15\/09\/2026/);
-  assert.match(tex, /\\bold\{SÉRIE\}/);
-  assert.match(tex, /\\bold\{PROFESSOR\(A\)\}/);
-  assert.match(tex, /\\externalfigure\[assessment-qr\.png\]\[width=15mm,height=15mm\]/);
+  assert.match(tex, /\\bold\{Aluno\(a\):\}/);
+  assert.match(tex, /Professor\(a\): Prof\. Ana/);
+  assert.match(tex, /\\externalfigure\[assessment-qr\.png\]\[width=12mm,height=12mm\]/);
   assert.doesNotMatch(tex, /AVALIAÇÃO BIMESTRAL/);
   assert.match(tex, /\\setuppapersize\[A4\]/);
   assert.match(tex, /header=\.1cm/);
@@ -845,9 +845,9 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   const tex = renderAssessment(snapshot);
   assert.ok(tex.indexOf('Julgue o item a seguir') < tex.indexOf('Seis vezes sete é igual a 42'));
   assert.match(tex, /Seis vezes sete é igual a 42/);
-  assert.equal((tex.match(/draw fullcircle scaled 5mm shifted/g) || []).length, 2);
-  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/);
-  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Errado\}"\)/);
+  assert.equal((tex.match(/draw fullcircle scaled 4mm shifted/g) || []).length, 2);
+  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Certo\}"\)/);
+  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Errado\}"\)/);
   assert.equal((tex.match(/\\startcitem/g) || []).length, 0);
   assert.ok(!tex.includes('{A}'));
   assert.ok(!tex.includes('{B}'));
