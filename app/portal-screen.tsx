@@ -1797,11 +1797,14 @@ export default function Home() {
                         {identity.portalAdmin && <QuestionApprovalTableCell question={q} />}
                         <td aria-label={`Questão ${q.code}`} className="px-5 py-4">
                           <div className="flex gap-3">
-                            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-xs font-bold text-slate-500">
+                            <span
+                              className="mt-0.5 grid min-h-10 w-[4.5rem] shrink-0 place-items-center rounded-lg bg-slate-100 px-1 py-1 text-center text-xs font-semibold leading-tight text-slate-600"
+                              title={q.type === 'essay' ? 'Questão discursiva' : q.type === 'true_false' ? 'Certo ou errado' : `Múltipla escolha com ${q.alternatives} alternativas`}
+                            >
                               {q.type === 'essay'
-                                ? 'DIS'
-                                : q.type === 'true_false' ? 'C/E'
-                                : `${q.alternatives}A`}
+                                ? 'Discursiva'
+                                : q.type === 'true_false' ? 'C ou E'
+                                : `${q.alternatives} opções`}
                             </span>
                             <div>
                               <div className="mb-1 flex items-center gap-2">
