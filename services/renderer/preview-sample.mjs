@@ -6,10 +6,23 @@
 //   context saida.tex
 //
 // modelo: certo-errado-v1 (padrão), basicexam-v1, caderno-duas-colunas-v1...
-import { readFile, writeFile } from 'node:fs/promises';
+//
+// Ao lado do .tex são gravados o QR code (assessment-qr.png) e um logotipo de
+// demonstração (institution-logo.png), como o worker faz numa prova real.
+import { copyFile, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+// Importação dinâmica: os tipos de "qrcode" alteram a checagem de tipos do
+// lint (oxlint typeAware) nos testes de todo o projeto.
+const qrcodeModule = 'qrcode';
+const { default: QRCode } = await import(qrcodeModule);
 import { renderAssessment } from './render-contract.mjs';
 
 const [output = 'amostra-prova.tex', template = 'certo-errado-v1'] = process.argv.slice(2);
+const directory = path.dirname(path.resolve(output));
+// Mesmo formato do identificador real (CB1:<uuid da versão>:<assinatura>).
+const qrPayload = 'CB1:49de6dd7-2236-4fab-b260-5daa54e2bc09:0123456789abcdef0123';
+await QRCode.toFile(path.join(directory, 'assessment-qr.png'), qrPayload, { margin: 1, width: 300 });
+await copyFile(new URL('../../public/assets/colegio-horizonte-logo.png', import.meta.url), path.join(directory, 'institution-logo.png'));
 const base = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url), 'utf8'));
 
 const items = [
@@ -47,7 +60,8 @@ const snapshot = {
     grade: 'Ensino Médio',
     header: { teacherName: 'Fabio de Lima', className: '2 Ano A', term: '4º Bimestre', date: '' },
   },
-  institution: { id: 'amostra', name: 'EE Profª Clarinda Mendes de Aquino — Campo Grande/MS' },
+  institution: { id: 'amostra', name: 'EE Profª Clarinda Mendes de Aquino — Campo Grande/MS', logoFileName: 'institution-logo.png' },
+  version: { ...base.version, qrPayload, qrFileName: 'assessment-qr.png' },
   questions,
   sections: [{ title: 'Química', subject: 'Química', columns: 2, startOnNewPage: false, questions }],
   totals: { points: questions.length, questions: questions.length },
@@ -55,4 +69,4 @@ const snapshot = {
 };
 
 await writeFile(output, renderAssessment(snapshot), 'utf8');
-console.log(`Gerado ${output} (modelo ${template}). Compile com: context ${output}`);
+console.log(`Gerado ${output} (modelo ${template}), com assessment-qr.png e institution-logo.png. Compile com: context ${path.basename(output)}`);

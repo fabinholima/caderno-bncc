@@ -481,7 +481,7 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   snapshot.institution.logoFileName = 'institution-logo.png';
   snapshot.version.qrFileName = 'assessment-qr.png';
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /\\externalfigure\[institution-logo\.png\]\[width=20mm,height=11mm,factor=fit\]/);
+  assert.match(tex, /\\externalfigure\[institution-logo\.png\]\[width=22mm,height=14mm,factor=fit\]/);
   assert.match(tex, /\\framed\[width=\\textwidth,frame=on/);
   assert.match(tex, /Prof\. Ana \\& Silva/);
   assert.match(tex, /7º A/);
@@ -489,7 +489,7 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   assert.match(tex, /15\/09\/2026/);
   assert.match(tex, /\\bold\{Aluno\(a\):\}/);
   assert.match(tex, /Professor\(a\): Prof\. Ana/);
-  assert.match(tex, /\\externalfigure\[assessment-qr\.png\]\[width=12mm,height=12mm\]/);
+  assert.match(tex, /\\externalfigure\[assessment-qr\.png\]\[width=15mm,height=15mm\]/);
   assert.doesNotMatch(tex, /AVALIAÇÃO BIMESTRAL/);
   assert.match(tex, /\\setuppapersize\[A4\]/);
   assert.match(tex, /header=\.1cm/);

@@ -57,8 +57,9 @@ draw (9cm,0.55cm)--(14.75cm,0.55cm);
 \\stopMPcode`;
 }
 
-// Cabeçalho compacto da folha da prova (~28 mm), em três linhas:
-//  1. logotipo, escola, título e versão, QR code;
+// Cabeçalho compacto da folha da prova (~31 mm), em três linhas:
+//  1. logotipo, escola, título e versão, QR code (15 mm, o mesmo tamanho
+//     de antes: ele identifica a versão na correção);
 //  2. "Aluno(a)" e "Nº", os únicos campos preenchidos à mão;
 //  3. dados já impressos numa linha só (disciplina, série, turma, período,
 //     professor) e a data.
@@ -80,10 +81,10 @@ export function renderCompactExamHeader({
 }) {
   const contentWidth = '\\dimexpr\\textwidth-4mm\\relax';
   const logo = logoFileName
-    ? `\\externalfigure[${logoFileName}][width=20mm,height=11mm,factor=fit]`
+    ? `\\externalfigure[${logoFileName}][width=22mm,height=14mm,factor=fit]`
     : '';
   const qr = headerQr && qrFileName
-    ? `\\externalfigure[${qrFileName}][width=12mm,height=12mm]`
+    ? `\\externalfigure[${qrFileName}][width=15mm,height=15mm]`
     : '';
   const examTitle = title || 'PROVA';
   const versionText = version ? `\\quad{\\switchtobodyfont[7pt]Versão ${version}}` : '';
@@ -99,18 +100,18 @@ export function renderCompactExamHeader({
     teacherName ? `Professor(a): ${teacherName}` : '',
   ].filter(Boolean).join(' \\enspace·\\enspace ');
   const date = `Data: ${assessmentDate || '\\hbox to 22mm{\\leaders\\hrule height .4pt\\hfill}'}`;
-  const logoWidth = logo ? '23mm' : '0mm';
-  const qrWidth = qr ? '15mm' : '0mm';
+  const logoWidth = logo ? '25mm' : '0mm';
+  const qrWidth = qr ? '18mm' : '0mm';
 
   return `\\framed[width=\\textwidth,frame=on,rulethickness=.6pt,offset=2mm]{%
 \\vbox{%
 \\hbox to ${contentWidth}{%
-  \\hbox to ${logoWidth}{\\vbox to 12mm{\\vfil\\hbox{${logo}}\\vfil}\\hss}%
-  \\vbox to 12mm{\\hsize=\\dimexpr${contentWidth}-${logoWidth}-${qrWidth}\\relax\\vfil
+  \\hbox to ${logoWidth}{\\vbox to 15mm{\\vfil\\hbox{${logo}}\\vfil}\\hss}%
+  \\vbox to 15mm{\\hsize=\\dimexpr${contentWidth}-${logoWidth}-${qrWidth}\\relax\\vfil
     \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[7pt]\\bold{${institution || ''}}}%
     \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[11pt]\\bold{${examTitle}}${versionText}}%
   \\vfil}%
-  \\hbox to ${qrWidth}{\\hss\\vbox to 12mm{\\vfil\\hbox{${qr}}\\vfil}}%
+  \\hbox to ${qrWidth}{\\hss\\vbox to 15mm{\\vfil\\hbox{${qr}}\\vfil}}%
 }%
 \\blank[2mm]%
 \\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm${candidateName ? `${candidateName}\\hfill` : '\\leaders\\hrule height .4pt\\hfill'}\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}%
