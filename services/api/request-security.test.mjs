@@ -66,4 +66,7 @@ test('origens vêm de CORS_ORIGIN e AUTH_FRONTEND_URL', () => {
   const origins = configuredOrigins({ CORS_ORIGIN: 'https://a.example/, https://b.example', AUTH_FRONTEND_URL: 'https://app.example/portal' });
   assert.deepEqual([...origins].sort(), ['https://a.example', 'https://app.example', 'https://b.example']);
   assert.deepEqual([...configuredOrigins({})], ['http://localhost:3000']);
+  const production = configuredOrigins({ NODE_ENV: 'production', CORS_ORIGIN: 'https://ufaprova.com.br' });
+  assert.ok(production.has('https://www.ufaprova.com.br'));
+  assert.ok(production.has('https://ufaprova-frontend.onrender.com'));
 });

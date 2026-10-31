@@ -17,7 +17,7 @@ import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './mainten
 import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
 import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
-import { qrSigningSecret } from './qr-signing.mjs';
+import { qrSigningWarning } from './qr-signing.mjs';
 import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
@@ -236,8 +236,7 @@ function oauthCookie(value, age) {
   return `caderno_oauth=${value}; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=${age}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
 
-// Falha ao iniciar em vez de assinar QR codes com o segredo público de desenvolvimento.
-qrSigningSecret();
+if (qrSigningWarning()) console.warn(qrSigningWarning());
 const securityHeaders = apiSecurityHeaders();
 
 const server = createServer(async (request, response) => {
