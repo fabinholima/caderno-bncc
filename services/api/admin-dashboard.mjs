@@ -74,8 +74,10 @@ export const subscriberFilter=z.object({
   page:z.coerce.number().int().min(1).default(1),
 });
 const subscriberPageSize=25;
+// Só contas de professores e gestores: alunos não são assinantes (acessam
+// apenas os próprios resultados, no portal do aluno e no app).
 // Filtros por texto ($1), IP ($2), situação da conta ($3) e plano ($4).
-const subscriberWhere=`WHERE ($1='' OR u.email ILIKE '%'||$1||'%' OR u.display_name ILIKE '%'||$1||'%')
+const subscriberWhere=`WHERE u.account_type<>'student' AND ($1='' OR u.email ILIKE '%'||$1||'%' OR u.display_name ILIKE '%'||$1||'%')
     AND ($2::inet IS NULL OR EXISTS(SELECT 1 FROM user_sessions s WHERE s.user_id=u.id AND s.last_ip=$2::inet AND s.expires_at>now()))
     AND ($3='all' OR ($3='deleted' AND u.deleted_at IS NOT NULL) OR ($3='blocked' AND u.deleted_at IS NULL AND NOT u.active) OR ($3='active' AND u.deleted_at IS NULL AND u.active))
     AND ($4='' OR EXISTS(SELECT 1 FROM memberships m JOIN institution_subscriptions sub ON sub.institution_id=m.institution_id WHERE m.user_id=u.id AND sub.plan_id=$4))`;
@@ -102,7 +104,7 @@ export async function listSubscribers(identity,input) {
     count(*) FILTER (WHERE deleted_at IS NOT NULL)::int deleted,
     count(*) FILTER (WHERE EXISTS(SELECT 1 FROM memberships m JOIN institution_subscriptions sub ON sub.institution_id=m.institution_id WHERE m.user_id=u.id AND sub.status='trialing'))::int trialing,
     count(*) FILTER (WHERE EXISTS(SELECT 1 FROM memberships m JOIN institution_subscriptions sub ON sub.institution_id=m.institution_id WHERE m.user_id=u.id AND sub.status='active'))::int paying
-    FROM users u`);
+    FROM users u WHERE u.account_type<>'student'`);
   // Só os planos em uso: evita opções vazias ou internas no filtro.
   const plans=await pool.query('SELECT DISTINCT sp.id,sp.name FROM subscription_plans sp JOIN institution_subscriptions sub ON sub.plan_id=sp.id ORDER BY sp.name');
   const total=counted.rows[0].n;
