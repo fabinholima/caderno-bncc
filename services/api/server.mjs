@@ -1,7 +1,7 @@
 import { myStudentProfiles, updateMyStudentPhoto } from "./student-profile.mjs";
 import { importClassStudents, previewClassStudentImport } from './student-import.mjs';
 import { regenerateAssessment } from './assessments.mjs';
-import { listClassStudents } from './academic.mjs';
+import { getClassRoster, listClassStudents } from './academic.mjs';
 import {
   listWorkspaces,
   getWorkspace,
@@ -146,6 +146,8 @@ import { mailConfigured, developmentMail } from './auth-mail.mjs';
 import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
+import { allowAuthAttempt } from './auth-attempts.mjs';
+import { inspectAccessCode, claimAccessCode, unlinkStudentAccount } from './student-access-code.mjs';
 import {
   createExamImport,
   cropExamImportCandidateImage,
@@ -223,15 +225,6 @@ function clearSessionCookie(response) {
   );
 }
 
-const authAttempts = new Map();
-function allowAuthAttempt(key, max = 30) {
-  const now = Date.now();
-  for (const [ip, value] of authAttempts) if (value.until <= now) authAttempts.delete(ip);
-  const current = authAttempts.get(key) || { count: 0, until: now + 15 * 60_000 };
-  if (!authAttempts.has(key) && authAttempts.size >= 10000) return false;
-  authAttempts.set(key, current);
-  return ++current.count <= max;
-}
 function oauthCookie(value, age) {
   return `caderno_oauth=${value}; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=${age}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
@@ -393,7 +386,7 @@ const server = createServer(async (request, response) => {
       return json(response, 401, { error: 'Faça login para continuar.' });
     const { userId } = identity;
     response.setHeader('cache-control','no-store');
-    if (/^\/api\/(?:class-invites|class-join-requests|classes\/[^/]+\/(?:invite|join-requests|join-candidates))/.test(url.pathname) && !['GET','HEAD'].includes(request.method)) {
+    if (/^\/api\/(?:class-invites|class-join-requests|student\/access-code|classes\/[^/]+\/(?:invite|join-requests|join-candidates))/.test(url.pathname) && !['GET','HEAD'].includes(request.method)) {
       if(requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response,403,{error:'Origem não autorizada.'});
     }
     if(request.method === 'POST' && url.pathname === '/api/class-invites/inspect') {
@@ -420,6 +413,11 @@ const server = createServer(async (request, response) => {
     const requestDecisionMatch = url.pathname.match(/^\/api\/class-join-requests\/([0-9a-f-]{36})$/i);
     if (requestDecisionMatch && request.method === 'POST')
       return json(response, 200, { data: await decideRequest(identity, requestDecisionMatch[1], await readJson(request, 8192)) });
+    // Código individual do aluno: vínculo imediato, sem aprovação do professor.
+    if (request.method === 'POST' && url.pathname === '/api/student/access-code/inspect')
+      return json(response, 200, { data: await inspectAccessCode(identity, await readJson(request, 4096)) });
+    if (request.method === 'POST' && url.pathname === '/api/student/access-code/claim')
+      return json(response, 200, { data: await claimAccessCode(identity, await readJson(request, 4096)) });
     if(request.method==='GET' && url.pathname==='/api/student/activities')return json(response,200,{data:await myActivities(identity)});
     if (url.pathname === '/api/student/profile' && request.method === 'GET') return json(response, 200, { data: await myStudentProfiles(identity) });
     if (url.pathname === '/api/student/profile' && request.method === 'POST') {
@@ -759,6 +757,8 @@ const server = createServer(async (request, response) => {
     }
     const classStudentsMatch=request.method==='GET' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students$/i);
     if(classStudentsMatch) return json(response,200,{data:await listClassStudents({institutionId,classId:classStudentsMatch[1]})});
+    const classRosterMatch=request.method==='GET' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/roster$/i);
+    if(classRosterMatch) return json(response,200,{data:await getClassRoster({institutionId,userId,classId:classRosterMatch[1]})});
     if (request.method === 'GET' && url.pathname === '/api/classes')
       return json(response, 200, {
         data: await listClasses({ institutionId }),
@@ -800,6 +800,9 @@ const server = createServer(async (request, response) => {
       return json(response, 200, { data: await updateStudent({
         institutionId, studentId: studentActiveMatch[1], input: await readJson(request),
       }) });
+    const studentAccountLinkMatch = request.method === 'DELETE' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/account-link$/i);
+    if (studentAccountLinkMatch)
+      return json(response, 200, { data: await unlinkStudentAccount(identity, studentAccountLinkMatch[1]) });
     const studentImportMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import$/i);
     if (studentImportMatch) return json(response, 200, { data: await importClassStudents({ institutionId, userId, classId: studentImportMatch[1], portalAdmin: identity.portalAdmin, developmentBypass: identity.developmentBypass, input: await readJson(request, 2_800_100) }) });
     const studentImportPreviewMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import\/preview$/i);

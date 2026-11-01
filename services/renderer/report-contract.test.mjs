@@ -130,3 +130,28 @@ test('gera relatório individual com comparação e respostas', () => {
   assert.match(tex, /EM13CNT101/);
   assert.match(tex, /Cinética Química/);
 });
+
+test('inclui a foto do aluno no cabeçalho somente quando materializada', () => {
+  const snapshot = {
+    schemaVersion: '1.0',
+    generatedAt: '2026-10-31T12:00:00.000Z',
+    scope: { type: 'student' },
+    application: { title: 'Simulado', className: '3º A' },
+    student: { name: 'Ana Souza', registration: '2026_01', versionCode: 'B' },
+    summary: { differenceFromClass: 0 },
+  };
+  assert.doesNotMatch(renderStudentReport(snapshot), /externalfigure/);
+  const tex = renderStudentReport({
+    ...snapshot,
+    student: { ...snapshot.student, photoFileName: 'student-photo.jpg' },
+  });
+  assert.match(tex, /\\externalfigure\[student-photo\.jpg\]/);
+  assert.match(tex, /Matrícula 2026\\_01/);
+  assert.doesNotMatch(
+    renderStudentReport({
+      ...snapshot,
+      student: { ...snapshot.student, photoFileName: '../outro.png' },
+    }),
+    /externalfigure/,
+  );
+});

@@ -6,6 +6,11 @@ import { assertInstitutionLimit } from "./auth.mjs";
 const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const error = (message, statusCode) => Object.assign(new Error(message), { statusCode });
+const duplicateRegistration = (registration) =>
+  error(
+    `Já existe um aluno com a matrícula ${registration} nesta escola. Se for o mesmo aluno, matricule-o nesta turma e selecione o cadastro dele ao aprovar; se não, use outra matrícula.`,
+    409,
+  );
 const normalize = (input) => {
   const code = z
     .object({
@@ -19,6 +24,10 @@ const normalize = (input) => {
     .code.replace("-", "");
   return code.slice(0, 4) + "-" + code.slice(4);
 };
+// Escola exibida ao aluno quando o vínculo não veio de um convite (código do
+// aluno): escola da turma, senão a do convite mais recente, senão a instituição.
+export const classSchoolName = (c, i) =>
+  `COALESCE((SELECT es.name FROM educator_schools es WHERE es.id=${c}.school_id),(SELECT es.name FROM class_invites ci JOIN educator_schools es ON es.id=ci.school_id WHERE ci.class_id=${c}.id ORDER BY ci.active DESC,ci.created_at DESC LIMIT 1),${i}.name)`;
 const studentOnly = (identity) => {
   if (identity.role !== "student")
     throw error("Esta opção está disponível apenas para contas de aluno.", 403);
@@ -225,10 +234,20 @@ export async function decideRequest(identity, requestId, input) {
         portalAdmin: identity.portalAdmin,
         developmentBypass: identity.developmentBypass,
       });
-      const s = await db.query(
-        "INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id",
-        [identity.institutionId, action.registration, action.studentName, identity.userId],
+      // Registrations are unique per school (students_institution_registration_idx), active or not.
+      const taken = await db.query(
+        "SELECT 1 FROM students WHERE institution_id=$1 AND registration=$2",
+        [identity.institutionId, action.registration],
       );
+      if (taken.rowCount) throw duplicateRegistration(action.registration);
+      const s = await db
+        .query(
+          "INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id",
+          [identity.institutionId, action.registration, action.studentName, identity.userId],
+        )
+        .catch((e) => {
+          throw e.code === "23505" ? duplicateRegistration(action.registration) : e;
+        });
       studentId = s.rows[0].id;
     }
     if (!linked) {
@@ -258,7 +277,7 @@ export async function myJoinRequests(identity) {
   studentOnly(identity);
   return (
     await pool.query(
-      'SELECT r.id,r.status,r.requested_at AS "requestedAt",c.name AS "className",es.name AS "schoolName" FROM class_join_requests r JOIN classes c ON c.id=r.class_id JOIN class_invites ci ON ci.id=r.invite_id JOIN educator_schools es ON es.id=ci.school_id WHERE r.user_id=$1 ORDER BY r.requested_at DESC',
+      `SELECT r.id,r.status,r.requested_at AS "requestedAt",c.name AS "className",COALESCE(es.name,${classSchoolName("c", "i")}) AS "schoolName" FROM class_join_requests r JOIN classes c ON c.id=r.class_id JOIN institutions i ON i.id=r.institution_id LEFT JOIN class_invites ci ON ci.id=r.invite_id LEFT JOIN educator_schools es ON es.id=ci.school_id WHERE r.user_id=$1 ORDER BY r.requested_at DESC`,
       [identity.userId],
     )
   ).rows;
@@ -267,14 +286,14 @@ export async function myActivities(identity) {
   studentOnly(identity);
   return (
     await pool.query(
-      `SELECT ast.id,a.title,c.name AS "className",es.name AS "schoolName",aa.scheduled_at AS "scheduledAt",aa.status,
+      `SELECT ast.id,a.title,c.name AS "className",COALESCE(es.name,${classSchoolName("c", "i")}) AS "schoolName",aa.scheduled_at AS "scheduledAt",aa.status,
  CASE WHEN sub.requires_manual_review=false THEN sub.score END AS score,
  CASE WHEN sub.requires_manual_review=false THEN sub.max_score END AS "maxScore",
  COALESCE(sub.requires_manual_review,false) AS "requiresManualReview"
  FROM student_account_links l
  JOIN students s ON s.id=l.student_id AND s.active
  JOIN class_join_requests jr ON jr.user_id=l.user_id AND jr.student_id=l.student_id AND jr.status='approved'
- JOIN class_invites ci ON ci.id=jr.invite_id JOIN educator_schools es ON es.id=ci.school_id
+ LEFT JOIN class_invites ci ON ci.id=jr.invite_id LEFT JOIN educator_schools es ON es.id=ci.school_id
  JOIN class_enrollments ce ON ce.student_id=l.student_id AND ce.class_id=jr.class_id
  JOIN application_students ast ON ast.student_id=l.student_id
  JOIN assessment_applications aa ON aa.id=ast.application_id AND aa.class_id=ce.class_id AND aa.institution_id=l.institution_id AND aa.status!='cancelled'

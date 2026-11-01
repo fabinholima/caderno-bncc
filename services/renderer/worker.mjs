@@ -181,6 +181,31 @@ export async function compileAndValidate(source, cwd, resultName) {
   }
 }
 
+export async function materializeStudentPhoto(snapshot, directory) {
+  const dataUrl = snapshot.student?.selfieDataUrl;
+  if (!dataUrl) return snapshot;
+  const student = { ...snapshot.student, selfieDataUrl: undefined };
+  const match = dataUrl.match(
+    /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/,
+  );
+  const contents = match ? Buffer.from(match[2], 'base64') : Buffer.alloc(0);
+  const isPng =
+    match?.[1] === 'png' &&
+    contents.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+  const isJpeg =
+    match?.[1] === 'jpeg' &&
+    contents[0] === 0xff &&
+    contents[1] === 0xd8 &&
+    contents.at(-2) === 0xff &&
+    contents.at(-1) === 0xd9;
+  // Foto inválida não impede o relatório: ele sai sem a foto.
+  if (contents.length > 400_000 || (!isPng && !isJpeg))
+    return { ...snapshot, student };
+  const fileName = `student-photo.${isPng ? 'png' : 'jpg'}`;
+  await writeFile(path.join(directory, fileName), contents);
+  return { ...snapshot, student: { ...student, photoFileName: fileName } };
+}
+
 // Grava uma imagem PNG ou JPEG (data URL, até 400 KB) para o ConTeXt e
 // devolve o nome do arquivo. Confere a assinatura do arquivo, não só o tipo.
 async function writeImageDataUrl(dataUrl, directory, baseName, label) {
@@ -224,7 +249,7 @@ export async function materializeInstitutionLogo(snapshot, directory) {
 // Foto do aluno no cartão-resposta: só quando a prova foi criada com essa
 // opção e o cartão é de um aluno da turma. Foto ausente ou inválida não
 // impede a prova; o cartão mostra o espaço "sem foto".
-export async function materializeStudentPhoto(snapshot, directory) {
+export async function materializeCandidatePhoto(snapshot, directory) {
   const dataUrl = snapshot.candidate?.photoDataUrl;
   const { photoDataUrl: _photo, ...candidate } = snapshot.candidate ?? {};
   if (!snapshot.candidate) return snapshot;
@@ -418,7 +443,7 @@ export async function render(job) {
     personalizedSnapshot,
     directory,
   );
-  const withPhoto = await materializeStudentPhoto(withLogo, directory);
+  const withPhoto = await materializeCandidatePhoto(withLogo, directory);
   const withImages = await materializeQuestionImages(withPhoto, directory);
   const snapshot = await materializeVersionQr(withImages, directory);
   const studentSource = path.join(directory, 'prova.tex');
@@ -500,7 +525,11 @@ export async function tick() {
         reportJob.snapshot?.scope?.type === 'student'
           ? renderStudentReport
           : renderClassReport;
-      await writeFile(source, renderReport(reportJob.snapshot), 'utf8');
+      const reportSnapshot =
+        reportJob.snapshot?.scope?.type === 'student'
+          ? await materializeStudentPhoto(reportJob.snapshot, directory)
+          : reportJob.snapshot;
+      await writeFile(source, renderReport(reportSnapshot), 'utf8');
       await compileAndValidate(source, directory, 'relatorio');
       const [pdf, storedSource] = await Promise.all([
         storeRenderArtifact({

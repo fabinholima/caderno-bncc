@@ -5,9 +5,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  materializeStudentPhoto,
+  materializeCandidatePhoto,
   materializeInstitutionLogo,
   materializeQuestionImages,
+  materializeStudentPhoto,
   validatePdf,
 } from './worker.mjs';
 
@@ -52,6 +53,41 @@ test('materializa o logotipo institucional somente na pasta do trabalho', async 
       await readFile(path.join(directory, 'institution-logo.png')),
       png,
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('materializa a foto do aluno e descarta foto inválida sem falhar', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'caderno-photo-'));
+  const jpeg = Buffer.from('ffd8ffe000104a464946ffd9', 'hex');
+  try {
+    const snapshot = await materializeStudentPhoto(
+      {
+        student: {
+          name: 'Ana',
+          selfieDataUrl: `data:image/jpeg;base64,${jpeg.toString('base64')}`,
+        },
+      },
+      directory,
+    );
+    assert.equal(snapshot.student.photoFileName, 'student-photo.jpg');
+    assert.equal(snapshot.student.selfieDataUrl, undefined);
+    assert.deepEqual(
+      await readFile(path.join(directory, 'student-photo.jpg')),
+      jpeg,
+    );
+    const invalid = await materializeStudentPhoto(
+      {
+        student: {
+          name: 'Bruno',
+          selfieDataUrl: `data:image/png;base64,${jpeg.toString('base64')}`,
+        },
+      },
+      directory,
+    );
+    assert.equal(invalid.student.photoFileName, undefined);
+    assert.equal(invalid.student.selfieDataUrl, undefined);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -147,16 +183,16 @@ test('grava a foto do aluno só quando a prova pede a opção', async () => {
     // PNG 1×1 válido.
     const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
     const base = { render: { showStudentPhoto: true }, candidate: { name: 'Ana', photoDataUrl: png } };
-    const done = await materializeStudentPhoto(base, directory);
+    const done = await materializeCandidatePhoto(base, directory);
     assert.equal(done.candidate.photoFileName, 'student-photo.png');
     assert.equal(done.candidate.photoDataUrl, undefined);
     assert.ok((await readFile(path.join(directory, 'student-photo.png'))).length > 0);
     // Opção desligada: nada é gravado e a foto não segue no snapshot.
-    const off = await materializeStudentPhoto({ ...base, render: {} }, directory);
+    const off = await materializeCandidatePhoto({ ...base, render: {} }, directory);
     assert.equal(off.candidate.photoFileName, undefined);
     assert.equal(off.candidate.photoDataUrl, undefined);
     // Foto inválida não impede a prova.
-    const bad = await materializeStudentPhoto({ ...base, candidate: { name: 'Ana', photoDataUrl: 'data:image/png;base64,AAAA' } }, directory);
+    const bad = await materializeCandidatePhoto({ ...base, candidate: { name: 'Ana', photoDataUrl: 'data:image/png;base64,AAAA' } }, directory);
     assert.equal(bad.candidate.photoFileName, undefined);
   } finally {
     await rm(directory, { recursive: true, force: true });
