@@ -41,3 +41,12 @@ html[data-font-scale="2"] { font-size: 125%; }
 /* Atalho "Pular para o conteúdo": aparece só ao receber o foco pelo teclado. */
 .skip-link { position: absolute; left: 1rem; top: -4rem; z-index: 100; border-radius: .5rem; background: var(--lime); color: #172b4d; padding: .75rem 1rem; font-weight: 700; text-decoration: none; }
 .skip-link:focus { top: 1rem; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body:has(> .print-sheet) > :not(.print-sheet) { display: none !important; }
+  body:has(> .print-sheet) { background: #fff; }
+  .print-sheet { position: static !important; overflow: visible !important; background: #fff !important; padding: 0 !important; }
+  .print-sheet .no-print { display: none !important; }
+  .print-sheet .print-page { box-shadow: none !important; border: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }
+  .print-sheet .print-avoid-break { break-inside: avoid; }
+}

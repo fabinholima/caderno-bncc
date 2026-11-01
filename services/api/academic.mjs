@@ -109,7 +109,7 @@ export async function createStudent({ institutionId, userId, portalAdmin = false
 }
 export async function listStudents({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id WHERE s.institution_id=$1 ORDER BY s.name`,
+    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name,lu.display_name AS "linkedAccountName",lu.email AS "linkedAccountEmail" FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id LEFT JOIN student_account_links l ON l.student_id=s.id AND l.institution_id=s.institution_id LEFT JOIN users lu ON lu.id=l.user_id WHERE s.institution_id=$1 ORDER BY s.name`,
     values: [institutionId],
   });
   return result.rows;
@@ -406,4 +406,33 @@ export async function cancelApplication({ institutionId, applicationId }) {
 
 export async function listClassStudents({institutionId,classId}) {
  const r=await pool.query(`SELECT s.id,s.name,s.registration FROM class_enrollments ce JOIN classes c ON c.id=ce.class_id JOIN students s ON s.id=ce.student_id WHERE c.id=$1 AND c.institution_id=$2 AND s.institution_id=$2 AND s.active ORDER BY ce.number NULLS LAST,s.name`,[classId,institutionId]);return r.rows;
+}
+export async function getClassRoster({ institutionId, userId, classId }) {
+  const schoolClass = await pool.query({
+    text: `SELECT c.id,c.name,c.grade,c.school_year,i.name AS institution_name,es.name AS school_name
+           FROM classes c
+           JOIN institutions i ON i.id=c.institution_id
+           JOIN memberships m ON m.institution_id=c.institution_id AND m.user_id=$3 AND m.role IN ('admin','coordinator','teacher')
+           LEFT JOIN class_invites ci ON ci.class_id=c.id AND ci.active
+           LEFT JOIN educator_schools es ON es.id=ci.school_id
+           WHERE c.id=$1 AND c.institution_id=$2`,
+    values: [classId, institutionId, userId],
+  });
+  if (!schoolClass.rowCount)
+    throw Object.assign(new Error('Turma não encontrada.'), { statusCode: 404 });
+  const students = await pool.query({
+    text: `SELECT s.id,s.name,s.registration,ce.number,s.status,s.active,
+                  NULLIF(s.selfie_data_url,'') AS "selfieDataUrl"
+           FROM class_enrollments ce
+           JOIN students s ON s.id=ce.student_id AND s.institution_id=$2
+           WHERE ce.class_id=$1
+           ORDER BY ce.number NULLS LAST,s.name`,
+    values: [classId, institutionId],
+  });
+  const row = schoolClass.rows[0];
+  return {
+    class: { id: row.id, name: row.name, grade: row.grade, schoolYear: row.school_year },
+    schoolName: row.school_name || row.institution_name,
+    students: students.rows,
+  };
 }

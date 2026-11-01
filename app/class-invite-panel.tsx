@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api-client";
+import { PrintSheet } from "./print-sheet";
 type Candidate = { id: string; name: string; registration: string };
 type Request = {
   id: string;
@@ -21,6 +22,7 @@ export function ClassInvitePanel({
   classId,
   className,
   defaultSchoolId = "",
+  schoolName,
   onClose,
   onApproved,
 }: {
@@ -29,6 +31,7 @@ export function ClassInvitePanel({
   className: string;
   /** Escola da própria turma, escolhida ao criá-la. */
   defaultSchoolId?: string;
+  schoolName?: string | null;
   onClose: () => void;
   onApproved: () => void;
 }) {
@@ -39,6 +42,7 @@ export function ClassInvitePanel({
     [requests, setRequests] = useState<Request[]>([]),
     [students, setStudents] = useState<Candidate[]>([]),
     [busy, setBusy] = useState(false),
+    [printingQr, setPrintingQr] = useState(false),
     [message, setMessage] = useState("");
   const call = useCallback(async <T,>(path: string, method = "GET", input?: object): Promise<T> => {
     const r = await apiFetch(`${apiUrl}${path}`, {
@@ -85,6 +89,17 @@ export function ClassInvitePanel({
       live = false;
     };
   }, [code, link]);
+  const inviteSchoolName = schools.find((s) => s.id === schoolId)?.name || schoolName || "";
+  const largeQr = () => QRCode.toDataURL(link, { width: 1024, margin: 2, errorCorrectionLevel: "M" });
+  async function downloadQr() {
+    const anchor = document.createElement("a");
+    anchor.href = await largeQr();
+    anchor.download = `qr-turma-${className.normalize("NFD").replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "convite"}.png`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setMessage("QR Code baixado em PNG.");
+  }
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setMessage("");
@@ -175,6 +190,12 @@ export function ClassInvitePanel({
               }
             >
               Desativar código
+            </Button>
+            <Button variant="outline" disabled={!qr} onClick={() => setPrintingQr(true)}>
+              Imprimir QR
+            </Button>
+            <Button variant="outline" disabled={!qr} onClick={() => void run(downloadQr)}>
+              Baixar QR
             </Button>
           </div>
           {qr && (
@@ -288,11 +309,41 @@ export function ClassInvitePanel({
         </form>
       ))}
       {!requests.length && <p className="mt-3 text-sm">Nenhuma solicitação pendente.</p>}
+      {printingQr && code && (
+        <PrintSheet title="QR Code da turma" onClose={() => setPrintingQr(false)}>
+          <QrPrintPage link={link} code={code} className={className} schoolName={inviteSchoolName} />
+        </PrintSheet>
+      )}
       {message && (
         <p aria-live="polite" className="mt-3 text-sm">
           {message}
         </p>
       )}
     </section>
+  );
+}
+
+function QrPrintPage({ link, code, className, schoolName }: { link: string; code: string; className: string; schoolName: string }) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    let live = true;
+    QRCode.toDataURL(link, { width: 1024, margin: 2, errorCorrectionLevel: "M" })
+      .then((value) => { if (live) setSrc(value); })
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [link]);
+  return (
+    <div className="flex min-h-[260mm] flex-col items-center justify-center text-center">
+      {schoolName && <p className="text-lg font-semibold uppercase tracking-wide text-slate-600">{schoolName}</p>}
+      <h1 className="mt-2 text-4xl font-bold">Turma {className}</h1>
+      {src && <Image unoptimized src={src} alt={`QR Code de convite para ${className}`} width={420} height={420} className="mt-8 size-[110mm]" />}
+      <p className="mt-6 text-sm uppercase tracking-wide text-slate-500">Código da turma</p>
+      <p className="font-mono text-5xl font-bold tracking-[0.2em]">{code}</p>
+      <div className="mt-8 max-w-[150mm] rounded-xl border-2 border-slate-900 px-6 py-4 text-lg">
+        <p className="font-semibold">Como entrar na turma</p>
+        <p className="mt-2">Abra o app <b>UFA Prova</b> → <b>Sou aluno</b> → <b>Ler QR Code</b> e aponte a câmera para o código acima.</p>
+        <p className="mt-2 text-base text-slate-600">Sem câmera? Digite o código da turma no app.</p>
+      </div>
+    </div>
   );
 }

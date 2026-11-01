@@ -10,6 +10,7 @@ import {
   Eye,
   GraduationCap,
   Plus,
+  Printer,
   RefreshCw,
   Trash2,
   UserPlus,
@@ -20,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ClassInvitePanel } from './class-invite-panel';
+import { ClassRosterPrint } from './class-roster-print';
+import { StudentPhoto } from './student-photo';
 import { apiFetch } from '@/lib/api-client';
 
 type SchoolClass = {
@@ -42,6 +45,8 @@ type Student = {
   registration: string;
   name: string;
   access_code?: string;
+  linkedAccountName?: string | null;
+  linkedAccountEmail?: string | null;
   selfieDataUrl?: string;
   active: boolean;
   status: StudentStatus | null;
@@ -223,6 +228,7 @@ type StudentApplicationReport = {
     registration: string;
     number?: number;
     versionCode: string;
+    selfieDataUrl?: string | null;
   };
   summary: {
     score: number;
@@ -347,6 +353,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   const [savingStudent, setSavingStudent] = useState<string | null>(null);
   const [deletingClass, setDeletingClass] = useState<string | null>(null);
   const [inviteClass,setInviteClass]=useState<SchoolClass|null>(null);
+  const [rosterClassId,setRosterClassId]=useState<string|null>(null);
   const refresh = useCallback(async () => {
     if (!apiUrl) return;
     const [c, s, a, ap, sc] = await Promise.all([
@@ -684,6 +691,25 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       const updated = body.data;
       setStudents((items) => items.map((item) => item.id === student.id ? { ...item, ...updated } : item));
       setMessage('Cadastro do aluno atualizado.');
+    } finally { setSavingStudent(null); }
+  };
+
+  const unlinkStudentAccount = async (student: Student) => {
+    const account = student.linkedAccountName || student.linkedAccountEmail || 'a conta vinculada';
+    if (!window.confirm(
+      `Desvincular ${account} do cadastro de ${student.name}? A conta perde o acesso às turmas e atividades deste cadastro, e um novo código será gerado (o código atual deixa de valer).`,
+    )) return;
+    setSavingStudent(student.id);
+    setMessage('');
+    try {
+      const response = await apiFetch(`${apiUrl}/api/students/${student.id}/account-link`, { method: 'DELETE' });
+      const body = (await response.json()) as ApiBody<{ accessCode: string }>;
+      if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível desvincular a conta.');
+      const accessCode = body.data.accessCode;
+      setStudents((items) => items.map((item) => item.id === student.id ? { ...item, access_code: accessCode, linkedAccountName: null, linkedAccountEmail: null } : item));
+      setMessage(`Conta desvinculada de ${student.name}. Novo código: ${accessCode}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro ao desvincular a conta.');
     } finally { setSavingStudent(null); }
   };
 
@@ -1479,8 +1505,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       )}
       {activePanel === 'results' && studentReport && (
         <section className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <GraduationCap className="size-5 text-emerald-700" />
+          <div className="flex flex-wrap items-center gap-3">
+            <StudentPhoto src={studentReport.student.selfieDataUrl} name={studentReport.student.name} size={64} />
             <div>
               <h2 className="font-display text-xl font-bold">
                 Relatório individual · {studentReport.student.name}
@@ -1488,6 +1514,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
               <p className="text-sm text-slate-500">
                 Matrícula {studentReport.student.registration} · versão{' '}
                 {studentReport.student.versionCode}
+                {!studentReport.student.selfieDataUrl && ' · sem foto'}
               </p>
             </div>
             <div className="ml-auto flex gap-2">
@@ -2135,7 +2162,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           {visibleClasses.map((x) => (
             <article key={x.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><GraduationCap /></span><div className="min-w-0"><h3 className="truncate font-semibold text-slate-900">{x.name}</h3><p className="mt-1 text-sm text-slate-600">{x.grade} · {x.schoolYear}</p><p className="mt-2 truncate text-xs text-slate-500">{x.schoolName || 'Escola não informada'}</p></div></div>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-sm font-medium text-slate-600">{x.students} alunos</span><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" className="h-9" onClick={() => setInviteClass(x)}><Users /> Escola e convites</Button><Button type="button" variant="outline" className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={deletingClass !== null} onClick={() => void removeClass(x)}><Trash2 />{deletingClass === x.id ? 'Excluindo…' : 'Excluir turma'}</Button></div></div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-sm font-medium text-slate-600">{x.students} alunos</span><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" className="h-9" onClick={() => setInviteClass(x)}><Users /> Escola e convites</Button><Button type="button" variant="outline" className="h-9" onClick={() => setRosterClassId(x.id)}><Printer /> Imprimir lista com fotos</Button><Button type="button" variant="outline" className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={deletingClass !== null} onClick={() => void removeClass(x)}><Trash2 />{deletingClass === x.id ? 'Excluindo…' : 'Excluir turma'}</Button></div></div>
             </article>
           ))}
           </div>
@@ -2149,14 +2176,12 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 className="font-semibold">Alunos cadastrados</h2><p className="mt-1 text-xs text-slate-500">{visibleStudents.length} de {students.length} alunos · {students.filter((student) => student.selfieDataUrl).length} com foto para o cartão-resposta</p><p className="mt-1 text-xs text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p></div><div className="flex flex-wrap gap-2"><Input aria-label="Buscar aluno" placeholder="Nome, matrícula ou código" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} className="h-9 w-56" /><select aria-label="Filtrar situação do aluno" value={studentStatusFilter} onChange={(event) => setStudentStatusFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{studentStatuses.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></header>
         {visibleStudents.length ? visibleStudents.map((student) => (
           <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-0">
-            <span className="flex min-w-0 items-center gap-3">
-              {/* Foto enviada pelo aluno no app; é a que vai para o cartão-resposta quando a prova pede. */}
-              {student.selfieDataUrl
-                ? <Image src={student.selfieDataUrl} alt={`Foto de ${student.name}`} width={36} height={36} unoptimized className="size-9 shrink-0 rounded-full object-cover" />
-                : <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500" title="Sem foto: o aluno envia pelo app após o vínculo">{student.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>}
-              <span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>{!student.selfieDataUrl && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">sem foto</span>}</span>
-            </span>
+            <span className="flex min-w-0 items-center gap-3"><StudentPhoto src={student.selfieDataUrl} name={student.name} /><span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>{!student.selfieDataUrl && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800" title="O aluno envia a foto pelo app após o vínculo">sem foto</span>}{!student.selfieDataUrl && <span className="block text-xs text-slate-400">sem foto</span>}
+              <span className="mt-0.5 block text-xs text-slate-500">{student.linkedAccountName || student.linkedAccountEmail
+                ? <>Conta vinculada: <span className="text-slate-700">{student.linkedAccountName || student.linkedAccountEmail}</span>{student.linkedAccountName && student.linkedAccountEmail ? ` (${student.linkedAccountEmail})` : ''}</>
+                : 'Sem conta vinculada'}</span></span></span>
             <div className="flex flex-wrap items-center gap-3">
+              {(student.linkedAccountName || student.linkedAccountEmail) && <Button type="button" variant="outline" className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={savingStudent !== null} onClick={() => void unlinkStudentAccount(student)}>{savingStudent === student.id ? 'Desvinculando…' : 'Desvincular conta'}</Button>}
               <label className="flex items-center gap-2">Situação
                 <select aria-label={`Situação de ${student.name}`} value={student.status ?? ''}
                   disabled={savingStudent !== null} className="rounded-md border p-2"
@@ -2175,7 +2200,8 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         )) : <p className="p-6 text-sm text-slate-500">{students.length ? 'Nenhum aluno corresponde aos filtros selecionados.' : 'Nenhum aluno cadastrado.'}</p>}
       </div>}
-      {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} defaultSchoolId={inviteClass.schoolId ?? ''} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
+      {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} defaultSchoolId={inviteClass.schoolId ?? ''} schoolName={inviteClass.schoolName} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
+      {rosterClassId && <ClassRosterPrint apiUrl={apiUrl} classId={rosterClassId} onClose={()=>setRosterClassId(null)} />}
     </section>
   );
 }
