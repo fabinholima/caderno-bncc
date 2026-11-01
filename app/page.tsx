@@ -1,3 +1,4 @@
+/* oxlint-disable next/no-html-link-for-pages -- No app publicado (vinext), o <Link> do Next não navega: o clique fica na mesma página ("RSC prefetch setup error"). Use <a> com navegação completa. */
 import {
   ArrowUpRight,
   BarChart3,
@@ -14,7 +15,6 @@ import {
   Sprout,
 } from 'lucide-react';
 import { Fraunces } from 'next/font/google';
-import Link from 'next/link';
 import './landing.css';
 import Pricing from './pricing';
 
@@ -383,10 +383,10 @@ export default function HomePage() {
       </a>
       <header className="ufa-header">
         <div className="ufa-wrap ufa-header-inner">
-          <Link href="/" className="ufa-logo" aria-label="UfaProva, início">
+          <a href="/" className="ufa-logo" aria-label="UfaProva, início">
             <b className="ufa-mark">u.</b>ufa<span>prova</span>
             <i>✳</i>
-          </Link>
+          </a>
           <nav aria-label="Navegação principal">
             <a href="#como-funciona">Como funciona</a>
             <a href="#recursos">Recursos</a>
@@ -394,12 +394,12 @@ export default function HomePage() {
             <a href="#duvidas">Dúvidas</a>
           </nav>
           <div className="ufa-header-actions">
-            <Link className="ufa-login" href="/portal">
+            <a className="ufa-login" href="/portal">
               Entrar
-            </Link>
-            <Link className="ufa-cta ufa-cta-sm" href="/portal">
+            </a>
+            <a className="ufa-cta ufa-cta-sm" href="/portal">
               Começar grátis
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -418,9 +418,9 @@ export default function HomePage() {
               turma.
             </p>
             <div className="ufa-hero-actions">
-              <Link className="ufa-cta" href="/portal">
+              <a className="ufa-cta" href="/portal">
                 Começar grátis por 7 dias <ArrowUpRight size={20} />
-              </Link>
+              </a>
               <a className="ufa-ghost" href="#como-funciona">
                 Ver como funciona
               </a>
@@ -610,9 +610,9 @@ export default function HomePage() {
               A próxima prova fica pronta. <em>O fim de semana fica seu.</em>
             </h2>
             <p>Experimente por 7 dias e prepare sua primeira avaliação hoje.</p>
-            <Link className="ufa-cta ufa-cta-light" href="/portal">
+            <a className="ufa-cta ufa-cta-light" href="/portal">
               Começar agora <ArrowUpRight size={20} />
-            </Link>
+            </a>
           </div>
         </section>
       </main>
@@ -620,9 +620,9 @@ export default function HomePage() {
       <footer className="ufa-footer">
         <div className="ufa-wrap ufa-footer-inner">
           <div className="ufa-footer-brand">
-            <Link href="/" className="ufa-logo">
+            <a href="/" className="ufa-logo">
               <b className="ufa-mark">u.</b>ufa<span>prova</span>
-            </Link>
+            </a>
             <p>Mais tempo para ensinar. E para você.</p>
           </div>
           <nav aria-label="Produto">
@@ -634,13 +634,13 @@ export default function HomePage() {
           </nav>
           <nav aria-label="Conta">
             <strong>Conta</strong>
-            <Link href="/portal">Entrar</Link>
-            <Link href="/portal">Criar conta</Link>
+            <a href="/portal">Entrar</a>
+            <a href="/portal">Criar conta</a>
           </nav>
           <nav aria-label="Informações legais">
             <strong>Institucional</strong>
-            <Link href="/privacidade">Política de privacidade</Link>
-            <Link href="/contato">Contato</Link>
+            <a href="/privacidade">Política de privacidade</a>
+            <a href="/contato">Contato</a>
           </nav>
         </div>
         <div className="ufa-wrap ufa-footer-bottom">
