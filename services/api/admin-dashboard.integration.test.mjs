@@ -12,7 +12,7 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
   const admin={userId:randomUUID(),sessionId:randomUUID(),portalAdmin:true};
   const userId=randomUUID(),institution=randomUUID(),contract=randomUUID(),session=randomUUID();
   try {
-    await pool.query(`CREATE TABLE users(id uuid PRIMARY KEY,email text,display_name text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false,deleted_at timestamptz,created_at timestamptz DEFAULT now());
+    await pool.query(`CREATE TABLE users(id uuid PRIMARY KEY,email text,display_name text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false,deleted_at timestamptz,created_at timestamptz DEFAULT now(),account_type text NOT NULL DEFAULT 'educator');
       CREATE TABLE institutions(id uuid PRIMARY KEY,name text);
       CREATE TABLE memberships(user_id uuid,institution_id uuid);
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text);
@@ -23,6 +23,8 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
       CREATE TABLE billing_payments(provider_id text,status text,contract_id uuid,amount_cents int,refund_cents int DEFAULT 0,paid_at timestamptz);
       CREATE TABLE billing_refund_events(payment_id text,amount_cents int,observed_at timestamptz);`);
     await pool.query("INSERT INTO users(id,email,display_name,portal_admin) VALUES($1,'admin@test.local','Admin',true),($2,'prof@test.local','Professor',false)",[admin.userId,userId]);
+    // Conta de aluno: não é assinante e não aparece na administração.
+    await pool.query("INSERT INTO users(id,email,display_name,account_type) VALUES(gen_random_uuid(),'aluno@test.local','Aluno Teste','student')");
     await pool.query("INSERT INTO institutions VALUES($1,'Escola')",[institution]);
     await pool.query('INSERT INTO memberships VALUES($1,$2)',[userId,institution]);
     await pool.query("INSERT INTO institution_subscriptions VALUES($1,'professor','active')",[institution]);
@@ -43,6 +45,8 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
     assert.equal((await listSubscribers(admin,{ip:'192.0.2.10'})).users.length,1);
     assert.equal((await listSubscribers(admin,{ip:'192.0.2.11'})).users.length,0);
     const listed=await listSubscribers(admin,{});
+    assert.ok(!listed.users.some(u=>u.email==='aluno@test.local'));
+    assert.equal((await listSubscribers(admin,{q:'aluno'})).total,0);
     assert.deepEqual(listed.summary,{total:2,active:2,blocked:0,deleted:0,trialing:0,paying:1});
     assert.deepEqual(listed.plans,[{id:'professor',name:'Professor'}]);
     assert.equal(listed.users.find(u=>u.id===userId).subscriptions[0].plan,'Professor');
