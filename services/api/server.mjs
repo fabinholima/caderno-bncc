@@ -767,6 +767,7 @@ const server = createServer(async (request, response) => {
       return json(response, 201, {
         data: await createClass({
           institutionId,
+          userId,
           input: await readJson(request),
         }),
       });
