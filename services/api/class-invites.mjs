@@ -6,6 +6,11 @@ import { assertInstitutionLimit } from "./auth.mjs";
 const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const error = (message, statusCode) => Object.assign(new Error(message), { statusCode });
+const duplicateRegistration = (registration) =>
+  error(
+    `Já existe um aluno com a matrícula ${registration} nesta escola. Se for o mesmo aluno, matricule-o nesta turma e selecione o cadastro dele ao aprovar; se não, use outra matrícula.`,
+    409,
+  );
 const normalize = (input) => {
   const code = z
     .object({
@@ -229,10 +234,20 @@ export async function decideRequest(identity, requestId, input) {
         portalAdmin: identity.portalAdmin,
         developmentBypass: identity.developmentBypass,
       });
-      const s = await db.query(
-        "INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id",
-        [identity.institutionId, action.registration, action.studentName, identity.userId],
+      // Registrations are unique per school (students_institution_registration_idx), active or not.
+      const taken = await db.query(
+        "SELECT 1 FROM students WHERE institution_id=$1 AND registration=$2",
+        [identity.institutionId, action.registration],
       );
+      if (taken.rowCount) throw duplicateRegistration(action.registration);
+      const s = await db
+        .query(
+          "INSERT INTO students(institution_id,registration,name,teacher_id,access_code) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8))) RETURNING id",
+          [identity.institutionId, action.registration, action.studentName, identity.userId],
+        )
+        .catch((e) => {
+          throw e.code === "23505" ? duplicateRegistration(action.registration) : e;
+        });
       studentId = s.rows[0].id;
     }
     if (!linked) {

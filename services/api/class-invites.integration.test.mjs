@@ -249,6 +249,15 @@ test(
       );
       const n = await authenticate({ headers: { authorization: `Bearer ${newStudent.token}` } });
       const newReq = await api.requestJoin(n, { code: (await api.getInvite(staff, classId)).code });
+      await assert.rejects(
+        api.decideRequest(staff, newReq.id, {
+          action: "approve",
+          studentName: "Aluno Novo",
+          registration: "001",
+          confirmed: true,
+        }),
+        { statusCode: 409, message: /matrícula 001/ },
+      );
       await api.decideRequest(staff, newReq.id, {
         action: "approve",
         studentName: "Aluno Novo",
