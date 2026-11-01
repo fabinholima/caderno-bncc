@@ -121,6 +121,13 @@ function seededShuffle(items, seed) {
   return result;
 }
 
+// Largura total numa seção de duas colunas: escolhida na montagem ou marcada
+// no cadastro da questão ("Usar sempre uma coluna"), que vale sempre para não
+// deixar figuras e conteúdos largos numa coluna estreita.
+export function questionUsesFullWidth(question, fullWidthQuestionIds) {
+  return fullWidthQuestionIds.has(question.id) || question.recommend_single_column === true;
+}
+
 export async function createAssessment({ institutionId, questionBankId = institutionId, userId, portalAdmin = false, developmentBypass = false, input }) {
   await assertInstitutionLimit({ institutionId, kind: 'assessment', portalAdmin, developmentBypass });
   const value = createAssessmentSchema.parse(input);
@@ -140,6 +147,7 @@ export async function createAssessment({ institutionId, questionBankId = institu
       text: `SELECT q.id, q.current_revision, qr.type, qr.statement, qr.explanation, qr.default_points,
                     qr.subject, qr.grade,
                     qr.source_institution, qr.source_year, qr.difficulty, qr.knowledge_topic,
+                    qr.recommend_single_column,
                     COALESCE(jsonb_agg(jsonb_build_object('stableKey', a.stable_key, 'content', a.content, 'isCorrect', a.is_correct) ORDER BY a.position) FILTER (WHERE a.id IS NOT NULL), '[]') AS alternatives,
                     COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', cs.code, 'primary', qs.is_primary)) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills,
                     COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', sd.code, 'description', sd.description, 'topic', st.name, 'primary', qsd.is_primary)) FILTER (WHERE sd.id IS NOT NULL), '[]') AS saeb_descriptors
@@ -239,7 +247,8 @@ export async function createAssessment({ institutionId, questionBankId = institu
               explanation: question.explanation || [],
             },
             points: value.questionPoints[question.id] ?? Number(question.default_points),
-            fullWidth: fullWidthQuestionIds.has(question.id),
+            fullWidth: questionUsesFullWidth(question, fullWidthQuestionIds),
+            recommendSingleColumn: question.recommend_single_column === true,
             skills: question.skills,
             saebDescriptors: question.saeb_descriptors,
           };
