@@ -73,7 +73,7 @@ const snapshot = {
   sections: [{ title: 'Química', subject: 'Química', columns: 2, startOnNewPage: false, questions }],
   totals: { points: questions.length, questions: questions.length },
   render: { ...base.render, template, mode: 'student' },
-  ...(personalized ? { candidate: { name: 'Ana Beatriz Souza', number: '12' } } : {}),
+  ...(personalized ? { candidate: { name: 'Fabio de Souza', number: '12' } } : {}),
 };
 
 await writeFile(output, renderAssessment(snapshot), 'utf8');

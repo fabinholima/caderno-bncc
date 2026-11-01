@@ -67,10 +67,10 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   // Nome impresso a partir da turma; o único campo para preencher é a assinatura.
-  assert.match(tex, /\\bold\{Assinatura do\(a\) aluno\(a\):\}/);
-  assert.match(tex, /Aluno\(a\):\}\}\\hskip 2mm\{\\tfa\\bold\{Aluno Demonstração\}\}/);
+  assert.match(tex, /\{\\tfa\\bold\{\\WORD\{Aluno Demonstração\}\}\}/);
   const card = tex.slice(tex.indexOf('CARTÃO-RESPOSTA'));
-  assert.equal((card.match(/Assinatura do\(a\) aluno\(a\)/g) || []).length, 1);
+  assert.equal((card.match(/\\bold\{Assinatura:\}/g) || []).length, 1);
+  assert.doesNotMatch(card, /Aluno\(a\)/);
   assert.doesNotMatch(card, /Nome completo|\\NC Escola:/);
   assert.doesNotMatch(tex, /Nome completo do aluno/);
   assert.doesNotMatch(tex, /AnswerCardNameGrid/);
@@ -151,8 +151,8 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
     tex,
     /\\setuppagenumbering\[location=\{footer,right\},style=\\tfx\]/,
   );
-  assert.match(tex, /Assinatura do\(a\) aluno\(a\):/);
-  assert.match(tex, /Aluno\(a\):/);
+  assert.match(tex, /\\bold\{Assinatura:\}/);
+  assert.match(tex, /Cartão sem aluno vinculado/);
   assert.doesNotMatch(tex, /Nº\/Matrícula:/);
   assert.doesNotMatch(tex, /Data de nascimento:/);
 });
@@ -185,8 +185,8 @@ test('renderiza o Modelo 3 em duas colunas com folha de respostas OMR', async ()
     /\\startmixedcolumns\[n=2,balance=yes,distance=8mm,separator=rule,rulethickness=\.5pt,rulecolor=modelthreerule\]/,
   );
   assert.match(tex, /\\bold\{FOLHA DE RESPOSTAS\}/);
-  assert.match(tex, /\\tfa\\bold\{Estudante Modelo\}/);
-  assert.match(tex, /Assinatura do\(a\) aluno\(a\):/);
+  assert.match(tex, /\\tfa\\bold\{\\WORD\{Estudante Modelo\}\}/);
+  assert.match(tex, /\\bold\{Assinatura:\}/);
   assert.match(tex, /Versão A/);
   assert.doesNotMatch(tex, /\\NC Escola:/);
   assert.match(tex, /\\externalfigure\[assessment-qr\.png\]/);

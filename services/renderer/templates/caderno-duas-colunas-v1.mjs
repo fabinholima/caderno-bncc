@@ -66,7 +66,7 @@ ${answerHeader}
 \\blank[small]
 \\midaligned{\\tfc\\bold{FOLHA DE RESPOSTAS}}
 \\blank[small]
-${renderAnswerCardStudent({ candidateName, candidateNumber, className, grade, version })}
+${renderAnswerCardStudent({ candidateName })}
 \\blank[medium]
 \\hbox to \\textwidth{\\vbox{\\hsize=.5\\textwidth\\switchtobodyfont[8pt]\\bold{COMO PREENCHER}\\blank[1mm]\n• Marque somente uma alternativa por questão.\\par\n• Preencha completamente o círculo com caneta preta ou azul.\\par\n• Não rasure, não dobre e não danifique o QR Code ou as marcas de alinhamento.}\\hfill${example}}
 \\blank[small]
