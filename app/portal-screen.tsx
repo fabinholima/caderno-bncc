@@ -1,4 +1,5 @@
 'use client';
+import { DisplayPreferences } from '@/components/display-preferences';
 import { BrandMark } from '@/components/brand-mark';
 
 import { SubmitEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
@@ -1132,11 +1133,12 @@ export default function Home() {
   if (!identity) return <AuthScreen apiUrl={apiUrl} />;
   if (identity.role === 'student') return <StudentPortal apiUrl={apiUrl} name={identity.user.displayName} />;
   if (!identity.portalAdmin && !identity.user.cpfComplete) return <CompleteCpf apiUrl={apiUrl} />;
-  if (!identity.portalAdmin && !identity.user.profileComplete) return <EducatorProfile apiUrl={apiUrl} onboarding />;
+  if (!identity.portalAdmin && !identity.user.profileComplete) return <main className="min-h-screen bg-[var(--canvas)] px-4 py-2"><EducatorProfile apiUrl={apiUrl} onboarding /></main>;
   const canEditCatalog = Boolean(identity.portalAdmin || identity.portalEditor);
 
   return (
     <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
+      <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
         <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6">
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]">
@@ -1202,21 +1204,22 @@ export default function Home() {
               <BrandMark />
             </span>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            {identity.portalAdmin && <span className="hidden text-sm font-semibold sm:inline">Administração geral · painel único</span>}
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            {identity.portalAdmin && <span className="hidden text-sm font-semibold xl:inline">Administração geral · painel único</span>}
+            <DisplayPreferences className="sm:mr-1" />
             <button
               type="button"
               aria-label="Sair da conta"
               title="Sair da conta"
-              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+              className="flex size-10 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 sm:w-auto sm:px-3"
               onClick={() =>
                 apiFetch(`${apiUrl}/api/auth/logout`, { method: 'POST' }).then(
                   () => window.location.reload(),
                 )
               }
             >
-              <LogOut className="size-4" />
-              Sair
+              <LogOut className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Sair</span>
             </button>
             <Button variant="ghost" size="icon" aria-label="Ajuda">
               <CircleHelp />
@@ -1235,6 +1238,7 @@ export default function Home() {
         >
           <WorkspaceNavigation mobile active={active} canEditCatalog={canEditCatalog} portalAdmin={Boolean(identity.portalAdmin)} questionCount={questions.length} onNavigate={view=>{setInitialApplicationId('');setActive(view);setMobileMenuOpen(false);window.scrollTo({top:0});}} />
         </nav>
+        <div id="conteudo" tabIndex={-1} className="outline-none">
         {active === 'Início' || active === 'Preparar' || active === 'Recuperar' ? (
           <WorkspaceHome key={active} apiUrl={apiUrl} name={identity.user.displayName} view={active} canEditCatalog={canEditCatalog}
             onNavigate={(view) => { setInitialApplicationId(''); setActive(view); }}
@@ -1793,11 +1797,14 @@ export default function Home() {
                         {identity.portalAdmin && <QuestionApprovalTableCell question={q} />}
                         <td aria-label={`Questão ${q.code}`} className="px-5 py-4">
                           <div className="flex gap-3">
-                            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 font-mono text-xs font-bold text-slate-500">
+                            <span
+                              className="mt-0.5 grid min-h-10 w-[4.5rem] shrink-0 place-items-center rounded-lg bg-slate-100 px-1 py-1 text-center text-xs font-semibold leading-tight text-slate-600"
+                              title={q.type === 'essay' ? 'Questão discursiva' : q.type === 'true_false' ? 'Certo ou errado' : `Múltipla escolha com ${q.alternatives} alternativas`}
+                            >
                               {q.type === 'essay'
-                                ? 'DIS'
-                                : q.type === 'true_false' ? 'C/E'
-                                : `${q.alternatives}A`}
+                                ? 'Discursiva'
+                                : q.type === 'true_false' ? 'C ou E'
+                                : `${q.alternatives} opções`}
                             </span>
                             <div>
                               <div className="mb-1 flex items-center gap-2">
@@ -1880,6 +1887,7 @@ export default function Home() {
             </section>
           </div>
         )}
+        </div>
       </section>
 
       <nav aria-label="Atalhos no celular" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white px-1 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-sm lg:hidden">

@@ -26,6 +26,7 @@ export const basicExamV1 = Object.freeze({
     points,
     candidateName,
     candidateNumber,
+    candidatePhoto = null,
     subjects,
     content,
     previewOnly = false,
@@ -79,6 +80,8 @@ export const basicExamV1 = Object.freeze({
       className,
       candidateName,
       candidateNumber,
+      version,
+      candidatePhoto,
       qr,
     });
     const header = previewOnly
@@ -132,11 +135,11 @@ ${compactLayout ? `\\setuplayout[topspace=13mm,backspace=18mm,width=middle,heigh
   footer=1cm
 ]`}
 \\setuppagenumbering[location={footer,right},style=\\tfx]
-\\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
+\\setupalign[hyphenated,hz,hanging,tolerant,stretch]
 
-\\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
+\\setuphead[subject][style=\\bf, before={\\blank[small]}, after={\\blank[2pt]}]
 \\starttext
-${header ? `${header}\\blank[medium]` : ''}
+${header ? `${header}\\blank[small]` : ''}
 ${
   mode === 'answer-key'
     ? `\\blank[small]
@@ -145,7 +148,7 @@ ${
 ${detailLine}`
     : ''
 }
-\\blank[big]
+\\blank[${mode === 'student' ? 'small' : 'big'}]
 
 ${content}
 

@@ -36,6 +36,7 @@ async function claimJob() {
     const result = await client.query(`
       SELECT rj.id, rj.template_version, av.snapshot,
              aps.qr_payload, s.name AS student_name, s.registration,
+             s.selfie_data_url AS student_photo,
              ce.number AS student_number, c.name AS class_name
       FROM render_jobs rj
       JOIN assessment_versions av ON av.id = rj.assessment_version_id
@@ -205,16 +206,16 @@ export async function materializeStudentPhoto(snapshot, directory) {
   return { ...snapshot, student: { ...student, photoFileName: fileName } };
 }
 
-export async function materializeInstitutionLogo(snapshot, directory) {
-  const dataUrl = snapshot.institution?.logoDataUrl;
-  if (!dataUrl) return snapshot;
+// Grava uma imagem PNG ou JPEG (data URL, até 400 KB) para o ConTeXt e
+// devolve o nome do arquivo. Confere a assinatura do arquivo, não só o tipo.
+async function writeImageDataUrl(dataUrl, directory, baseName, label) {
   const match = dataUrl.match(
     /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/,
   );
-  if (!match) throw new Error('Logotipo institucional inválido.');
+  if (!match) throw new Error(`${label} inválido.`);
   const contents = Buffer.from(match[2], 'base64');
   if (!contents.length || contents.length > 400_000)
-    throw new Error('Logotipo institucional vazio ou maior que 400 KB.');
+    throw new Error(`${label} vazio ou maior que 400 KB.`);
   const isPng =
     match[1] === 'png' &&
     contents.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
@@ -225,9 +226,16 @@ export async function materializeInstitutionLogo(snapshot, directory) {
     contents.at(-2) === 0xff &&
     contents.at(-1) === 0xd9;
   if (!isPng && !isJpeg)
-    throw new Error('O conteúdo do logotipo não corresponde a PNG ou JPEG.');
-  const fileName = `institution-logo.${isPng ? 'png' : 'jpg'}`;
+    throw new Error(`O conteúdo de ${label.toLowerCase()} não corresponde a PNG ou JPEG.`);
+  const fileName = `${baseName}.${isPng ? 'png' : 'jpg'}`;
   await writeFile(path.join(directory, fileName), contents);
+  return fileName;
+}
+
+export async function materializeInstitutionLogo(snapshot, directory) {
+  const dataUrl = snapshot.institution?.logoDataUrl;
+  if (!dataUrl) return snapshot;
+  const fileName = await writeImageDataUrl(dataUrl, directory, 'institution-logo', 'Logotipo institucional');
   return {
     ...snapshot,
     institution: {
@@ -236,6 +244,22 @@ export async function materializeInstitutionLogo(snapshot, directory) {
       logoFileName: fileName,
     },
   };
+}
+
+// Foto do aluno no cartão-resposta: só quando a prova foi criada com essa
+// opção e o cartão é de um aluno da turma. Foto ausente ou inválida não
+// impede a prova; o cartão mostra o espaço "sem foto".
+export async function materializeCandidatePhoto(snapshot, directory) {
+  const dataUrl = snapshot.candidate?.photoDataUrl;
+  const { photoDataUrl: _photo, ...candidate } = snapshot.candidate ?? {};
+  if (!snapshot.candidate) return snapshot;
+  if (!snapshot.render?.showStudentPhoto || !dataUrl) return { ...snapshot, candidate };
+  try {
+    const photoFileName = await writeImageDataUrl(dataUrl, directory, 'student-photo', 'Foto do aluno');
+    return { ...snapshot, candidate: { ...candidate, photoFileName } };
+  } catch {
+    return { ...snapshot, candidate };
+  }
 }
 
 export async function materializeQuestionImages(snapshot, directory) {
@@ -410,6 +434,7 @@ export async function render(job) {
           name: job.student_name,
           registration: job.registration,
           number: job.student_number,
+          photoDataUrl: job.student_photo || '',
         },
         version: { ...job.snapshot.version, qrPayload: job.qr_payload },
       }
@@ -418,7 +443,8 @@ export async function render(job) {
     personalizedSnapshot,
     directory,
   );
-  const withImages = await materializeQuestionImages(withLogo, directory);
+  const withPhoto = await materializeCandidatePhoto(withLogo, directory);
+  const withImages = await materializeQuestionImages(withPhoto, directory);
   const snapshot = await materializeVersionQr(withImages, directory);
   const studentSource = path.join(directory, 'prova.tex');
   const answerKeySource = path.join(directory, 'gabarito.tex');

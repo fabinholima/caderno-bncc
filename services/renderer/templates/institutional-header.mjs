@@ -57,6 +57,13 @@ draw (9cm,0.55cm)--(14.75cm,0.55cm);
 \\stopMPcode`;
 }
 
+// Cabeçalho compacto da folha da prova (~31 mm), em três linhas:
+//  1. logotipo, escola, título e versão, QR code (15 mm, o mesmo tamanho
+//     de antes: ele identifica a versão na correção);
+//  2. aluno: com aluno vinculado, nome e Nº impressos e só a assinatura para
+//     preencher; sem aluno (PDF da versão), linhas para nome e Nº;
+//  3. dados já impressos numa linha só (disciplina, série, turma, período,
+//     professor) e a data.
 export function renderCompactExamHeader({
   institution,
   logoFileName,
@@ -73,41 +80,49 @@ export function renderCompactExamHeader({
   version,
   headerQr = true,
 }) {
-  const contentWidth = '\\dimexpr\\textwidth-6mm\\relax';
+  const contentWidth = '\\dimexpr\\textwidth-4mm\\relax';
   const logo = logoFileName
     ? `\\externalfigure[${logoFileName}][width=22mm,height=14mm,factor=fit]`
-    : `\\vbox to 14mm{\\vfil}`;
+    : '';
   const qr = headerQr && qrFileName
     ? `\\externalfigure[${qrFileName}][width=15mm,height=15mm]`
-    : `\\hbox to 15mm{}`;
+    : '';
   const examTitle = title || 'PROVA';
-  const versionLine = version ? `Versão ${version}` : '';
-  const field = (label, value, width) => `\\vbox to 8mm{\\hsize=${width}
-  \\hbox{\\switchtobodyfont[6pt]\\bold{${label}}}
-  \\vfil
-  \\hbox to \\hsize{\\switchtobodyfont[7pt]${value || '\\strut'}\\hss}
-  \\vfil
-  \\blackrule[width=${width},height=.4pt]}`;
-  const gap = '\\hskip 3mm';
+  const versionText = version ? `\\quad{\\switchtobodyfont[7pt]Versão ${version}}` : '';
+  // Linha para escrever à mão (ou o valor impresso, quando já existe).
+  const line = (value, width) => value
+    ? `\\hbox to ${width}{${value}\\hss}`
+    : `\\hbox to ${width}{\\leaders\\hrule height .4pt\\hfill}`;
+  const details = [
+    subjects,
+    grade,
+    className ? `Turma ${className}` : '',
+    term,
+    teacherName ? `Professor(a): ${teacherName}` : '',
+  ].filter(Boolean).join(' \\enspace·\\enspace ');
+  const date = `Data: ${assessmentDate || '\\hbox to 22mm{\\leaders\\hrule height .4pt\\hfill}'}`;
+  // Aluno vinculado (prova gerada pela aplicação da turma): nome e número
+  // impressos e só a assinatura para preencher. Sem aluno (PDF da versão),
+  // ficam as linhas para nome e número.
+  const studentRow = candidateName
+    ? `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}${candidateNumber ? `\\hskip 3mm Nº ${candidateNumber}` : ''}\\hskip 6mm\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}`
+    : `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}`;
+  const logoWidth = logo ? '25mm' : '0mm';
+  const qrWidth = qr ? '18mm' : '0mm';
 
-  return `\\framed[width=\\textwidth,frame=on,rulethickness=.6pt,offset=3mm]{%
+  return `\\framed[width=\\textwidth,frame=on,rulethickness=.6pt,offset=2mm]{%
 \\vbox{%
 \\hbox to ${contentWidth}{%
-\\vbox to 14mm{\\vfil${logo}\\vfil}%
-  \\hskip 3mm%
-  \\vbox to 14mm{\\hsize=\\dimexpr\\textwidth-48mm\\relax\\vfil
+  \\hbox to ${logoWidth}{\\vbox to 15mm{\\vfil\\hbox{${logo}}\\vfil}\\hss}%
+  \\vbox to 15mm{\\hsize=\\dimexpr${contentWidth}-${logoWidth}-${qrWidth}\\relax\\vfil
     \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[7pt]\\bold{${institution || ''}}}%
-    \\blank[.3mm]%
-    \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[10pt]\\bf ${examTitle}}%
-    \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[6pt]${versionLine}}%
+    \\framed[frame=off,width=\\hsize,align=middle,offset=0pt]{\\switchtobodyfont[11pt]\\bold{${examTitle}}${versionText}}%
   \\vfil}%
-  \\hfill\\vbox to 14mm{\\vfil${qr}\\vfil}%
+  \\hbox to ${qrWidth}{\\hss\\vbox to 15mm{\\vfil\\hbox{${qr}}\\vfil}}%
 }%
-\\blank[.5mm]%
-\\hbox to ${contentWidth}{${field('ALUNO(A)', candidateName, '128mm')}${gap}${field('Nº', candidateNumber, '33mm')}}%
-\\blank[.3mm]%
-\\hbox to ${contentWidth}{${field('DISCIPLINA', subjects, '78mm')}${gap}${field('SÉRIE', grade, '39mm')}${gap}${field('TURMA', className, '41mm')}}%
-\\blank[.3mm]%
-\\hbox to ${contentWidth}{${field('PROFESSOR(A)', teacherName, '78mm')}${gap}${field('PERÍODO', term, '39mm')}${gap}${field('DATA', assessmentDate, '41mm')}}%
+\\blank[2mm]%
+${studentRow}%
+\\blank[1.5mm]%
+\\hbox to ${contentWidth}{\\switchtobodyfont[7pt]\\vtop{\\hsize=\\dimexpr${contentWidth}-34mm\\relax\\setupalign[flushleft,nothyphenated]\\noindent ${details}\\par}\\hfill\\vtop{\\hbox{${date}}}}%
 }}`;
 }

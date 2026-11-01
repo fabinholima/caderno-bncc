@@ -25,14 +25,14 @@ test('compact models put one calibrated card before questions and keep distinct 
     assert.ok(tex.indexOf('QUADRO DE RESPOSTAS') < tex.indexOf('\\startquestion'));
     assert.equal((tex.match(/QUADRO DE RESPOSTAS/g) || []).length, 1);
     assert.equal((tex.match(/draw fullcircle scaled 3\.8mm/g) || []).length, 10 * profile.labels.length);
-    assert.equal((tex.match(/draw fullcircle scaled 5mm/g) || []).length, profile.labels.length === 2 ? 20 : 0);
+    assert.equal((tex.match(/draw fullcircle scaled 4mm/g) || []).length, profile.labels.length === 2 ? 20 : 0);
     assert.equal((tex.match(/\)\) withcolor \.45white;/g) || []).length, profile.labels.length === 2 ? 20 : 0);
     assert.equal((tex.match(/\)\) withcolor \.55white;/g) || []).length, profile.labels.length === 5 ? 50 : 0);
-    if (profile.labels.length === 2) assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/);
+    if (profile.labels.length === 2) assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Certo\}"\)/);
     assert.equal((tex.match(/fill unitsquare scaled 2.4mm/g) || []).length, 4);
     assert.equal((tex.match(/\\externalfigure\[qr\.png\]/g) || []).length, 1);
     assert.match(tex, /\\framed\[width=\\textwidth,frame=on/);
-    assert.match(tex, /\\bold\{DISCIPLINA\}/);
+    assert.match(tex, /\\bold\{Aluno\(a\):\}/);
     snapshot.render.mode = 'answer-key';
     assert.ok(!renderAssessment(snapshot).includes('QUADRO DE RESPOSTAS'));
     snapshot.render.paper = 'A5';

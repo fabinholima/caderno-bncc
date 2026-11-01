@@ -1,5 +1,6 @@
 'use client';
 import { BrandMark } from '@/components/brand-mark';
+import { DisplayPreferences } from '@/components/display-preferences';
 
 import {
   createContext,
@@ -146,6 +147,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 lg:pl-[252px]">
+      <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
         <Link
           href="/portal"
@@ -221,7 +223,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
       </aside>
 
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-start gap-3">
             <button
               type="button"
@@ -253,9 +255,12 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
               </h1>
             </div>
           </div>
-          <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 sm:inline">
-            {identity.user.displayName}
-          </span>
+          <div className="flex items-center gap-3">
+            <DisplayPreferences />
+            <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 xl:inline">
+              {identity.user.displayName}
+            </span>
+          </div>
         </div>
         {mobileMenuOpen && (
           <nav
@@ -281,7 +286,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
 
       <SettingsApiUrlContext.Provider value={apiUrl}>
        <SettingsRoleContext.Provider value={identity.role}>
-        <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 sm:px-6 sm:py-7 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-8">
+        <div id="conteudo" tabIndex={-1} className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 outline-none sm:px-6 sm:py-7 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-8">
           <nav
             aria-label="Seções de configurações"
             className="h-fit rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"

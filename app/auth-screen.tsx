@@ -153,7 +153,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
     }
   }
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eef2fd_0%,#fbfaf5_55%,#fff8dc_100%)] px-4 py-5 font-sans sm:px-6 sm:py-8">
+    <main className="theme-light relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eef2fd_0%,#fbfaf5_55%,#fff8dc_100%)] px-4 py-5 font-sans sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-blue-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -right-20 size-96 rounded-full bg-amber-200/25 blur-3xl" />
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur lg:grid-cols-[.9fr_1.1fr]">

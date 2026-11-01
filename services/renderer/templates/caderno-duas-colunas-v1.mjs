@@ -1,5 +1,6 @@
 import { fiveOptionAnswerBlock, fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
 import { renderCompactExamHeader } from './institutional-header.mjs';
+import { renderAnswerCardStudent } from './answer-card-header.mjs';
 
 export const twoColumnExamV1 = Object.freeze({
   id: 'caderno-duas-colunas-v1',
@@ -23,6 +24,7 @@ export const twoColumnExamV1 = Object.freeze({
       questionCount,
       candidateName,
       candidateNumber,
+      candidatePhoto = null,
       content,
     } = data;
     if (Number(questionCount) > 60)
@@ -65,12 +67,7 @@ ${answerHeader}
 \\blank[small]
 \\midaligned{\\tfc\\bold{FOLHA DE RESPOSTAS}}
 \\blank[small]
-\\starttabulate[|p(.76\\textwidth)|p(.2\\textwidth)|]
-\\NC Escola: \\NC Data: ${assessmentDate || ''} \\NC\\NR
-\\NC Aluno(a): ${candidateName || ''} \\NC Série: ${grade} \\NC\\NR
-\\NC Turma: ${className || ''} \\quad Número: ${candidateNumber || ''} \\NC Versão: ${version} \\NC\\NR
-\\stoptabulate
-\\noindent{\\tfx\\bold{Assinatura do Aluno:}} \\thinrules[n=1,width=100mm]\\par
+${renderAnswerCardStudent({ candidateName, candidatePhoto })}
 \\blank[medium]
 \\hbox to \\textwidth{\\vbox{\\hsize=.5\\textwidth\\switchtobodyfont[8pt]\\bold{COMO PREENCHER}\\blank[1mm]\n• Marque somente uma alternativa por questão.\\par\n• Preencha completamente o círculo com caneta preta ou azul.\\par\n• Não rasure, não dobre e não danifique o QR Code ou as marcas de alinhamento.}\\hfill${example}}
 \\blank[small]
@@ -105,11 +102,11 @@ ${fiveOptionAnswerSheet(questionCount)}
 \\def\\ModelThreeFooterRight{{\\switchtobodyfont[7pt]Página \\pagenumber}}
 \\setuppapersize[${paper}]
 \\setupbodyfont[${font},${fontSize}pt]
-\\setuplayout[topspace=10mm,header=47mm,headerdistance=2mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
+\\setuplayout[topspace=10mm,header=33mm,headerdistance=2mm,backspace=13mm,width=middle,height=middle,footer=8mm,footerdistance=3mm]
 \\setupheadertexts[\\ModelThreeHeader]
 \\setupfootertexts[\\ModelThreeFooterLeft][\\ModelThreeFooterRight]
 \\setuppagenumbering[location=]
-\\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
+\\setupalign[hyphenated,hz,hanging,tolerant,stretch]
 \\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 ${mode === 'answer-key' ? `\\setupheadertexts[]\\midaligned{\\tfb\\bold{${title}}}\\blank[medium]` : ''}

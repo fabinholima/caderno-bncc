@@ -97,6 +97,38 @@ type SaebDescriptor = {
   matrix_id: string;
 };
 
+type PlanningSection = 'content' | 'areas' | 'catalog' | 'saeb' | 'map';
+
+function SectionToggle({
+  open,
+  controls,
+  label,
+  onToggle,
+}: {
+  open: boolean;
+  controls: string;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      aria-expanded={open}
+      aria-controls={controls}
+      aria-label={`${open ? 'Recolher' : 'Mostrar'} ${label}`}
+      onClick={onToggle}
+    >
+      <ChevronDown
+        aria-hidden="true"
+        className={`transition-transform ${open ? 'rotate-180' : ''}`}
+      />
+      {open ? 'Recolher' : 'Mostrar'}
+    </Button>
+  );
+}
+
 export function CurriculumManager({
   items,
   apiUrl,
@@ -109,6 +141,17 @@ export function CurriculumManager({
   onChange: (items: CurriculumOption[]) => void;
 }) {
   const [mode, setMode] = useState<Mode>('skill');
+  // As seções longas começam recolhidas: a página tinha dezenas de milhares de
+  // pixels de altura com tudo aberto.
+  const [openSections, setOpenSections] = useState<Record<PlanningSection, boolean>>({
+    content: false,
+    areas: false,
+    catalog: false,
+    saeb: false,
+    map: false,
+  });
+  const toggleSection = (key: PlanningSection) =>
+    setOpenSections((current) => ({ ...current, [key]: !current[key] }));
   const [educationStage, setEducationStage] =
     useState<EducationStage>('Ensino Fundamental');
   const [saving, setSaving] = useState(false);
@@ -646,11 +689,14 @@ export function CurriculumManager({
           type="button"
           variant="outline"
           className="ml-3"
-          onClick={() =>
-            document
-              .getElementById('catalogo-pedagogico')
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }
+          onClick={() => {
+            setOpenSections((current) => ({ ...current, catalog: true }));
+            requestAnimationFrame(() =>
+              document
+                .getElementById('catalogo-pedagogico')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+            );
+          }}
         >
           <Layers3 /> Gerenciar objetos e subtópicos
         </Button>
@@ -679,14 +725,16 @@ export function CurriculumManager({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-bold text-[var(--navy)]">
-              Conteúdo curricular disponível no frontend
+              Conteúdo curricular disponível
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               Disciplinas e objetos carregados do catálogo oficial da BNCC.
             </p>
           </div>
           <Badge variant="outline">{educationStage}</Badge>
+          <SectionToggle open={openSections.content} controls="planejamento-content" label="Conteúdo curricular" onToggle={() => toggleSection('content')} />
         </div>
+        <div id="planejamento-content" hidden={!openSections.content}>
         {educationStage === 'Ensino Fundamental' ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {subjects.map((item) => {
@@ -715,6 +763,7 @@ export function CurriculumManager({
             })}
           </div>
         )}
+        </div>
       </section>
       {educationStage === 'Ensino Médio' && highSchool.length > 0 && (
         <section className="mt-6 rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
@@ -735,7 +784,9 @@ export function CurriculumManager({
               {new Set(highSchool.map((item) => item.skill_code)).size}{' '}
               habilidades
             </Badge>
+            <SectionToggle open={openSections.areas} controls="planejamento-areas" label="Áreas oficiais do Ensino Médio" onToggle={() => toggleSection('areas')} />
           </div>
+          <div id="planejamento-areas" hidden={!openSections.areas}>
           <div className="mt-4 grid gap-3 lg:grid-cols-3">
             {[
               ...new Map(
@@ -846,6 +897,7 @@ export function CurriculumManager({
               </div>
             )}
           </div>
+          </div>
         </section>
       )}
       {educationStage === 'Ensino Médio' &&
@@ -878,7 +930,9 @@ export function CurriculumManager({
                 </Button>
                 {role === 'teacher' && <Badge variant="outline">Consulta para professor</Badge>}
               </div>
+              <SectionToggle open={openSections.catalog} controls="planejamento-catalog" label="Objetos e subtópicos institucionais" onToggle={() => toggleSection('catalog')} />
             </div>
+            <div id="planejamento-catalog" hidden={!openSections.catalog}>
             <div className="mt-5 grid gap-5 lg:grid-cols-[360px_1fr]">
               <form
                 onSubmit={createCatalogTopic}
@@ -1067,6 +1121,7 @@ export function CurriculumManager({
                 </div>
               </div>
             </div>
+            </div>
           </section>
         )}
       {educationStage === 'Ensino Fundamental' && (
@@ -1087,7 +1142,9 @@ export function CurriculumManager({
             >
               Fonte oficial: Inep
             </Badge>
+            <SectionToggle open={openSections.saeb} controls="planejamento-saeb" label="Descritores do SAEB" onToggle={() => toggleSection('saeb')} />
           </div>
+          <div id="planejamento-saeb" hidden={!openSections.saeb}>
           <div className="mt-4 grid gap-4 lg:grid-cols-[300px_1fr]">
             <div>
               <label
@@ -1165,18 +1222,23 @@ export function CurriculumManager({
               )}
             </div>
           </div>
+          </div>
         </section>
       )}
       <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_430px]">
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <header className="border-b border-slate-200 p-5">
+        <section className="h-fit overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <header className={`flex flex-wrap items-start justify-between gap-3 p-5 ${openSections.map ? 'border-b border-slate-200' : ''}`}>
+            <div>
             <h2 className="font-display text-xl font-bold text-[var(--navy)]">
               Mapa curricular
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               Relações disponíveis para classificar novas questões
             </p>
+            </div>
+            <SectionToggle open={openSections.map} controls="planejamento-map" label="Mapa curricular" onToggle={() => toggleSection('map')} />
           </header>
+          <div id="planejamento-map" hidden={!openSections.map}>
           <div className="divide-y divide-slate-100">
             {subjects.map((subject) => (
               <div key={subject.subject_id} className="p-5">
@@ -1244,6 +1306,7 @@ export function CurriculumManager({
                 </div>
               </div>
             ))}
+          </div>
           </div>
         </section>
         <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5">

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
+  materializeCandidatePhoto,
   materializeInstitutionLogo,
   materializeQuestionImages,
   materializeStudentPhoto,
@@ -171,6 +172,28 @@ test('materializa SVG aprovado de estrutura química', { skip: !rsvgAvailable &&
       await readFile(path.join(directory, 'chemical-structure-1.pdf'), 'utf8'),
       /^%PDF-/,
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('grava a foto do aluno só quando a prova pede a opção', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'caderno-photo-'));
+  try {
+    // PNG 1×1 válido.
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    const base = { render: { showStudentPhoto: true }, candidate: { name: 'Ana', photoDataUrl: png } };
+    const done = await materializeCandidatePhoto(base, directory);
+    assert.equal(done.candidate.photoFileName, 'student-photo.png');
+    assert.equal(done.candidate.photoDataUrl, undefined);
+    assert.ok((await readFile(path.join(directory, 'student-photo.png'))).length > 0);
+    // Opção desligada: nada é gravado e a foto não segue no snapshot.
+    const off = await materializeCandidatePhoto({ ...base, render: {} }, directory);
+    assert.equal(off.candidate.photoFileName, undefined);
+    assert.equal(off.candidate.photoDataUrl, undefined);
+    // Foto inválida não impede a prova.
+    const bad = await materializeCandidatePhoto({ ...base, candidate: { name: 'Ana', photoDataUrl: 'data:image/png;base64,AAAA' } }, directory);
+    assert.equal(bad.candidate.photoFileName, undefined);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

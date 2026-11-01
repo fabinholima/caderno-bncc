@@ -9,6 +9,7 @@ import {
   Download,
   Eye,
   GraduationCap,
+  Plus,
   Printer,
   RefreshCw,
   Trash2,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ClassInvitePanel } from './class-invite-panel';
 import { ClassRosterPrint } from './class-roster-print';
 import { StudentPhoto } from './student-photo';
@@ -29,6 +31,7 @@ type SchoolClass = {
   grade: string;
   schoolYear: number;
   students: number;
+  schoolId?: string | null;
   schoolName?: string | null;
 };
 type AcademicPanel = 'classes' | 'students' | 'applications' | 'correction' | 'results';
@@ -381,6 +384,18 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       setMessage('Não foi possível carregar os dados acadêmicos.'),
     );
   }, [refresh]);
+  const [classDialogOpen, setClassDialogOpen] = useState(false);
+  const [classFormError, setClassFormError] = useState('');
+  // Escolas de "Minhas escolas": a turma nasce vinculada a uma delas.
+  const [teacherSchools, setTeacherSchools] = useState<{ id: string; name: string }[] | null>(null);
+  const openClassDialog = () => {
+    setClassDialogOpen(true);
+    setClassFormError('');
+    apiFetch(`${apiUrl}/api/educator-profile`)
+      .then((response) => response.json() as Promise<ApiBody<{ schools?: { id: string; name: string }[] }>>)
+      .then((body) => setTeacherSchools(body.data?.schools ?? []))
+      .catch(() => setTeacherSchools([]));
+  };
   const post = async (
     path: string,
     form: HTMLFormElement,
@@ -785,36 +800,6 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         ))}
       </div>}
       <div className={`mt-6 grid gap-5 ${activePanel === 'students' ? 'xl:grid-cols-2' : ''}`}>
-        {activePanel === 'classes' && <Panel icon={<GraduationCap />} title="Criar turma">
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              post('/api/classes', e.currentTarget, (d) => ({
-                name: d.get('name'),
-                grade: d.get('grade'),
-                schoolYear: Number(d.get('schoolYear')),
-              })).catch((x) => setMessage(x.message));
-            }}
-          >
-            <label htmlFor="new-class-name" className="block text-sm font-medium text-slate-700">Nome da turma<Input id="new-class-name" name="name" required placeholder="Ex.: 3º A" className="mt-1" /></label>
-            <label htmlFor="new-class-grade" className="block text-sm font-medium text-slate-700">Etapa de ensino<Input id="new-class-grade" name="grade" required placeholder="Ex.: 3ª série do Ensino Médio" className="mt-1" /></label>
-            <label htmlFor="new-class-year" className="block text-sm font-medium text-slate-700">Ano letivo<Input
-              id="new-class-year"
-              name="schoolYear"
-              type="number"
-              min="2000"
-              max="2100"
-              defaultValue="2026"
-              required
-              className="mt-1"
-            /></label>
-            <p className="rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-900">A escola é definida pelo cadastro institucional. Para associar uma escola específica à turma, use <b>Convidar alunos</b> depois de criá-la.</p>
-            <Button type="submit" className="w-full">
-              <GraduationCap /> Criar turma
-            </Button>
-          </form>
-        </Panel>}
         {activePanel === 'students' && <Panel icon={<UserPlus />} title="Cadastrar aluno">
           <form
             className="space-y-3"
@@ -2098,11 +2083,74 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
+      <Dialog open={classDialogOpen} onOpenChange={(open) => { setClassDialogOpen(open); if (!open) setClassFormError(''); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova turma</DialogTitle>
+            <DialogDescription>Informe a escola, o nome, a etapa e o ano letivo. Os alunos são cadastrados depois.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setClassFormError('');
+              post('/api/classes', e.currentTarget, (d) => ({
+                schoolId: d.get('schoolId'),
+                name: d.get('name'),
+                grade: d.get('grade'),
+                schoolYear: Number(d.get('schoolYear')),
+              }))
+                .then(() => setClassDialogOpen(false))
+                .catch((x) => setClassFormError(x.message));
+            }}
+          >
+            <label htmlFor="new-class-school" className="block text-sm font-medium text-slate-700">Escola
+              <select id="new-class-school" name="schoolId" required disabled={!teacherSchools?.length}
+                defaultValue={teacherSchools?.length === 1 ? teacherSchools[0].id : ''}
+                key={teacherSchools?.map((school) => school.id).join() ?? 'carregando'}
+                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                {teacherSchools === null
+                  ? <option value="">Carregando escolas…</option>
+                  : <>
+                      <option value="" disabled>{teacherSchools.length ? 'Selecione a escola' : 'Nenhuma escola cadastrada'}</option>
+                      {teacherSchools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
+                    </>}
+              </select>
+            </label>
+            {teacherSchools?.length === 0 && (
+              <p className="rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
+                Cadastre a escola em <a href="/configuracoes/escolas" className="font-semibold underline">Minhas escolas</a> antes de criar a turma.
+              </p>
+            )}
+            <label htmlFor="new-class-name" className="block text-sm font-medium text-slate-700">Nome da turma<Input id="new-class-name" name="name" required placeholder="Ex.: 3º A" className="mt-1" /></label>
+            <label htmlFor="new-class-grade" className="block text-sm font-medium text-slate-700">Etapa de ensino<Input id="new-class-grade" name="grade" required placeholder="Ex.: 3ª série do Ensino Médio" className="mt-1" /></label>
+            <label htmlFor="new-class-year" className="block text-sm font-medium text-slate-700">Ano letivo<Input
+              id="new-class-year"
+              name="schoolYear"
+              type="number"
+              min="2000"
+              max="2100"
+              defaultValue="2026"
+              required
+              className="mt-1"
+            /></label>
+            {classFormError && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{classFormError}</p>}
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancelar</DialogClose>
+              <Button type="submit" disabled={!teacherSchools?.length}>
+                <GraduationCap /> Criar turma
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       {activePanel === 'classes' && <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="border-b p-4 font-semibold">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h2 className="font-semibold">Turmas cadastradas</h2><p className="mt-1 text-xs font-normal text-slate-500">{visibleClasses.length} de {classes.length} turmas · escola vinculada pelo convite da turma</p></div>
+            <div><h2 className="font-semibold">Turmas cadastradas</h2><p className="mt-1 text-xs font-normal text-slate-500">{visibleClasses.length} de {classes.length} turmas</p></div>
             <div className="flex flex-wrap gap-2">
+              <Button type="button" className="h-9" onClick={openClassDialog}><Plus /> Nova turma</Button>
               <Input aria-label="Buscar turma ou escola" placeholder="Buscar turma ou escola" value={classSearch} onChange={(event) => setClassSearch(event.target.value)} className="h-9 w-52" />
               <select aria-label="Filtrar por etapa" value={classGradeFilter} onChange={(event) => setClassGradeFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as etapas</option>{Array.from(new Set(classes.map((item) => item.grade))).sort().map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select>
               <select aria-label="Filtrar por ano letivo" value={classYearFilter} onChange={(event) => setClassYearFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todos os anos</option>{Array.from(new Set(classes.map((item) => item.schoolYear))).sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}</select>
@@ -2113,7 +2161,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
           {visibleClasses.map((x) => (
             <article key={x.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><GraduationCap /></span><div className="min-w-0"><h3 className="truncate font-semibold text-slate-900">{x.name}</h3><p className="mt-1 text-sm text-slate-600">{x.grade} · {x.schoolYear}</p><p className="mt-2 truncate text-xs text-slate-500">{x.schoolName || 'Escola não vinculada ao convite'}</p></div></div>
+              <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><GraduationCap /></span><div className="min-w-0"><h3 className="truncate font-semibold text-slate-900">{x.name}</h3><p className="mt-1 text-sm text-slate-600">{x.grade} · {x.schoolYear}</p><p className="mt-2 truncate text-xs text-slate-500">{x.schoolName || 'Escola não informada'}</p></div></div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-sm font-medium text-slate-600">{x.students} alunos</span><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" className="h-9" onClick={() => setInviteClass(x)}><Users /> Escola e convites</Button><Button type="button" variant="outline" className="h-9" onClick={() => setRosterClassId(x.id)}><Printer /> Imprimir lista com fotos</Button><Button type="button" variant="outline" className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={deletingClass !== null} onClick={() => void removeClass(x)}><Trash2 />{deletingClass === x.id ? 'Excluindo…' : 'Excluir turma'}</Button></div></div>
             </article>
           ))}
@@ -2125,10 +2173,10 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
         )}
       </section>}
       {activePanel === 'students' && <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 className="font-semibold">Alunos cadastrados</h2><p className="mt-1 text-xs text-slate-500">{visibleStudents.length} de {students.length} alunos</p><p className="mt-1 text-xs text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p></div><div className="flex flex-wrap gap-2"><Input aria-label="Buscar aluno" placeholder="Nome, matrícula ou código" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} className="h-9 w-56" /><select aria-label="Filtrar situação do aluno" value={studentStatusFilter} onChange={(event) => setStudentStatusFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{studentStatuses.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></header>
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 className="font-semibold">Alunos cadastrados</h2><p className="mt-1 text-xs text-slate-500">{visibleStudents.length} de {students.length} alunos · {students.filter((student) => student.selfieDataUrl).length} com foto para o cartão-resposta</p><p className="mt-1 text-xs text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p></div><div className="flex flex-wrap gap-2"><Input aria-label="Buscar aluno" placeholder="Nome, matrícula ou código" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} className="h-9 w-56" /><select aria-label="Filtrar situação do aluno" value={studentStatusFilter} onChange={(event) => setStudentStatusFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{studentStatuses.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></header>
         {visibleStudents.length ? visibleStudents.map((student) => (
           <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-0">
-            <span className="flex min-w-0 items-center gap-3"><StudentPhoto src={student.selfieDataUrl} name={student.name} /><span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>{!student.selfieDataUrl && <span className="block text-xs text-slate-400">sem foto</span>}
+            <span className="flex min-w-0 items-center gap-3"><StudentPhoto src={student.selfieDataUrl} name={student.name} /><span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>{!student.selfieDataUrl && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800" title="O aluno envia a foto pelo app após o vínculo">sem foto</span>}{!student.selfieDataUrl && <span className="block text-xs text-slate-400">sem foto</span>}
               <span className="mt-0.5 block text-xs text-slate-500">{student.linkedAccountName || student.linkedAccountEmail
                 ? <>Conta vinculada: <span className="text-slate-700">{student.linkedAccountName || student.linkedAccountEmail}</span>{student.linkedAccountName && student.linkedAccountEmail ? ` (${student.linkedAccountEmail})` : ''}</>
                 : 'Sem conta vinculada'}</span></span></span>
@@ -2152,7 +2200,7 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         )) : <p className="p-6 text-sm text-slate-500">{students.length ? 'Nenhum aluno corresponde aos filtros selecionados.' : 'Nenhum aluno cadastrado.'}</p>}
       </div>}
-      {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} schoolName={inviteClass.schoolName} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
+      {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} defaultSchoolId={inviteClass.schoolId ?? ''} schoolName={inviteClass.schoolName} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
       {rosterClassId && <ClassRosterPrint apiUrl={apiUrl} classId={rosterClassId} onClose={()=>setRosterClassId(null)} />}
     </section>
   );

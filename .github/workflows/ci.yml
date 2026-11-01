@@ -87,3 +87,58 @@ jobs:
 
       - name: Build portal
         run: pnpm build
+
+  # Testes de tela: sobem a API e o portal contra um Postgres vazio, só com as migrações.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: caderno
+          POSTGRES_PASSWORD: caderno_test
+          POSTGRES_DB: caderno_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U caderno -d caderno_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Apply migrations
+        run: node services/api/migrate.mjs
+
+      - name: Run screen tests
+        run: pnpm test:e2e
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

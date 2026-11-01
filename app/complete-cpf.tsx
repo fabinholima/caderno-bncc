@@ -21,7 +21,7 @@ export function CompleteCpf({ apiUrl }: { apiUrl: string }) {
     if (response.ok) window.location.reload();
     else setMessage('Não foi possível sair. Tente novamente.');
   }
-  return <main className="grid min-h-screen place-items-center bg-slate-100 p-5"><section className="w-full max-w-md rounded-3xl border bg-white p-7">
+  return <main className="theme-light grid min-h-screen place-items-center bg-slate-100 p-5"><section className="w-full max-w-md rounded-3xl border bg-white p-7">
     <h1 className="text-2xl font-bold">Complete seu cadastro</h1>
     <p className="my-4 text-sm text-slate-600">Agora usamos CPF para impedir contas duplicadas. Seus dados e questões existentes serão mantidos. O CPF não será armazenado em texto aberto.</p>
     <form onSubmit={submit} className="space-y-3">

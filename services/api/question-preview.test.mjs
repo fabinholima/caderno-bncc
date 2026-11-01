@@ -49,11 +49,11 @@ test('prévia de Certo/Errado recompõe opções fixas e mantém somente um gaba
   assert.deepEqual(snapshotFromQuestion(candidate).questions[0].answer.correctStableKeys, ['alt-a']);
   assert.match(
     tex,
-    /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/,
+    /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Certo\}"\)/,
   );
   assert.match(
     tex,
-    /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Errado\}"\)/,
+    /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Errado\}"\)/,
   );
   assert.doesNotMatch(tex, /\\(?:directlua|ctxlua|startluacode)/);
 });
