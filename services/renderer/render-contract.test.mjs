@@ -933,3 +933,20 @@ test('prova vinculada a um aluno imprime nome e número e deixa só a assinatura
   assert.match(generic, /\\bold\{Aluno\(a\):\}\\hskip 1\.5mm\\leaders\\hrule/);
   assert.match(generic, /Cartão sem aluno vinculado/);
 });
+
+test('foto do aluno no cartão-resposta só quando a prova pede e há aluno vinculado', async () => {
+  const base = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const withPhoto = { ...base, render: { ...base.render, showStudentPhoto: true }, candidate: { name: 'Fabio de Souza', number: '3', photoFileName: 'student-photo.jpg' } };
+  const card = (tex) => tex.slice(tex.indexOf('CARTÃO-RESPOSTA'));
+  assert.match(card(renderAssessment(withPhoto)), /\\externalfigure\[student-photo\.jpg\]\[width=18mm,height=24mm,factor=fit\]/);
+  // Aluno sem foto cadastrada: o espaço aparece vazio, sem quebrar a prova.
+  const noPhoto = card(renderAssessment({ ...withPhoto, candidate: { name: 'Fabio de Souza' } }));
+  assert.match(noPhoto, /sem foto/);
+  assert.doesNotMatch(noPhoto, /externalfigure\[student-photo/);
+  // Nome de arquivo inesperado nunca chega ao ConTeXt.
+  assert.doesNotMatch(renderAssessment({ ...withPhoto, candidate: { name: 'X', photoFileName: '../segredo.png' } }), /segredo/);
+  // Opção desligada ou PDF da versão (sem aluno): sem foto.
+  assert.doesNotMatch(renderAssessment({ ...withPhoto, render: base.render }), /student-photo|sem foto/);
+  const { candidate: _c, ...generic } = withPhoto;
+  assert.doesNotMatch(renderAssessment(generic), /student-photo|sem foto/);
+});

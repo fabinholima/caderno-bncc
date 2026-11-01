@@ -24,6 +24,7 @@ export const twoColumnExamV1 = Object.freeze({
       questionCount,
       candidateName,
       candidateNumber,
+      candidatePhoto = null,
       content,
     } = data;
     if (Number(questionCount) > 60)
@@ -66,7 +67,7 @@ ${answerHeader}
 \\blank[small]
 \\midaligned{\\tfc\\bold{FOLHA DE RESPOSTAS}}
 \\blank[small]
-${renderAnswerCardStudent({ candidateName })}
+${renderAnswerCardStudent({ candidateName, candidatePhoto })}
 \\blank[medium]
 \\hbox to \\textwidth{\\vbox{\\hsize=.5\\textwidth\\switchtobodyfont[8pt]\\bold{COMO PREENCHER}\\blank[1mm]\n• Marque somente uma alternativa por questão.\\par\n• Preencha completamente o círculo com caneta preta ou azul.\\par\n• Não rasure, não dobre e não danifique o QR Code ou as marcas de alinhamento.}\\hfill${example}}
 \\blank[small]
