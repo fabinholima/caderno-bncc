@@ -13,7 +13,6 @@ import {
   Printer,
   RefreshCw,
   Trash2,
-  UserPlus,
   Users,
   XCircle,
 } from 'lucide-react';
@@ -21,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ClassInvitePanel } from './class-invite-panel';
+import { StudentsWorkspace } from './students-workspace';
 import { ClassRosterPrint } from './class-roster-print';
 import { StudentPhoto } from './student-photo';
 import { apiFetch } from '@/lib/api-client';
@@ -51,8 +51,8 @@ type Student = {
   active: boolean;
   status: StudentStatus | null;
   adaptedExam: boolean;
+  enrollments?: { classId: string; number: number | null }[];
 };
-type StudentImportRow = { registration: string; name: string; line: number; status: StudentStatus; existing: boolean; warning: string | null };
 type Assessment = { id: string; title: string; grade: string };
 type Application = {
   id: string;
@@ -318,8 +318,6 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   const [classSearch, setClassSearch] = useState('');
   const [classGradeFilter, setClassGradeFilter] = useState('');
   const [classYearFilter, setClassYearFilter] = useState('');
-  const [studentSearch, setStudentSearch] = useState('');
-  const [studentStatusFilter, setStudentStatusFilter] = useState('');
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -347,9 +345,6 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   const [studentProgress, setStudentProgress] =
     useState<StudentProgress | null>(null);
   const [message, setMessage] = useState('');
-  const [importingStudents, setImportingStudents] = useState(false);
-  const [studentImportPreview, setStudentImportPreview] = useState<StudentImportRow[]>([]);
-  const [studentImportClassId, setStudentImportClassId] = useState('');
   const [savingStudent, setSavingStudent] = useState<string | null>(null);
   const [deletingClass, setDeletingClass] = useState<string | null>(null);
   const [inviteClass,setInviteClass]=useState<SchoolClass|null>(null);
@@ -745,11 +740,6 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       && (!classGradeFilter || item.grade === classGradeFilter)
       && (!classYearFilter || String(item.schoolYear) === classYearFilter);
   });
-  const visibleStudents = students.filter((item) => {
-    const query = studentSearch.trim().toLocaleLowerCase('pt-BR');
-    return (!query || `${item.name} ${item.registration} ${item.access_code || ''}`.toLocaleLowerCase('pt-BR').includes(query))
-      && (!studentStatusFilter || (item.status || 'ativo') === studentStatusFilter);
-  });
   const panelNavigation: Array<{ id: AcademicPanel; label: string; icon: React.ReactNode }> = [
     { id: 'classes', label: 'Turmas e escolas', icon: <GraduationCap /> },
     { id: 'students', label: 'Alunos', icon: <Users /> },
@@ -798,173 +788,6 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
             <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center [&>svg]:size-4">{item.icon}</span>{item.label}
           </button>
         ))}
-      </div>}
-      <div className={`mt-6 grid gap-5 ${activePanel === 'students' ? 'xl:grid-cols-2' : ''}`}>
-        {activePanel === 'students' && <Panel icon={<UserPlus />} title="Cadastrar aluno">
-          <form
-            className="space-y-3"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const form = e.currentTarget;
-              try {
-                const data = new FormData(form);
-                const response = await apiFetch(`${apiUrl}/api/students`, {
-                  method: 'POST',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({
-                    registration: data.get('registration'),
-                    name: data.get('name'),
-                    status: data.get('status'),
-                    adaptedExam: data.get('adaptedExam') === 'on',
-                  }),
-                });
-                const body = (await response.json()) as ApiBody<{ access_code?: string }>;
-                if (!response.ok) throw new Error(body.error || 'Não foi possível cadastrar o aluno.');
-                form.reset();
-                setMessage(`Aluno cadastrado. Código: ${body.data?.access_code || 'disponível na lista de alunos'}`);
-                await refresh();
-              } catch (error) {
-                setMessage(error instanceof Error ? error.message : 'Não foi possível cadastrar o aluno.');
-              }
-            }}
-          >
-            <Input name="name" required placeholder="Nome completo" />
-            <Input name="registration" required placeholder="Matrícula" />
-            <label className="block text-sm">Situação
-              <select name="status" defaultValue="ativo" className="mt-1 w-full rounded-md border p-2">
-                {studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input name="adaptedExam" type="checkbox" /> Prova adaptada (laudo)
-            </label>
-            <p className="text-xs text-slate-500">A foto será adicionada pelo aluno no app após o vínculo pelo código da turma.</p>
-            <Button type="submit" className="w-full">
-              Cadastrar aluno
-            </Button>
-          </form>
-        </Panel>}
-        {activePanel === 'students' && <Panel icon={<Users />} title="Matricular na turma">
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const d = new FormData(e.currentTarget);
-              post(
-                `/api/classes/${formString(d, 'classId')}/enrollments`,
-                e.currentTarget,
-                (x) => ({
-                  studentId: x.get('studentId'),
-                  number: x.get('number') ? Number(x.get('number')) : undefined,
-                }),
-              ).catch((x) => setMessage(x.message));
-            }}
-          >
-            <Select
-              name="classId"
-              label="Selecione a turma"
-              items={classes.map((x) => [x.id, `${x.name} · ${x.grade}`])}
-            />
-            <Select
-              name="studentId"
-              label="Selecione o aluno"
-              items={students.map((x) => [
-                x.id,
-                `${x.name} · ${x.registration}`,
-              ])}
-            />
-            <Input
-              name="number"
-              type="number"
-              min="1"
-              placeholder="Número na chamada"
-            />
-            <Button type="submit" className="w-full">
-              Matricular
-            </Button>
-          </form>
-        </Panel>}
-      </div>
-      {activePanel === 'students' && <div className="mt-5">
-        <Panel icon={<UserPlus />} title="Importar alunos por Excel">
-          <p className="mb-4 text-sm text-slate-600">
-            Selecione a turma e envie um arquivo .xlsx de até 2 MB, com até 1.000 alunos.
-            Use duas colunas: Código/Matrícula e Nome com cabeçalho, ou código numérico e nome sem cabeçalho. Não inclua foto.
-            O aluno adicionará a foto no app após entrar com o código da turma e ter o vínculo aprovado.
-            O código será usado como matrícula; formate essa coluna como Texto para preservar zeros à esquerda.
-            Após o envio, confira os dados e escolha a situação de cada aluno. A planilha só será gravada quando você confirmar.
-          </p>
-          <form className="grid gap-3 md:grid-cols-3" onSubmit={async (event) => {
-            event.preventDefault();
-            const form = event.currentTarget;
-            const data = new FormData(form);
-            const file = data.get('spreadsheet');
-            if (!(file instanceof File) || !file.size) return setMessage('Selecione uma planilha Excel.');
-            if (!file.name.toLowerCase().endsWith('.xlsx') || file.size > 2_000_000)
-              return setMessage('Envie um arquivo .xlsx de até 2 MB.');
-            setImportingStudents(true);
-            setMessage('Lendo a planilha…');
-            try {
-              const base64 = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  if (typeof reader.result === 'string') resolve(reader.result.split(',')[1]);
-                  else reject(new Error('Não foi possível ler a planilha.'));
-                };
-                reader.onerror = () => reject(new Error('Não foi possível ler a planilha.'));
-                reader.readAsDataURL(file);
-              });
-              const classId = formString(data, 'classId');
-              const response = await apiFetch(`${apiUrl}/api/classes/${classId}/students/import/preview`, {
-                method: 'POST', headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ base64 }),
-              });
-              const body = await response.json() as ApiBody<StudentImportRow[]>;
-              if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível ler os alunos da planilha.');
-              setStudentImportClassId(classId);
-              setStudentImportPreview(body.data);
-              setMessage(`${body.data.length} alunos lidos. Confira os nomes e escolha a situação antes de gravar.`);
-            } catch (error) {
-              setMessage(error instanceof Error ? error.message : 'Não foi possível importar os alunos.');
-            } finally {
-              setImportingStudents(false);
-            }
-          }}>
-            <Select name="classId" label="Selecione a turma" items={classes.map((item) => [item.id, `${item.name} · ${item.grade}`])} />
-            <Input name="spreadsheet" aria-label="Planilha de alunos" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required disabled={importingStudents} />
-            <Button type="submit" disabled={importingStudents || !classes.length}>
-              {importingStudents ? 'Lendo…' : 'Ler planilha'}
-            </Button>
-          </form>
-          {studentImportPreview.length > 0 && <div className="mt-5 space-y-3">
-            <div className="max-h-[28rem] overflow-auto rounded-lg border border-slate-200">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-slate-50 text-slate-700"><tr><th className="p-3">Código</th><th className="p-3">Aluno</th><th className="p-3">Situação</th><th className="p-3">Ação</th></tr></thead>
-                <tbody>{studentImportPreview.map((student, index) => <tr key={`${student.registration}-${student.line}`} className="border-t border-slate-100">
-                  <td className="p-3 font-mono">{student.registration}</td><td className="p-3">{student.name}{student.existing && <span className="ml-2 text-xs text-slate-500">já cadastrado</span>}{student.warning && <p className="mt-1 text-xs text-amber-700">{student.warning}</p>}</td>
-                  <td className="p-3"><select aria-label={`Situação de ${student.name}`} className="rounded-md border border-slate-300 bg-white px-2 py-1.5" value={student.status} onChange={(event) => setStudentImportPreview(rows => rows.map((row, rowIndex) => rowIndex === index ? { ...row, status: event.target.value as StudentStatus } : row))}>{studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td>
-                  <td className="p-3">{student.warning && <button type="button" className="text-xs font-medium text-rose-700 underline" onClick={() => setStudentImportPreview(rows => rows.filter((_, rowIndex) => rowIndex !== index))}>Remover da importação</button>}</td>
-                </tr>)}</tbody>
-              </table>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" disabled={importingStudents || !studentImportPreview.length || studentImportPreview.some(student => student.warning)} onClick={async () => {
-                setImportingStudents(true); setMessage('Gravando alunos e matrículas…');
-                try {
-                  const response = await apiFetch(`${apiUrl}/api/classes/${studentImportClassId}/students/import`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ students: studentImportPreview.map(({ registration, name, status, line }) => ({ registration, name, status, line })) }) });
-                  const body = await response.json() as ApiBody<{ created: number; enrolled: number; alreadyEnrolled: number }>;
-                  if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível importar os alunos.');
-                  const result = body.data;
-                  setStudentImportPreview([]); setStudentImportClassId('');
-                  setMessage(`Importação concluída: ${result.created} novos alunos, ${result.enrolled} matrículas na turma e ${result.alreadyEnrolled} já matriculados.`);
-                  await refresh();
-                } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível importar os alunos.'); }
-                finally { setImportingStudents(false); }
-              }}>Confirmar e gravar {studentImportPreview.length} alunos</Button>
-              <Button type="button" variant="outline" disabled={importingStudents} onClick={() => { setStudentImportPreview([]); setStudentImportClassId(''); setMessage('Prévia cancelada; nada foi gravado.'); }}>Cancelar</Button>
-            </div>
-          </div>}
-        </Panel>
       </div>}
       {activePanel === 'applications' && <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2">
@@ -2172,34 +1995,21 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </p>
         )}
       </section>}
-      {activePanel === 'students' && <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 className="font-semibold">Alunos cadastrados</h2><p className="mt-1 text-xs text-slate-500">{visibleStudents.length} de {students.length} alunos · {students.filter((student) => student.selfieDataUrl).length} com foto para o cartão-resposta</p><p className="mt-1 text-xs text-slate-500">Situação e prova adaptada são registros para acompanhamento do professor. A situação não altera a participação nas provas.</p></div><div className="flex flex-wrap gap-2"><Input aria-label="Buscar aluno" placeholder="Nome, matrícula ou código" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} className="h-9 w-56" /><select aria-label="Filtrar situação do aluno" value={studentStatusFilter} onChange={(event) => setStudentStatusFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{studentStatuses.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></header>
-        {visibleStudents.length ? visibleStudents.map((student) => (
-          <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-0">
-            <span className="flex min-w-0 items-center gap-3"><StudentPhoto src={student.selfieDataUrl} name={student.name} /><span className="min-w-0"><b>{student.name}</b><span className="ml-2 text-slate-500">Matrícula {student.registration}{student.access_code ? ` · ${student.access_code}` : ''}</span>{!student.selfieDataUrl && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800" title="O aluno envia a foto pelo app após o vínculo">sem foto</span>}{!student.selfieDataUrl && <span className="block text-xs text-slate-400">sem foto</span>}
-              <span className="mt-0.5 block text-xs text-slate-500">{student.linkedAccountName || student.linkedAccountEmail
-                ? <>Conta vinculada: <span className="text-slate-700">{student.linkedAccountName || student.linkedAccountEmail}</span>{student.linkedAccountName && student.linkedAccountEmail ? ` (${student.linkedAccountEmail})` : ''}</>
-                : 'Sem conta vinculada'}</span></span></span>
-            <div className="flex flex-wrap items-center gap-3">
-              {(student.linkedAccountName || student.linkedAccountEmail) && <Button type="button" variant="outline" className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={savingStudent !== null} onClick={() => void unlinkStudentAccount(student)}>{savingStudent === student.id ? 'Desvinculando…' : 'Desvincular conta'}</Button>}
-              <label className="flex items-center gap-2">Situação
-                <select aria-label={`Situação de ${student.name}`} value={student.status ?? ''}
-                  disabled={savingStudent !== null} className="rounded-md border p-2"
-                  onChange={(event) => updateStudent(student, { status: event.target.value as StudentStatus }).catch((error) => setMessage(error.message))}>
-                  {!student.status && <option value="" disabled>Selecione a situação</option>}
-                  {studentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" aria-label={`Prova adaptada (laudo) de ${student.name}`}
-                  checked={student.adaptedExam} disabled={savingStudent !== null}
-                  onChange={(event) => updateStudent(student, { adaptedExam: event.target.checked }).catch((error) => setMessage(error.message))} />
-                Prova adaptada
-              </label>
-            </div>
-          </div>
-        )) : <p className="p-6 text-sm text-slate-500">{students.length ? 'Nenhum aluno corresponde aos filtros selecionados.' : 'Nenhum aluno cadastrado.'}</p>}
-      </div>}
+      {activePanel === 'students' && (
+        <StudentsWorkspace
+          apiUrl={apiUrl}
+          classes={classes}
+          students={students}
+          refresh={refresh}
+          setMessage={setMessage}
+          savingStudent={savingStudent}
+          updateStudent={updateStudent}
+          unlinkStudentAccount={unlinkStudentAccount}
+          onInvite={(schoolClass) => setInviteClass(schoolClass)}
+          onPrintRoster={(classId) => setRosterClassId(classId)}
+          onCreateClass={() => { setActivePanel('classes'); openClassDialog(); }}
+        />
+      )}
       {inviteClass && <ClassInvitePanel apiUrl={apiUrl} classId={inviteClass.id} className={inviteClass.name} defaultSchoolId={inviteClass.schoolId ?? ''} schoolName={inviteClass.schoolName} onClose={()=>setInviteClass(null)} onApproved={()=>void refresh()} />}
       {rosterClassId && <ClassRosterPrint apiUrl={apiUrl} classId={rosterClassId} onClose={()=>setRosterClassId(null)} />}
     </section>
@@ -2249,25 +2059,6 @@ function ReportPerformance({
         <p className="mt-3 text-sm text-slate-500">{empty}</p>
       )}
     </div>
-  );
-}
-function Panel({
-  icon,
-  title,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="mb-4 flex items-center gap-2 text-[var(--navy)]">
-        {icon}
-        <h2 className="font-display text-lg font-bold">{title}</h2>
-      </div>
-      {children}
-    </section>
   );
 }
 function Select({
