@@ -538,7 +538,8 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
         columnQuestions = [];
       };
       questions.forEach((question) => {
-        if (!question.fullWidth) {
+        // Largura total: escolhida na montagem ou definida no cadastro da questão.
+        if (!question.fullWidth && !question.recommendSingleColumn) {
           columnQuestions.push(question);
           return;
         }

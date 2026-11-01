@@ -1,6 +1,6 @@
 'use client';
+/* oxlint-disable next/no-html-link-for-pages -- No app publicado (vinext), o <Link> do Next não navega: o clique fica na mesma página ("RSC prefetch setup error"). Use <a> com navegação completa. */
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 
@@ -159,12 +159,12 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            <Link
+            <a
               className="ufa-cta"
               href="/portal"
             >
               {index === 0 ? 'Começar agora' : `Assinar plano ${plan.name}`}
-            </Link>
+            </a>
           </article>
         ))}
       </div>

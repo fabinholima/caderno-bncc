@@ -2714,8 +2714,8 @@ export default function Home() {
                   />
                 </label>
                 <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-slate-700">
-                  <input aria-label="Recomendar uma coluna para esta questão" type="checkbox" name="recommendSingleColumn" checked={recommendSingleColumn} onChange={(event) => setRecommendSingleColumn(event.target.checked)} className="mt-1 accent-blue-600" />
-                  <span><strong>Recomendar uma coluna</strong><span className="mt-1 block text-xs text-slate-500">Indicado para figuras grandes. Na montagem da avaliação, você poderá usar a largura total para esta questão.</span></span>
+                  <input aria-label="Usar sempre uma coluna para esta questão" type="checkbox" name="recommendSingleColumn" checked={recommendSingleColumn} onChange={(event) => setRecommendSingleColumn(event.target.checked)} className="mt-1 accent-blue-600" />
+                  <span><strong>Usar sempre uma coluna</strong><span className="mt-1 block text-xs text-slate-500">Indicado para figuras grandes, tabelas e fórmulas longas. Em todos os modelos de prova, a questão sai em largura total, mesmo nas seções de duas colunas, para não desconfigurar.</span></span>
                 </label>
                 <input type="hidden" name="metapostCode" value={draftMetapostCode} />
               </section>

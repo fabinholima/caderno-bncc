@@ -1,9 +1,9 @@
 'use client';
+/* oxlint-disable next/no-html-link-for-pages -- No app publicado (vinext), o <Link> do Next não navega: o clique fica na mesma página ("RSC prefetch setup error"). Use <a> com navegação completa. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { Wrench } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen } from './auth-screen';
-import Link from 'next/link';
 
 type Status = {enabled:boolean;message:string};
 export function MaintenanceGate({children}:{children:ReactNode}) {
@@ -41,7 +41,7 @@ export function MaintenanceGate({children}:{children:ReactNode}) {
       <h1 className="text-3xl font-bold text-slate-900">{status?.enabled?'Estamos em manutenção':error?'Portal temporariamente indisponível':'Carregando o portal…'}</h1>
       <p aria-live="polite" className="mt-4 whitespace-pre-line text-lg leading-relaxed text-slate-600">{status?.enabled?status.message:error?'Não foi possível consultar o portal. Tente novamente em instantes.':'Só um instante.'}</p>
       {(status?.enabled||error)&&<button onClick={()=>window.location.reload()} className="mt-8 rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white">Tentar novamente</button>}
-      {status?.enabled&&<Link href="/portal?maintenance_admin=1" className="mt-8 block text-sm text-slate-500 underline">Acesso do administrador</Link>}
+      {status?.enabled&&<a href="/portal?maintenance_admin=1" className="mt-8 block text-sm text-slate-500 underline">Acesso do administrador</a>}
     </section>
   </main>;
 }
