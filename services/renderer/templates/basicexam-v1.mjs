@@ -26,6 +26,7 @@ export const basicExamV1 = Object.freeze({
     points,
     candidateName,
     candidateNumber,
+    candidatePhoto = null,
     subjects,
     content,
     previewOnly = false,
@@ -80,6 +81,7 @@ export const basicExamV1 = Object.freeze({
       candidateName,
       candidateNumber,
       version,
+      candidatePhoto,
       qr,
     });
     const header = previewOnly

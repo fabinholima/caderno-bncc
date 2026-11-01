@@ -630,6 +630,10 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
     points: `${total} ${total === 1 ? 'ponto' : 'pontos'}`,
     candidate,
     candidateName: escapeContext(candidateData?.name || ''),
+    // Foto só no cartão de um aluno da turma, quando a prova pediu a opção.
+    candidatePhoto: snapshot.render?.showStudentPhoto && candidateData?.name
+      ? { fileName: /^student-photo\.(png|jpg)$/.test(candidateData.photoFileName || '') ? candidateData.photoFileName : '' }
+      : null,
     candidateNumber: escapeContext(candidateData?.number || ''),
     subjects: escapeContext(
       [

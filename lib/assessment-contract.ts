@@ -104,5 +104,6 @@ export type AssessmentRenderContract = {
     fontSize: number;
     showBnccSkills?: boolean;
     showSaebDescriptors?: boolean;
+    showStudentPhoto?: boolean;
   };
 };

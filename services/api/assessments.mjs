@@ -64,6 +64,8 @@ export const createAssessmentSchema = z
     fontSize: z.number().int().min(10).max(16).default(11),
     showBnccSkills: z.boolean().default(false),
     showSaebDescriptors: z.boolean().default(false),
+    // Foto do aluno (cadastro da turma) no cartão-resposta de cada aluno.
+    showStudentPhoto: z.boolean().default(false),
     instructions: z
       .array(z.string().trim().min(1).max(500))
       .max(10)
@@ -303,6 +305,7 @@ export async function createAssessment({ institutionId, questionBankId = institu
           fontSize: value.fontSize,
           showBnccSkills: value.showBnccSkills,
           showSaebDescriptors: value.showSaebDescriptors,
+          showStudentPhoto: value.showStudentPhoto,
         },
       };
       const answerKey = snapshotQuestions.map((question) => ({
