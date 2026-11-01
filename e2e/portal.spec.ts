@@ -71,11 +71,15 @@ test.describe('portal', () => {
     await page.getByRole('button', { name: 'Nova turma' }).click();
     const dialog = page.getByRole('dialog', { name: 'Nova turma' });
     await expect(dialog).toBeVisible();
+    // A turma nasce vinculada à escola (a conta de teste tem uma só, já selecionada).
+    await expect(dialog.getByLabel('Escola')).toHaveValue(/.+/);
     await dialog.getByLabel('Nome da turma').fill(className);
     await dialog.getByLabel('Etapa de ensino').fill('9º ano');
     await dialog.getByRole('button', { name: 'Criar turma' }).click();
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole('heading', { name: className })).toBeVisible();
+    const card = page.locator('article', { has: page.getByRole('heading', { name: className }) });
+    await expect(card).toBeVisible();
+    await expect(card.getByText('Escola Estadual dos Testes')).toBeVisible();
   });
 
   test('administração mostra assinantes e receitas', async ({ page }) => {

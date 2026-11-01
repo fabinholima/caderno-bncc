@@ -57,6 +57,13 @@ try {
     await post('/api/auth/verify-email', { token: registration.developmentToken });
   }
   await client.query('UPDATE users SET portal_admin = true WHERE lower(email) = $1', [e2eUser.email]);
+  // Escola em "Minhas escolas": toda turma nova é criada vinculada a uma escola.
+  await client.query(
+    `INSERT INTO educator_schools(user_id,name,school_type,city,state)
+     SELECT id,'Escola Estadual dos Testes','estadual','Campo Grande','MS' FROM users u
+     WHERE lower(email)=$1 AND NOT EXISTS(SELECT 1 FROM educator_schools es WHERE es.user_id=u.id)`,
+    [e2eUser.email],
+  );
   console.log(`Conta de teste pronta: ${e2eUser.email}`);
 } finally {
   await client.end();

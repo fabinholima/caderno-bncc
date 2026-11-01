@@ -20,12 +20,15 @@ export function ClassInvitePanel({
   apiUrl,
   classId,
   className,
+  defaultSchoolId = "",
   onClose,
   onApproved,
 }: {
   apiUrl: string;
   classId: string;
   className: string;
+  /** Escola da própria turma, escolhida ao criá-la. */
+  defaultSchoolId?: string;
   onClose: () => void;
   onApproved: () => void;
 }) {
@@ -56,11 +59,11 @@ export function ClassInvitePanel({
       call<{schools:{id:string;name:string}[]}>('/api/educator-profile'),
     ]);
     setSchools(profile.schools);
-    setSchoolId(invite?.schoolId || (profile.schools.length === 1 ? profile.schools[0].id : ""));
+    setSchoolId(invite?.schoolId || defaultSchoolId || (profile.schools.length === 1 ? profile.schools[0].id : ""));
     setCode(invite?.code || "");
     setRequests(list);
     setStudents(candidates);
-  }, [call, classId]);
+  }, [call, classId, defaultSchoolId]);
   useEffect(() => {
     void Promise.resolve().then(() => refresh()).catch((e) => setMessage(e.message));
   }, [refresh]);
