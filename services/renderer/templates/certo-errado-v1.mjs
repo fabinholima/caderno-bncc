@@ -45,7 +45,7 @@ export const judgmentExamV1 = Object.freeze({
         answerSheetBody: judgmentAnswerSheet(options.questionCount),
         content:
           options.mode === 'student'
-            ? 'Julgue cada item e marque C para certo ou E para errado.\\blank[medium]\n' +
+            ? 'Julgue cada item e marque C para certo ou E para errado.\\blank[small]\n' +
               options.content
             : options.content,
       })

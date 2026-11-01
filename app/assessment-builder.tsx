@@ -174,6 +174,7 @@ export function AssessmentBuilder({
   const [fontSize, setFontSize] = useState(11);
   const [showBnccSkills, setShowBnccSkills] = useState(false);
   const [showSaebDescriptors, setShowSaebDescriptors] = useState(false);
+  const [showStudentPhoto, setShowStudentPhoto] = useState(false);
   const [title, setTitle] = useState('Simulado multidisciplinar');
   const [grade, setGrade] = useState('Ensino Médio');
   const [institutionName, setInstitutionName] = useState(
@@ -302,6 +303,7 @@ export function AssessmentBuilder({
       fontSize,
       showBnccSkills,
       showSaebDescriptors,
+      showStudentPhoto,
       instructions,
       questionPoints,
       shuffleQuestions,
@@ -325,6 +327,7 @@ export function AssessmentBuilder({
       fontSize,
       showBnccSkills,
       showSaebDescriptors,
+      showStudentPhoto,
       instructions,
       questionPoints,
       shuffleQuestions,
@@ -500,6 +503,7 @@ export function AssessmentBuilder({
     setFontSize(c.fontSize);
     setShowBnccSkills(c.showBnccSkills);
     setShowSaebDescriptors(c.showSaebDescriptors);
+    setShowStudentPhoto(c.showStudentPhoto ?? false);
     setInstructions(c.instructions);
     setQuestionPoints(c.questionPoints || {});
     setShuffleQuestions(c.shuffleQuestions ?? false);
@@ -1195,6 +1199,7 @@ export function AssessmentBuilder({
             fontSize,
             showBnccSkills,
             showSaebDescriptors,
+      showStudentPhoto,
             instructions,
             questionPoints: Object.fromEntries(
               chosen.map((q) => [q.id, questionPoints[q.id] ?? q.points ?? 1]),
@@ -2759,6 +2764,30 @@ export function AssessmentBuilder({
                 <span className="mt-1 block text-xs text-slate-500">
                   Mostra o código do descritor antes do enunciado somente nas
                   questões que possuem vínculo SAEB.
+                </span>
+              </span>
+            </div>
+            <div className="mt-3 flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+              <input
+                id="show-student-photo"
+                type="checkbox"
+                checked={showStudentPhoto}
+                onChange={(event) => {
+                  setShowStudentPhoto(event.target.checked);
+                  setGenerated(false);
+                }}
+                className="mt-0.5 size-4 accent-blue-600"
+              />
+              <span>
+                <label
+                  htmlFor="show-student-photo"
+                  className="block text-sm font-semibold"
+                >
+                  Foto do aluno no cartão-resposta
+                </label>
+                <span className="mt-1 block text-xs text-slate-500">
+                  Usa a foto do cadastro da turma nos cartões gerados para
+                  cada aluno. Quem não tem foto recebe o espaço em branco.
                 </span>
               </span>
             </div>

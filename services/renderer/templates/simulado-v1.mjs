@@ -148,7 +148,7 @@ ${answerCardHeader}
 \\setupbodyfont[${font},${fontSize}pt]
 \\setuplayout[topspace=13mm,backspace=14mm,width=middle,height=middle]
 \\setuppagenumbering[location={footer,right},style=\\tfx]
-\\setupalign[nothyphenated,hz,hanging,tolerant,stretch]
+\\setupalign[hyphenated,hz,hanging,tolerant,stretch]
 \\setuphead[subject][style=\\bf, before={\\blank[medium]}, after={\\blank[small]}]
 \\starttext
 ${cover}

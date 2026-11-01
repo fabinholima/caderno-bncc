@@ -1775,7 +1775,7 @@ export function ExamImportManager({
   ];
 
   return (
-    <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <section className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-violet-700">
         Curadoria editorial
       </p>
@@ -3180,7 +3180,7 @@ export function ExamImportManager({
             ))}
         </div>
       </section>
-    </main>
+    </section>
   );
 }
 

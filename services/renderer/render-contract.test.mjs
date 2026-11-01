@@ -15,7 +15,7 @@ test('converte o contrato imutável para t-basicexam e escapa conteúdo', async 
   assert.match(tex, /\\mainlanguage\[pt\]/);
   assert.match(
     tex,
-    /\\setupalign\[nothyphenated,hz,hanging,tolerant,stretch\]/,
+    /\\setupalign\[hyphenated,hz,hanging,tolerant,stretch\]/,
   );
   assert.match(tex, /layout basicexam-v1/);
   assert.match(tex, /Prova 100\\% segura \\& versionada/);
@@ -66,8 +66,12 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
-  assert.match(tex, /\\bold\{Assinatura do Aluno:\}/);
-  assert.match(tex, /Aluno\(a\):\} Aluno Demonstração/);
+  // Nome impresso a partir da turma; o único campo para preencher é a assinatura.
+  assert.match(tex, /\{\\tfa\\bold\{\\WORD\{Aluno Demonstração\}\}\}/);
+  const card = tex.slice(tex.indexOf('CARTÃO-RESPOSTA'));
+  assert.equal((card.match(/\\bold\{Assinatura:\}/g) || []).length, 1);
+  assert.doesNotMatch(card, /Aluno\(a\)/);
+  assert.doesNotMatch(card, /Nome completo|\\NC Escola:/);
   assert.doesNotMatch(tex, /Nome completo do aluno/);
   assert.doesNotMatch(tex, /AnswerCardNameGrid/);
   assert.match(tex, /\\externalfigure\[qr\.png\]/);
@@ -147,8 +151,8 @@ test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simp
     tex,
     /\\setuppagenumbering\[location=\{footer,right\},style=\\tfx\]/,
   );
-  assert.match(tex, /Assinatura do Aluno:/);
-  assert.match(tex, /Turma:/);
+  assert.match(tex, /\\bold\{Assinatura:\}/);
+  assert.match(tex, /Cartão sem aluno vinculado/);
   assert.doesNotMatch(tex, /Nº\/Matrícula:/);
   assert.doesNotMatch(tex, /Data de nascimento:/);
 });
@@ -181,9 +185,10 @@ test('renderiza o Modelo 3 em duas colunas com folha de respostas OMR', async ()
     /\\startmixedcolumns\[n=2,balance=yes,distance=8mm,separator=rule,rulethickness=\.5pt,rulecolor=modelthreerule\]/,
   );
   assert.match(tex, /\\bold\{FOLHA DE RESPOSTAS\}/);
-  assert.match(tex, /Aluno\(a\): Estudante Modelo/);
-  assert.match(tex, /Assinatura do Aluno:/);
-  assert.match(tex, /Versão: A/);
+  assert.match(tex, /\\tfa\\bold\{\\WORD\{Estudante Modelo\}\}/);
+  assert.match(tex, /\\bold\{Assinatura:\}/);
+  assert.match(tex, /Versão A/);
+  assert.doesNotMatch(tex, /\\NC Escola:/);
   assert.match(tex, /\\externalfigure\[assessment-qr\.png\]/);
   assert.match(tex, /\\blackrule\[width=7mm,height=7mm\]/);
   assert.match(tex, /\\bf ITEM/);
@@ -487,8 +492,8 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   assert.match(tex, /7º A/);
   assert.match(tex, /2º bimestre/);
   assert.match(tex, /15\/09\/2026/);
-  assert.match(tex, /\\bold\{SÉRIE\}/);
-  assert.match(tex, /\\bold\{PROFESSOR\(A\)\}/);
+  assert.match(tex, /\\bold\{Aluno\(a\):\}/);
+  assert.match(tex, /Professor\(a\): Prof\. Ana/);
   assert.match(tex, /\\externalfigure\[assessment-qr\.png\]\[width=15mm,height=15mm\]/);
   assert.doesNotMatch(tex, /AVALIAÇÃO BIMESTRAL/);
   assert.match(tex, /\\setuppapersize\[A4\]/);
@@ -845,9 +850,9 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   const tex = renderAssessment(snapshot);
   assert.ok(tex.indexOf('Julgue o item a seguir') < tex.indexOf('Seis vezes sete é igual a 42'));
   assert.match(tex, /Seis vezes sete é igual a 42/);
-  assert.equal((tex.match(/draw fullcircle scaled 5mm shifted/g) || []).length, 2);
-  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Certo\}"\)/);
-  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[9pt\]Errado\}"\)/);
+  assert.equal((tex.match(/draw fullcircle scaled 4mm shifted/g) || []).length, 2);
+  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Certo\}"\)/);
+  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Errado\}"\)/);
   assert.equal((tex.match(/\\startcitem/g) || []).length, 0);
   assert.ok(!tex.includes('{A}'));
   assert.ok(!tex.includes('{B}'));
@@ -913,4 +918,35 @@ test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura'
   assert.throws(() => renderAssessment(snapshot), /somente questões de Certo/);
   snapshot.render.template = 'basicexam-v1';
   assert.throws(() => renderAssessment(snapshot), /não podem ser mescladas/);
+});
+
+test('prova vinculada a um aluno imprime nome e número e deixa só a assinatura', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  snapshot.candidate = { name: 'Ana Souza', number: '12' };
+  const tex = renderAssessment(snapshot);
+  const header = tex.slice(tex.indexOf('\\framed[width=\\textwidth,frame=on'), tex.indexOf('CARTÃO-RESPOSTA'));
+  assert.match(header, /\\bold\{Ana Souza\}\}\\hskip 3mm Nº 12/);
+  assert.match(header, /\\bold\{Assinatura:\}/);
+  assert.doesNotMatch(header, /\\bold\{Nº\}/);
+  delete snapshot.candidate;
+  const generic = renderAssessment(snapshot);
+  assert.match(generic, /\\bold\{Aluno\(a\):\}\\hskip 1\.5mm\\leaders\\hrule/);
+  assert.match(generic, /Cartão sem aluno vinculado/);
+});
+
+test('foto do aluno no cartão-resposta só quando a prova pede e há aluno vinculado', async () => {
+  const base = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const withPhoto = { ...base, render: { ...base.render, showStudentPhoto: true }, candidate: { name: 'Fabio de Souza', number: '3', photoFileName: 'student-photo.jpg' } };
+  const card = (tex) => tex.slice(tex.indexOf('CARTÃO-RESPOSTA'));
+  assert.match(card(renderAssessment(withPhoto)), /\\externalfigure\[student-photo\.jpg\]\[width=18mm,height=24mm,factor=fit\]/);
+  // Aluno sem foto cadastrada: o espaço aparece vazio, sem quebrar a prova.
+  const noPhoto = card(renderAssessment({ ...withPhoto, candidate: { name: 'Fabio de Souza' } }));
+  assert.match(noPhoto, /sem foto/);
+  assert.doesNotMatch(noPhoto, /externalfigure\[student-photo/);
+  // Nome de arquivo inesperado nunca chega ao ConTeXt.
+  assert.doesNotMatch(renderAssessment({ ...withPhoto, candidate: { name: 'X', photoFileName: '../segredo.png' } }), /segredo/);
+  // Opção desligada ou PDF da versão (sem aluno): sem foto.
+  assert.doesNotMatch(renderAssessment({ ...withPhoto, render: base.render }), /student-photo|sem foto/);
+  const { candidate: _c, ...generic } = withPhoto;
+  assert.doesNotMatch(renderAssessment(generic), /student-photo|sem foto/);
 });

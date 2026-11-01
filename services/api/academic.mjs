@@ -7,6 +7,8 @@ export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
   schoolYear: z.number().int().min(2000).max(2100),
+  // Escola de "Minhas escolas" do professor; obrigatória em turmas novas.
+  schoolId: z.uuid({ error: 'Selecione a escola da turma.' }),
 });
 export const studentStatusSchema = z.enum(['ativo', 'transferido', 'remanejado', 'atestado', 'regime_domiciliar']);
 export const studentUpdateSchema = z.object({
@@ -32,14 +34,15 @@ export const applicationSchema = z.object({
 });
 export async function listClasses({ institutionId }) {
   const r = await pool.query({
-    text: `SELECT c.id,c.name,c.grade,c.school_year,es.name school_name,
+    // Escola da própria turma; turmas antigas usam a escola do convite.
+    text: `SELECT c.id,c.name,c.grade,c.school_year,es.id school_id,es.name school_name,
                   COUNT(ce.student_id)::int students
            FROM classes c
            LEFT JOIN class_enrollments ce ON ce.class_id=c.id
            LEFT JOIN class_invites ci ON ci.class_id=c.id AND ci.active
-           LEFT JOIN educator_schools es ON es.id=ci.school_id
+           LEFT JOIN educator_schools es ON es.id=coalesce(c.school_id,ci.school_id)
            WHERE c.institution_id=$1
-           GROUP BY c.id,es.name
+           GROUP BY c.id,es.id,es.name
            ORDER BY c.school_year DESC,c.name`,
     values: [institutionId],
   });
@@ -49,16 +52,21 @@ export async function listClasses({ institutionId }) {
     grade: x.grade,
     schoolYear: x.school_year,
     students: x.students,
+    schoolId: x.school_id || null,
     schoolName: x.school_name || null,
   }));
 }
-export async function createClass({ institutionId, input }) {
+export async function createClass({ institutionId, userId, input }) {
   const v = classSchema.parse(input);
+  // A escola precisa ser uma das escolas cadastradas pelo próprio professor.
+  const school = await pool.query('SELECT id,name FROM educator_schools WHERE id=$1 AND user_id=$2', [v.schoolId, userId]);
+  if (!school.rowCount)
+    throw Object.assign(new Error('Escola não encontrada em Minhas escolas.'), { statusCode: 422 });
   const r = await pool.query({
-    text: `INSERT INTO classes(institution_id,name,grade,school_year) VALUES($1,$2,$3,$4) RETURNING id,name,grade,school_year`,
-    values: [institutionId, v.name, v.grade, v.schoolYear],
+    text: `INSERT INTO classes(institution_id,name,grade,school_year,school_id,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,name,grade,school_year`,
+    values: [institutionId, v.name, v.grade, v.schoolYear, v.schoolId, userId],
   });
-  return { ...r.rows[0], schoolYear: r.rows[0].school_year };
+  return { ...r.rows[0], schoolYear: r.rows[0].school_year, schoolId: school.rows[0].id, schoolName: school.rows[0].name };
 }
 export async function deleteClass({ institutionId, classId }) {
   return transaction(async (client) => {
