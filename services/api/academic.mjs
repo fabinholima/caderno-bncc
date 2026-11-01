@@ -109,7 +109,10 @@ export async function createStudent({ institutionId, userId, portalAdmin = false
 }
 export async function listStudents({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name,lu.display_name AS "linkedAccountName",lu.email AS "linkedAccountEmail" FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id LEFT JOIN student_account_links l ON l.student_id=s.id AND l.institution_id=s.institution_id LEFT JOIN users lu ON lu.id=l.user_id WHERE s.institution_id=$1 ORDER BY s.name`,
+    text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name,lu.display_name AS "linkedAccountName",lu.email AS "linkedAccountEmail",
+      -- Turmas do aluno (com o número da chamada): a página Alunos agrupa por turma.
+      coalesce((SELECT jsonb_agg(jsonb_build_object('classId',ce.class_id,'number',ce.number) ORDER BY ce.class_id) FROM class_enrollments ce WHERE ce.student_id=s.id),'[]') AS enrollments
+      FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id LEFT JOIN student_account_links l ON l.student_id=s.id AND l.institution_id=s.institution_id LEFT JOIN users lu ON lu.id=l.user_id WHERE s.institution_id=$1 ORDER BY s.name`,
     values: [institutionId],
   });
   return result.rows;
@@ -414,7 +417,7 @@ export async function getClassRoster({ institutionId, userId, classId }) {
            JOIN institutions i ON i.id=c.institution_id
            JOIN memberships m ON m.institution_id=c.institution_id AND m.user_id=$3 AND m.role IN ('admin','coordinator','teacher')
            LEFT JOIN class_invites ci ON ci.class_id=c.id AND ci.active
-           LEFT JOIN educator_schools es ON es.id=ci.school_id
+           LEFT JOIN educator_schools es ON es.id=coalesce(c.school_id,ci.school_id)
            WHERE c.id=$1 AND c.institution_id=$2`,
     values: [classId, institutionId, userId],
   });

@@ -5,6 +5,18 @@ import { assertInstitutionLimit } from './auth.mjs';
 
 const invalid = (message) => Object.assign(new Error(message), { statusCode: 422 });
 const normalize = (value) => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim().toLowerCase();
+// Cabeçalhos comparados sem acento, sem º/° e sem pontuação: "Nº da chamada" → "n da chamada".
+const headerKey = (value) => normalize(value).replace(/[º°.:]/g, '').replace(/\s+/g, ' ').trim();
+const numberHeaders = ['n', 'no', 'num', 'numero', 'n da chamada', 'no da chamada', 'numero da chamada', 'numero na chamada', 'n na chamada', 'chamada', 'n chamada'];
+// Número da chamada: inteiro de 1 a 999 (vazio = sem número).
+function rollNumber(cell, line) {
+  const text = cell.text.trim();
+  if (!text) return undefined;
+  const value = Number(text);
+  if (!Number.isInteger(value) || value < 1 || value > 999)
+    throw invalid(`Linha ${line}: o número da chamada deve ser um inteiro de 1 a 999 (recebido "${text}").`);
+  return value;
+}
 
 export async function parseStudentWorkbook(base64) {
   if (typeof base64 !== 'string' || !base64.length || base64.length > 2_800_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64))
@@ -17,21 +29,24 @@ export async function parseStudentWorkbook(base64) {
   if (!sheets.length) throw invalid('O arquivo não contém nenhuma aba com dados.');
   const codeHeaders = ['codigo', 'matricula', 'codigo/matricula', 'matricula/codigo', 'codigo do aluno', 'matricula do aluno', 'registro', 'ra', 'id do aluno'];
   const nameHeaders = ['nome', 'nome do aluno', 'nome completo', 'nome completo do aluno', 'aluno', 'estudante', 'nome do estudante'];
-  let sheet, headerRow, codeColumn, nameColumn;
+  // Ordem esperada: Código → Nº da chamada → Nome (o Nº é opcional).
+  let sheet, headerRow, codeColumn, nameColumn, numberColumn;
   for (const candidate of sheets) {
     // Tolerate title/instruction rows before the header, common in exported spreadsheets.
     for (let line = 1; line <= Math.min(candidate.rowCount, 20); line++) {
-      let foundCode, foundName;
+      let foundCode, foundName, foundNumber;
       candidate.getRow(line).eachCell((cell, column) => {
         const header = normalize(cell.text);
         if (codeHeaders.includes(header)) foundCode = column;
         if (nameHeaders.includes(header)) foundName = column;
+        if (numberHeaders.includes(headerKey(cell.text))) foundNumber = column;
       });
       if (foundCode && foundName) {
         sheet = candidate;
         headerRow = line;
         codeColumn = foundCode;
         nameColumn = foundName;
+        numberColumn = foundNumber;
         break;
       }
     }
@@ -39,7 +54,7 @@ export async function parseStudentWorkbook(base64) {
   }
   let firstDataRow;
   if (!sheet) {
-    // Some class rosters contain only a numeric code and a name, without headers.
+    // Planilhas sem cabeçalho: código e nome, ou código, nº da chamada e nome.
     for (const candidate of sheets) {
       for (let line = 1; line <= Math.min(candidate.rowCount, 20); line++) {
         const row = candidate.getRow(line);
@@ -47,12 +62,15 @@ export async function parseStudentWorkbook(base64) {
         row.eachCell((cell, column) => {
           if (cell.text.trim()) values.push({ cell, column });
         });
-        if (values.length !== 2) continue;
+        if (values.length !== 2 && values.length !== 3) continue;
         const codeEntry = values.find(({ cell }) =>
           typeof cell.value === 'number' || /\d/.test(cell.text.trim()),
         );
+        // Com três colunas, a do meio é o nº da chamada (inteiro de 1 a 999).
+        const numberEntry = values.length === 3 ? values[1] : undefined;
+        if (numberEntry && (codeEntry?.column !== values[0].column || !/^\d{1,3}$/.test(numberEntry.cell.text.trim()))) continue;
         const nameEntry = values.find(({ cell, column }) =>
-          column !== codeEntry?.column &&
+          column !== codeEntry?.column && column !== numberEntry?.column &&
           !nameHeaders.includes(normalize(cell.text)) &&
           studentSchema.safeParse({ registration: '1', name: cell.text.trim() }).success,
         );
@@ -62,14 +80,15 @@ export async function parseStudentWorkbook(base64) {
         sheet = candidate;
         codeColumn = codeEntry.column;
         nameColumn = nameEntry.column;
+        numberColumn = numberEntry?.column;
         firstDataRow = line;
         break;
       }
       if (sheet) break;
     }
   }
-  if (!sheet) throw invalid('Não encontrei as colunas Código/Matrícula e Nome. Inclua os títulos na mesma linha ou use duas colunas sem cabeçalho: código numérico e nome.');
-  const students = [], seen = new Set();
+  if (!sheet) throw invalid('Não encontrei as colunas da planilha. Use, nesta ordem: Código/Matrícula, Nº da chamada e Nome (o Nº é opcional), com ou sem a linha de títulos.');
+  const students = [], seen = new Set(), seenNumbers = new Map();
   // Limit scanning as well as imported records; formatting can make Excel report many empty rows.
   const dataStart = firstDataRow || headerRow + 1;
   for (let line = dataStart; line <= Math.min(sheet.rowCount, dataStart + 10_000); line++) {
@@ -83,11 +102,28 @@ export async function parseStudentWorkbook(base64) {
     if (!result.success) throw invalid(`Linha ${line}: informe código (até 60 caracteres) e nome (2 a 160 caracteres).`);
     if (seen.has(registration)) throw invalid(`Linha ${line}: código ${registration} repetido na planilha.`);
     seen.add(registration);
-    students.push({ ...result.data, line });
+    const number = numberColumn ? rollNumber(row.getCell(numberColumn), line) : undefined;
+    if (number !== undefined && seenNumbers.has(number))
+      throw invalid(`Linha ${line}: o nº da chamada ${number} já aparece na linha ${seenNumbers.get(number)}.`);
+    if (number !== undefined) seenNumbers.set(number, line);
+    students.push({ ...result.data, ...(number !== undefined ? { number } : {}), line });
     if (students.length > 1000) throw invalid('A planilha deve conter até 1.000 alunos.');
   }
   if (!students.length) throw invalid('A planilha não contém alunos.');
   return students;
+}
+
+// Números da chamada já usados na turma por alunos que NÃO estão na planilha
+// (os da planilha podem trocar de número entre si).
+async function numbersTakenOutside(db, classId, students) {
+  const numbers = students.map((student) => student.number).filter(Boolean);
+  if (!numbers.length) return new Map();
+  const result = await db.query(
+    `SELECT ce.number,s.name FROM class_enrollments ce JOIN students s ON s.id=ce.student_id
+     WHERE ce.class_id=$1 AND ce.number=ANY($2::int[]) AND NOT (s.registration=ANY($3::text[]))`,
+    [classId, numbers, students.map((student) => student.registration)],
+  );
+  return new Map(result.rows.map((row) => [row.number, row.name]));
 }
 
 export async function previewClassStudentImport({ institutionId, classId, input }) {
@@ -99,11 +135,13 @@ export async function previewClassStudentImport({ institutionId, classId, input 
     [institutionId, students.map(student => student.registration)],
   );
   const byCode = new Map(existing.rows.map(student => [student.registration, student]));
+  const taken = await numbersTakenOutside(pool, classId, students);
   return students.map(student => {
     const found = byCode.get(student.registration);
     let warning = null;
     if (found && !found.active) warning = 'A conta de acesso deste aluno está inativa; a situação escolar não reativa a conta.';
     else if (found && normalize(found.name) !== normalize(student.name)) warning = `Este código já está cadastrado para “${found.name}”.`;
+    else if (student.number && taken.has(student.number)) warning = `O nº ${student.number} já é de ${taken.get(student.number)} nesta turma.`;
     return { ...student, status: found?.status || 'ativo', existing: Boolean(found), warning };
   });
 }
@@ -113,7 +151,10 @@ export async function importClassStudents({ institutionId, userId, classId, port
     ? input.students.map((student, index) => {
       const result = studentSchema.safeParse(student);
       if (!result.success) throw invalid(`Aluno ${index + 1}: informe código, nome e situação válidos.`);
-      return { ...result.data, line: student.line || index + 1 };
+      const number = student.number === undefined || student.number === null || student.number === '' ? undefined : Number(student.number);
+      if (number !== undefined && (!Number.isInteger(number) || number < 1 || number > 999))
+        throw invalid(`Aluno ${index + 1}: o número da chamada deve ser um inteiro de 1 a 999.`);
+      return { ...result.data, ...(number !== undefined ? { number } : {}), line: student.line || index + 1 };
     })
     : await parseStudentWorkbook(input?.base64);
   if (!students.length || students.length > 1000) throw invalid('Selecione de 1 a 1.000 alunos para importar.');
@@ -130,6 +171,21 @@ export async function importClassStudents({ institutionId, userId, classId, port
       if (found && normalize(found.name) !== normalize(student.name))
         throw invalid(`Linha ${student.line}: o código ${student.registration} já pertence a “${found.name}”. Revise o cadastro.`);
     }
+    const numbers = students.map((student) => student.number).filter(Boolean);
+    if (new Set(numbers).size !== numbers.length) throw invalid('Há números da chamada repetidos na importação.');
+    const taken = await numbersTakenOutside(client, classId, students);
+    const conflict = students.find((student) => student.number && taken.has(student.number));
+    if (conflict) throw invalid(`Linha ${conflict.line}: o nº ${conflict.number} já é de ${taken.get(conflict.number)} nesta turma.`);
+    // Libera os números que a planilha vai usar ou redefinir, entre os alunos
+    // da própria planilha; assim trocas (3 ↔ 4) não esbarram na restrição única.
+    if (numbers.length)
+      await client.query(
+        `UPDATE class_enrollments ce SET number=NULL FROM students s
+         WHERE ce.class_id=$1 AND s.id=ce.student_id AND s.institution_id=$2 AND s.registration=ANY($3::text[])
+           AND (ce.number=ANY($4::int[]) OR s.registration=ANY($5::text[]))`,
+        [classId, institutionId, students.map((student) => student.registration), numbers,
+          students.filter((student) => student.number).map((student) => student.registration)],
+      );
     const created = students.length - existing.rows.length;
     if (created) await assertInstitutionLimit({ institutionId, kind: 'student', portalAdmin, developmentBypass, quantity: created, db: client });
     let enrolled = 0;
@@ -141,8 +197,14 @@ export async function importClassStudents({ institutionId, userId, classId, port
       } else {
         await client.query('UPDATE students SET status=$3 WHERE id=$1 AND institution_id=$2', [id, institutionId, student.status || 'ativo']);
       }
-      const result = await client.query('INSERT INTO class_enrollments(class_id,student_id) VALUES($1,$2) ON CONFLICT (class_id,student_id) DO NOTHING', [classId, id]);
-      enrolled += result.rowCount;
+      // Nº da chamada da planilha; sem número, mantém o que já existia.
+      const result = await client.query(
+        `INSERT INTO class_enrollments(class_id,student_id,number) VALUES($1,$2,$3)
+         ON CONFLICT (class_id,student_id) DO UPDATE SET number=COALESCE(EXCLUDED.number,class_enrollments.number)
+         RETURNING (xmax = 0) AS inserted`,
+        [classId, id, student.number ?? null],
+      );
+      if (result.rows[0]?.inserted) enrolled += 1;
     }
     return { total: students.length, created, enrolled, alreadyEnrolled: students.length - enrolled };
   });
