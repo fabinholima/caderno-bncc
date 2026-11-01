@@ -1,4 +1,5 @@
 'use client';
+/* oxlint-disable next/no-html-link-for-pages -- No app publicado (vinext), o <Link> do Next não navega: o clique fica na mesma página ("RSC prefetch setup error"). Use <a> com navegação completa. */
 import { BrandMark } from '@/components/brand-mark';
 import { DisplayPreferences } from '@/components/display-preferences';
 
@@ -9,7 +10,6 @@ import {
   useEffect,
   useState,
 } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Building2,
@@ -128,12 +128,12 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
           <p className="mt-2 text-slate-600">
             Esta área é exclusiva para professores e gestores.
           </p>
-          <Link
+          <a
             className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-4 font-semibold text-white"
             href="/portal"
           >
             Ir ao portal
-          </Link>
+          </a>
         </section>
       </main>
     );
@@ -149,7 +149,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
     <main className="min-h-screen bg-slate-50 text-slate-950 lg:pl-[252px]">
       <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
-        <Link
+        <a
           href="/portal"
           className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6"
         >
@@ -164,7 +164,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
               AVALIAÇÕES BNCC
             </span>
           </span>
-        </Link>
+        </a>
         <nav
           aria-label="Navegação principal"
           className="flex-1 overflow-y-auto px-3 py-6"
@@ -240,13 +240,13 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
               )}
             </button>
             <div>
-              <Link
+              <a
                 href="/portal"
                 className="inline-flex items-center gap-1 text-sm font-semibold text-blue-800 hover:text-blue-950"
               >
                 <ChevronLeft aria-hidden="true" className="size-4" />
                 Voltar ao portal
-              </Link>
+              </a>
               <p className="mt-2 text-xs font-bold uppercase tracking-[.14em] text-blue-700">
                 UfaProva · Conta
               </p>
