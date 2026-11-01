@@ -950,3 +950,32 @@ test('foto do aluno no cartão-resposta só quando a prova pede e há aluno vinc
   const { candidate: _c, ...generic } = withPhoto;
   assert.doesNotMatch(renderAssessment(generic), /student-photo|sem foto/);
 });
+
+test('questão marcada para uma coluna no cadastro sai em largura total em todos os modelos', async () => {
+  const { renderTemplateIds } = await import('../../lib/render-templates.mjs');
+  const { isJudgmentTemplate } = await import('../../lib/compact-assessment.mjs');
+  const base = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  for (const template of renderTemplateIds) {
+    const judgment = isJudgmentTemplate(template);
+    const question = (number, text, extra = {}) => ({
+      ...base.questions[0], id: `q${number}`, number,
+      ...(judgment ? {
+        type: 'true_false',
+        alternatives: [
+          { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
+          { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
+        ],
+        answer: { correctStableKeys: ['alt-a'] },
+      } : {}),
+      statement: [{ type: 'paragraph', text }],
+      ...extra,
+    });
+    const questions = [question(1, 'Antes da figura.'), question(2, 'Figura larga.', { recommendSingleColumn: true }), question(3, 'Depois da figura.')];
+    const tex = renderAssessment({ ...base, questions, sections: [{ title: 'Seção', subject: 'Matemática', columns: 2, questions }], render: { ...base.render, template } });
+    const wide = tex.indexOf('Figura larga.');
+    // A questão larga fica entre um \stopmixedcolumns e o próximo \startmixedcolumns.
+    assert.ok(wide > 0, template);
+    assert.ok(tex.lastIndexOf('\\stopmixedcolumns', wide) > tex.lastIndexOf('\\startmixedcolumns', wide), `${template}: questão larga dentro das colunas`);
+    assert.ok(tex.indexOf('\\startmixedcolumns', wide) > wide, `${template}: questões seguintes voltam às colunas`);
+  }
+});

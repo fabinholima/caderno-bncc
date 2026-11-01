@@ -2136,7 +2136,7 @@ export function AssessmentBuilder({
                       </div>
                       {question.recommendSingleColumn && (
                         <p className="mb-1 text-xs font-semibold text-blue-700">
-                          Recomendada uma coluna · figura ou conteúdo amplo
+                          Sempre em uma coluna · definido no cadastro
                         </p>
                       )}
                       <p className="text-sm font-medium leading-5 text-slate-800">
@@ -2149,12 +2149,13 @@ export function AssessmentBuilder({
                       <label className="mt-3 ml-8 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
                         <input
                           type="checkbox"
-                          checked={activeSection.fullWidth.has(question.id)}
+                          checked={question.recommendSingleColumn || activeSection.fullWidth.has(question.id)}
+                          disabled={question.recommendSingleColumn}
                           onChange={() => toggleFullWidth(question.id)}
                           className="accent-blue-600"
                         />
                         {question.recommendSingleColumn
-                          ? 'Aplicar sugestão: usar largura total (1 coluna)'
+                          ? 'Largura total (1 coluna) · definido no cadastro da questão'
                           : 'Usar largura total (1 coluna) para esta questão'}
                       </label>
                     )}
