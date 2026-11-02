@@ -58,3 +58,7 @@ next-env.d.ts
 /e2e/.auth/
 /playwright-report/
 /test-results/
+
+# VPS: segredos e backups locais
+/deploy/vps/.env
+/deploy/vps/backups/
