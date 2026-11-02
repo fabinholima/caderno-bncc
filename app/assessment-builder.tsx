@@ -28,6 +28,7 @@ import {
   Shuffle,
   Sparkles,
   Trash2,
+  Unlink,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -273,7 +274,9 @@ export function AssessmentBuilder({
   const [selectedRecentIds, setSelectedRecentIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const [deletingSelected, setDeletingSelected] = useState(false);
+  const [deletingSelected, setDeletingSelected] = useState<
+    false | 'delete' | 'unlink'
+  >(false);
   const configuration = useMemo(
     () => ({
       title,
@@ -357,10 +360,7 @@ export function AssessmentBuilder({
     [apiUrl],
   );
   const deleteRecentItem = useCallback(
-    async (
-      item: (typeof recent)[number],
-      unlinkApplications = false,
-    ) => {
+    async (item: (typeof recent)[number], unlinkApplications = false) => {
       if (item.assessmentId) {
         const response = await apiFetch(
           `${apiUrl}/api/assessments/${item.assessmentId}${unlinkApplications ? '?unlinkUnsentApplications=true' : ''}`,
@@ -376,10 +376,7 @@ export function AssessmentBuilder({
     [apiUrl, workspaceRequest],
   );
   const confirmRecentDelete = useCallback(
-    async (
-      item: (typeof recent)[number],
-      unlinkApplications = false,
-    ) => {
+    async (item: (typeof recent)[number], unlinkApplications = false) => {
       setDeletingWorkspaceId(item.id);
       try {
         await deleteRecentItem(item, unlinkApplications);
@@ -405,6 +402,62 @@ export function AssessmentBuilder({
       }
     },
     [deleteRecentItem, offset, workspaceRequest],
+  );
+  const deleteSelectedRecent = useCallback(
+    async (unlinkApplications: boolean) => {
+      const selected = recent.filter((item) => selectedRecentIds.has(item.id));
+      if (!selected.length) return;
+      if (
+        !window.confirm(
+          unlinkApplications
+            ? `Desvincular aplicações sem cartões e excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações abertas/encerradas, cartões gerados ou respostas serão preservadas.`
+            : `Excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações ou respostas vinculadas serão preservadas.`,
+        )
+      )
+        return;
+
+      setDeletingSelected(unlinkApplications ? 'unlink' : 'delete');
+      setMessage(
+        unlinkApplications
+          ? 'Desvinculando aplicações e excluindo provas selecionadas…'
+          : 'Excluindo provas selecionadas…',
+      );
+      const failed: Array<{
+        id: string;
+        title: string;
+        reason: string;
+      }> = [];
+      let deleted = 0;
+      for (const item of selected) {
+        try {
+          await deleteRecentItem(item, unlinkApplications);
+          deleted += 1;
+        } catch (error) {
+          failed.push({
+            id: item.id,
+            title: item.title || 'Prova sem título',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      try {
+        setRecent(await workspaceRequest<typeof recent>(`?offset=${offset}`));
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? `Exclusão concluída, mas não foi possível atualizar a lista: ${error.message}`
+            : 'Exclusão concluída, mas não foi possível atualizar a lista.',
+        );
+      }
+      setSelectedRecentIds(new Set(failed.map((item) => item.id)));
+      setMessage(
+        failed.length
+          ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}${unlinkApplications ? '' : ' As provas não excluídas continuam selecionadas: use “Desvincular e excluir” para remover as vinculadas a aplicações sem cartões.'}`
+          : `${deleted} prova(s) excluída(s).`,
+      );
+      setDeletingSelected(false);
+    },
+    [deleteRecentItem, offset, recent, selectedRecentIds, workspaceRequest],
   );
   useEffect(() => {
     if (step !== 0) return;
@@ -1199,7 +1252,7 @@ export function AssessmentBuilder({
             fontSize,
             showBnccSkills,
             showSaebDescriptors,
-      showStudentPhoto,
+            showStudentPhoto,
             instructions,
             questionPoints: Object.fromEntries(
               chosen.map((q) => [q.id, questionPoints[q.id] ?? q.points ?? 1]),
@@ -1272,17 +1325,27 @@ export function AssessmentBuilder({
           BNCC vinculada
         </Badge>
       </div>
-      <nav aria-label="Etapas da elaboração" className="my-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <nav
+        aria-label="Etapas da elaboração"
+        className="my-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
+      >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <button
             type="button"
             disabled={!!workspaceId && saveStatus !== 'Rascunho salvo'}
-            onClick={() => { setMessage(''); setStep(0); }}
+            onClick={() => {
+              setMessage('');
+              setStep(0);
+            }}
             className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${step === 0 ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
           >
             <FolderOpen className="size-4" /> Provas recentes
           </button>
-          {workspaceId && <span className="text-xs font-medium text-slate-500">{saveStatus || 'Salvando rascunho…'}</span>}
+          {workspaceId && (
+            <span className="text-xs font-medium text-slate-500">
+              {saveStatus || 'Salvando rascunho…'}
+            </span>
+          )}
         </div>
         <ol className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
           {[
@@ -1293,29 +1356,42 @@ export function AssessmentBuilder({
             'Aplicação',
           ].map((label, position) => {
             const index = position + 1;
-            const disabled = !workspaceId ||
+            const disabled =
+              !workspaceId ||
               (index >= 2 && !setupReady) ||
               (index >= 3 && !chosen.length) ||
-              (index === 5 && (!generated || !assessmentId || generatedVersions.some((v) => v.status !== 'completed')));
+              (index === 5 &&
+                (!generated ||
+                  !assessmentId ||
+                  generatedVersions.some((v) => v.status !== 'completed')));
             return (
               <li key={label} className="min-w-[155px] flex-1 lg:min-w-0">
                 <button
                   type="button"
                   aria-current={step === index ? 'step' : undefined}
                   disabled={disabled}
-                  onClick={() => { setMessage(''); setStep(index); }}
+                  onClick={() => {
+                    setMessage('');
+                    setStep(index);
+                  }}
                   className={`flex min-h-16 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${step === index ? 'border-blue-500 bg-blue-50 text-blue-950 shadow-sm' : index < step ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900 hover:bg-emerald-50' : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-blue-200 hover:bg-blue-50/50'}`}
                 >
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold ${step === index ? 'bg-blue-600 text-white' : index < step ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}>
+                  <span
+                    className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold ${step === index ? 'bg-blue-600 text-white' : index < step ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}
+                  >
                     {index < step ? <Check className="size-4" /> : index}
                   </span>
-                  <span className="text-sm font-semibold leading-tight">{label}</span>
+                  <span className="text-sm font-semibold leading-tight">
+                    {label}
+                  </span>
                 </button>
               </li>
             );
           })}
         </ol>
-        <p className="mt-2 text-xs text-slate-500 lg:hidden">Deslize para acompanhar as próximas etapas.</p>
+        <p className="mt-2 text-xs text-slate-500 lg:hidden">
+          Deslize para acompanhar as próximas etapas.
+        </p>
       </nav>
       {workspaceId && (
         <div className="mb-3 text-sm">
@@ -1375,9 +1451,9 @@ export function AssessmentBuilder({
                 Desvincular aplicações sem cartões
               </span>
               <span className="mt-1 block text-xs leading-relaxed text-amber-900">
-                Remove somente aplicações agendadas ou canceladas que ainda
-                não tiveram cartões gerados nem enviados. A turma e os alunos
-                não serão excluídos.
+                Remove somente aplicações agendadas ou canceladas que ainda não
+                tiveram cartões gerados nem enviados. A turma e os alunos não
+                serão excluídos.
               </span>
             </label>
           </div>
@@ -1443,7 +1519,7 @@ export function AssessmentBuilder({
                   recent.length > 0 &&
                   recent.every((item) => selectedRecentIds.has(item.id))
                 }
-                disabled={!recent.length || deletingSelected}
+                disabled={!recent.length || Boolean(deletingSelected)}
                 onChange={(event) =>
                   setSelectedRecentIds(
                     event.target.checked
@@ -1464,67 +1540,36 @@ export function AssessmentBuilder({
               type="button"
               size="sm"
               variant="outline"
-              disabled={!selectedRecentIds.size || deletingSelected}
+              disabled={!selectedRecentIds.size || Boolean(deletingSelected)}
               className="border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
-              onClick={async () => {
-                const selected = recent.filter((item) =>
-                  selectedRecentIds.has(item.id),
-                );
-                if (!selected.length) return;
-                if (
-                  !window.confirm(
-                    `Excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações ou respostas vinculadas serão preservadas.`,
-                  )
-                )
-                  return;
-
-                setDeletingSelected(true);
-                setMessage('Excluindo provas selecionadas…');
-                const failed: Array<{
-                  id: string;
-                  title: string;
-                  reason: string;
-                }> = [];
-                let deleted = 0;
-                for (const item of selected) {
-                  try {
-                    await deleteRecentItem(item);
-                    deleted += 1;
-                  } catch (error) {
-                    failed.push({
-                      id: item.id,
-                      title: item.title || 'Prova sem título',
-                      reason:
-                        error instanceof Error ? error.message : String(error),
-                    });
-                  }
-                }
-                try {
-                  setRecent(
-                    await workspaceRequest<typeof recent>(`?offset=${offset}`),
-                  );
-                } catch (error) {
-                  setMessage(
-                    error instanceof Error
-                      ? `Exclusão concluída, mas não foi possível atualizar a lista: ${error.message}`
-                      : 'Exclusão concluída, mas não foi possível atualizar a lista.',
-                  );
-                }
-                setSelectedRecentIds(new Set(failed.map((item) => item.id)));
-                setMessage(
-                  failed.length
-                    ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}`
-                    : `${deleted} prova(s) excluída(s).`,
-                );
-                setDeletingSelected(false);
-              }}
+              onClick={() => void deleteSelectedRecent(false)}
             >
-              {deletingSelected ? (
+              {deletingSelected === 'delete' ? (
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
               ) : (
                 <Trash2 aria-hidden="true" />
               )}
-              {deletingSelected ? 'Excluindo…' : 'Excluir selecionadas'}
+              {deletingSelected === 'delete'
+                ? 'Excluindo…'
+                : 'Excluir selecionadas'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!selectedRecentIds.size || Boolean(deletingSelected)}
+              title="Desvincula aplicações ainda não aplicadas (sem cartões gerados ou respondidos) e exclui as provas selecionadas."
+              className="border-amber-200 bg-white text-amber-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+              onClick={() => void deleteSelectedRecent(true)}
+            >
+              {deletingSelected === 'unlink' ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Unlink aria-hidden="true" />
+              )}
+              {deletingSelected === 'unlink'
+                ? 'Desvinculando…'
+                : 'Desvincular e excluir'}
             </Button>
           </div>
           <div className="grid gap-3">
@@ -1538,7 +1583,7 @@ export function AssessmentBuilder({
                     type="checkbox"
                     aria-label={`Selecionar ${r.title || 'prova sem título'}`}
                     checked={selectedRecentIds.has(r.id)}
-                    disabled={deletingSelected}
+                    disabled={Boolean(deletingSelected)}
                     onChange={(event) =>
                       setSelectedRecentIds((current) => {
                         const next = new Set(current);
@@ -1626,7 +1671,9 @@ export function AssessmentBuilder({
                     size="sm"
                     type="button"
                     variant="outline"
-                    disabled={deletingWorkspaceId === r.id || deletingSelected}
+                    disabled={
+                      deletingWorkspaceId === r.id || Boolean(deletingSelected)
+                    }
                     aria-label={
                       deletingWorkspaceId === r.id
                         ? 'Excluindo prova'
@@ -1858,9 +1905,17 @@ export function AssessmentBuilder({
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
               <p className="text-sm text-slate-500">
-                {chosen.length} questões distribuídas em {sections.filter((section) => section.selected.size).length} seção(ões).
+                {chosen.length} questões distribuídas em{' '}
+                {sections.filter((section) => section.selected.size).length}{' '}
+                seção(ões).
               </p>
-              <Button disabled={!chosen.length} onClick={() => { setMessage(''); setStep(4); }}>
+              <Button
+                disabled={!chosen.length}
+                onClick={() => {
+                  setMessage('');
+                  setStep(4);
+                }}
+              >
                 Revisar e gerar prévia
               </Button>
             </div>
@@ -2149,7 +2204,10 @@ export function AssessmentBuilder({
                       <label className="mt-3 ml-8 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
                         <input
                           type="checkbox"
-                          checked={question.recommendSingleColumn || activeSection.fullWidth.has(question.id)}
+                          checked={
+                            question.recommendSingleColumn ||
+                            activeSection.fullWidth.has(question.id)
+                          }
                           disabled={question.recommendSingleColumn}
                           onChange={() => toggleFullWidth(question.id)}
                           className="accent-blue-600"
@@ -2373,7 +2431,10 @@ export function AssessmentBuilder({
                 <Button
                   className="mt-4 w-full"
                   disabled={saving || !chosen.length}
-                  onClick={() => { setMessage(''); setStep(3); }}
+                  onClick={() => {
+                    setMessage('');
+                    setStep(3);
+                  }}
                 >
                   Continuar para organização
                 </Button>
@@ -2396,7 +2457,10 @@ export function AssessmentBuilder({
                 <h2 className="font-display text-lg font-bold text-[var(--navy)]">
                   1. Identificação e modelo
                 </h2>
-                <p className="text-sm text-slate-500">Defina o cabeçalho e o formato de impressão. Depois, selecione as questões.</p>
+                <p className="text-sm text-slate-500">
+                  Defina o cabeçalho e o formato de impressão. Depois, selecione
+                  as questões.
+                </p>
               </div>
             </div>
             <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
@@ -2787,8 +2851,8 @@ export function AssessmentBuilder({
                   Foto do aluno no cartão-resposta
                 </label>
                 <span className="mt-1 block text-xs text-slate-500">
-                  Usa a foto do cadastro da turma nos cartões gerados para
-                  cada aluno. Quem não tem foto recebe o espaço em branco.
+                  Usa a foto do cadastro da turma nos cartões gerados para cada
+                  aluno. Quem não tem foto recebe o espaço em branco.
                 </span>
               </span>
             </div>
@@ -2920,8 +2984,16 @@ export function AssessmentBuilder({
               </div>
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
-              <p className="text-xs text-slate-500">Título, série, instituição e professor são obrigatórios.</p>
-              <Button disabled={!setupReady} onClick={() => { setMessage(''); setStep(2); }}>
+              <p className="text-xs text-slate-500">
+                Título, série, instituição e professor são obrigatórios.
+              </p>
+              <Button
+                disabled={!setupReady}
+                onClick={() => {
+                  setMessage('');
+                  setStep(2);
+                }}
+              >
                 Continuar para questões
               </Button>
             </div>
