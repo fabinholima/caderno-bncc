@@ -488,7 +488,7 @@ export async function deleteAssessment({
     if (applications.rowCount) {
       if (!unlinkUnsentApplications)
         throw Object.assign(
-          new Error('Esta prova está vinculada a uma ou mais aplicações. Marque “Desvincular aplicações sem cartões” para excluir, se nenhum cartão foi gerado ou respondido.'),
+          new Error('Esta prova está vinculada a uma ou mais aplicações. Marque “Desvincular aplicações não aplicadas” (ou use “Desvincular e excluir”) para excluir, se nenhum cartão foi enviado ou respondido.'),
           { statusCode: 409 },
         );
 
@@ -524,13 +524,17 @@ export async function deleteAssessment({
           new Error('Não é possível desvincular: já existe cartão enviado ou leitura vinculada a esta aplicação.'),
           { statusCode: 409 },
         );
-      if (jobs.rows.some((job) => ['running', 'completed'].includes(job.status)))
+      // Cartões já gerados, mas nunca enviados nem lidos, não têm histórico de
+      // aluno: podem ser descartados. Só a geração em andamento bloqueia, para
+      // não disputar o registro com o worker de renderização.
+      if (jobs.rows.some((job) => job.status === 'running'))
         throw Object.assign(
-          new Error('Não é possível desvincular: há cartões em geração ou já gerados. Excluí-los poderia quebrar o histórico dos alunos.'),
+          new Error('Não é possível desvincular agora: há cartões sendo gerados. Aguarde a geração terminar e tente novamente.'),
           { statusCode: 409 },
         );
 
-      // Remove somente aplicações sem cartões; turma e alunos permanecem intactos.
+      // Remove somente aplicações sem leituras ou respostas; turma e alunos
+      // permanecem intactos. Cartões gerados dessas aplicações são descartados.
       await client.query(
         'DELETE FROM assessment_applications WHERE id = ANY($1::uuid[])',
         [applicationIds],

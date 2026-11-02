@@ -410,7 +410,7 @@ export function AssessmentBuilder({
       if (
         !window.confirm(
           unlinkApplications
-            ? `Desvincular aplicações sem cartões e excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações abertas/encerradas, cartões gerados ou respostas serão preservadas.`
+            ? `Desvincular aplicações não aplicadas e excluir ${selected.length} prova(s) selecionada(s)? Cartões-resposta já gerados dessas aplicações serão descartados e, se já foram impressos, deixarão de ser lidos. Provas com aplicações abertas/encerradas, cartões enviados ou respostas serão preservadas.`
             : `Excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações ou respostas vinculadas serão preservadas.`,
         )
       )
@@ -452,7 +452,7 @@ export function AssessmentBuilder({
       setSelectedRecentIds(new Set(failed.map((item) => item.id)));
       setMessage(
         failed.length
-          ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}${unlinkApplications ? '' : ' As provas não excluídas continuam selecionadas: use “Desvincular e excluir” para remover as vinculadas a aplicações sem cartões.'}`
+          ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}${unlinkApplications ? '' : ' As provas não excluídas continuam selecionadas: use “Desvincular e excluir” para remover as vinculadas a aplicações ainda não aplicadas.'}`
           : `${deleted} prova(s) excluída(s).`,
       );
       setDeletingSelected(false);
@@ -1448,12 +1448,13 @@ export function AssessmentBuilder({
               className="cursor-pointer"
             >
               <span className="block font-semibold">
-                Desvincular aplicações sem cartões
+                Desvincular aplicações não aplicadas
               </span>
               <span className="mt-1 block text-xs leading-relaxed text-amber-900">
-                Remove somente aplicações agendadas ou canceladas que ainda não
-                tiveram cartões gerados nem enviados. A turma e os alunos não
-                serão excluídos.
+                Remove somente aplicações agendadas ou canceladas sem cartões
+                enviados nem respostas. Cartões-resposta já gerados serão
+                descartados e, se impressos, deixarão de ser lidos. A turma e os
+                alunos não serão excluídos.
               </span>
             </label>
           </div>
@@ -1558,7 +1559,7 @@ export function AssessmentBuilder({
               size="sm"
               variant="outline"
               disabled={!selectedRecentIds.size || Boolean(deletingSelected)}
-              title="Desvincula aplicações ainda não aplicadas (sem cartões gerados ou respondidos) e exclui as provas selecionadas."
+              title="Desvincula aplicações ainda não aplicadas (sem cartões enviados nem respostas), descarta os cartões gerados e exclui as provas selecionadas."
               className="border-amber-200 bg-white text-amber-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
               onClick={() => void deleteSelectedRecent(true)}
             >
