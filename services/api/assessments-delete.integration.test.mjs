@@ -57,7 +57,10 @@ test(
       `);
       await admin.query(
         await fs.readFile(
-          new URL('../../database/089_assessment_workspaces.sql', import.meta.url),
+          new URL(
+            '../../database/089_assessment_workspaces.sql',
+            import.meta.url,
+          ),
           'utf8',
         ),
       );
@@ -68,8 +71,13 @@ test(
       const institutionId = randomUUID();
       const userId = randomUUID();
       const otherUserId = randomUUID();
-      await admin.query('INSERT INTO institutions VALUES ($1)', [institutionId]);
-      await admin.query('INSERT INTO users VALUES ($1), ($2)', [userId, otherUserId]);
+      await admin.query('INSERT INTO institutions VALUES ($1)', [
+        institutionId,
+      ]);
+      await admin.query('INSERT INTO users VALUES ($1), ($2)', [
+        userId,
+        otherUserId,
+      ]);
 
       const deletableId = randomUUID();
       await admin.query('INSERT INTO assessments VALUES ($1, $2, $3)', [
@@ -83,15 +91,28 @@ test(
         [institutionId, userId, deletableId],
       );
       assert.deepEqual(
-        await deleteAssessment({ institutionId, userId, assessmentId: deletableId }),
+        await deleteAssessment({
+          institutionId,
+          userId,
+          assessmentId: deletableId,
+        }),
         { id: deletableId, deleted: true },
       );
       assert.equal(
-        (await admin.query('SELECT 1 FROM assessments WHERE id = $1', [deletableId])).rowCount,
+        (
+          await admin.query('SELECT 1 FROM assessments WHERE id = $1', [
+            deletableId,
+          ])
+        ).rowCount,
         0,
       );
       assert.equal(
-        (await admin.query('SELECT 1 FROM assessment_workspaces WHERE assessment_id = $1', [deletableId])).rowCount,
+        (
+          await admin.query(
+            'SELECT 1 FROM assessment_workspaces WHERE assessment_id = $1',
+            [deletableId],
+          )
+        ).rowCount,
         0,
       );
 
@@ -154,11 +175,20 @@ test(
         { id: appliedId, deleted: true },
       );
       assert.equal(
-        (await admin.query('SELECT 1 FROM assessment_applications WHERE id = $1', [applicationId])).rowCount,
+        (
+          await admin.query(
+            'SELECT 1 FROM assessment_applications WHERE id = $1',
+            [applicationId],
+          )
+        ).rowCount,
         0,
       );
       assert.equal(
-        (await admin.query('SELECT 1 FROM assessments WHERE id = $1', [appliedId])).rowCount,
+        (
+          await admin.query('SELECT 1 FROM assessments WHERE id = $1', [
+            appliedId,
+          ])
+        ).rowCount,
         0,
       );
 
@@ -187,6 +217,12 @@ test(
         'INSERT INTO render_jobs(id, assessment_version_id, application_student_id, status) VALUES ($1, $2, $3, $4)',
         [randomUUID(), printedVersionId, printedAssignmentId, 'completed'],
       );
+      const generatingJobId = randomUUID();
+      await admin.query(
+        'INSERT INTO render_jobs(id, assessment_version_id, application_student_id, status) VALUES ($1, $2, $3, $4)',
+        [generatingJobId, printedVersionId, printedAssignmentId, 'running'],
+      );
+      // Cartões ainda em geração bloqueiam a desvinculação.
       await assert.rejects(
         deleteAssessment({
           institutionId,
@@ -197,8 +233,43 @@ test(
         { statusCode: 409 },
       );
       assert.equal(
-        (await admin.query('SELECT 1 FROM assessments WHERE id = $1', [printedId])).rowCount,
+        (
+          await admin.query('SELECT 1 FROM assessments WHERE id = $1', [
+            printedId,
+          ])
+        ).rowCount,
         1,
+      );
+      // Cartões já gerados, sem leitura nem resposta, são descartados.
+      await admin.query(
+        "UPDATE render_jobs SET status = 'completed' WHERE id = $1",
+        [generatingJobId],
+      );
+      assert.deepEqual(
+        await deleteAssessment({
+          institutionId,
+          userId,
+          assessmentId: printedId,
+          unlinkUnsentApplications: true,
+        }),
+        { id: printedId, deleted: true },
+      );
+      assert.equal(
+        (
+          await admin.query('SELECT 1 FROM assessments WHERE id = $1', [
+            printedId,
+          ])
+        ).rowCount,
+        0,
+      );
+      assert.equal(
+        (
+          await admin.query(
+            'SELECT 1 FROM render_jobs WHERE application_student_id = $1',
+            [printedAssignmentId],
+          )
+        ).rowCount,
+        0,
       );
 
       const scannedId = randomUUID();
@@ -236,7 +307,11 @@ test(
         { statusCode: 409 },
       );
       assert.equal(
-        (await admin.query('SELECT 1 FROM assessments WHERE id = $1', [scannedId])).rowCount,
+        (
+          await admin.query('SELECT 1 FROM assessments WHERE id = $1', [
+            scannedId,
+          ])
+        ).rowCount,
         1,
       );
       await assert.rejects(
