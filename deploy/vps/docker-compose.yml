@@ -33,14 +33,16 @@ x-api-env: &api-env
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # Mesma versão principal do Render (18): o pg_dump precisa ser >= ao servidor.
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: caderno
       POSTGRES_USER: caderno
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # A partir do 18, a imagem guarda os dados em /var/lib/postgresql/18/docker.
+      - postgres-data:/var/lib/postgresql
       - ./backups:/backups
     # Sem porta publicada: o banco só é acessível de dentro do servidor.
     healthcheck:
