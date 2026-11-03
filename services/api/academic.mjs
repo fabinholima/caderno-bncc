@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { pool, transaction } from './db.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 import { signQrId } from './qr-signing.mjs';
+import { answerKeyStatus } from './assessment-results.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -282,12 +283,26 @@ async function listApplicationAssignments(client, applicationId) {
 
 export async function listApplications({ institutionId }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 GROUP BY aa.id,a.title,c.name ORDER BY aa.created_at DESC`,
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
     values: [institutionId],
   });
+  // Versões e gabarito de cada avaliação, para o professor conferir antes de corrigir.
+  const versions = await pool.query(
+    'SELECT assessment_id,code,snapshot FROM assessment_versions WHERE assessment_id=ANY($1::uuid[]) ORDER BY code',
+    [[...new Set(result.rows.map((x) => x.assessment_id))]],
+  );
+  const keys = new Map();
+  for (const row of versions.rows) {
+    const list = keys.get(row.assessment_id) ?? [];
+    list.push({ code: row.code, ...answerKeyStatus(row.snapshot) });
+    keys.set(row.assessment_id, list);
+  }
   return result.rows.map((x) => ({
     id: x.id,
     title: x.title,
+    subject: x.subject,
+    versions: (keys.get(x.assessment_id) ?? []).map(({ code, questions, objective, missingAnswerKeys }) => ({ code, questions, objective, missingAnswerKeys })),
+    answerKeyReady: (keys.get(x.assessment_id) ?? []).length > 0 && (keys.get(x.assessment_id) ?? []).every((version) => !version.missingAnswerKeys.length),
     assessmentId: x.assessment_id,
     classId: x.class_id,
     className: x.class_name,

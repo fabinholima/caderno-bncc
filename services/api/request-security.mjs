@@ -51,6 +51,9 @@ export const productionOrigins = [
   'https://ufaprova.com.br',
   'https://www.ufaprova.com.br',
   'https://ufaprova-frontend.onrender.com',
+  // PWA: um só aplicativo; o subdomínio escolhe a entrada do professor ou do aluno.
+  'https://professor.ufaprova.com.br',
+  'https://aluno.ufaprova.com.br',
 ];
 
 export function configuredOrigins(environment = process.env) {

@@ -18,6 +18,8 @@ import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
 import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
 import { qrSigningWarning } from './qr-signing.mjs';
+import { myResultDetail, mySkillPerformance } from './student-results.mjs';
+import { listApplicationResults, getResultDetail, authorizeResults, getResultSettings, saveResultSettings, listFollowups, saveFollowup } from './result-publication.mjs';
 import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
@@ -301,6 +303,17 @@ const server = createServer(async (request, response) => {
       setSessionCookie(response, token);
       return json(response, 200, { data: { authenticated: true } });
     }
+    if (request.method === 'POST' && url.pathname === '/api/auth/session/cookie') {
+      // PWA: a entrada Google usa o fluxo do aplicativo e termina com um token
+      // Bearer. O navegador troca o token por este cookie HttpOnly e o descarta,
+      // para que nenhuma sessão fique em armazenamento acessível ao JavaScript.
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      const token = /^Bearer\s+(.+)$/i.exec(request.headers.authorization || '')?.[1];
+      if (!token || !(await authenticate(request))) return json(response, 401, { error: 'Sessão inválida. Entre novamente.' });
+      response.setHeader('cache-control', 'no-store');
+      setSessionCookie(response, token);
+      return json(response, 200, { data: { authenticated: true } });
+    }
     if (request.method === 'POST' && url.pathname === '/api/auth/google/link/start') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
       const identity = await authenticate(request);
@@ -413,12 +426,19 @@ const server = createServer(async (request, response) => {
     const requestDecisionMatch = url.pathname.match(/^\/api\/class-join-requests\/([0-9a-f-]{36})$/i);
     if (requestDecisionMatch && request.method === 'POST')
       return json(response, 200, { data: await decideRequest(identity, requestDecisionMatch[1], await readJson(request, 8192)) });
+    // Notas e resultados são dados escolares privados: nem o navegador nem o
+    // service worker do aplicativo devem guardá-los.
+    if (/^\/api\/(student\/|assessment-results|assessment-applications\/[0-9a-f-]{36}\/(results|result-settings)$)/i.test(url.pathname))
+      response.setHeader('cache-control', 'no-store');
     // Código individual do aluno: vínculo imediato, sem aprovação do professor.
     if (request.method === 'POST' && url.pathname === '/api/student/access-code/inspect')
       return json(response, 200, { data: await inspectAccessCode(identity, await readJson(request, 4096)) });
     if (request.method === 'POST' && url.pathname === '/api/student/access-code/claim')
       return json(response, 200, { data: await claimAccessCode(identity, await readJson(request, 4096)) });
     if(request.method==='GET' && url.pathname==='/api/student/activities')return json(response,200,{data:await myActivities(identity)});
+    if (request.method === 'GET' && url.pathname === '/api/student/skill-performance') return json(response, 200, { data: await mySkillPerformance(identity) });
+    const studentResultMatch = request.method === 'GET' && url.pathname.match(/^\/api\/student\/results\/([0-9a-f-]{36})$/i);
+    if (studentResultMatch) return json(response, 200, { data: await myResultDetail(identity, studentResultMatch[1]) });
     if (url.pathname === '/api/student/profile' && request.method === 'GET') return json(response, 200, { data: await myStudentProfiles(identity) });
     if (url.pathname === '/api/student/profile' && request.method === 'POST') {
       if (requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response, 403, { error: 'Origem não autorizada.' });
@@ -1053,6 +1073,8 @@ const server = createServer(async (request, response) => {
         data: await createScan({
           institutionId,
           userId,
+          portalAdmin: identity.portalAdmin,
+          developmentBypass: identity.developmentBypass,
           input: await readJson(request),
         }),
       });
@@ -1095,6 +1117,8 @@ const server = createServer(async (request, response) => {
       return json(response, 202, {
         data: await retryScan({
           institutionId,
+          portalAdmin: identity.portalAdmin,
+          developmentBypass: identity.developmentBypass,
           scanId: scanRetryMatch[1],
         }),
       });
@@ -1110,6 +1134,29 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
+    // Revisão e autorização de resultados (docs/resultados-publicacao.md).
+    const applicationResultsMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/assessment-applications\/([0-9a-f-]{36})\/results$/i);
+    if (applicationResultsMatch)
+      return json(response, 200, { data: await listApplicationResults({ institutionId, applicationId: applicationResultsMatch[1] }) });
+    const resultSettingsMatch = url.pathname.match(/^\/api\/assessment-applications\/([0-9a-f-]{36})\/result-settings$/i);
+    if (resultSettingsMatch && request.method === 'GET')
+      return json(response, 200, { data: await getResultSettings({ institutionId, applicationId: resultSettingsMatch[1] }) });
+    if (resultSettingsMatch && request.method === 'PUT')
+      return json(response, 200, { data: await saveResultSettings({ institutionId, userId, applicationId: resultSettingsMatch[1], input: await readJson(request, 32768) }) });
+    if (request.method === 'POST' && url.pathname === '/api/assessment-results/authorize')
+      return json(response, 200, { data: await authorizeResults({ institutionId, userId, input: await readJson(request, 65536) }) });
+    const followupMatch = url.pathname.match(/^\/api\/assessment-results\/([0-9a-f-]{36})\/followups$/i);
+    if (followupMatch && request.method === 'GET')
+      return json(response, 200, { data: await listFollowups({ institutionId, resultId: followupMatch[1] }) });
+    if (followupMatch && request.method === 'POST')
+      return json(response, 201, { data: await saveFollowup({ institutionId, userId, resultId: followupMatch[1], input: await readJson(request, 32768) }) });
+    const resultDetailMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/assessment-results\/([0-9a-f-]{36})$/i);
+    if (resultDetailMatch)
+      return json(response, 200, { data: await getResultDetail({ institutionId, resultId: resultDetailMatch[1] }) });
     if (request.method === 'GET' && url.pathname === '/api/render-templates')
       return json(response, 200, {
         data: renderTemplateCatalog,
