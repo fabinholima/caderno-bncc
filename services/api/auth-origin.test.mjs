@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { authOriginAllowed } from './auth-origin.mjs';
-const allowedOrigins = new Set(['https://ufaprova-frontend.onrender.com']);
+const allowedOrigins = new Set(['https://ufaprova.com.br']);
 const check = (path, origin, mobileClient) => authOriginAllowed({ path, origin, mobileClient, allowedOrigins });
 test('native password login accepts the mobile header without Origin', () => {
   assert.equal(check('/api/auth/login', undefined, 'mobile'), true);
@@ -17,7 +17,7 @@ test('only the two Google mobile POST endpoints accept native requests without O
 });
 test('the mobile header does not permit a disallowed browser origin', () => {
   assert.equal(check('/api/auth/login', 'https://untrusted.example', 'mobile'), false);
-  assert.equal(check('/api/auth/login', 'https://ufaprova-frontend.onrender.com', undefined), true);
+  assert.equal(check('/api/auth/login', 'https://ufaprova.com.br', undefined), true);
 });
 test('sensitive profile changes require approved browser origins', () => {
   // O app só pede o link; a nova senha é definida no portal, com origem autorizada.
@@ -29,5 +29,5 @@ test('native student signup and verification require the mobile header and rejec
 test('the browser session exchange never accepts a request without an approved Origin', () => {
   assert.equal(check('/api/auth/session/cookie', undefined, 'mobile'), false);
   assert.equal(check('/api/auth/session/cookie', 'https://untrusted.example', 'web'), false);
-  assert.equal(check('/api/auth/session/cookie', 'https://ufaprova-frontend.onrender.com', 'web'), true);
+  assert.equal(check('/api/auth/session/cookie', 'https://ufaprova.com.br', 'web'), true);
 });

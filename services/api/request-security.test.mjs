@@ -68,7 +68,7 @@ test('origens vêm de CORS_ORIGIN e AUTH_FRONTEND_URL', () => {
   assert.deepEqual([...configuredOrigins({})], ['http://localhost:3000']);
   const production = configuredOrigins({ NODE_ENV: 'production', CORS_ORIGIN: 'https://ufaprova.com.br' });
   assert.ok(production.has('https://www.ufaprova.com.br'));
-  assert.ok(production.has('https://ufaprova-frontend.onrender.com'));
+  assert.ok(!production.has('https://ufaprova-frontend.onrender.com'));
   assert.ok(production.has('https://professor.ufaprova.com.br'));
   assert.ok(production.has('https://aluno.ufaprova.com.br'));
   assert.ok(!configuredOrigins({ CORS_ORIGIN: 'http://localhost:3000' }).has('https://aluno.ufaprova.com.br'), 'fora de produção só valem as origens configuradas');
