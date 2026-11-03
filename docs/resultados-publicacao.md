@@ -167,6 +167,28 @@ Sem publicação, `score`, `maxScore` e as contagens vêm nulos e
 anteriores do app e do portal. A consulta não verifica a assinatura: o
 histórico publicado continua visível com a assinatura inativa.
 
+### Aluno: `GET /api/student/results/:resultId`
+
+A rota é exclusiva de contas de aluno e responde 403 para outros perfis. O
+resultado precisa estar publicado e pertencer ao próprio cadastro, pela mesma
+verificação de `/api/student/activities`. Caso contrário, responde 404.
+
+A resposta traz os campos da atividade e mais:
+
+- `releasePolicy` e `questions[]`, conforme a política:
+  - `summary`: lista vazia;
+  - `answers`: `status`, `selectedLabels` e pontos de cada questão;
+  - `answers_and_key`: o mesmo, mais `correctLabels`.
+- `skills[]`: `code`, `description` (do catálogo `curriculum_skills`), `questions`, `correct`, `percent` e `sufficientEvidence`. Usa apenas as habilidades gravadas nas questões e conta somente objetivas corrigidas; anuladas e pendentes ficam de fora. Abaixo de `minSkillEvidence` (3 questões), o indicador é marcado como evidência insuficiente.
+- `guidance`: orientação publicada na entrada mais recente de acompanhamento, ou `null`. Motivos, ações e observações internas não são enviados.
+
+### Aluno: `GET /api/student/skill-performance`
+
+Devolve `[{ subject, assessments, minSkillEvidence, skills[] }]`, somando as
+versões publicadas de cada disciplina.
+
+As rotas de aluno e de resultados respondem com `cache-control: no-store`.
+
 ## Implantação
 
 1. Faça backup do banco.
@@ -177,4 +199,3 @@ histórico publicado continua visível com a assinatura inativa.
 ## Limitações conhecidas
 
 - O acesso segue o modelo atual: a instituição da sessão e o papel de professor, coordenador ou administrador. A tabela `class_memberships` existe, mas ainda não é aplicada nas rotas da API. Restringir por turma depende de populá-la para as turmas existentes.
-- A política de liberação (`releasePolicy`) é gravada, mas o detalhe por questão para o aluno ainda não existe (fase 4).

@@ -124,3 +124,20 @@ test('follow-ups are chosen by the teacher and keep internal notes apart', () =>
   assert.throws(() => normalizeFollowup({ actions: ['punish'] }), (error) => error.code === 'invalid_action');
   assert.throws(() => normalizeFollowup({ publishGuidance: true }), (error) => error.code === 'guidance_required');
 });
+
+test('skill performance counts only scored questions and flags thin evidence', async () => {
+  const { skillPerformance, studentQuestionView } = await import('./assessment-results.mjs');
+  const item = (status, codes) => ({ status, skills: codes.map((code) => ({ code })) });
+  const skills = skillPerformance([
+    [item('correct', ['EM13CNT101']), item('incorrect', ['EM13CNT101', 'EM13CNT102']), item('review_pending', ['EM13CNT101'])],
+    [item('blank', ['EM13CNT101']), item('annulled', ['EM13CNT102']), item('correct', []), item('correct', ['EM13CNT101', 'EM13CNT101'])],
+  ]);
+  assert.deepEqual(skills, [
+    { code: 'EM13CNT101', questions: 4, correct: 2, percent: 50, sufficientEvidence: true },
+    { code: 'EM13CNT102', questions: 1, correct: 0, percent: 0, sufficientEvidence: false },
+  ]);
+  const items = [{ questionNumber: 1, status: 'incorrect', selectedLabels: ['A'], correctLabels: ['B'], awardedPoints: 0, maxPoints: 1, skills: [], answerStatus: 'recognized' }];
+  assert.deepEqual(studentQuestionView(items, 'summary'), []);
+  assert.deepEqual(studentQuestionView(items, 'answers'), [{ questionNumber: 1, status: 'incorrect', selectedLabels: ['A'], awardedPoints: 0, maxPoints: 1 }]);
+  assert.deepEqual(studentQuestionView(items, 'answers_and_key')[0].correctLabels, ['B']);
+});
