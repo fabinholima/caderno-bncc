@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { pool, transaction } from './db.mjs';
 import { mobileMutation } from './mobile-mutations.mjs';
-import { minimumExpectedPercent, isBelowExpected } from './assessment-results.mjs';
+import { minimumExpectedPercent, isBelowExpected, normalizeFollowup, LOW_PERFORMANCE_REASONS, PEDAGOGICAL_ACTIONS } from './assessment-results.mjs';
 import { recordResultVersion, manualPointsFrom } from './result-versions.mjs';
 
 // Revisão e autorização de lançamento pelo professor. Toda consulta é
@@ -156,7 +156,7 @@ export async function getResultDetail({ institutionId, resultId }) {
   );
   if (!result.rowCount) throw notFound('Resultado não encontrado.');
   const row = result.rows[0];
-  const [versions, changes, publications, scans] = await Promise.all([
+  const [versions, changes, publications, scans, followups, application] = await Promise.all([
     pool.query(
       `SELECT v.id,v.version_number,v.source,v.card_scan_id,v.items,v.scoring_rule,v.question_count,v.valid_count,
               v.correct_count,v.incorrect_count,v.blank_count,v.invalid_count,v.annulled_count,v.review_pending_count,
@@ -185,6 +185,8 @@ export async function getResultDetail({ institutionId, resultId }) {
        FROM card_scans WHERE application_student_id=$1 AND institution_id=$2 ORDER BY created_at DESC`,
       [row.application_student_id, institutionId],
     ),
+    followupHistory(pool, resultId),
+    loadApplication(pool, { institutionId, applicationId: row.application_id }),
   ]);
   const version = (v) => ({
     id: v.id,
@@ -224,6 +226,9 @@ export async function getResultDetail({ institutionId, resultId }) {
       id: p.id, version: p.version_number, authorizerName: p.authorizer_name, authorizedAt: p.authorized_at,
       legacy: p.legacy, supersededAt: p.superseded_at, batchId: p.batch_id,
     })),
+    minExpectedPercent: application.minExpectedPercent,
+    belowExpected: isBelowExpected(number(versions.rows.find((v) => v.id === row.current_version_id)?.percent), application.minExpectedPercent),
+    followups,
     scans: scans.rows.map((s) => ({
       id: s.id, status: s.status, createdAt: s.created_at, completedAt: s.completed_at,
       imageAvailable: s.image_available, duplicateOfScanId: s.duplicate_of,
@@ -362,4 +367,61 @@ export async function saveResultSettings({ institutionId, userId, applicationId,
     );
     return { ...(await getResultSettings({ institutionId, applicationId }, client)), recalculated };
   });
+}
+
+// Acompanhamento de baixo rendimento. Cada registro é acrescentado ao
+// histórico; nenhum é alterado ou apagado. Motivos e ações vêm de listas
+// fechadas e são sempre escolhidos pelo professor.
+export const followupSchema = z.object({
+  clientMutationId: z.uuid().optional(),
+  reasons: z.array(z.enum(Object.keys(LOW_PERFORMANCE_REASONS))).max(7).default([]),
+  otherReason: z.string().max(1000).optional(),
+  actions: z.array(z.enum(Object.keys(PEDAGOGICAL_ACTIONS))).max(5).default([]),
+  internalNote: z.string().max(4000).optional(),
+  studentGuidance: z.string().max(4000).optional(),
+  publishGuidance: z.boolean().default(false),
+}).strict();
+
+async function followupHistory(db, resultId) {
+  const rows = await db.query(
+    `SELECT f.id,f.status,f.reasons,f.other_reason,f.actions,f.internal_note,f.student_guidance,f.student_guidance_published,
+            f.created_at,u.display_name created_by_name,v.version_number
+     FROM performance_followups f LEFT JOIN users u ON u.id=f.created_by
+     LEFT JOIN assessment_result_versions v ON v.id=f.result_version_id
+     WHERE f.result_id=$1 ORDER BY f.created_at DESC,f.id`,
+    [resultId],
+  );
+  return rows.rows.map((f) => ({
+    id: f.id, status: f.status, reasons: f.reasons, otherReason: f.other_reason, actions: f.actions,
+    internalNote: f.internal_note, studentGuidance: f.student_guidance, studentGuidancePublished: f.student_guidance_published,
+    createdAt: f.created_at, createdByName: f.created_by_name, resultVersion: f.version_number,
+  }));
+}
+
+export async function listFollowups({ institutionId, resultId }) {
+  const owner = await pool.query('SELECT 1 FROM assessment_results WHERE id=$1 AND institution_id=$2', [resultId, institutionId]);
+  if (!owner.rowCount) throw notFound('Resultado não encontrado.');
+  return followupHistory(pool, resultId);
+}
+
+export async function saveFollowup({ institutionId, userId, resultId, input }) {
+  const value = followupSchema.parse(input);
+  const entry = normalizeFollowup(value);
+  return transaction((client) => mobileMutation(client, {
+    institutionId, userId, requestId: value.clientMutationId, kind: 'result-followup', entityId: resultId, input: value,
+  }, async () => {
+    const result = await client.query('SELECT id,current_version_id FROM assessment_results WHERE id=$1 AND institution_id=$2 FOR UPDATE', [resultId, institutionId]);
+    if (!result.rowCount) throw notFound('Resultado não encontrado.');
+    const saved = (await client.query(
+      `INSERT INTO performance_followups(institution_id,result_id,result_version_id,status,reasons,other_reason,actions,internal_note,student_guidance,student_guidance_published,created_by)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+      [institutionId, resultId, result.rows[0].current_version_id, entry.status, entry.reasons, entry.otherReason, entry.actions,
+        entry.internalNote, entry.studentGuidance, entry.studentGuidancePublished, userId],
+    )).rows[0];
+    await client.query(
+      `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,'result.followup','assessment_result',$3,$4::jsonb)`,
+      [institutionId, userId, resultId, JSON.stringify({ followupId: saved.id, status: entry.status, reasons: entry.reasons, actions: entry.actions, guidancePublished: entry.studentGuidancePublished })],
+    );
+    return { id: saved.id, history: await followupHistory(client, resultId) };
+  }));
 }
