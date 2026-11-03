@@ -102,6 +102,25 @@ export function StudentsWorkspace({
   const [filter, setFilter] = useState<Filter>('');
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
+  const [renewing, setRenewing] = useState<string | null>(null);
+
+  // Novo código pessoal: o antigo deixa de valer. Aluno sem e-mail usa o novo
+  // código no "Primeiro acesso" do app para criar outra senha.
+  const renewCode = async (student: WorkspaceStudent) => {
+    if (!window.confirm(`Gerar um novo código para ${student.name}? O código atual deixa de valer e, se o aluno entra sem e-mail, ele precisará criar uma nova senha no app.`)) return;
+    setRenewing(student.id);
+    try {
+      const response = await apiFetch(`${apiUrl}/api/students/${student.id}/access-code`, { method: 'POST' });
+      const body = (await response.json()) as ApiBody<{ accessCode: string }>;
+      if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível gerar o código.');
+      setMessage(`Novo código de ${student.name}: ${body.data.accessCode}. Entregue ao aluno; o código anterior deixou de valer.`);
+      await refresh();
+    } catch (failure) {
+      setMessage(failure instanceof Error ? failure.message : 'Não foi possível gerar o código.');
+    } finally {
+      setRenewing(null);
+    }
+  };
 
   const choose = (id: string) => {
     setSelectedId(id);
@@ -319,6 +338,9 @@ export function StudentsWorkspace({
                             <DropdownMenuItem className="md:hidden" disabled={savingStudent !== null}
                               onClick={() => void updateStudent(student, { adaptedExam: !student.adaptedExam }).catch((error: Error) => setMessage(error.message))}>
                               {student.adaptedExam ? 'Remover prova adaptada' : 'Marcar prova adaptada'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={renewing !== null} onClick={() => void renewCode(student)}>
+                              {renewing === student.id ? 'Gerando código…' : 'Gerar novo código de acesso'}
                             </DropdownMenuItem>
                             {linked(student)
                               ? <DropdownMenuItem variant="destructive" disabled={savingStudent !== null} onClick={() => void unlinkStudentAccount(student)}>

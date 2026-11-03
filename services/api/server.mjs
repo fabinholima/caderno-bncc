@@ -149,7 +149,7 @@ import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
 import { allowAuthAttempt } from './auth-attempts.mjs';
-import { inspectAccessCode, claimAccessCode, unlinkStudentAccount } from './student-access-code.mjs';
+import { inspectAccessCode, claimAccessCode, unlinkStudentAccount, inspectFirstAccess, completeFirstAccess, loginWithCode, allowCodeAttempt, renewAccessCode } from './student-access-code.mjs';
 import {
   createExamImport,
   cropExamImportCandidateImage,
@@ -271,7 +271,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
       if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
         return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/google/start', '/api/auth/google/link/start', '/api/auth/google/claim', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
+      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/student/first-access/inspect', '/api/auth/student/first-access', '/api/auth/student/code-login', '/api/auth/google/start', '/api/auth/google/link/start', '/api/auth/google/claim', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
         if (!allowAuthAttempt(clientIp(request) || 'unknown'))
           return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
       }
@@ -360,6 +360,19 @@ const server = createServer(async (request, response) => {
       return json(response, ready ? 200 : 503, { status: ready ? 'ok' : 'migration_pending', release: process.env.RENDER_GIT_COMMIT || null, mobileSyncSchemaVersion: ready ? 1 : 0 });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/student/register') return json(response,201,{data:await registerStudent(await readJson(request,4096))});
+    // Aluno sem e-mail: primeiro acesso pelo código pessoal e login com código e senha.
+    if (request.method === 'POST' && ['/api/auth/student/first-access/inspect', '/api/auth/student/first-access', '/api/auth/student/code-login'].includes(url.pathname)) {
+      const input = await readJson(request, 4096);
+      if (!allowCodeAttempt(input))
+        return json(response, 429, { error: 'Muitas tentativas com este código. Aguarde 15 minutos e tente novamente.' });
+      if (url.pathname.endsWith('/inspect')) return json(response, 200, { data: await inspectFirstAccess(input) });
+      const result = url.pathname.endsWith('/code-login') ? await loginWithCode(input) : await completeFirstAccess(input);
+      await recordSessionNetwork(result.token, request);
+      setSessionCookie(response, result.token);
+      const { token: _token, ...data } = result;
+      if (request.headers['x-client'] === 'mobile') data.token = result.token;
+      return json(response, 200, { data });
+    }
     if (request.method === 'POST' && url.pathname === '/api/auth/register') {
       const result = await register(await readJson(request, 16384));
       return json(response, 201, { data: result });
@@ -820,6 +833,9 @@ const server = createServer(async (request, response) => {
       return json(response, 200, { data: await updateStudent({
         institutionId, studentId: studentActiveMatch[1], input: await readJson(request),
       }) });
+    const studentAccessCodeMatch = request.method === 'POST' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/access-code$/i);
+    if (studentAccessCodeMatch)
+      return json(response, 200, { data: await renewAccessCode(identity, studentAccessCodeMatch[1]) });
     const studentAccountLinkMatch = request.method === 'DELETE' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/account-link$/i);
     if (studentAccountLinkMatch)
       return json(response, 200, { data: await unlinkStudentAccount(identity, studentAccountLinkMatch[1]) });
