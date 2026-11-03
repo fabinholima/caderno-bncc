@@ -1052,6 +1052,8 @@ const server = createServer(async (request, response) => {
         data: await createScan({
           institutionId,
           userId,
+          portalAdmin: identity.portalAdmin,
+          developmentBypass: identity.developmentBypass,
           input: await readJson(request),
         }),
       });
@@ -1094,6 +1096,8 @@ const server = createServer(async (request, response) => {
       return json(response, 202, {
         data: await retryScan({
           institutionId,
+          portalAdmin: identity.portalAdmin,
+          developmentBypass: identity.developmentBypass,
           scanId: scanRetryMatch[1],
         }),
       });
