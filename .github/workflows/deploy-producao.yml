@@ -1,0 +1,47 @@
+# Atualiza a produção (VPS Hostinger) com um clique: Actions > Deploy produção >
+# Run workflow. Só roda quando alguém dispara; push na main não publica nada.
+# No servidor, a chave só pode executar deploy/deploy-remoto.sh, que chama
+# deploy/atualizar-producao.sh (backup, migrações, health check).
+# Configuração: docs/atualizacao-producao.md.
+name: Deploy produção
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "dry-run só mostra o que mudaria; atualizar publica"
+        type: choice
+        options: [dry-run, atualizar]
+        default: dry-run
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Atualizar o VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          MODO: ${{ inputs.modo }}
+        run: |
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_KNOWN_HOSTS; do
+            [ -n "${!name}" ] || { echo "::error::Falta o segredo $name (veja docs/atualizacao-producao.md)."; exit 1; }
+          done
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # O servidor ignora o comando pedido além de "dry-run"/"atualizar".
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 "$VPS_USER@$VPS_HOST" "$MODO"
