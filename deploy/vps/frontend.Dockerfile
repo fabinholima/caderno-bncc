@@ -13,6 +13,10 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN pnpm build
 
 FROM node:22-bookworm-slim
+# O workerd usa os certificados do sistema; sem eles, todo fetch HTTPS do portal
+# (ex.: o proxy /api) falha com "certificate is not trusted".
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app /app
 ENV NODE_ENV=production
