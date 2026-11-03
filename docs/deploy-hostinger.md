@@ -130,6 +130,8 @@ o DNS e reativar os serviços de lá.
   ```sh
   cd /opt/ufaprova && deploy/atualizar-producao.sh
   ```
+  Ou pelo GitHub: Actions > Deploy produção > Run workflow (configuração em
+  `docs/atualizacao-producao.md`).
   O script faz o backup do banco antes, reinicia a API (que aplica as
   migrações), confere `/health` e só então os workers e o portal. Veja
   `docs/atualizacao-producao.md`. Nunca faça commit no servidor: a chave é
