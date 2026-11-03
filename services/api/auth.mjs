@@ -61,7 +61,7 @@ function slugify(value) {
   return `${base || 'instituicao'}-${crypto.randomBytes(3).toString('hex')}`;
 }
 
-async function createSession(client, userId) {
+export async function createSession(client, userId) {
   const token = randomToken();
   const session = await client.query(
     `INSERT INTO user_sessions(user_id,token_hash,expires_at,global_bank)

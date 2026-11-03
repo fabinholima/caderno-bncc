@@ -55,6 +55,7 @@ test(
         "070_class_invites.sql",
         "071_student_accounts_class_links.sql",
         "102_student_access_code_links.sql",
+        "104_student_code_login.sql",
       ])
         await pool.query(
           await readFile(new URL("../../database/" + name, import.meta.url), "utf8"),
