@@ -12,6 +12,7 @@ import {
   Plus,
   Printer,
   RefreshCw,
+  ScanLine,
   Trash2,
   UserPlus,
   Users,
@@ -311,7 +312,7 @@ type StudentProgress = {
   }>;
 };
 
-export function AcademicManager({ apiUrl, initialSection, initialApplicationId }: { apiUrl: string; initialSection?: 'correction' | 'reports'; initialApplicationId?: string }) {
+export function AcademicManager({ apiUrl, initialSection, initialApplicationId, onOpenCorrection }: { apiUrl: string; initialSection?: 'correction' | 'reports'; initialApplicationId?: string; onOpenCorrection?: () => void }) {
   const [activePanel, setActivePanel] = useState<AcademicPanel>(
     initialSection === 'correction' ? 'correction' : initialSection === 'reports' ? 'results' : 'classes',
   );
@@ -335,6 +336,9 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     {},
   );
   const [report, setReport] = useState<ApplicationReport | null>(null);
+  const [resultsView, setResultsView] = useState<'application' | 'student'>('application');
+  const [reportTab, setReportTab] = useState<'overview' | 'questions' | 'students'>('overview');
+  const [reportStudentFilter, setReportStudentFilter] = useState<'all' | 'corrected' | 'review' | 'awaiting'>('all');
   const [resultsClassId, setResultsClassId] = useState('');
   const [progressClassId, setProgressClassId] = useState('');
   const [progressStudents, setProgressStudents] = useState<Array<Pick<Student, 'id' | 'name' | 'registration'>> | null>(null);
@@ -422,6 +426,9 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
       throw new Error(body.error || 'Não foi possível gerar o relatório.');
     setReport(body.data);
     setReportPdf('');
+    setStudentReport(null);
+    setStudentReportPdf('');
+    setReportStudentFilter('all');
   }, [apiUrl]);
   const downloadApplicationBatch = async (application: Application) => {
     setBatchDownloadingId(application.id);
@@ -757,6 +764,158 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
     { id: 'correction', label: 'Correção', icon: <Download /> },
     { id: 'results', label: 'Resultados', icon: <BarChart3 /> },
   ];
+  const studentReportPanel = studentReport ? (
+        <section id="student-report" className="scroll-mt-24 rounded-2xl border border-emerald-200 bg-white p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <StudentPhoto src={studentReport.student.selfieDataUrl} name={studentReport.student.name} size={64} />
+            <div>
+              <h2 className="font-display text-xl font-bold">
+                Relatório individual · {studentReport.student.name}
+              </h2>
+              <p className="text-sm text-slate-500">
+                Matrícula {studentReport.student.registration} · versão{' '}
+                {studentReport.student.versionCode}
+                {!studentReport.student.selfieDataUrl && ' · sem foto'}
+              </p>
+            </div>
+            <div className="ml-auto flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => setStudentReport(null)}>
+                <XCircle /> Fechar
+              </Button>
+              {studentReportPdf && (
+                <a href={studentReportPdf} download>
+                  <Button type="button" variant="outline">
+                    <Download /> Baixar PDF
+                  </Button>
+                </a>
+              )}
+              <Button
+                type="button"
+                onClick={generateStudentReportPdf}
+                disabled={studentReportPdfLoading}
+              >
+                <Download />{' '}
+                {studentReportPdfLoading
+                  ? 'Compondo...'
+                  : 'Gerar PDF individual'}
+              </Button>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            {[
+              ['Resultado', `${studentReport.summary.percentage}%`],
+              [
+                'Média da turma',
+                `${studentReport.summary.classAveragePercentage}%`,
+              ],
+              [
+                'Diferença',
+                `${studentReport.summary.differenceFromClass > 0 ? '+' : ''}${studentReport.summary.differenceFromClass} p.p.`,
+              ],
+              ['Acertos', studentReport.summary.correct],
+              ['Erros', studentReport.summary.incorrect],
+              ['Em branco', studentReport.summary.unanswered],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  {label}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <ReportPerformance
+              title="Habilidades BNCC do aluno"
+              empty="Não há habilidades consolidadas nesta correção."
+              items={studentReport.skills.map((item) => ({
+                key: item.code,
+                label: item.code,
+                detail: `${item.correct}/${item.total} acertos`,
+                percentage: item.percentage,
+              }))}
+            />
+            <ReportPerformance
+              title="Descritores SAEB do aluno"
+              empty="Não há descritores SAEB nesta correção."
+              items={studentReport.saebDescriptors.map((item) => ({
+                key: item.code,
+                label: `${item.code} · ${item.topic}`,
+                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
+                percentage: item.percentage,
+              }))}
+            />
+            <ReportPerformance
+              title="Competências do aluno"
+              empty="Não há competências consolidadas nesta correção."
+              items={studentReport.competencies.map((item) => ({
+                key: item.sourceKey,
+                label: `Competência ${item.number} · ${item.area}`,
+                detail: item.description,
+                percentage: item.percentage,
+              }))}
+            />
+            <ReportPerformance
+              title="Tópicos e subtópicos do aluno"
+              empty="Não há tópicos pedagógicos nesta correção."
+              items={studentReport.topics.map((item) => ({
+                key: item.code,
+                label: item.topic,
+                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
+                percentage: item.percentage,
+              }))}
+            />
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="py-2">Questão</th>
+                  <th>Situação</th>
+                  <th>Marcada</th>
+                  <th>Correta</th>
+                  <th>BNCC</th>
+                  <th>SAEB</th>
+                  <th>Tópico</th>
+                </tr>
+              </thead>
+              <tbody>
+                {studentReport.questions.map((question) => (
+                  <tr
+                    key={question.questionNumber}
+                    className="border-b last:border-0"
+                  >
+                    <td className="py-2 font-semibold">
+                      {question.questionNumber}
+                    </td>
+                    <td>
+                      {question.status === 'correct'
+                        ? 'Acerto'
+                        : question.status === 'incorrect'
+                          ? 'Erro'
+                          : 'Em branco'}
+                    </td>
+                    <td>{question.selectedLabels.join(', ') || '—'}</td>
+                    <td>{question.correctLabels.join(', ') || '—'}</td>
+                    <td>
+                      {question.skills.map((item) => item.code).join(', ') ||
+                        '—'}
+                    </td>
+                    <td>
+                      {question.saebDescriptors
+                        .map((item) => item.code)
+                        .join(', ') || '—'}
+                    </td>
+                    <td>{question.knowledgeTopic || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+  ) : null;
   // Diagnosticar e Corrigir são itens próprios do menu: sem as abas da gestão acadêmica.
   const standalone = Boolean(initialSection);
   return (
@@ -1199,7 +1358,17 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           </div>
         </section>
       )}
-      {activePanel === 'results' && <section id="academic-applications" aria-labelledby="results-applications-title" className="mt-6 scroll-mt-24 rounded-2xl border border-slate-200 bg-white">
+      {activePanel === 'results' && (
+        <div role="tablist" aria-label="Tipo de diagnóstico" className="mt-6 inline-flex rounded-xl border border-slate-200 bg-white p-1">
+          {([['application', 'Por aplicação'], ['student', 'Evolução do aluno']] as const).map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={resultsView === id} onClick={() => setResultsView(id)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${resultsView === id ? 'bg-[var(--navy)] text-white' : 'text-slate-600 hover:text-slate-900'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {activePanel === 'results' && resultsView === 'application' && <section id="academic-applications" aria-labelledby="results-applications-title" className="mt-4 scroll-mt-24 rounded-2xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-end justify-between gap-3 p-5 pb-3">
           <div>
             <h2 id="results-applications-title" className="font-display text-lg font-bold text-[var(--navy)]">Aplicações</h2>
@@ -1237,422 +1406,195 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
           })}</ul>;
         })()}
       </section>}
-      {activePanel === 'results' && report && (
-        <section id="academic-report" className="mt-5 scroll-mt-24 rounded-2xl border border-blue-200 bg-white p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <BarChart3 className="size-5 text-blue-600" />
-            <div>
-              <h2 className="font-display text-xl font-bold">
-                Relatório pedagógico
-              </h2>
-              <p className="text-sm text-slate-500">
-                {report.application.title} · {report.application.className}
-              </p>
-            </div>
-            <div className="ml-auto flex flex-wrap gap-2">
-              <a
-                href={`${apiUrl}/api/assessment-applications/${report.application.id}/report.csv`}
-                download
-              >
-                <Button type="button" variant="outline">
-                  <Download /> CSV
-                </Button>
-              </a>
-              <a
-                href={`${apiUrl}/api/assessment-applications/${report.application.id}/report.xlsx`}
-                download
-              >
-                <Button type="button" variant="outline">
-                  <Download /> Excel
-                </Button>
-              </a>
-              {reportPdf && (
-                <a href={reportPdf} download>
-                  <Button type="button" variant="outline">
-                    <Download /> Baixar PDF
-                  </Button>
-                </a>
-              )}
-              <Button
-                type="button"
-                onClick={generateReportPdf}
-                disabled={reportPdfLoading}
-              >
-                <Download />{' '}
-                {reportPdfLoading ? 'Compondo...' : 'Gerar relatório PDF'}
-              </Button>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-            {[
-              ['Alunos', report.summary.students],
-              ['Corrigidos', report.summary.corrected],
-              ['Para revisar', report.summary.review],
-              ['Aguardando', report.summary.awaiting],
-              ['Média', `${report.summary.averagePercentage}%`],
-              ['Mediana', `${report.summary.medianPercentage}%`],
-              ['Desvio-padrão', report.summary.standardDeviation],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase text-slate-500">
-                  {label}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
-                  {value}
-                </p>
+      {activePanel === 'results' && resultsView === 'application' && report && (() => {
+        const hasResults = report.summary.corrected > 0;
+        const progress = report.summary.students ? report.summary.corrected / report.summary.students : 0;
+        const dimensions = [
+          { title: 'Desempenho por habilidade BNCC', missing: 'habilidades BNCC', items: report.skills.map((item) => ({ key: item.code, label: item.code, detail: `${item.correct}/${item.total} acertos`, percentage: item.percentage })) },
+          { title: 'Desempenho por descritor SAEB', missing: 'descritores SAEB', items: report.saebDescriptors.map((item) => ({ key: item.code, label: `${item.code} · ${item.topic}`, detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`, percentage: item.percentage })) },
+          { title: 'Desempenho por competência', missing: 'competências', items: report.competencies.map((item) => ({ key: item.sourceKey, label: `Competência ${item.number} · ${item.area}`, detail: item.description, percentage: item.percentage })) },
+          { title: 'Desempenho por tópico e subtópico', missing: 'tópicos e subtópicos', items: report.topics.map((item) => ({ key: item.code, label: item.topic, detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`, percentage: item.percentage })) },
+        ];
+        const filledDimensions = dimensions.filter((item) => item.items.length);
+        const missingDimensions = dimensions.filter((item) => !item.items.length).map((item) => item.missing);
+        const statusLabel = (status: ApplicationReport['students'][number]['status']) => status === 'corrected' ? 'Corrigido' : status === 'review' ? 'Revisar cartão' : status === 'manual_review' ? 'Correção manual' : 'Aguardando';
+        const statusClass = (status: ApplicationReport['students'][number]['status']) => status === 'corrected' ? 'bg-emerald-50 text-emerald-800' : status === 'review' ? 'bg-rose-50 text-rose-800' : status === 'manual_review' ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-600';
+        const studentFilters = [
+          ['all', 'Todos', report.students.length],
+          ['corrected', 'Corrigidos', report.students.filter((item) => item.status === 'corrected' || item.status === 'manual_review').length],
+          ['review', 'Revisar cartão', report.students.filter((item) => item.status === 'review').length],
+          ['awaiting', 'Aguardando', report.students.filter((item) => item.status === 'awaiting').length],
+        ] as const;
+        const visibleStudents = report.students.filter((item) => reportStudentFilter === 'all' || (reportStudentFilter === 'corrected' ? item.status === 'corrected' || item.status === 'manual_review' : item.status === reportStudentFilter));
+        const tabs = [
+          ['overview', 'Visão geral'],
+          ['questions', `Questões (${report.questions.length})`],
+          ['students', `Alunos (${report.students.length})`],
+        ] as const;
+        const tab = hasResults ? reportTab : 'students';
+        return (
+          <section id="academic-report" aria-labelledby="academic-report-title" className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white">
+            <div className="flex flex-wrap items-start gap-3 border-b border-slate-100 p-5">
+              <BarChart3 aria-hidden="true" className="mt-1 size-5 text-blue-600" />
+              <div className="min-w-0">
+                <h2 id="academic-report-title" className="font-display text-xl font-bold text-[var(--navy)]">{report.application.title}</h2>
+                <p className="text-sm text-slate-500">Relatório pedagógico · {report.application.className}</p>
               </div>
-            ))}
-          </div>
-          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <h3 className="font-semibold text-amber-950">
-              Prioridades para intervenção
-            </h3>
-            <p className="mt-1 text-xs text-amber-800">
-              Itens abaixo de 60%, ordenados pelo menor desempenho. A decisão
-              pedagógica deve considerar também a quantidade de respostas.
-            </p>
-            {report.priorities.length ? (
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {report.priorities.map((item) => (
-                  <div
-                    key={`${item.dimension}-${item.code}`}
-                    className="rounded-lg border border-amber-200 bg-white p-3 text-sm"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-bold uppercase text-amber-700">
-                          {item.dimension} · prioridade {item.priority}
-                        </p>
-                        <p className="mt-1 font-semibold text-slate-900">
-                          {item.label}
-                        </p>
-                      </div>
-                      <b className="text-amber-900">{item.percentage}%</b>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {item.correct}/{item.validAnswers} respostas válidas ·{' '}
-                      {item.classification}
-                    </p>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <a href={`${apiUrl}/api/assessment-applications/${report.application.id}/report.csv`} download><Button type="button" size="sm" variant="outline"><Download /> CSV</Button></a>
+                <a href={`${apiUrl}/api/assessment-applications/${report.application.id}/report.xlsx`} download><Button type="button" size="sm" variant="outline"><Download /> Excel</Button></a>
+                {reportPdf && <a href={reportPdf} download><Button type="button" size="sm" variant="outline"><Download /> Baixar PDF</Button></a>}
+                <Button type="button" size="sm" onClick={generateReportPdf} disabled={reportPdfLoading || !hasResults} title={hasResults ? undefined : 'Disponível depois da primeira correção.'}>
+                  <Download /> {reportPdfLoading ? 'Compondo...' : 'Gerar relatório PDF'}
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-3 p-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Progresso da correção</h3>
+                  <p className="text-sm tabular-nums text-slate-600"><b className="text-lg text-[var(--navy)]">{report.summary.corrected}</b> de {report.summary.students} alunos</p>
+                </div>
+                <div aria-hidden="true" className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${progress === 1 ? 'bg-emerald-600' : 'bg-blue-600'}`} style={{ width: `${progress * 100}%` }} /></div>
+                <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                  <div className="flex gap-1"><dt className="text-slate-500">Corrigidos</dt><dd className="font-semibold tabular-nums">{report.summary.corrected}</dd></div>
+                  <div className="flex gap-1"><dt className="text-slate-500">Para revisar</dt><dd className={`font-semibold tabular-nums ${report.summary.review ? 'text-rose-700' : ''}`}>{report.summary.review}</dd></div>
+                  <div className="flex gap-1"><dt className="text-slate-500">Aguardando</dt><dd className="font-semibold tabular-nums">{report.summary.awaiting}</dd></div>
+                </dl>
+              </div>
+              <dl className="grid grid-cols-3 gap-3">
+                {([
+                  ['Média', `${report.summary.averagePercentage}%`],
+                  ['Mediana', `${report.summary.medianPercentage}%`],
+                  ['Desvio-padrão', report.summary.standardDeviation],
+                ] as const).map(([label, value]) => (
+                  <div key={label} className="rounded-xl bg-slate-50 p-3">
+                    <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
+                    <dd className="mt-1 text-2xl font-bold tabular-nums text-[var(--navy)]">{hasResults ? value : '—'}</dd>
                   </div>
                 ))}
+              </dl>
+            </div>
+            {!hasResults && (
+              <div className="mx-5 mb-5 rounded-xl border border-dashed border-blue-200 bg-blue-50/50 p-5">
+                <h3 className="font-semibold text-[var(--navy)]">Ainda não há cartões corrigidos nesta aplicação</h3>
+                <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                  Assim que os cartões-resposta forem corrigidos, esta página mostra as prioridades de intervenção, o desempenho por habilidade, descritor e competência e a análise de cada questão.
+                  {report.summary.review > 0 && ` Há ${report.summary.review} cartão(ões) aguardando revisão na correção.`}
+                </p>
+                {onOpenCorrection && <Button type="button" className="mt-3" onClick={onOpenCorrection}><ScanLine /> Ir para Corrigir</Button>}
               </div>
-            ) : (
-              <p className="mt-3 text-sm text-amber-900">
-                Nenhuma prioridade calculada com os resultados disponíveis.
-              </p>
             )}
-          </div>
-          <div className="mt-5 grid items-start gap-5 xl:grid-cols-2">
-            <ReportPerformance
-              title="Desempenho por habilidade BNCC"
-              empty="As correções ainda não possuem habilidades consolidadas."
-              items={report.skills.map((item) => ({
-                key: item.code,
-                label: item.code,
-                detail: `${item.correct}/${item.total} acertos`,
-                percentage: item.percentage,
-              }))}
-            />
-            <ReportPerformance
-              title="Desempenho por descritor SAEB"
-              empty="Esta aplicação ainda não possui descritores SAEB vinculados."
-              items={report.saebDescriptors.map((item) => ({
-                key: item.code,
-                label: `${item.code} · ${item.topic}`,
-                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
-                percentage: item.percentage,
-              }))}
-            />
-            <ReportPerformance
-              title="Desempenho por competência"
-              empty="Esta aplicação ainda não possui competências vinculadas."
-              items={report.competencies.map((item) => ({
-                key: item.sourceKey,
-                label: `Competência ${item.number} · ${item.area}`,
-                detail: item.description,
-                percentage: item.percentage,
-              }))}
-            />
-            <ReportPerformance
-              title="Desempenho por tópico e subtópico"
-              empty="Esta aplicação ainda não possui tópicos pedagógicos vinculados."
-              items={report.topics.map((item) => ({
-                key: item.code,
-                label: item.topic,
-                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
-                percentage: item.percentage,
-              }))}
-            />
-          </div>
-          <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200 p-4">
-            <h3 className="font-semibold text-slate-900">
-              Análise por questão
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Distribuição das marcações e taxa de acerto de cada item.
-            </p>
-            <table className="mt-3 w-full min-w-[760px] text-left text-sm">
-              <thead className="border-b text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="py-2">Questão</th>
-                  <th>Acertos</th>
-                  <th>Erros</th>
-                  <th>Em branco</th>
-                  <th>Resultado</th>
-                  <th>Marcações A–E</th>
-                  <th>Discriminação</th>
-                  <th>Diagnóstico</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.questions.map((question) => (
-                  <tr
-                    key={question.questionNumber}
-                    className={`border-b last:border-0 ${question.needsReview ? 'bg-rose-50' : ''}`}
-                  >
-                    <td className="py-2 font-semibold">
-                      {question.questionNumber}
-                    </td>
-                    <td>{question.correct}</td>
-                    <td>{question.incorrect}</td>
-                    <td>{question.unanswered}</td>
-                    <td className="font-semibold">{question.percentage}%</td>
-                    <td>
-                      {['A', 'B', 'C', 'D', 'E']
-                        .map(
-                          (label) =>
-                            `${label}: ${question.selectedDistribution[label] || 0}`,
-                        )
-                        .join(' · ')}
-                    </td>
-                    <td>
-                      {question.discriminationIndex == null
-                        ? 'Amostra insuficiente'
-                        : `${question.discriminationIndex} p.p. · ${question.discriminationClassification}`}
-                    </td>
-                    <td>
-                      {question.needsReview ? (
-                        <span className="font-semibold text-rose-700">
-                          Revisar: {question.reviewReasons.join('; ')}
-                        </span>
-                      ) : (
-                        question.classification
-                      )}
-                    </td>
-                  </tr>
+            {hasResults && (
+              <div role="tablist" aria-label="Seções do relatório" className="mx-5 flex gap-1 overflow-x-auto border-b border-slate-200">
+                {tabs.map(([id, label]) => (
+                  <button key={id} type="button" role="tab" id={`report-tab-${id}`} aria-selected={tab === id} aria-controls={`report-panel-${id}`} onClick={() => setReportTab(id)}
+                    className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-semibold transition ${tab === id ? 'border-[var(--navy)] text-[var(--navy)]' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                    {label}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="py-2">Aluno</th>
-                  <th>Versão</th>
-                  <th>Situação</th>
-                  <th>Resultado</th>
-                  <th>Relatório</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.students.map((student) => (
-                  <tr key={student.id} className="border-b last:border-0">
-                    <td className="py-2 font-medium">
-                      {student.number ? `${student.number}. ` : ''}
-                      {student.name}
-                    </td>
-                    <td>{student.versionCode}</td>
-                    <td>
-                      {student.status === 'corrected'
-                        ? 'Corrigido'
-                        : student.status === 'review'
-                          ? 'Revisar cartão'
-                          : student.status === 'manual_review'
-                            ? 'Correção manual'
-                            : 'Aguardando'}
-                    </td>
-                    <td className="font-semibold">
-                      {student.score == null
-                        ? '—'
-                        : `${student.score}/${student.maxScore} · ${student.percentage}%`}
-                    </td>
-                    <td>
-                      {student.status === 'corrected' ||
-                      student.status === 'manual_review' ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            loadStudentReport(student.id).catch((error) =>
-                              setMessage(error.message),
-                            )
-                          }
-                        >
-                          <Eye /> Detalhes
-                        </Button>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-      {activePanel === 'results' && studentReport && (
-        <section className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <StudentPhoto src={studentReport.student.selfieDataUrl} name={studentReport.student.name} size={64} />
-            <div>
-              <h2 className="font-display text-xl font-bold">
-                Relatório individual · {studentReport.student.name}
-              </h2>
-              <p className="text-sm text-slate-500">
-                Matrícula {studentReport.student.registration} · versão{' '}
-                {studentReport.student.versionCode}
-                {!studentReport.student.selfieDataUrl && ' · sem foto'}
-              </p>
-            </div>
-            <div className="ml-auto flex gap-2">
-              {studentReportPdf && (
-                <a href={studentReportPdf} download>
-                  <Button type="button" variant="outline">
-                    <Download /> Baixar PDF
-                  </Button>
-                </a>
-              )}
-              <Button
-                type="button"
-                onClick={generateStudentReportPdf}
-                disabled={studentReportPdfLoading}
-              >
-                <Download />{' '}
-                {studentReportPdfLoading
-                  ? 'Compondo...'
-                  : 'Gerar PDF individual'}
-              </Button>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            {[
-              ['Resultado', `${studentReport.summary.percentage}%`],
-              [
-                'Média da turma',
-                `${studentReport.summary.classAveragePercentage}%`,
-              ],
-              [
-                'Diferença',
-                `${studentReport.summary.differenceFromClass > 0 ? '+' : ''}${studentReport.summary.differenceFromClass} p.p.`,
-              ],
-              ['Acertos', studentReport.summary.correct],
-              ['Erros', studentReport.summary.incorrect],
-              ['Em branco', studentReport.summary.unanswered],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase text-slate-500">
-                  {label}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
-                  {value}
-                </p>
               </div>
-            ))}
-          </div>
-          <div className="mt-5 grid gap-5 xl:grid-cols-2">
-            <ReportPerformance
-              title="Habilidades BNCC do aluno"
-              empty="Não há habilidades consolidadas nesta correção."
-              items={studentReport.skills.map((item) => ({
-                key: item.code,
-                label: item.code,
-                detail: `${item.correct}/${item.total} acertos`,
-                percentage: item.percentage,
-              }))}
-            />
-            <ReportPerformance
-              title="Descritores SAEB do aluno"
-              empty="Não há descritores SAEB nesta correção."
-              items={studentReport.saebDescriptors.map((item) => ({
-                key: item.code,
-                label: `${item.code} · ${item.topic}`,
-                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
-                percentage: item.percentage,
-              }))}
-            />
-            <ReportPerformance
-              title="Competências do aluno"
-              empty="Não há competências consolidadas nesta correção."
-              items={studentReport.competencies.map((item) => ({
-                key: item.sourceKey,
-                label: `Competência ${item.number} · ${item.area}`,
-                detail: item.description,
-                percentage: item.percentage,
-              }))}
-            />
-            <ReportPerformance
-              title="Tópicos e subtópicos do aluno"
-              empty="Não há tópicos pedagógicos nesta correção."
-              items={studentReport.topics.map((item) => ({
-                key: item.code,
-                label: item.topic,
-                detail: `${item.correct}/${item.validAnswers} respostas válidas · ${item.classification}`,
-                percentage: item.percentage,
-              }))}
-            />
-          </div>
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="py-2">Questão</th>
-                  <th>Situação</th>
-                  <th>Marcada</th>
-                  <th>Correta</th>
-                  <th>BNCC</th>
-                  <th>SAEB</th>
-                  <th>Tópico</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentReport.questions.map((question) => (
-                  <tr
-                    key={question.questionNumber}
-                    className="border-b last:border-0"
-                  >
-                    <td className="py-2 font-semibold">
-                      {question.questionNumber}
-                    </td>
-                    <td>
-                      {question.status === 'correct'
-                        ? 'Acerto'
-                        : question.status === 'incorrect'
-                          ? 'Erro'
-                          : 'Em branco'}
-                    </td>
-                    <td>{question.selectedLabels.join(', ') || '—'}</td>
-                    <td>{question.correctLabels.join(', ') || '—'}</td>
-                    <td>
-                      {question.skills.map((item) => item.code).join(', ') ||
-                        '—'}
-                    </td>
-                    <td>
-                      {question.saebDescriptors
-                        .map((item) => item.code)
-                        .join(', ') || '—'}
-                    </td>
-                    <td>{question.knowledgeTopic || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-      {activePanel === 'results' && <section aria-labelledby="student-progress-title" className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+            )}
+            {hasResults && tab === 'overview' && (
+              <div role="tabpanel" id="report-panel-overview" aria-labelledby="report-tab-overview" className="space-y-5 p-5">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <h3 className="font-semibold text-amber-950">Prioridades para intervenção</h3>
+                  <p className="mt-1 text-xs text-amber-800">Itens abaixo de 60%, ordenados pelo menor desempenho. A decisão pedagógica deve considerar também a quantidade de respostas.</p>
+                  {report.priorities.length ? (
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      {report.priorities.map((item) => (
+                        <div key={`${item.dimension}-${item.code}`} className="rounded-lg border border-amber-200 bg-white p-3 text-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-bold uppercase text-amber-700">{item.dimension} · prioridade {item.priority}</p>
+                              <p className="mt-1 font-semibold text-slate-900">{item.label}</p>
+                            </div>
+                            <b className="text-amber-900">{item.percentage}%</b>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{item.correct}/{item.validAnswers} respostas válidas · {item.classification}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-amber-900">Nenhum item abaixo de 60% com os resultados disponíveis.</p>
+                  )}
+                </div>
+                {filledDimensions.length ? (
+                  <div className="grid items-start gap-5 xl:grid-cols-2">
+                    {filledDimensions.map((item) => <ReportPerformance key={item.title} title={item.title} empty="" items={item.items} />)}
+                  </div>
+                ) : (
+                  <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">As questões desta prova ainda não estão vinculadas a habilidades BNCC, descritores SAEB, competências ou tópicos. Vincule-as no banco de questões para ver o desempenho por dimensão.</p>
+                )}
+                {filledDimensions.length > 0 && missingDimensions.length > 0 && (
+                  <p className="text-xs text-slate-500">Sem dados nesta prova: {missingDimensions.join(', ')}.</p>
+                )}
+              </div>
+            )}
+            {hasResults && tab === 'questions' && (
+              <div role="tabpanel" id="report-panel-questions" aria-labelledby="report-tab-questions" className="p-5">
+                <p className="text-xs text-slate-500">Distribuição das marcações e taxa de acerto de cada item. Linhas destacadas pedem revisão da questão.</p>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="border-b text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="py-2">Questão</th>
+                        <th>Acertos</th>
+                        <th>Erros</th>
+                        <th>Em branco</th>
+                        <th>Resultado</th>
+                        <th>Marcações A–E</th>
+                        <th>Discriminação</th>
+                        <th>Diagnóstico</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.questions.map((question) => (
+                        <tr key={question.questionNumber} className={`border-b last:border-0 ${question.needsReview ? 'bg-rose-50' : ''}`}>
+                          <td className="py-2 font-semibold">{question.questionNumber}</td>
+                          <td>{question.correct}</td>
+                          <td>{question.incorrect}</td>
+                          <td>{question.unanswered}</td>
+                          <td className="font-semibold">{question.percentage}%</td>
+                          <td>{['A', 'B', 'C', 'D', 'E'].map((label) => `${label}: ${question.selectedDistribution[label] || 0}`).join(' · ')}</td>
+                          <td>{question.discriminationIndex == null ? 'Amostra insuficiente' : `${question.discriminationIndex} p.p. · ${question.discriminationClassification}`}</td>
+                          <td>{question.needsReview ? <span className="font-semibold text-rose-700">Revisar: {question.reviewReasons.join('; ')}</span> : question.classification}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {(tab === 'students') && (
+              <div role={hasResults ? 'tabpanel' : undefined} id="report-panel-students" aria-labelledby={hasResults ? 'report-tab-students' : undefined} className={hasResults ? 'p-5' : 'px-5 pb-5'}>
+                {hasResults ? (
+                  <>
+                    {studentReport && (
+                      <div className="mb-5">{studentReportPanel}</div>
+                    )}
+                    <div className="flex flex-wrap gap-2" aria-label="Filtrar alunos por situação">
+                      {studentFilters.map(([id, label, count]) => (
+                        <button key={id} type="button" aria-pressed={reportStudentFilter === id} onClick={() => setReportStudentFilter(id)}
+                          className={`rounded-full border px-3 py-1 text-sm transition ${reportStudentFilter === id ? 'border-[var(--navy)] bg-[var(--navy)] text-white' : 'border-slate-200 text-slate-700 hover:border-slate-300'}`}>
+                          {label} <span className="tabular-nums opacity-75">{count}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <StudentResultsTable students={visibleStudents} statusLabel={statusLabel} statusClass={statusClass} onOpen={(id) => loadStudentReport(id).then(() => document.getElementById('student-report')?.scrollIntoView({ block: 'start', behavior: 'smooth' })).catch((error) => setMessage(error.message))} />
+                  </>
+                ) : (
+                  <details className="rounded-xl border border-slate-200">
+                    <summary className="cursor-pointer select-none p-4 text-sm font-semibold text-slate-700">Ver lista de alunos ({report.students.length})</summary>
+                    <div className="px-4 pb-4"><StudentResultsTable students={report.students} statusLabel={statusLabel} statusClass={statusClass} onOpen={() => undefined} /></div>
+                  </details>
+                )}
+              </div>
+            )}
+          </section>
+        );
+      })()}
+      {activePanel === 'results' && resultsView === 'student' && <section aria-labelledby="student-progress-title" className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2">
           <BarChart3 aria-hidden="true" className="size-5 text-blue-700" />
           <div>
@@ -2206,6 +2148,52 @@ export function AcademicManager({ apiUrl, initialSection, initialApplicationId }
   );
 }
 
+function StudentResultsTable({
+  students,
+  statusLabel,
+  statusClass,
+  onOpen,
+}: {
+  students: ApplicationReport['students'];
+  statusLabel: (status: ApplicationReport['students'][number]['status']) => string;
+  statusClass: (status: ApplicationReport['students'][number]['status']) => string;
+  onOpen: (studentId: string) => void;
+}) {
+  if (!students.length)
+    return <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhum aluno nesta situação.</p>;
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead className="border-b text-xs uppercase text-slate-500">
+          <tr>
+            <th className="py-2">Aluno</th>
+            <th>Versão</th>
+            <th>Situação</th>
+            <th>Resultado</th>
+            <th><span className="sr-only">Relatório</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {students.map((student) => (
+            <tr key={student.id} className="border-b last:border-0">
+              <td className="py-2 font-medium">{student.number ? `${student.number}. ` : ''}{student.name}</td>
+              <td>{student.versionCode}</td>
+              <td><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusClass(student.status)}`}>{statusLabel(student.status)}</span></td>
+              <td className="font-semibold tabular-nums">{student.score == null ? '—' : `${student.score}/${student.maxScore} · ${student.percentage}%`}</td>
+              <td className="text-right">
+                {student.status === 'corrected' || student.status === 'manual_review' ? (
+                  <Button type="button" size="sm" variant="outline" onClick={() => onOpen(student.id)}>
+                    <Eye /> Detalhes
+                  </Button>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 function ReportPerformance({
   title,
   empty,
