@@ -59,5 +59,7 @@ next-env.d.ts
 /playwright-report/
 /test-results/
 
-# Backups gerados por deploy/atualizar-producao.sh
-/backups/
+# VPS: segredos e backups locais
+/deploy/vps/.env
+/deploy/vps/backups/
+

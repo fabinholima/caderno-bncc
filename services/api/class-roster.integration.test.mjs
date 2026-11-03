@@ -24,7 +24,7 @@ test(
       await pool.query(`
         CREATE TABLE institutions(id uuid PRIMARY KEY,name text);
         CREATE TABLE memberships(institution_id uuid,user_id uuid,role text,PRIMARY KEY(institution_id,user_id));
-        CREATE TABLE classes(id uuid PRIMARY KEY,institution_id uuid,name text,grade text,school_year integer);
+        CREATE TABLE classes(id uuid PRIMARY KEY,institution_id uuid,name text,grade text,school_year integer,school_id uuid);
         CREATE TABLE educator_schools(id uuid PRIMARY KEY,name text);
         CREATE TABLE class_invites(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),class_id uuid,school_id uuid,active boolean);
         CREATE TABLE students(id uuid PRIMARY KEY,institution_id uuid,name text,registration text,
