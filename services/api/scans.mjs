@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mobileMutation, assertInstitutionScope } from './mobile-mutations.mjs';
 import { Readable } from 'node:stream';
 import { pool, transaction } from './db.mjs';
+import { answerKeyStatus } from './assessment-results.mjs';
 import { gradeSubmission } from './submissions.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 import { recordResultVersion, confirmedAnswers } from './result-versions.mjs';
@@ -44,6 +45,9 @@ export async function createScan({ institutionId, userId, portalAdmin = false, d
     if(v.expectedApplicationId) {
       const application=await client.query("SELECT id FROM assessment_applications WHERE id=$1 AND institution_id=$2 AND status<>'cancelled'",[v.expectedApplicationId,institutionId]);
       if(!application.rowCount)throw Object.assign(new Error('Aplicação indisponível. Confira a avaliação e a turma no portal.'),{statusCode:422});
+      const versions=await client.query('SELECT av.code,av.snapshot FROM assessment_applications aa JOIN assessment_versions av ON av.assessment_id=aa.assessment_id WHERE aa.id=$1',[v.expectedApplicationId]);
+      const incomplete=versions.rows.map(row=>({code:row.code,...answerKeyStatus(row.snapshot)})).filter(row=>row.missingAnswerKeys.length);
+      if(!versions.rowCount||incomplete.length)throw Object.assign(new Error(`O gabarito desta avaliação está incompleto${incomplete.length?` (versão ${incomplete[0].code}, questões ${incomplete[0].missingAnswerKeys.join(', ')})`:''}. Complete-o no portal antes de corrigir os cartões.`),{statusCode:422,code:'answer_key_incomplete'});
     }
     const id = v.clientScanId || randomUUID();
     const r = await client.query({

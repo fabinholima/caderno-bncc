@@ -20,10 +20,11 @@ test('the mobile header does not permit a disallowed browser origin', () => {
   assert.equal(check('/api/auth/login', 'https://ufaprova-frontend.onrender.com', undefined), true);
 });
 test('sensitive profile changes require approved browser origins', () => {
+  // O app só pede o link; a nova senha é definida no portal, com origem autorizada.
   for (const path of ['/api/auth/complete-cpf', '/api/auth/reset-password']) assert.equal(check(path, undefined, 'mobile'), false);
 });
 
-test('native student signup and verification require the mobile header and reject foreign origins',()=>{for(const path of ['/api/auth/register','/api/auth/student/register','/api/auth/resend-verification','/api/auth/verify-email','/api/auth/logout']){assert.equal(check(path,undefined,'mobile'),true);assert.equal(check(path,undefined,undefined),false);assert.equal(check(path,'https://untrusted.example','mobile'),false);}});
+test('native student signup and verification require the mobile header and reject foreign origins',()=>{for(const path of ['/api/auth/register','/api/auth/student/register','/api/auth/resend-verification','/api/auth/forgot-password','/api/auth/verify-email','/api/auth/logout']){assert.equal(check(path,undefined,'mobile'),true);assert.equal(check(path,undefined,undefined),false);assert.equal(check(path,'https://untrusted.example','mobile'),false);}});
 
 test('the browser session exchange never accepts a request without an approved Origin', () => {
   assert.equal(check('/api/auth/session/cookie', undefined, 'mobile'), false);

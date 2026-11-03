@@ -218,6 +218,18 @@ As rotas de aluno e de resultados respondem com `cache-control: no-store`.
 3. Depois que o worker antigo parar, execute uma vez `node services/api/backfill-legacy-results.mjs`, com o `DATABASE_URL` de produção. Ele converte os cartões concluídos pelo worker antigo durante a troca e é idempotente.
 4. A partir daí, novos resultados só chegam ao aluno pela autorização.
 
+## Conferência antes da correção (fase 7)
+
+- `GET /api/assessment-applications` passa a incluir, em cada aplicação:
+  - `subject`;
+  - `versions`: `[{ code, questions, objective, missingAnswerKeys: number[] }]`;
+  - `answerKeyReady`: `true` só quando toda versão tem alternativa correta em todas as questões objetivas.
+
+  Os campos são aditivos; um app anterior os ignora.
+- `POST /api/card-scans` com `expectedApplicationId` responde 422 (`code: answer_key_incomplete`) quando o gabarito está incompleto. A mensagem cita a versão e as questões. O app desativa a captura nesse caso.
+- Leitura OMR: foto muito desfocada ou escura não altera as marcações lidas. O resultado ganha `qualityIssues` (`desfocada`, `escura`), `requiresReview: true` e um `reviewReason` que orienta nova foto. Sem QR legível, a mensagem de erro inclui a mesma orientação.
+- `POST /api/auth/forgot-password` aceita o aplicativo nativo (`x-client: mobile`, sem `Origin`), como o reenvio de confirmação. A troca de senha continua no portal.
+
 A PWA do professor e do aluno está documentada em `docs/pwa-subdominios.md`.
 
 ## Limitações conhecidas

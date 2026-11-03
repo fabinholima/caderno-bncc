@@ -117,6 +117,21 @@ class CompactCardReading(unittest.TestCase):
                 self.assertEqual([row['selectedLabels'] for row in result['answers']],
                                  [[profile['labels'][index % len(profile['labels'])]] for index in range(10)])
 
+    def test_blurred_or_dark_photo_requires_review_without_changing_marks(self):
+        profile = profile_for('compacto-10-v1')
+        image = card(profile)
+        self.assertEqual(reader.image_quality(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)), [])
+        self.assertNotIn('qualityIssues', self.read(image, profile))
+        dark = (image * 0.25).astype(np.uint8)
+        self.assertEqual(reader.image_quality(cv2.cvtColor(dark, cv2.COLOR_BGR2GRAY)), ['escura'])
+        blurred = cv2.GaussianBlur(image, (31, 31), 0)
+        self.assertIn('desfocada', reader.image_quality(cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)))
+        result = reader.with_quality({'answers': [{'selectedLabels': ['A'], 'status': 'recognized'}], 'requiresReview': False}, ['desfocada'])
+        self.assertTrue(result['requiresReview'])
+        self.assertEqual(result['answers'][0]['selectedLabels'], ['A'])
+        self.assertIn('Fotografe novamente', result['reviewReason'])
+        self.assertIn('desfocada', reader.recapture_hint(['desfocada']))
+
     def test_missing_registration_and_blank_responses_require_review(self):
         profile = profile_for('compacto-10-v1')
         blank = self.read(card(profile, False), profile)

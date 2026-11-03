@@ -44,6 +44,18 @@ function correctLabelsOf(question) {
     .sort((a, b) => a.localeCompare(b));
 }
 
+// Gabarito de uma versão: questão objetiva sem alternativa correta impede a
+// correção automática daquela aplicação.
+export function answerKeyStatus(snapshot) {
+  const questions = snapshot?.questions ?? [];
+  const objective = questions.filter((question) => OBJECTIVE_TYPES.has(question.type));
+  return {
+    questions: questions.length,
+    objective: objective.length,
+    missingAnswerKeys: objective.filter((question) => !correctLabelsOf(question).length).map((question) => question.number),
+  };
+}
+
 // Classifica uma questão objetiva. A leitura 'uncertain' (ou ausente) nunca é
 // convertida em resposta: fica pendente de revisão do professor.
 function classifyObjective(question, answer) {
