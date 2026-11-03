@@ -282,14 +282,18 @@ export async function myJoinRequests(identity) {
     )
   ).rows;
 }
+// Somente a versão autorizada pelo professor chega ao aluno. Resultados
+// provisórios aparecem apenas como "em correção", sem nota. A consulta não
+// depende da assinatura da instituição: o histórico publicado permanece.
 export async function myActivities(identity) {
   studentOnly(identity);
-  return (
+  const rows = (
     await pool.query(
-      `SELECT ast.id,a.title,c.name AS "className",COALESCE(es.name,${classSchoolName("c", "i")}) AS "schoolName",aa.scheduled_at AS "scheduledAt",aa.status,
- CASE WHEN sub.requires_manual_review=false THEN sub.score END AS score,
- CASE WHEN sub.requires_manual_review=false THEN sub.max_score END AS "maxScore",
- COALESCE(sub.requires_manual_review,false) AS "requiresManualReview"
+      `SELECT ast.id,a.title,a.subject,c.name AS "className",COALESCE(es.name,${classSchoolName("c", "i")}) AS "schoolName",aa.scheduled_at AS "scheduledAt",aa.status,
+ ar.id AS "resultId",(ar.id IS NOT NULL AND ar.published_version_id IS NULL) AS "inCorrection",
+ pv.score,pv.max_score AS "maxScore",pv.percent,pv.valid_count AS "validCount",pv.correct_count AS "correctCount",
+ pv.incorrect_count AS "incorrectCount",pv.blank_count AS "blankCount",pv.invalid_count AS "invalidCount",
+ pv.annulled_count AS "annulledCount",pub.authorized_at AS "publishedAt"
  FROM student_account_links l
  JOIN students s ON s.id=l.student_id AND s.active
  JOIN class_join_requests jr ON jr.user_id=l.user_id AND jr.student_id=l.student_id AND jr.status='approved'
@@ -298,9 +302,19 @@ export async function myActivities(identity) {
  JOIN application_students ast ON ast.student_id=l.student_id
  JOIN assessment_applications aa ON aa.id=ast.application_id AND aa.class_id=ce.class_id AND aa.institution_id=l.institution_id AND aa.status!='cancelled'
  JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id JOIN institutions i ON i.id=l.institution_id
- LEFT JOIN LATERAL(SELECT sub.* FROM card_scans cs JOIN assessment_submissions sub ON sub.id=cs.submission_id WHERE cs.application_student_id=ast.id AND cs.status='completed' ORDER BY cs.completed_at DESC LIMIT 1) sub ON true
+ LEFT JOIN assessment_results ar ON ar.application_student_id=ast.id
+ LEFT JOIN assessment_result_versions pv ON pv.id=ar.published_version_id
+ LEFT JOIN assessment_result_publications pub ON pub.result_version_id=ar.published_version_id
  WHERE l.user_id=$1 ORDER BY aa.scheduled_at DESC NULLS LAST`,
       [identity.userId],
     )
   ).rows;
+  return rows.map(({ inCorrection, ...row }) => ({
+    ...row,
+    percent: row.percent == null ? null : Number(row.percent),
+    resultStatus: row.publishedAt ? "published" : inCorrection ? "in_correction" : "not_corrected",
+    // Compatível com versões anteriores do aplicativo: sem nota publicada,
+    // a atividade aparece como em revisão.
+    requiresManualReview: Boolean(inCorrection),
+  }));
 }
