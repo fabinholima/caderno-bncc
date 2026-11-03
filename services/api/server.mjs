@@ -303,6 +303,17 @@ const server = createServer(async (request, response) => {
       setSessionCookie(response, token);
       return json(response, 200, { data: { authenticated: true } });
     }
+    if (request.method === 'POST' && url.pathname === '/api/auth/session/cookie') {
+      // PWA: a entrada Google usa o fluxo do aplicativo e termina com um token
+      // Bearer. O navegador troca o token por este cookie HttpOnly e o descarta,
+      // para que nenhuma sessão fique em armazenamento acessível ao JavaScript.
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+      const token = /^Bearer\s+(.+)$/i.exec(request.headers.authorization || '')?.[1];
+      if (!token || !(await authenticate(request))) return json(response, 401, { error: 'Sessão inválida. Entre novamente.' });
+      response.setHeader('cache-control', 'no-store');
+      setSessionCookie(response, token);
+      return json(response, 200, { data: { authenticated: true } });
+    }
     if (request.method === 'POST' && url.pathname === '/api/auth/google/link/start') {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
       const identity = await authenticate(request);
