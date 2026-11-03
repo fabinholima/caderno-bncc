@@ -105,7 +105,7 @@ async function linkGoogleAccount(profile, userId) {
       const result = await client.query('SELECT id,email,google_subject,active FROM users WHERE id=$1 FOR UPDATE', [userId]);
       const user = result.rows[0];
       if (!user || !user.active) throw failure('A conta que iniciou a vinculação não está disponível.', 403);
-      if (user.email.toLowerCase() !== profile.email) throw failure('A conta Google precisa usar o mesmo e-mail da conta do portal.', 409);
+      if ((user.email || '').toLowerCase() !== profile.email) throw failure('A conta Google precisa usar o mesmo e-mail da conta do portal.', 409);
       const owner = await client.query('SELECT id FROM users WHERE google_subject=$1 AND id<>$2', [profile.sub,userId]);
       if (owner.rowCount) throw failure('Esta conta Google já está vinculada a outro usuário.', 409);
       if (user.google_subject && user.google_subject !== profile.sub) throw failure('Esta conta do portal já está vinculada a outra conta Google.', 409);
