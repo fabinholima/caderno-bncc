@@ -46,11 +46,10 @@ export function jsonBodyAllowed({ method, headers }) {
 // Origens aceitas vêm só da configuração: CORS_ORIGIN (separadas por vírgula)
 // mais a origem de AUTH_FRONTEND_URL, que precisa sempre conseguir chamar a API.
 // Domínios oficiais do portal: sempre aceitos em produção, para que um
-// CORS_ORIGIN incompleto no Render não impeça o login.
+// CORS_ORIGIN incompleto não impeça o login.
 export const productionOrigins = [
   'https://ufaprova.com.br',
   'https://www.ufaprova.com.br',
-  'https://ufaprova-frontend.onrender.com',
   // PWA: um só aplicativo; o subdomínio escolhe a entrada do professor ou do aluno.
   'https://professor.ufaprova.com.br',
   'https://aluno.ufaprova.com.br',

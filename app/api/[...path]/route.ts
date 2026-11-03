@@ -1,4 +1,4 @@
-const defaultApiOrigin = 'https://ufaprova-api.onrender.com';
+const defaultApiOrigin = 'https://api.ufaprova.com.br';
 const hopByHopHeaders = [
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
   'te', 'trailer', 'transfer-encoding', 'upgrade', 'host', 'content-length', 'content-encoding',
