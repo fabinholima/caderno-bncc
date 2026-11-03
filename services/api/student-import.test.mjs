@@ -67,7 +67,7 @@ test('finds headerless code/name data when the populated columns start after col
 
 test('rejects missing headers, incomplete rows, duplicates and formulas with actionable errors', async () => {
   for (const [rows, message] of [
-    [[['ID', 'Aluno']], /colunas Código\/Matrícula e Nome/],
+    [[['ID', 'Aluno']], /Código\/Matrícula, Nº da chamada e Nome/],
     [[['Código', 'Nome'], ['1', '']], /Linha 2/],
     [[['Código', 'Nome'], ['1', 'Ana'], ['1', 'Ana']], /Linha 3.*repetido/],
     [[['Código', 'Nome'], [{ formula: '1+1', result: 2 }, 'Ana']], /sem fórmulas/],
@@ -96,7 +96,8 @@ test('batch import reuses students and enrollments, and rolls back conflicts and
       if (sql.includes('FROM institution_subscriptions')) return { rowCount: 1, rows: [{ max_students: limit }] };
       if (sql.includes('count(*)::int used')) return { rows: [{ used: 1 }] };
       if (sql.startsWith('INSERT INTO students')) return { rows: [{ id: 'new' }] };
-      if (sql.startsWith('INSERT INTO class_enrollments')) return { rowCount: 0 };
+      // Já matriculados: o upsert não insere (inserted = false).
+      if (sql.startsWith('INSERT INTO class_enrollments')) return { rowCount: 1, rows: [{ inserted: false }] };
       return { rowCount: 1, rows: [] };
     },
   });
@@ -126,4 +127,22 @@ test('batch import reuses students and enrollments, and rolls back conflicts and
       assert.ok(!calls.some(sql => sql.includes('FROM institution_subscriptions')));
     }
   } finally { pool.connect = original; }
+});
+
+test('lê Código → Nº da chamada → Nome, com e sem cabeçalho', async () => {
+  const withHeader = await parseStudentWorkbook(await file([['Código', 'Nº da chamada', 'Nome do aluno'], ['1373439', 1, 'ADRIAN GABRIEL'], ['1331841', 2, 'ALEXANDRE SOUZA']]));
+  assert.deepEqual(withHeader.map(({ registration, number, name }) => [registration, number, name]), [['1373439', 1, 'ADRIAN GABRIEL'], ['1331841', 2, 'ALEXANDRE SOUZA']]);
+  const shortHeader = await parseStudentWorkbook(await file([['Matrícula', 'Nº', 'Nome'], ['A-1', '', 'Ana Silva']]));
+  assert.equal(shortHeader[0].number, undefined);
+  const headerless = await parseStudentWorkbook(await file([[1373439, 1, 'ADRIAN GABRIEL'], [1331841, 2, 'ALEXANDRE SOUZA']]));
+  assert.deepEqual(headerless.map(({ registration, number, name }) => [registration, number, name]), [['1373439', 1, 'ADRIAN GABRIEL'], ['1331841', 2, 'ALEXANDRE SOUZA']]);
+  // Planilhas antigas (código e nome) continuam valendo, sem número.
+  const legacy = await parseStudentWorkbook(await file([['Código', 'Nome'], ['01', 'Ana']]));
+  assert.equal(legacy[0].number, undefined);
+});
+
+test('recusa nº da chamada inválido ou repetido', async () => {
+  await assert.rejects(parseStudentWorkbook(await file([['Código', 'Nº', 'Nome'], ['1', 'x', 'Ana']])), /Linha 2: o número da chamada/);
+  await assert.rejects(parseStudentWorkbook(await file([['Código', 'Nº', 'Nome'], ['1', 0, 'Ana']])), /Linha 2: o número da chamada/);
+  await assert.rejects(parseStudentWorkbook(await file([['Código', 'Nº', 'Nome'], ['1', 3, 'Ana'], ['2', 3, 'Bia']])), /Linha 3: o nº da chamada 3 já aparece na linha 2/);
 });

@@ -1,0 +1,172 @@
+# UfaProva em um único VPS (ex.: Hostinger KVM, Debian 12 ou Ubuntu 24.04).
+#
+#   cd deploy/vps
+#   cp .env.example .env      # preencha os segredos (nunca faça commit do .env)
+#   docker compose up -d --build
+#
+# Serviços: Caddy (HTTPS automático) → portal e API; worker de PDFs (ConTeXt),
+# worker de importação de provas, worker de correção (OMR) e PostgreSQL.
+# Os arquivos (PDFs, imagens) continuam no armazenamento S3 já usado no Render.
+
+x-api-env: &api-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://caderno:${POSTGRES_PASSWORD}@postgres:5432/caderno
+  DATABASE_POOL_SIZE: "10"
+  CPF_HASH_SECRET: ${CPF_HASH_SECRET}
+  QR_SIGNING_SECRET: ${QR_SIGNING_SECRET}
+  DEV_AUTH_BYPASS: "false"
+  FILE_STORAGE_PROVIDER: ${FILE_STORAGE_PROVIDER:-s3}
+  FILE_STORAGE_DIR: /var/data/files
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET}
+  OBJECT_STORAGE_PREFIX: ${OBJECT_STORAGE_PREFIX:-caderno}
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
+  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT}
+  OBJECT_STORAGE_FORCE_PATH_STYLE: ${OBJECT_STORAGE_FORCE_PATH_STYLE:-true}
+  OBJECT_STORAGE_SSE: ${OBJECT_STORAGE_SSE:-}
+  # O código aceita qualquer um dos dois nomes; use o que existir no Render.
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-}
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-}
+  RENDER_OUTPUT_DIR: /var/data/renders
+  TEXMFCACHE: /var/data/tex-cache
+
+services:
+  postgres:
+    # Mesma versão principal do Render (18): o pg_dump precisa ser >= ao servidor.
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: caderno
+      POSTGRES_USER: caderno
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # A partir do 18, a imagem guarda os dados em /var/lib/postgresql/18/docker.
+      - postgres-data:/var/lib/postgresql
+      - ./backups:/backups
+    # Sem porta publicada: o banco só é acessível de dentro do servidor.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caderno -d caderno"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    image: ufaprova-api:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      PORT: "8788"
+      # Caddy é o único proxy na frente da API.
+      TRUST_PROXY_HOPS: "1"
+      CORS_ORIGIN: https://${SITE_DOMAIN},https://www.${SITE_DOMAIN}
+      AUTH_FRONTEND_URL: https://${SITE_DOMAIN}
+      AUTH_DEV_RESET_TOKENS: "false"
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: https://${API_DOMAIN}/api/auth/google/callback
+      MP_BILLING_ENABLED: ${MP_BILLING_ENABLED:-false}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET}
+      MP_BACK_URL: ${MP_BACK_URL:-}
+      PREVIEW_CONCURRENCY: "1"
+    volumes:
+      - api-data:/var/data
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  renderer:
+    build:
+      context: ../..
+      dockerfile: services/renderer/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      RENDER_POLL_MS: "3000"
+      RENDER_TIMEOUT_MS: "300000"
+    volumes:
+      - renderer-data:/var/data
+
+  imports:
+    # Mesma imagem da API, com outro comando (worker de importação de provas).
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    image: ufaprova-api:latest
+    restart: unless-stopped
+    command: ["node", "exam-import-worker.mjs"]
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      IMPORT_POLL_MS: "2000"
+      EXAM_AI_PROVIDER: ${EXAM_AI_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_EXAM_MODEL: ${GEMINI_EXAM_MODEL:-gemini-3.5-flash-lite}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    volumes:
+      - api-data:/var/data
+
+  omr:
+    build:
+      context: ../..
+      dockerfile: services/omr/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      OMR_PYTHON: /opt/venv-omr/bin/python
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/vps/frontend.Dockerfile
+      args:
+        # O endereço da API entra no código do portal durante o build.
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  api-data:
+  renderer-data:
+  caddy-data:
+  caddy-config:

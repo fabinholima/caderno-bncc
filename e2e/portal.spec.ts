@@ -82,6 +82,19 @@ test.describe('portal', () => {
     await expect(card.getByText('Escola Estadual dos Testes')).toBeVisible();
   });
 
+  test('alunos organizados por escola e turma', async ({ page }) => {
+    await openSection(page, 'Turmas e alunos');
+    await page.getByRole('tab', { name: /Alunos/ }).first().click();
+    const tree = page.getByRole('navigation', { name: 'Escolas e turmas' });
+    await expect(tree.getByRole('button', { name: /Escola Estadual dos Testes/ })).toBeVisible();
+    await expect(page.locator('#students-class-title')).toBeVisible();
+    await page.getByRole('button', { name: 'Adicionar alunos' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Adicionar alunos' });
+    await expect(dialog.getByRole('tab', { name: 'Importar planilha' })).toBeVisible();
+    await dialog.getByRole('tab', { name: 'Importar planilha' }).click();
+    await expect(dialog.getByText(/Código\/Matrícula → Nº da chamada → Nome do aluno/)).toBeVisible();
+  });
+
   test('administração mostra assinantes e receitas', async ({ page }) => {
     await openSection(page, 'Assinantes');
     await expect(page.getByRole('heading', { name: 'Assinantes', level: 1 })).toBeVisible();

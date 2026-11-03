@@ -29,6 +29,9 @@ import {
   parsePastedQuestion,
   repairPdfTextBreaks,
 } from './question-paste-importer';
+
+// Rótulo visível acima de cada campo (o texto de exemplo some ao digitar).
+const fieldLabel = 'grid gap-1.5 text-sm font-semibold text-slate-700';
 import type { RichContentBlock } from './rich-content-editor';
 
 type ExamImport = {
@@ -360,7 +363,7 @@ function ContextTextField({
         rows={rows}
         spellCheck={false}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full resize-y rounded-lg border border-slate-200 bg-slate-950 p-3 font-mono text-sm leading-6 text-cyan-50 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+        className="w-full resize-y rounded-lg border border-slate-200 bg-slate-950 p-3 font-mono text-sm leading-6 text-cyan-50 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
       />
     </div>
   );
@@ -786,10 +789,10 @@ function AiSuggestionReview({
   };
 
   return (
-    <section className="mt-3 rounded-lg border border-violet-200 bg-white p-3">
+    <section className="mt-3 rounded-lg border border-blue-200 bg-white p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-900">
             {suggestion.provider === 'local_demo'
               ? 'Sugestão local de demonstração'
               : 'Sugestão da IA'}{' '}
@@ -851,11 +854,11 @@ function AiSuggestionReview({
                       : current.filter((field) => field !== row.field),
                   )
                 }
-                className="mt-0.5 size-4 accent-violet-700"
+                className="mt-0.5 size-4 accent-blue-700"
               />
               <span className="font-semibold text-slate-700">{row.label}</span>
               <span className="pr-3 text-slate-600">{row.current}</span>
-              <span className="pr-3 text-violet-900">{row.suggested}</span>
+              <span className="pr-3 text-blue-900">{row.suggested}</span>
               <span
                 className={`w-fit rounded-full px-2 py-0.5 text-xs font-bold ${isAccepted ? 'bg-emerald-100 text-emerald-800' : isRejected ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'}`}
               >
@@ -894,7 +897,7 @@ function AiSuggestionReview({
         )}
       </div>
       <details className="mt-3">
-        <summary className="cursor-pointer text-xs font-semibold text-violet-800">
+        <summary className="cursor-pointer text-xs font-semibold text-blue-800">
           Ver texto completo sugerido
         </summary>
         <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs">
@@ -951,6 +954,8 @@ export function ExamImportManager({
   const [aiProviders, setAiProviders] = useState<Record<string, string>>({});
   const [selectedImportId, setSelectedImportId] = useState('');
   const [subjectMode, setSubjectMode] = useState('single');
+  // Muda após enviar: recria os campos de PDF e apaga o nome do arquivo escolhido.
+  const [formGeneration, setFormGeneration] = useState(0);
   const [importMode, setImportMode] = useState('pdf');
   const [pastedText, setPastedText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1117,6 +1122,7 @@ export function ExamImportManager({
       ),
     );
 
+  const visibleCount = imports.reduce((total, item) => total + visibleCandidates(item).length, 0);
   const applyVisibleAction = async (
     action: 'select' | 'unselect' | 'confirm' | 'ignore' | 'restore',
   ) => {
@@ -1138,6 +1144,9 @@ export function ExamImportManager({
       setMessage('Nenhuma questão visível aceita esta ação.');
       return;
     }
+    // Descartar em massa pede confirmação (as questões podem ser restauradas na aba Descartadas).
+    if (action === 'ignore' && !window.confirm(`Descartar ${actionable.length} questão(ões) visível(is)? Elas podem ser restauradas na aba Descartadas.`))
+      return;
     setBatchActionBusy(true);
     try {
       await Promise.all(
@@ -1251,6 +1260,7 @@ export function ExamImportManager({
       if (!response.ok)
         throw new Error(body.error || 'Falha ao enviar a prova.');
       form.reset();
+      setFormGeneration((value) => value + 1);
       setSubjectMode('single');
       setExamPreview(null);
       setAnswerKeyPreview(null);
@@ -1776,7 +1786,7 @@ export function ExamImportManager({
 
   return (
     <section className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <p className="text-xs font-bold uppercase tracking-[.15em] text-violet-700">
+      <p className="text-xs font-bold uppercase tracking-[.15em] text-blue-700">
         Curadoria editorial
       </p>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1806,10 +1816,10 @@ export function ExamImportManager({
         ].map(([number, title, description], index) => (
           <div
             key={number}
-            className={`flex items-center gap-3 rounded-xl px-3 py-3 ${index === 0 ? 'bg-violet-50' : 'bg-slate-50'}`}
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 ${index === 0 ? 'bg-blue-50' : 'bg-slate-50'}`}
           >
             <span
-              className={`grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold ${index === 0 ? 'bg-violet-700 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}
+              className={`grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold ${index === 0 ? 'bg-blue-700 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}
             >
               {number}
             </span>
@@ -1825,7 +1835,7 @@ export function ExamImportManager({
         ))}
       </nav>
       {message && (
-        <output className="mt-4 block rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-950">
+        <output className="mt-4 block rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-950">
           {message}
         </output>
       )}
@@ -1858,7 +1868,7 @@ export function ExamImportManager({
                       <span className="font-normal text-slate-500">→</span>{' '}
                       <button
                         type="button"
-                        className="text-violet-700 underline"
+                        className="text-blue-700 underline"
                         onClick={() =>
                           onOpenQuestion(duplicate.duplicateOfQuestionId)
                         }
@@ -1916,7 +1926,7 @@ export function ExamImportManager({
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <FileUp className="size-5 text-violet-700" />
+            <FileUp className="size-5 text-blue-700" />
             <div>
               <h2 className="font-display text-xl font-bold">
                 Nova importação
@@ -1926,7 +1936,7 @@ export function ExamImportManager({
               </p>
             </div>
           </div>
-          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
             Etapa 1 de 3
           </span>
         </div>
@@ -1936,19 +1946,14 @@ export function ExamImportManager({
         </div>
         <form onSubmit={submit} className="mt-5 space-y-5">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Input
-              name="sourceInstitution"
-              required
-              placeholder="Instituição: ITA, Fuvest..."
-            />
-            <Input
-              name="sourceYear"
-              required
-              type="number"
-              min="1900"
-              max="2100"
-              defaultValue="2025"
-            />
+            <label htmlFor="import-source-institution" className={fieldLabel}>
+              Instituição
+              <Input id="import-source-institution" name="sourceInstitution" required placeholder="Ex.: ITA, Fuvest, ENEM" className="font-normal" />
+            </label>
+            <label htmlFor="import-source-year" className={fieldLabel}>
+              Ano da prova
+              <Input id="import-source-year" name="sourceYear" required type="number" min="1900" max="2100" defaultValue={String(new Date().getFullYear())} className="font-normal" />
+            </label>
             <SelectField
               name="examType"
               label="Tipo de prova"
@@ -1971,13 +1976,15 @@ export function ExamImportManager({
               ]}
             />
             {subjectMode === 'single' && (
-              <label className="block">
-                <span className="sr-only">Disciplina da prova</span>
+              <label htmlFor="import-primary-subject" className={fieldLabel}>
+                Disciplina da prova
                 <Input
+                  id="import-primary-subject"
+                  className="font-normal"
                   name="primarySubject"
                   required
                   list="exam-import-disciplines"
-                  placeholder="Disciplina da prova"
+                  placeholder="Ex.: Química"
                   autoComplete="off"
                 />
                 <datalist id="exam-import-disciplines">
@@ -1993,11 +2000,10 @@ export function ExamImportManager({
                 </datalist>
               </label>
             )}
-            <Input
-              name="sourceUrl"
-              type="url"
-              placeholder="Página de referência (opcional; não baixa o PDF)"
-            />
+            <label htmlFor="import-source-url" className={fieldLabel}>
+              <span>Página de referência <span className="font-normal text-slate-500">(opcional)</span></span>
+              <Input id="import-source-url" name="sourceUrl" type="url" placeholder="https://… (não baixa o PDF)" className="font-normal" />
+            </label>
             <SelectField
               name="rightsStatus"
               label="Direitos de uso"
@@ -2021,11 +2027,13 @@ export function ExamImportManager({
           <div hidden={importMode !== 'pdf'}>
           <div className="grid gap-4 lg:grid-cols-2">
             <PdfField
+              key={`exam-${formGeneration}`}
               name="examPdf"
               title="PDF da prova"
               onFileSelected={(file) => updatePreview(file, setExamPreview)}
             />
             <PdfField
+              key={`key-${formGeneration}`}
               name="answerKeyPdf"
               title="PDF do gabarito"
               onFileSelected={(file) =>
@@ -2034,8 +2042,8 @@ export function ExamImportManager({
             />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <label htmlFor="exam-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF da prova<Input id="exam-pdf-url" name="examPdfUrl" type="url" placeholder="https://instituicao.br/prova.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
-            <label htmlFor="answer-key-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input id="answer-key-pdf-url" name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
+            <label htmlFor="exam-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF da prova<Input id="exam-pdf-url" name="examPdfUrl" type="url" placeholder="https://instituicao.br/prova.pdf" className="font-normal" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
+            <label htmlFor="answer-key-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input id="answer-key-pdf-url" name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" className="font-normal" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
           </div>
           </div>
           {importMode === 'text' && (
@@ -2179,9 +2187,12 @@ export function ExamImportManager({
           ))}
         </div>
         <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid items-end gap-2 md:grid-cols-2 xl:grid-cols-6">
+            <label htmlFor="import-review-search" className={fieldLabel}>
+            Buscar
             <Input
-              aria-label="Buscar na fila de revisão"
+              id="import-review-search"
+              className="h-9 font-normal"
               value={reviewFilters.query}
               onChange={(event) =>
                 setReviewFilters((current) => ({
@@ -2191,6 +2202,7 @@ export function ExamImportManager({
               }
               placeholder="Questão ou trecho..."
             />
+            </label>
             <SelectField
               name="review-status"
               label="Situação editorial"
@@ -2284,7 +2296,7 @@ export function ExamImportManager({
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-600">
-              {imports.flatMap((item) => visibleCandidates(item)).length}{' '}
+              {visibleCount}{' '}
               questão(ões) visível(is). As ações afetam somente este resultado.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -2292,7 +2304,7 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || reviewTab !== 'pending'}
+                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('select')}
               >
                 Selecionar visíveis
@@ -2301,7 +2313,7 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || reviewTab !== 'pending'}
+                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('unselect')}
               >
                 Desmarcar visíveis
@@ -2310,7 +2322,7 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || reviewTab !== 'pending'}
+                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('confirm')}
               >
                 Confirmar gabaritos sugeridos
@@ -2319,7 +2331,7 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || reviewTab !== 'pending'}
+                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
                 onClick={() => applyVisibleAction('ignore')}
               >
                 Descartar visíveis
@@ -2328,7 +2340,7 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || reviewTab !== 'discarded'}
+                disabled={batchActionBusy || !visibleCount || reviewTab !== 'discarded'}
                 onClick={() => applyVisibleAction('restore')}
               >
                 Restaurar descartadas
@@ -2353,7 +2365,7 @@ export function ExamImportManager({
             .map((item) => (
               <article
                 key={item.id}
-                className={`overflow-hidden rounded-xl border bg-white transition ${selectedImportId === item.id ? 'border-violet-300 shadow-sm' : 'border-slate-200 hover:border-violet-200'}`}
+                className={`overflow-hidden rounded-xl border bg-white transition ${selectedImportId === item.id ? 'border-blue-300 shadow-sm' : 'border-slate-200 hover:border-blue-200'}`}
               >
                 <button
                   type="button"
@@ -2367,7 +2379,7 @@ export function ExamImportManager({
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     {selectedImportId === item.id ? (
-                      <ChevronDown className="size-5 shrink-0 text-violet-700" />
+                      <ChevronDown className="size-5 shrink-0 text-blue-700" />
                     ) : (
                       <ChevronRight className="size-5 shrink-0 text-slate-500" />
                     )}
@@ -2437,9 +2449,9 @@ export function ExamImportManager({
                               size: document.sizeBytes,
                             })
                           }
-                          className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs transition hover:bg-violet-50 hover:text-violet-900"
+                          className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs transition hover:bg-blue-50 hover:text-blue-900"
                         >
-                          <FileText className="size-4 text-violet-700" />
+                          <FileText className="size-4 text-blue-700" />
                           {document.kind === 'exam' ? 'Prova' : 'Gabarito'}:{' '}
                           {document.fileName} ·{' '}
                           {(document.sizeBytes / 1_000_000).toFixed(1)} MB
@@ -2529,10 +2541,10 @@ export function ExamImportManager({
                       </section>
                     )}
                     {item.aiJob && (
-                      <section className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
+                      <section className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-violet-900">
+                            <p className="text-xs font-bold uppercase tracking-wide text-blue-900">
                               Análise assistida ·{' '}
                               {item.aiJob.stage === 'waiting_quota'
                                 ? 'Aguardando cota da IA · retomada automática'
@@ -2576,9 +2588,9 @@ export function ExamImportManager({
                             </Button>
                           ) : null}
                         </div>
-                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-violet-100">
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100">
                           <div
-                            className="h-full rounded-full bg-violet-600"
+                            className="h-full rounded-full bg-blue-600"
                             style={{ width: `${item.aiJob.progress}%` }}
                           />
                         </div>
@@ -2734,7 +2746,7 @@ export function ExamImportManager({
                                       setMessage(error.message),
                                     )
                                   }
-                                  className="size-4 accent-violet-700"
+                                  className="size-4 accent-blue-700"
                                 />
                                 Questão {candidate.sourceNumber}
                               </label>
@@ -2759,7 +2771,7 @@ export function ExamImportManager({
                                 <option value="essay">Discursiva</option>
                               </select>
                               <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-violet-100 text-violet-800'}`}
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}
                               >
                                 {candidate.status === 'completed'
                                   ? 'Concluída'
@@ -2792,7 +2804,7 @@ export function ExamImportManager({
                                   Texto obtido por OCR
                                 </span>
                               )}
-                              {candidate.extractionMethod === 'gemini-pdf' && <span className="text-xs font-semibold text-violet-700">PDF lido diretamente pelo Gemini · revisão obrigatória</span>}
+                              {candidate.extractionMethod === 'gemini-pdf' && <span className="text-xs font-semibold text-blue-700">PDF lido diretamente pelo Gemini · revisão obrigatória</span>}
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               {candidateEditorialChecks(candidate).map(
@@ -2882,7 +2894,7 @@ export function ExamImportManager({
                                     {cropPointer?.candidateId ===
                                       candidate.id && (
                                       <div
-                                        className="pointer-events-none absolute border-2 border-violet-600 bg-violet-300/20"
+                                        className="pointer-events-none absolute border-2 border-blue-600 bg-blue-300/20"
                                         style={{
                                           left: `${Math.min(cropPointer.startX, cropPointer.currentX)}%`,
                                           top: `${Math.min(cropPointer.startY, cropPointer.currentY)}%`,
@@ -3094,7 +3106,7 @@ export function ExamImportManager({
                                             setMessage(error.message),
                                           );
                                         }}
-                                        className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-violet-700 bg-violet-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
+                                        className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
                                       >
                                         {candidate.questionType === 'true_false' ? (letter === 'A' ? 'C' : 'E') : letter}
                                       </button>
@@ -3198,16 +3210,15 @@ function SelectField({
   onChange?: (value: string) => void;
 }) {
   return (
-    <label className="block text-sm font-semibold text-slate-700">
-      <span className="sr-only">{label}</span>
+    <label className={fieldLabel}>
+      {label}
       <select
         name={name}
-        aria-label={label}
         value={value}
         onChange={
           onChange ? (event) => onChange(event.target.value) : undefined
         }
-        className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-normal"
+        className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-normal text-slate-900"
       >
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>
@@ -3270,8 +3281,8 @@ function CandidateClassificationFields({
     : discipline?.skills || [];
 
   return (
-    <section className="mt-3 rounded-lg border border-violet-200 bg-violet-50/60 p-3">
-      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-violet-900">
+    <section className="mt-3 rounded-lg border border-blue-200 bg-blue-50/60 p-3">
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-900">
         Classificação desta questão
       </p>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -3444,10 +3455,10 @@ function BulkRegistrationPanel({
       Boolean(resolveImportClassification({candidate,settings,item,disciplines,topics}).topicId),
   );
   return (
-    <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+    <section className="mt-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h5 className="font-semibold text-violet-950">Cadastro em lote</h5>
+          <h5 className="font-semibold text-blue-950">Cadastro em lote</h5>
           <p className="mt-1 text-xs text-slate-600">
             Estes dados são padrões. A classificação preenchida diretamente em
             uma questão tem prioridade.
@@ -3603,22 +3614,34 @@ function PdfField({
   required?: boolean;
   onFileSelected: (file: File | null) => void;
 }) {
+  // Campo de arquivo em português, com o nome do PDF escolhido. O <input>
+  // invisível cobre toda a área: clicar ou soltar um PDF ali funciona.
+  const [fileName, setFileName] = useState('');
   return (
-    <label className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
-      <FileText className="mx-auto size-7 text-violet-700" />
+    <label className="relative block cursor-pointer rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center transition focus-within:ring-2 focus-within:ring-blue-600 hover:bg-slate-100">
+      <FileText className="mx-auto size-7 text-blue-700" aria-hidden="true" />
       <span className="mt-2 block text-sm font-semibold">{title}</span>
       <span className="mt-1 block text-xs text-slate-500">
-        Selecione um arquivo PDF de até 15 MB.
+        Arraste o PDF para cá ou clique para escolher (até 15 MB).
+      </span>
+      <span className="mt-3 inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700">
+        {fileName ? 'Trocar arquivo' : 'Escolher PDF'}
+      </span>
+      <span className="mt-2 block truncate text-xs text-slate-600" aria-live="polite">
+        {fileName || 'Nenhum arquivo escolhido'}
       </span>
       <input
         name={name}
         type="file"
         accept="application/pdf,.pdf"
         required={required}
-        onChange={(event) =>
-          onFileSelected(event.currentTarget.files?.[0] || null)
-        }
-        className="mt-3 block w-full text-xs"
+        aria-label={title}
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0] || null;
+          setFileName(file?.name || '');
+          onFileSelected(file);
+        }}
+        className="absolute inset-0 size-full cursor-pointer opacity-0"
       />
     </label>
   );
@@ -3635,7 +3658,7 @@ function PdfPreviewCard({
     <article className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-wide text-violet-700">
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
             {title}
           </p>
           <p className="truncate text-sm font-semibold text-slate-800">
@@ -3656,7 +3679,7 @@ function PdfPreviewCard({
           href={preview.url}
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-semibold text-violet-700 underline-offset-2 hover:underline"
+          className="text-xs font-semibold text-blue-700 underline-offset-2 hover:underline"
         >
           Abrir prévia em outra aba
         </a>
@@ -3676,10 +3699,10 @@ function StoredPdfPreviewCard({
 }) {
   const url = `${apiUrl}/api/exam-imports/${preview.importId}/documents/${preview.documentId}/pdf`;
   return (
-    <section className="mt-4 overflow-hidden rounded-xl border border-violet-200 bg-slate-100">
+    <section className="mt-4 overflow-hidden rounded-xl border border-blue-200 bg-slate-100">
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-wide text-violet-700">
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
             Prévia após a importação · {preview.title}
           </p>
           <p className="truncate text-sm font-semibold text-slate-800">
@@ -3706,7 +3729,7 @@ function StoredPdfPreviewCard({
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-semibold text-violet-700 underline-offset-2 hover:underline"
+          className="text-xs font-semibold text-blue-700 underline-offset-2 hover:underline"
         >
           Abrir PDF em outra aba
         </a>

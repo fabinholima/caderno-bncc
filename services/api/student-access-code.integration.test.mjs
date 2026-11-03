@@ -32,7 +32,7 @@ test(
  CREATE TABLE classes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,name text,school_id uuid);
  CREATE TABLE students(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,name text,registration text,active boolean DEFAULT true,teacher_id uuid,access_code text,selfie_data_url text NOT NULL DEFAULT '',status text,adapted_exam boolean NOT NULL DEFAULT false,UNIQUE(institution_id,registration));
  CREATE UNIQUE INDEX students_access_code_unique ON students(lower(access_code));
- CREATE TABLE class_enrollments(class_id uuid,student_id uuid,PRIMARY KEY(class_id,student_id));
+ CREATE TABLE class_enrollments(class_id uuid,student_id uuid,number integer,PRIMARY KEY(class_id,student_id));
  CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text DEFAULT 'trialing',period_started_at timestamptz,period_ends_at timestamptz);
  CREATE TABLE password_reset_tokens(user_id uuid,token_hash text,expires_at timestamptz,used_at timestamptz);
  CREATE TABLE subscription_plans(id text,monthly_assessments integer,max_students integer);
