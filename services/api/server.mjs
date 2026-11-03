@@ -18,6 +18,7 @@ import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
 import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
 import { qrSigningWarning } from './qr-signing.mjs';
+import { myResultDetail, mySkillPerformance } from './student-results.mjs';
 import { listApplicationResults, getResultDetail, authorizeResults, getResultSettings, saveResultSettings } from './result-publication.mjs';
 import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
@@ -414,12 +415,19 @@ const server = createServer(async (request, response) => {
     const requestDecisionMatch = url.pathname.match(/^\/api\/class-join-requests\/([0-9a-f-]{36})$/i);
     if (requestDecisionMatch && request.method === 'POST')
       return json(response, 200, { data: await decideRequest(identity, requestDecisionMatch[1], await readJson(request, 8192)) });
+    // Notas e resultados são dados escolares privados: nem o navegador nem o
+    // service worker do aplicativo devem guardá-los.
+    if (/^\/api\/(student\/|assessment-results|assessment-applications\/[0-9a-f-]{36}\/(results|result-settings)$)/i.test(url.pathname))
+      response.setHeader('cache-control', 'no-store');
     // Código individual do aluno: vínculo imediato, sem aprovação do professor.
     if (request.method === 'POST' && url.pathname === '/api/student/access-code/inspect')
       return json(response, 200, { data: await inspectAccessCode(identity, await readJson(request, 4096)) });
     if (request.method === 'POST' && url.pathname === '/api/student/access-code/claim')
       return json(response, 200, { data: await claimAccessCode(identity, await readJson(request, 4096)) });
     if(request.method==='GET' && url.pathname==='/api/student/activities')return json(response,200,{data:await myActivities(identity)});
+    if (request.method === 'GET' && url.pathname === '/api/student/skill-performance') return json(response, 200, { data: await mySkillPerformance(identity) });
+    const studentResultMatch = request.method === 'GET' && url.pathname.match(/^\/api\/student\/results\/([0-9a-f-]{36})$/i);
+    if (studentResultMatch) return json(response, 200, { data: await myResultDetail(identity, studentResultMatch[1]) });
     if (url.pathname === '/api/student/profile' && request.method === 'GET') return json(response, 200, { data: await myStudentProfiles(identity) });
     if (url.pathname === '/api/student/profile' && request.method === 'POST') {
       if (requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response, 403, { error: 'Origem não autorizada.' });

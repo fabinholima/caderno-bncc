@@ -37,7 +37,8 @@ test('teacher authorization publishes results only to the student who owns them'
     const outsider = await one(`INSERT INTO users(email,display_name) VALUES($1,'Prof. B') RETURNING id`, [`o-${schema}@test.local`]);
     const assessment = await one(`INSERT INTO assessments(institution_id,title,subject,grade,created_by) VALUES($1,'Prova 1','Química','1º ano',$2) RETURNING id`, [institution.id, teacher.id]);
     const question = (number, correct) => ({ number, type: 'single_choice', points: 1,
-      alternatives: ['A', 'B', 'C'].map((label) => ({ label, stableKey: `${number}${label}` })), answer: { correctStableKeys: [`${number}${correct}`] } });
+      alternatives: ['A', 'B', 'C'].map((label) => ({ label, stableKey: `${number}${label}` })), answer: { correctStableKeys: [`${number}${correct}`] },
+      skills: number < 3 ? [{ code: 'EM13CNT101', primary: true }] : [] });
     const version = await one(`INSERT INTO assessment_versions(assessment_id,code,seed,snapshot,answer_key) VALUES($1,'A',1,$2::jsonb,'{}') RETURNING id`,
       [assessment.id, JSON.stringify({ questions: [question(1, 'A'), question(2, 'B'), question(3, 'C')] })]);
     const klass = await one(`INSERT INTO classes(institution_id,name,grade,school_year) VALUES($1,'1A','1º ano',2026) RETURNING id`, [institution.id]);
@@ -148,6 +149,41 @@ test('teacher authorization publishes results only to the student who owns them'
       input: { applicationId: application.id, items: [{ resultId: anaV1.resultId, versionId: afterRule.Ana.currentVersionId }] } });
     [activity] = await myActivities(anaAccount);
     assert.deepEqual([activity.percent, Number(activity.score), Number(activity.maxScore), activity.annulledCount], [100, 2, 2, 1]);
+
+    // Detalhe do aluno: respostas conforme a política, habilidades com a base
+    // de evidência e somente a orientação publicada.
+    const studentResults = await import('./student-results.mjs');
+    let mine = await studentResults.myResultDetail(anaAccount, anaV1.resultId);
+    assert.equal(mine.releasePolicy, 'answers');
+    assert.deepEqual(mine.questions.map((q) => [q.questionNumber, q.status, q.selectedLabels, q.correctLabels]),
+      [[1, 'correct', ['A'], undefined], [2, 'correct', ['B'], undefined], [3, 'annulled', ['A'], undefined]]);
+    // A descrição vem do catálogo BNCC carregado pelas migrações.
+    const [{ description, ...skill }] = mine.skills;
+    assert.deepEqual(skill, { code: 'EM13CNT101', questions: 2, correct: 2, percent: 100, sufficientEvidence: false });
+    assert.match(description, /^Analisar e representar/);
+    assert.equal(mine.guidance, null);
+    await pool.query(`INSERT INTO performance_followups(institution_id,result_id,status,reasons,actions,internal_note,student_guidance,student_guidance_published)
+      VALUES($1,$2,'justified','{attendance}','{recovery}','conversa com a família','Refaça a lista 3 até sexta.',true)`, [institution.id, anaV1.resultId]);
+    mine = await studentResults.myResultDetail(anaAccount, anaV1.resultId);
+    assert.equal(mine.guidance.text, 'Refaça a lista 3 até sexta.');
+    assert.ok(!JSON.stringify(mine).includes('família'), 'nota interna nunca chega ao aluno');
+    assert.ok(!JSON.stringify(mine).includes('attendance'), 'motivos não chegam ao aluno');
+    await pool.query(`INSERT INTO performance_followups(institution_id,result_id,status,reasons,student_guidance,student_guidance_published,created_at)
+      VALUES($1,$2,'justified','{attendance}','rascunho',false,now()+interval '1 second')`, [institution.id, anaV1.resultId]);
+    assert.equal((await studentResults.myResultDetail(anaAccount, anaV1.resultId)).guidance, null, 'orientação retirada deixa de aparecer');
+    await publication.saveResultSettings({ institutionId: institution.id, userId: teacher.id, applicationId: application.id,
+      input: { minExpectedPercent: 70, releasePolicy: 'answers_and_key', annulledQuestions: [3], annulledPolicy: 'exclude' } });
+    assert.deepEqual((await studentResults.myResultDetail(anaAccount, anaV1.resultId)).questions[0].correctLabels, ['A']);
+    await publication.saveResultSettings({ institutionId: institution.id, userId: teacher.id, applicationId: application.id,
+      input: { minExpectedPercent: 70, releasePolicy: 'summary', annulledQuestions: [3], annulledPolicy: 'exclude' } });
+    assert.deepEqual((await studentResults.myResultDetail(anaAccount, anaV1.resultId)).questions, []);
+    // Outro aluno, resultado não publicado ou conta de professor não acessam.
+    await assert.rejects(studentResults.myResultDetail(caioAccount, anaV1.resultId), (error) => error.statusCode === 404);
+    await assert.rejects(studentResults.myResultDetail(anaAccount, randomUUID()), (error) => error.statusCode === 404);
+    await assert.rejects(studentResults.myResultDetail({ userId: teacher.id, role: 'teacher' }, anaV1.resultId), (error) => error.statusCode === 403);
+    const performance = await studentResults.mySkillPerformance(anaAccount);
+    assert.deepEqual(performance.map((entry) => [entry.subject, entry.assessments, entry.skills.map((skill) => [skill.code, skill.questions])]), [['Química', 1, [['EM13CNT101', 2]]]]);
+    assert.deepEqual(await studentResults.mySkillPerformance(caioAccount), []);
 
     const detail = await publication.getResultDetail({ institutionId: institution.id, resultId: anaV1.resultId });
     assert.deepEqual(detail.versions.map((item) => [item.version, item.source]), [[2, 'recalculation'], [1, 'omr']]);

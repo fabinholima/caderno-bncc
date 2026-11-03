@@ -182,3 +182,43 @@ export function normalizeFollowup(input = {}) {
     studentGuidancePublished: publishGuidance,
   };
 }
+
+// Menos questões que isso não sustentam uma conclusão sobre a habilidade;
+// o indicador é exibido com a ressalva.
+export const MIN_SKILL_EVIDENCE = 3;
+const SCORED = new Set(['correct', 'incorrect', 'blank', 'invalid']);
+
+// Desempenho por habilidade a partir das questões objetivas já corrigidas.
+// Usa somente os códigos gravados nas questões; nada é inferido.
+export function skillPerformance(itemLists) {
+  const skills = new Map();
+  for (const items of itemLists) for (const item of items ?? []) {
+    if (!SCORED.has(item.status)) continue;
+    for (const code of new Set((item.skills ?? []).map((skill) => skill.code).filter(Boolean))) {
+      const entry = skills.get(code) ?? { code, questions: 0, correct: 0 };
+      entry.questions += 1;
+      if (item.status === 'correct') entry.correct += 1;
+      skills.set(code, entry);
+    }
+  }
+  return [...skills.values()]
+    .map((entry) => ({
+      ...entry,
+      percent: Math.round((entry.correct * 10000) / entry.questions) / 100,
+      sufficientEvidence: entry.questions >= MIN_SKILL_EVIDENCE,
+    }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+// O que o aluno vê de cada questão, conforme a política da aplicação.
+export function studentQuestionView(items, releasePolicy) {
+  if (releasePolicy !== 'answers' && releasePolicy !== 'answers_and_key') return [];
+  return (items ?? []).map((item) => ({
+    questionNumber: item.questionNumber,
+    status: item.status,
+    ...(Array.isArray(item.selectedLabels) ? { selectedLabels: item.selectedLabels } : {}),
+    ...(releasePolicy === 'answers_and_key' && Array.isArray(item.correctLabels) ? { correctLabels: item.correctLabels } : {}),
+    awardedPoints: item.awardedPoints ?? null,
+    maxPoints: item.maxPoints ?? null,
+  }));
+}
