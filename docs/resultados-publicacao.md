@@ -167,6 +167,28 @@ Sem publicação, `score`, `maxScore` e as contagens vêm nulos e
 anteriores do app e do portal. A consulta não verifica a assinatura: o
 histórico publicado continua visível com a assinatura inativa.
 
+### Acompanhamento de baixo rendimento
+
+- `GET /api/assessment-results/:id/followups` devolve o histórico, do mais recente para o mais antigo. Cada entrada traz `status`, `reasons`, `otherReason`, `actions`, `internalNote`, `studentGuidance`, `studentGuidancePublished`, `createdAt`, `createdByName` e `resultVersion`.
+- `POST /api/assessment-results/:id/followups` acrescenta uma entrada:
+
+```json
+{ "clientMutationId": "uuid opcional",
+  "reasons": ["content_comprehension","reading_interpretation","attendance","prior_content","incomplete_assessment","application_incident","other"],
+  "otherReason": "obrigatório com other",
+  "actions": ["content_review","targeted_exercises","individual_support","recovery","new_assessment"],
+  "internalNote": "nunca exibida ao aluno",
+  "studentGuidance": "texto ao aluno", "publishGuidance": false }
+```
+
+- **Status:** sem motivos, a entrada fica `pending`; com motivos, `justified`. O sistema nunca escolhe um motivo.
+- **Erros (422):** motivo `other` sem descrição, código desconhecido ou `publishGuidance` sem texto.
+- **Histórico:** nada é editado ou apagado. A entrada mais recente define a situação atual e a orientação visível ao aluno, que só aparece depois que o resultado é publicado.
+- **Repetição:** reenviar o mesmo `clientMutationId` devolve a resposta original.
+- **Registro:** cada entrada vai para `audit_log` como `result.followup`.
+- **Publicação:** a justificativa não bloqueia a autorização.
+- **Professor:** `GET /api/assessment-results/:id` inclui `followups`, `belowExpected` e `minExpectedPercent`.
+
 ### Aluno: `GET /api/student/results/:resultId`
 
 A rota é exclusiva de contas de aluno e responde 403 para outros perfis. O

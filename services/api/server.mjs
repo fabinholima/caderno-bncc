@@ -19,7 +19,7 @@ import { authOriginAllowed } from './auth-origin.mjs';
 import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
 import { qrSigningWarning } from './qr-signing.mjs';
 import { myResultDetail, mySkillPerformance } from './student-results.mjs';
-import { listApplicationResults, getResultDetail, authorizeResults, getResultSettings, saveResultSettings } from './result-publication.mjs';
+import { listApplicationResults, getResultDetail, authorizeResults, getResultSettings, saveResultSettings, listFollowups, saveFollowup } from './result-publication.mjs';
 import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
@@ -1135,6 +1135,11 @@ const server = createServer(async (request, response) => {
       return json(response, 200, { data: await saveResultSettings({ institutionId, userId, applicationId: resultSettingsMatch[1], input: await readJson(request, 32768) }) });
     if (request.method === 'POST' && url.pathname === '/api/assessment-results/authorize')
       return json(response, 200, { data: await authorizeResults({ institutionId, userId, input: await readJson(request, 65536) }) });
+    const followupMatch = url.pathname.match(/^\/api\/assessment-results\/([0-9a-f-]{36})\/followups$/i);
+    if (followupMatch && request.method === 'GET')
+      return json(response, 200, { data: await listFollowups({ institutionId, resultId: followupMatch[1] }) });
+    if (followupMatch && request.method === 'POST')
+      return json(response, 201, { data: await saveFollowup({ institutionId, userId, resultId: followupMatch[1], input: await readJson(request, 32768) }) });
     const resultDetailMatch =
       request.method === 'GET' &&
       url.pathname.match(/^\/api\/assessment-results\/([0-9a-f-]{36})$/i);

@@ -185,6 +185,40 @@ test('teacher authorization publishes results only to the student who owns them'
     assert.deepEqual(performance.map((entry) => [entry.subject, entry.assessments, entry.skills.map((skill) => [skill.code, skill.questions])]), [['Química', 1, [['EM13CNT101', 2]]]]);
     assert.deepEqual(await studentResults.mySkillPerformance(caioAccount), []);
 
+    // Baixo rendimento: o professor registra motivos e ações; o histórico só cresce.
+    const caioV1 = await record(caio, [answer(1, 'B'), answer(2, 'A'), answer(3, 'A')]);
+    let caioDetail = await publication.getResultDetail({ institutionId: institution.id, resultId: caioV1.resultId });
+    assert.equal(caioDetail.belowExpected, true);
+    assert.deepEqual(caioDetail.followups, []);
+    const caioRow = (await publication.listApplicationResults({ institutionId: institution.id, applicationId: application.id })).students.find((s) => s.studentName === 'Caio');
+    assert.deepEqual([caioRow.belowExpected, caioRow.followupStatus], [true, null]);
+    await assert.rejects(publication.saveFollowup({ institutionId: institution.id, userId: teacher.id, resultId: caioV1.resultId, input: { reasons: ['other'] } }), (error) => error.statusCode === 422);
+    await assert.rejects(publication.saveFollowup({ institutionId: institution.id, userId: teacher.id, resultId: caioV1.resultId, input: { reasons: ['lazy'] } }));
+    await assert.rejects(publication.saveFollowup({ institutionId: otherInstitution.id, userId: outsider.id, resultId: caioV1.resultId, input: {} }), (error) => error.statusCode === 404);
+    await assert.rejects(publication.listFollowups({ institutionId: otherInstitution.id, resultId: caioV1.resultId }), (error) => error.statusCode === 404);
+    const pendingEntry = await publication.saveFollowup({ institutionId: institution.id, userId: teacher.id, resultId: caioV1.resultId, input: { internalNote: 'Conversar na próxima aula.' } });
+    assert.equal(pendingEntry.history[0].status, 'pending');
+    const justify = { clientMutationId: randomUUID(), reasons: ['attendance', 'other'], otherReason: 'Mudou de turno', actions: ['recovery', 'individual_support'], internalNote: 'Avisar coordenação', studentGuidance: 'Procure o plantão de quinta.', publishGuidance: true };
+    const justified = await publication.saveFollowup({ institutionId: institution.id, userId: teacher.id, resultId: caioV1.resultId, input: justify });
+    // A resposta repetida vem do recibo gravado (JSON), como chegaria pela API.
+    const replayed = await publication.saveFollowup({ institutionId: institution.id, userId: teacher.id, resultId: caioV1.resultId, input: justify });
+    assert.deepEqual(replayed, JSON.parse(JSON.stringify(justified)), 'repetir o envio não duplica');
+    const history = await publication.listFollowups({ institutionId: institution.id, resultId: caioV1.resultId });
+    assert.deepEqual(history.map((entry) => entry.status), ['justified', 'pending']);
+    assert.deepEqual(history[0].actions, ['recovery', 'individual_support']);
+    assert.equal(history[0].createdByName, 'Profa. Ana');
+    assert.equal(history[0].resultVersion, 1);
+    caioDetail = await publication.getResultDetail({ institutionId: institution.id, resultId: caioV1.resultId });
+    assert.equal(caioDetail.followups.length, 2);
+    assert.equal((await publication.listApplicationResults({ institutionId: institution.id, applicationId: application.id })).students.find((s) => s.studentName === 'Caio').followupStatus, 'justified');
+    // A orientação só chega ao aluno depois que o resultado for publicado.
+    await assert.rejects(studentResults.myResultDetail(caioAccount, caioV1.resultId), (error) => error.statusCode === 404);
+    await publication.authorizeResults({ institutionId: institution.id, userId: teacher.id, input: { applicationId: application.id, items: [{ resultId: caioV1.resultId, versionId: caioV1.versionId }] } });
+    const caioView = await studentResults.myResultDetail(caioAccount, caioV1.resultId);
+    assert.equal(caioView.guidance.text, 'Procure o plantão de quinta.');
+    assert.ok(!/coordenação|turno|attendance|recovery/.test(JSON.stringify(caioView)), 'motivos, ações e notas internas não chegam ao aluno');
+    assert.equal((await one(`SELECT count(*)::int n FROM audit_log WHERE action='result.followup'`)).n, 2);
+
     const detail = await publication.getResultDetail({ institutionId: institution.id, resultId: anaV1.resultId });
     assert.deepEqual(detail.versions.map((item) => [item.version, item.source]), [[2, 'recalculation'], [1, 'omr']]);
     assert.equal(detail.publications.length, 2);
@@ -198,7 +232,8 @@ test('teacher authorization publishes results only to the student who owns them'
     const biaPublished = await publication.authorizeResults({ institutionId: institution.id, userId: teacher.id,
       input: { applicationId: application.id, items: [{ resultId: biaReviewed.resultId, versionId: biaReviewed.versionId }] } });
     assert.equal(biaPublished.items[0].outcome, 'published');
-    assert.equal((await one(`SELECT count(*)::int n FROM audit_log WHERE action='result.authorize'`)).n, 3);
+    assert.equal((await one(`SELECT count(*)::int n FROM audit_log WHERE action='result.authorize'`)).n, 4);
+
 
     // Inativar a assinatura não esconde o histórico publicado.
     await pool.query(`UPDATE institution_subscriptions SET status='past_due',period_ends_at=now()-interval '1 day' WHERE institution_id=$1`, [institution.id]);
