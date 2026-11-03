@@ -58,3 +58,6 @@ next-env.d.ts
 /e2e/.auth/
 /playwright-report/
 /test-results/
+
+# Backups gerados por deploy/atualizar-producao.sh
+/backups/
