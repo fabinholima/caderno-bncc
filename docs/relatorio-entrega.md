@@ -82,7 +82,7 @@ Desenvolvimento: `.env.example` do app. Produção: variáveis do Render (`rende
 
 1. Backup do banco de produção.
 2. Publicar API e worker OMR juntos. O `preDeployCommand` aplica `103_result_publication.sql`, a única migração nova. Ela não é destrutiva: converte em "publicado (legado)" o que o aluno já via.
-3. Após a troca do worker, executar uma vez `node services/api/backfill-legacy-results.mjs`. É idempotente.
+3. O novo worker OMR converte em legado, sozinho, o que a versão antiga concluir durante a troca (ao iniciar e após 5 e 30 minutos). O script `backfill-legacy-results.mjs` fica para uma execução manual, se necessário.
 4. Criar o site estático `ufaprova-pwa` pelo `render.yaml` do app e adicionar os domínios `professor.` e `aluno.`. Depois, criar os CNAMEs no DNS.
 5. Recomendado: domínio `api.ufaprova.com.br` na API. Sem ele, Safari e navegadores que bloqueiam cookies de terceiros podem recusar a sessão da PWA.
 6. App nativo: gerar nova compilação. `expo-image-picker` é módulo nativo novo; a versão do Expo Go ou do build atual não o contém.
