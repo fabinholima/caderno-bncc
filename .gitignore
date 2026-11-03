@@ -63,5 +63,3 @@ next-env.d.ts
 /deploy/vps/.env
 /deploy/vps/backups/
 
-# Backups gerados por deploy/atualizar-producao.sh
-/backups/

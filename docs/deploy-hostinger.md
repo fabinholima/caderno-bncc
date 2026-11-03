@@ -128,9 +128,12 @@ o DNS e reativar os serviços de lá.
 
 - **Atualizar o sistema** (após um merge na `main`):
   ```sh
-  cd /opt/ufaprova && git pull && cd deploy/vps && docker compose up -d --build
+  cd /opt/ufaprova && deploy/atualizar-producao.sh
   ```
-  As migrações do banco rodam sozinhas ao iniciar a API.
+  O script faz o backup do banco antes, reinicia a API (que aplica as
+  migrações), confere `/health` e só então os workers e o portal. Veja
+  `docs/atualizacao-producao.md`. Nunca faça commit no servidor: a chave é
+  somente leitura e a `main` local deixaria de acompanhar o GitHub.
 - **Backup diário** (03h30):
   ```sh
   crontab -e

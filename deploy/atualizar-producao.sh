@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Atualiza a API e o worker OMR num servidor com Docker Compose (VPS Hostinger).
+# Atualiza o UfaProva no VPS da Hostinger (deploy/vps/docker-compose.yml).
 # Ordem: código da main -> backup do banco -> build -> API (aplica as migrações
-# ao iniciar) -> /health -> worker OMR. Veja docs/atualizacao-producao.md.
+# ao iniciar) -> /health -> workers e portal. Veja docs/atualizacao-producao.md.
 #
 # Uso: deploy/atualizar-producao.sh [--dry-run]
 # Variáveis (padrões entre parênteses):
-#   COMPOSE_FILE        arquivo compose de produção (o docker-compose.yml do diretório)
+#   COMPOSE_FILE        arquivo compose de produção (deploy/vps/docker-compose.yml)
 #   API_SERVICE         serviço da API (api)
-#   OMR_SERVICE         serviço do worker OMR (omr)
+#   OTHER_SERVICES      reiniciados depois da API (renderer imports omr frontend)
 #   DB_SERVICE          serviço do PostgreSQL no compose (postgres)
 #   DB_USER, DB_NAME    usuário e banco (caderno)
 #   BACKUP_DATABASE_URL use quando o banco não está no compose; ignora DB_SERVICE
-#   PG_IMAGE            imagem com pg_dump para BACKUP_DATABASE_URL (postgres:17-alpine)
-#   BACKUP_DIR          onde guardar os backups (<repo>/backups)
+#   PG_IMAGE            imagem com pg_dump para BACKUP_DATABASE_URL (postgres:18-alpine)
+#   BACKUP_DIR          onde guardar os backups (backups/ ao lado do COMPOSE_FILE)
 #   HEALTH_URL          (https://api.ufaprova.com.br/health)
 #   HEALTH_TIMEOUT      segundos de espera pela API (300)
 #   BRANCH              (main)
@@ -27,18 +27,18 @@ esac
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_SERVICE="${API_SERVICE:-api}"
-OMR_SERVICE="${OMR_SERVICE:-omr}"
+OTHER_SERVICES="${OTHER_SERVICES:-renderer imports omr frontend}"
+COMPOSE_FILE="${COMPOSE_FILE:-$REPO_DIR/deploy/vps/docker-compose.yml}"
 DB_SERVICE="${DB_SERVICE:-postgres}"
 DB_USER="${DB_USER:-caderno}"
 DB_NAME="${DB_NAME:-caderno}"
-PG_IMAGE="${PG_IMAGE:-postgres:17-alpine}"
-BACKUP_DIR="${BACKUP_DIR:-$REPO_DIR/backups}"
+PG_IMAGE="${PG_IMAGE:-postgres:18-alpine}"
+BACKUP_DIR="${BACKUP_DIR:-$(dirname "$COMPOSE_FILE")/backups}"
 HEALTH_URL="${HEALTH_URL:-https://api.ufaprova.com.br/health}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-300}"
 BRANCH="${BRANCH:-main}"
 
-compose_args=(--project-directory "$REPO_DIR")
-[[ -n "${COMPOSE_FILE:-}" ]] && compose_args=(-f "$COMPOSE_FILE")
+compose_args=(-f "$COMPOSE_FILE")
 compose() { docker compose "${compose_args[@]}" "$@"; }
 
 step() { printf '\n== %s\n' "$*"; }
@@ -77,7 +77,7 @@ on_exit() {
 
 Para voltar ao código anterior:
   git -C "$REPO_DIR" checkout $PREVIOUS_COMMIT
-  docker compose ${compose_args[*]} up -d --build --no-deps $API_SERVICE $OMR_SERVICE
+  docker compose ${compose_args[*]} up -d --build --no-deps $API_SERVICE ${others[*]}
 As migrações rodam numa transação: se a API falhou ao migrar, o banco não mudou.
 EOF
   fi
@@ -91,11 +91,17 @@ step "Verificações"
 command -v docker >/dev/null || fail "docker não encontrado."
 command -v curl >/dev/null || fail "curl não encontrado."
 docker compose version >/dev/null || fail "o plugin docker compose não está instalado."
+[[ -f "$COMPOSE_FILE" ]] || fail "arquivo compose não encontrado: $COMPOSE_FILE"
 services="$(compose config --services)" || fail "não foi possível ler o arquivo compose."
-required=("$API_SERVICE" "$OMR_SERVICE")
+required=("$API_SERVICE")
 [[ -z "${BACKUP_DATABASE_URL:-}" ]] && required+=("$DB_SERVICE")
 for service in "${required[@]}"; do
   grep -qx "$service" <<<"$services" || fail "serviço '$service' não existe no compose. Serviços: $(tr '\n' ' ' <<<"$services")"
+done
+# Os demais serviços são opcionais: só entram os que existem no compose.
+others=()
+for service in $OTHER_SERVICES; do
+  if grep -qx "$service" <<<"$services"; then others+=("$service"); else echo "Aviso: serviço '$service' não existe no compose; ignorado."; fi
 done
 [[ -z "$(git -C "$REPO_DIR" status --porcelain --untracked-files=no)" ]] || fail "há alterações locais no repositório. Guarde ou descarte antes de atualizar."
 current_branch="$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)"
@@ -135,7 +141,7 @@ else
 fi
 
 step "Build"
-run compose build "$API_SERVICE" "$OMR_SERVICE"
+run compose build "$API_SERVICE" "${others[@]}"
 
 step "API"
 run compose up -d --no-deps "$API_SERVICE"
@@ -152,10 +158,10 @@ if [[ $DRY_RUN -eq 0 ]]; then
   echo "Todas as migrações aplicadas."
 fi
 
-step "Worker OMR"
-run compose up -d --no-deps "$OMR_SERVICE"
+step "Workers e portal"
+if [[ ${#others[@]} -gt 0 ]]; then run compose up -d --no-deps "${others[@]}"; else echo "Nenhum."; fi
 
 step "Concluído"
-[[ $DRY_RUN -eq 1 ]] || compose ps "$API_SERVICE" "$OMR_SERVICE"
+[[ $DRY_RUN -eq 1 ]] || compose ps "$API_SERVICE" "${others[@]}"
 [[ -n "$BACKUP_FILE" ]] && echo "Backup: $BACKUP_FILE"
 exit 0
