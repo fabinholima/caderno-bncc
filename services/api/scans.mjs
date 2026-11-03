@@ -3,7 +3,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mobileMutation, assertInstitutionScope } from './mobile-mutations.mjs';
 import { Readable } from 'node:stream';
 import { pool, transaction } from './db.mjs';
+import { answerKeyStatus } from './assessment-results.mjs';
 import { gradeSubmission } from './submissions.mjs';
+import { assertInstitutionLimit } from './auth.mjs';
+import { recordResultVersion, confirmedAnswers } from './result-versions.mjs';
 export const scanSchema = z.object({
   clientScanId: z.uuid().optional(),
   expectedApplicationId: z.uuid().optional(),
@@ -26,7 +29,7 @@ export const reviewSchema = z.object({
     }),
   ),
 });
-export async function createScan({ institutionId, userId, input }) {
+export async function createScan({ institutionId, userId, portalAdmin = false, developmentBypass = false, input }) {
   const v = scanSchema.parse(input);
   assertInstitutionScope(institutionId, v.expectedInstitutionId);
   const [, mimeType, data] = v.imageDataUrl.match(
@@ -42,6 +45,9 @@ export async function createScan({ institutionId, userId, input }) {
     if(v.expectedApplicationId) {
       const application=await client.query("SELECT id FROM assessment_applications WHERE id=$1 AND institution_id=$2 AND status<>'cancelled'",[v.expectedApplicationId,institutionId]);
       if(!application.rowCount)throw Object.assign(new Error('Aplicação indisponível. Confira a avaliação e a turma no portal.'),{statusCode:422});
+      const versions=await client.query('SELECT av.code,av.snapshot FROM assessment_applications aa JOIN assessment_versions av ON av.assessment_id=aa.assessment_id WHERE aa.id=$1',[v.expectedApplicationId]);
+      const incomplete=versions.rows.map(row=>({code:row.code,...answerKeyStatus(row.snapshot)})).filter(row=>row.missingAnswerKeys.length);
+      if(!versions.rowCount||incomplete.length)throw Object.assign(new Error(`O gabarito desta avaliação está incompleto${incomplete.length?` (versão ${incomplete[0].code}, questões ${incomplete[0].missingAnswerKeys.join(', ')})`:''}. Complete-o no portal antes de corrigir os cartões.`),{statusCode:422,code:'answer_key_incomplete'});
     }
     const id = v.clientScanId || randomUUID();
     const r = await client.query({
@@ -55,18 +61,33 @@ export async function createScan({ institutionId, userId, input }) {
       if (!row || row.institution_id !== institutionId || row.uploaded_by !== userId || row.upload_sha256 !== hash) throw Object.assign(new Error('O identificador de envio já foi usado com outros dados.'), { statusCode: 409 });
       return { id: row.id, status: row.status, created_at: row.created_at };
     }
+    // Novas correções dependem da assinatura do responsável; repetir um envio
+    // já recebido continua respondendo, e resultados publicados seguem
+    // disponíveis aos alunos.
+    await requireActiveSubscription({ institutionId, portalAdmin, developmentBypass, db: client });
     await client.query(`INSERT INTO usage_events(institution_id,user_id,kind,quantity,metadata) VALUES($1,$2,'omr',1,$3::jsonb)`, [institutionId, userId, JSON.stringify({ scanId: id, bytes: bytes.length })]);
     return r.rows[0];
   });
 }
+async function requireActiveSubscription(options) {
+  try {
+    await assertInstitutionLimit({ ...options, kind: 'correction' });
+  } catch (error) {
+    if (error.statusCode !== 402) throw error;
+    throw Object.assign(new Error('A assinatura da instituição está inativa. As fotos continuam salvas no aparelho e o envio será retomado quando a assinatura for regularizada.'), { statusCode: 402 });
+  }
+}
+
 export async function listScans({ institutionId }) {
   const r = await pool.query({
     text: `SELECT cs.id,cs.status,cs.result,cs.error_message,cs.created_at,
                   cs.submission_id,cs.source_page,cs.source_pages,
                   cs.parent_scan_id,s.name student_name,av.code version_code,
                   sub.score,sub.max_score,sub.requires_manual_review,
-                  (cs.review_image_data IS NOT NULL) image_available
+                  (cs.review_image_data IS NOT NULL) image_available,
+                  ar.processing_status result_processing_status,ar.publication_status
            FROM card_scans cs
+           LEFT JOIN assessment_results ar ON ar.application_student_id=cs.application_student_id
            LEFT JOIN application_students aps ON aps.id=cs.application_student_id
            LEFT JOIN students s ON s.id=aps.student_id
            LEFT JOIN assessment_versions av ON av.id=aps.assessment_version_id
@@ -90,6 +111,9 @@ export async function listScans({ institutionId }) {
     parentScanId: x.parent_scan_id,
     createdAt: x.created_at,
     imageAvailable: x.image_available,
+    duplicateOfScanId: x.result?.duplicateOfScanId ?? null,
+    resultProcessingStatus: x.result_processing_status ?? null,
+    publicationStatus: x.publication_status ?? null,
   }));
 }
 
@@ -97,8 +121,14 @@ export async function getScanReview({ institutionId, scanId }) {
   const scan = await pool.query({
     text: `SELECT cs.id,cs.status,cs.result,cs.error_message,
                   cs.application_student_id,cs.expected_application_id,cs.submission_id,sub.score,sub.max_score,sub.requires_manual_review,sub.revision,
-                  (cs.review_image_data IS NOT NULL) image_available
-           FROM card_scans cs LEFT JOIN assessment_submissions sub ON sub.id=cs.submission_id WHERE cs.id=$1 AND cs.institution_id=$2`,
+                  (cs.review_image_data IS NOT NULL) image_available,
+                  ar.id result_id,ar.processing_status result_processing_status,ar.publication_status,
+                  (SELECT coalesce(json_agg(json_build_object('id',o.id,'status',o.status,'completedAt',o.completed_at) ORDER BY o.completed_at DESC),'[]')
+                   FROM card_scans o WHERE o.application_student_id=cs.application_student_id AND o.id<>cs.id
+                     AND o.status IN ('completed','review')) other_scans
+           FROM card_scans cs LEFT JOIN assessment_submissions sub ON sub.id=cs.submission_id
+           LEFT JOIN assessment_results ar ON ar.application_student_id=cs.application_student_id
+           WHERE cs.id=$1 AND cs.institution_id=$2`,
     values: [scanId, institutionId],
   });
   if (!scan.rowCount) return null;
@@ -131,6 +161,12 @@ export async function getScanReview({ institutionId, scanId }) {
     applicationStudentId: row.application_student_id,
     imageAvailable: row.image_available,
     detectedAnswers: row.result?.answers ?? [],
+    // Outros cartões do mesmo aluno nesta aplicação: o professor decide qual vale.
+    duplicateOfScanId: row.result?.duplicateOfScanId ?? null,
+    otherScans: row.other_scans ?? [],
+    resultId: row.result_id ?? null,
+    resultProcessingStatus: row.result_processing_status ?? null,
+    publicationStatus: row.publication_status ?? null,
     candidates: candidates.rows.map((candidate) => ({
       id: candidate.id,
       studentName: candidate.name,
@@ -168,7 +204,8 @@ export async function getScanImage({ institutionId, scanId }) {
   };
 }
 
-export async function retryScan({ institutionId, scanId }) {
+export async function retryScan({ institutionId, scanId, portalAdmin = false, developmentBypass = false }) {
+  await requireActiveSubscription({ institutionId, portalAdmin, developmentBypass });
   const result = await pool.query({
     text: `UPDATE card_scans
            SET status='queued',mime_type='image/png',image_data=review_image_data,
@@ -262,6 +299,13 @@ export async function confirmScanReview({ institutionId, userId, scanId, input }
       );
       submissionId = submission.rows[0].id;
     }
+    // A confirmação do professor gera uma versão provisória; publicar ao
+    // aluno é uma autorização separada.
+    const version = await recordResultVersion(client, {
+      applicationStudentId: selected.id, source: 'manual_review',
+      answers: confirmedAnswers(selected.snapshot, value.responses),
+      cardScanId: scanId, submissionId, userId,
+    });
     await client.query(
       `UPDATE card_scans SET status='completed',application_student_id=$2,
          submission_id=$3,result=$4::jsonb,error_message=NULL,completed_at=now()
@@ -278,6 +322,7 @@ export async function confirmScanReview({ institutionId, userId, scanId, input }
           requiresReview: false,
           reviewedManually: true,
           grade,
+          resultVersionId: version.versionId,
         }),
       ],
     );
@@ -287,6 +332,10 @@ export async function confirmScanReview({ institutionId, userId, scanId, input }
       score: grade.score,
       maxScore: grade.maxScore,
       requiresManualReview: grade.requiresManualReview,
+      resultId: version.resultId,
+      resultVersion: version.versionNumber,
+      publicationStatus: version.publicationStatus,
+      publishable: version.summary.publishable,
     };
   }));
 }

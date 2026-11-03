@@ -1257,7 +1257,7 @@ export default function Home() {
             apiUrl={apiUrl}
           />
         ) : active === 'Turmas e alunos' || active === 'Resultados' || active === 'Corrigir' || active === 'Diagnosticar' ? (
-          <AcademicManager key={active} apiUrl={apiUrl} initialSection={active === 'Corrigir' ? 'correction' : active === 'Diagnosticar' || active === 'Resultados' ? 'reports' : undefined} initialApplicationId={initialApplicationId} />
+          <AcademicManager key={active} apiUrl={apiUrl} initialSection={active === 'Corrigir' ? 'correction' : active === 'Diagnosticar' || active === 'Resultados' ? 'reports' : undefined} initialApplicationId={initialApplicationId} onOpenCorrection={() => { setInitialApplicationId(''); setActive('Corrigir'); window.scrollTo({ top: 0 }); }} />
         ) : active === 'Importar provas' ? (
           <ExamImportManager
             apiUrl={apiUrl}

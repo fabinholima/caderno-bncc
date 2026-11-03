@@ -30,7 +30,7 @@ Todos autenticados e restritos ao perfil student:
 - `POST /api/class-invites/inspect`: `{code:"ABCD-EFGH"}`; escola, turma e professor, sem criar matrícula.
 - `POST /api/class-invites/request`: `{code}`; cria pending. Repetição para a mesma conta/turma retorna 409, inclusive após rejeição. Não há reenvio automático nesta etapa.
 - `GET /api/class-join-requests/me`: próprias solicitações e estados pending/approved/rejected.
-- `GET /api/student/activities`: somente atividades das turmas aprovadas e vinculadas ao próprio cadastro ativo. Não retorna gabaritos, fotos ou respostas de colegas. Oculta pontuação enquanto houver revisão manual.
+- `GET /api/student/activities`: somente atividades das turmas aprovadas e vinculadas ao próprio cadastro ativo. Não retorna gabaritos, fotos ou respostas de colegas. Mostra apenas resultados autorizados pelo professor (`docs/resultados-publicacao.md`); antes disso a pontuação fica oculta.
 
 Código inválido/desativado: 404. Consulta e solicitação limitadas por usuário: 429. Mutação no navegador exige origem autorizada; aplicativo envia x-client:mobile e Bearer. Aluno não acessa gestão, catálogo, listas de colegas ou digitalização.
 
