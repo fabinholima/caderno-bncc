@@ -218,6 +218,8 @@ As rotas de aluno e de resultados respondem com `cache-control: no-store`.
 3. Depois que o worker antigo parar, execute uma vez `node services/api/backfill-legacy-results.mjs`, com o `DATABASE_URL` de produção. Ele converte os cartões concluídos pelo worker antigo durante a troca e é idempotente.
 4. A partir daí, novos resultados só chegam ao aluno pela autorização.
 
+A PWA do professor e do aluno está documentada em `docs/pwa-subdominios.md`.
+
 ## Limitações conhecidas
 
 - O acesso segue o modelo atual: a instituição da sessão e o papel de professor, coordenador ou administrador. A tabela `class_memberships` existe, mas ainda não é aplicada nas rotas da API. Restringir por turma depende de populá-la para as turmas existentes.
