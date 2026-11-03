@@ -202,10 +202,42 @@ def read_compact(gray, qr_points, payload, profile):
             'requiresReview': any(answer['status'] != 'recognized' for answer in answers)}
 
 
+# Indícios de foto inadequada. Nunca alteram a leitura: só pedem revisão
+# humana ou nova foto. Limites conservadores (desfoque forte, foto escura).
+QUALITY_HINTS = {'desfocada': 'a foto parece desfocada', 'escura': 'a foto está escura'}
+
+
+def image_quality(gray):
+    scale = 1000 / max(gray.shape)
+    small = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA) if scale < 1 else gray
+    issues = []
+    if float(np.percentile(np.abs(cv2.Laplacian(small, cv2.CV_64F)), 99.5)) < 30:
+        issues.append('desfocada')
+    if float(small.mean()) < 80:
+        issues.append('escura')
+    return issues
+
+
+def recapture_hint(issues):
+    if not issues:
+        return ''
+    return '; ' + ' e '.join(QUALITY_HINTS[issue] for issue in issues) + \
+        '. Fotografe novamente com boa luz, sem sombras e com o celular firme.'
+
+
+def with_quality(result, issues):
+    if not issues:
+        return result
+    return {**result, 'qualityIssues': issues, 'requiresReview': True,
+            'reviewReason': 'Foto com qualidade insuficiente' + recapture_hint(issues) +
+            ' Se preferir manter esta foto, confira cada marcação antes de confirmar.'}
+
+
 def read_card(file_name, profile=None, qr_only=False):
     image = cv2.imread(file_name)
     if image is None:
         raise ValueError("Imagem do cartão não pôde ser aberta")
+    issues = image_quality(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
     payload, qr_points = '', None
     for turns in range(4):
         candidate = np.ascontiguousarray(np.rot90(image, turns))
@@ -215,12 +247,12 @@ def read_card(file_name, profile=None, qr_only=False):
             break
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     if not payload:
-        raise ValueError("QR Code não localizado")
+        raise ValueError("QR Code não localizado" + recapture_hint(issues))
 
     if qr_only:
         return {'qrPayload': payload}
     if profile and profile.get('id') in ('compacto-10-v1', 'certo-errado-10-v1'):
-        return read_compact(gray, qr_points, payload, profile)
+        return with_quality(read_compact(gray, qr_points, payload, profile), issues)
     labels = profile.get('labels', list('ABCDE')) if profile else list('ABCDE')
     groups = order_groups_by_column(detect_answer_groups(image, gray, len(labels)))
     answers = []
@@ -250,12 +282,12 @@ def read_card(file_name, profile=None, qr_only=False):
                 "fillRatios": [round(value, 3) for value in ratios],
             }
         )
-    return {
+    return with_quality({
         "qrPayload": payload,
         "answers": answers,
         "requiresReview": not answers
         or any(answer["status"] != "recognized" for answer in answers),
-    }
+    }, issues)
 
 
 if __name__ == "__main__":

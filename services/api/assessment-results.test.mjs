@@ -141,3 +141,13 @@ test('skill performance counts only scored questions and flags thin evidence', a
   assert.deepEqual(studentQuestionView(items, 'answers'), [{ questionNumber: 1, status: 'incorrect', selectedLabels: ['A'], awardedPoints: 0, maxPoints: 1 }]);
   assert.deepEqual(studentQuestionView(items, 'answers_and_key')[0].correctLabels, ['B']);
 });
+
+test('answer key status lists objective questions without a correct alternative', async () => {
+  const { answerKeyStatus } = await import('./assessment-results.mjs');
+  const missing = { ...objective(2), answer: { correctStableKeys: [] } };
+  const stale = { ...objective(3), answer: { correctStableKeys: ['9-A'] } };
+  assert.deepEqual(answerKeyStatus({ questions: [objective(1), missing, stale, { number: 4, type: 'essay', points: 2 }] }),
+    { questions: 4, objective: 3, missingAnswerKeys: [2, 3] });
+  assert.deepEqual(answerKeyStatus(snapshot).missingAnswerKeys, []);
+  assert.deepEqual(answerKeyStatus(null), { questions: 0, objective: 0, missingAnswerKeys: [] });
+});

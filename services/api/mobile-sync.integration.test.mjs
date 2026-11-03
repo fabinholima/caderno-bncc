@@ -18,7 +18,7 @@ test('mobile upload, correction receipts, tenant isolation and optimistic concur
     const schemaSql=`
       CREATE TABLE institutions(id uuid PRIMARY KEY);
       CREATE TABLE users(id uuid PRIMARY KEY);
-      CREATE TABLE assessments(id uuid PRIMARY KEY,institution_id uuid,title text);
+      CREATE TABLE assessments(id uuid PRIMARY KEY,institution_id uuid,title text,subject text);
       CREATE TABLE assessment_versions(id uuid PRIMARY KEY,assessment_id uuid,snapshot jsonb,code text,answer_key jsonb NOT NULL DEFAULT '{}');
       CREATE TABLE educator_schools(id uuid PRIMARY KEY);
       CREATE TABLE subscription_plans(id text PRIMARY KEY,monthly_assessments integer,max_students integer);
@@ -90,6 +90,7 @@ test('mobile upload, correction receipts, tenant isolation and optimistic concur
     assert.equal(await findDuplicateScan(client,{applicationStudentId:assignmentId,scanId:first.id}),null);
     const {listApplications}=await import('./academic.mjs');
     const listed=await listApplications({institutionId});assert.equal(listed[0].assessmentId,assessmentId);assert.equal(listed[0].classId,classId);
+    assert.deepEqual(listed[0].versions,[{code:'B',questions:2,objective:1,missingAnswerKeys:[]}]);assert.equal(listed[0].answerKeyReady,true);
     // A capture is bound to the application; review cannot change that binding.
     const scopedInput={...input,clientScanId:randomUUID(),expectedApplicationId:applicationId};
     const scoped=await createScan({institutionId,userId,input:scopedInput});
@@ -99,6 +100,16 @@ test('mobile upload, correction receipts, tenant isolation and optimistic concur
     await client.query('INSERT INTO application_students VALUES($1,$2,$3,$4)',[otherAssignment,otherApplication,studentId,versionId]);
     await assert.rejects(createScan({institutionId,userId,input:{...scopedInput,expectedApplicationId:otherApplication}}),e=>e.statusCode===409);
     await assert.rejects(createScan({institutionId,userId,input:{...scopedInput,clientScanId:randomUUID(),expectedApplicationId:randomUUID()}}),e=>e.statusCode===422);
+    // Gabarito incompleto: a aplicação aparece bloqueada e a correção não começa.
+    const draftAssessment=randomUUID(),draftApplication=randomUUID(),draftClass=randomUUID();
+    await client.query('INSERT INTO assessments VALUES($1,$2,$3)',[draftAssessment,institutionId,'Rascunho']);
+    await client.query('INSERT INTO assessment_versions VALUES($1,$2,$3::jsonb,$4)',[randomUUID(),draftAssessment,JSON.stringify({questions:[{...snapshot.questions[0],answer:{correctStableKeys:[]}}]}),'A']);
+    await client.query('INSERT INTO classes VALUES($1,$2,$3)',[draftClass,'Turma rascunho',institutionId]);
+    await client.query("INSERT INTO assessment_applications(id,institution_id,assessment_id,class_id,status) VALUES($1,$2,$3,$4,'scheduled')",[draftApplication,institutionId,draftAssessment,draftClass]);
+    const draftListed=(await listApplications({institutionId})).find(item=>item.id===draftApplication);
+    assert.equal(draftListed.answerKeyReady,false);assert.deepEqual(draftListed.versions[0].missingAnswerKeys,[1]);
+    await assert.rejects(createScan({institutionId,userId,input:{...input,clientScanId:randomUUID(),expectedApplicationId:draftApplication}}),e=>e.code==='answer_key_incomplete'&&/versão A, questões 1/.test(e.message));
+    await client.query('DELETE FROM assessment_applications WHERE id=$1',[draftApplication]);
     await client.query("UPDATE card_scans SET status='review' WHERE id=$1",[scoped.id]);
     assert.deepEqual((await getScanReview({institutionId,scanId:scoped.id})).candidates.map(x=>x.id),[assignmentId]);
     await assert.rejects(confirmScanReview({institutionId,userId,scanId:scoped.id,input:{...confirmation,clientMutationId:randomUUID(),applicationStudentId:otherAssignment}}),e=>e.statusCode===409);
