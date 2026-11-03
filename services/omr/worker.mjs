@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import pg from '../api/node_modules/pg/lib/index.js';
 import { reconcileCardReading, assertCardApplication } from './card-reading.mjs';
 import { gradeSubmission } from '../api/submissions.mjs';
+import { recordResultVersion, findDuplicateScan } from '../api/result-versions.mjs';
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const python =
   process.env.OMR_PYTHON ||
@@ -73,56 +74,76 @@ async function processCard(scanId, card, sourcePage, sourcePages, institutionId,
       || { labels: assignment.snapshot.questions.every(question => question.type === 'true_false') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'] };
     const raw = await run(card, profile);
     if (raw.qrPayload !== identity.qrPayload) throw new Error('A identificação do cartão mudou durante a leitura.');
-    const result = reconcileCardReading(assignment.snapshot,raw);
-    let submissionId = null;
-    let grade = null;
-    if (!result.requiresReview) {
-      grade = gradeSubmission(assignment.snapshot, {
-        candidate: {
-          name: assignment.name,
-          class: assignment.class_name,
-          number: assignment.number ? String(assignment.number) : '',
-        },
-        responses: result.answers.map((answer) => ({
-          questionNumber: answer.questionNumber,
-          selectedLabels: answer.selectedLabels,
-        })),
+    let result = reconcileCardReading(assignment.snapshot,raw);
+    // A leitura gera somente um resultado provisório; a publicação ao aluno
+    // depende da autorização do professor.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const duplicateOf = await findDuplicateScan(client, { applicationStudentId: assignment.id, scanId });
+      if (duplicateOf) result = { ...result, requiresReview: true, duplicateOfScanId: duplicateOf,
+        reviewReason: 'Já existe outro cartão deste aluno nesta aplicação. Compare as fotos e confirme qual leitura vale.' };
+      let submissionId = null;
+      let grade = null;
+      if (!result.requiresReview) {
+        grade = gradeSubmission(assignment.snapshot, {
+          candidate: {
+            name: assignment.name,
+            class: assignment.class_name,
+            number: assignment.number ? String(assignment.number) : '',
+          },
+          responses: result.answers.map((answer) => ({
+            questionNumber: answer.questionNumber,
+            selectedLabels: answer.selectedLabels,
+          })),
+        });
+        const submission = await client.query(
+          `INSERT INTO assessment_submissions
+             (assessment_version_id,candidate,responses,result,score,max_score,requires_manual_review)
+           VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5,$6,$7)
+           RETURNING id`,
+          [
+            assignment.assessment_version_id,
+            JSON.stringify(grade.candidate),
+            JSON.stringify(grade.responses),
+            JSON.stringify(grade.result),
+            grade.score,
+            grade.maxScore,
+            grade.requiresManualReview,
+          ],
+        );
+        submissionId = submission.rows[0].id;
+      }
+      // Um cartão duplicado não altera o resultado até o professor decidir.
+      const version = duplicateOf ? null : await recordResultVersion(client, {
+        applicationStudentId: assignment.id, source: 'omr', answers: result.answers,
+        cardScanId: scanId, submissionId,
       });
-      const submission = await pool.query(
-        `INSERT INTO assessment_submissions
-           (assessment_version_id,candidate,responses,result,score,max_score,requires_manual_review)
-         VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5,$6,$7)
-         RETURNING id`,
+      await client.query(
+        `UPDATE card_scans
+         SET status=$2,application_student_id=$3,result=$4::jsonb,
+             submission_id=$5,source_page=$6,source_pages=$7,
+             completed_at=now(),image_data='\\x',review_image_data=$8,
+             error_message=NULL
+         WHERE id=$1`,
         [
-          assignment.assessment_version_id,
-          JSON.stringify(grade.candidate),
-          JSON.stringify(grade.responses),
-          JSON.stringify(grade.result),
-          grade.score,
-          grade.maxScore,
-          grade.requiresManualReview,
+          scanId,
+          result.requiresReview ? 'review' : 'completed',
+          assignment.id,
+          JSON.stringify({ ...result, grade, resultVersionId: version?.versionId ?? null }),
+          submissionId,
+          sourcePage,
+          sourcePages,
+          reviewImage,
         ],
       );
-      submissionId = submission.rows[0].id;
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    await pool.query(
-      `UPDATE card_scans
-       SET status=$2,application_student_id=$3,result=$4::jsonb,
-           submission_id=$5,source_page=$6,source_pages=$7,
-           completed_at=now(),image_data='\\x',review_image_data=$8,
-           error_message=NULL
-       WHERE id=$1`,
-      [
-        scanId,
-        result.requiresReview ? 'review' : 'completed',
-        assignment.id,
-        JSON.stringify({ ...result, grade }),
-        submissionId,
-        sourcePage,
-        sourcePages,
-        reviewImage,
-      ],
-    );
   } catch (error) {
     const reviewImage = await readFile(card).catch(() => null);
     const message = String(error.message).slice(0, 1000);

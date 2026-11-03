@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { transaction } from './db.mjs';
 import { gradeSubmission, submissionQuestions } from './submissions.mjs';
 import { mobileMutation, assertInstitutionScope } from './mobile-mutations.mjs';
+import { recordResultVersion, confirmedAnswers, manualPointsFrom } from './result-versions.mjs';
 export const manualReviewSchema = z.object({
   expectedRevision: z.number().int().min(0),
   clientMutationId: z.uuid().optional(),
@@ -51,6 +52,13 @@ export async function saveManualReview({ institutionId, userId, submissionId, in
     if (row.revision !== value.expectedRevision) throw Object.assign(new Error('Esta correção foi alterada no servidor. Atualize o resultado e confira as notas antes de sincronizar novamente.'), { statusCode: 409 });
     const grade = applyManualReview(row.snapshot, row, value, userId);
     const updated = await client.query('UPDATE assessment_submissions SET result=$2::jsonb,score=$3,requires_manual_review=$4,revision=revision+1 WHERE id=$1 RETURNING revision', [submissionId, JSON.stringify(grade.result), grade.score, grade.requiresManualReview]);
+    // Correções vindas de cartão atualizam a versão provisória do resultado.
+    const scan = await client.query('SELECT id,application_student_id FROM card_scans WHERE submission_id=$1 AND application_student_id IS NOT NULL', [submissionId]);
+    if (scan.rowCount) await recordResultVersion(client, {
+      applicationStudentId: scan.rows[0].application_student_id, source: 'manual_review',
+      answers: confirmedAnswers(row.snapshot, row.responses), manualPoints: manualPointsFrom(grade.result),
+      cardScanId: scan.rows[0].id, submissionId, userId,
+    });
     await client.query("INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,'submission.manual_review','submission',$3,$4::jsonb)", [institutionId, userId, submissionId, JSON.stringify({ revision: updated.rows[0].revision, questions: value.reviews.map(review => review.questionNumber), clientMutationId: value.clientMutationId })]);
     return { id: submissionId, questions: submissionQuestions(row.snapshot), versionId: row.assessment_version_id, candidate: row.candidate, responses: row.responses, ...grade, revision: updated.rows[0].revision, submittedAt: row.submitted_at };
   }));

@@ -67,12 +67,31 @@ O teste aplica as migrações reais 001–102, cria um resultado visível e outr
 revisão, aplica a 103 duas vezes e confere legado, unicidade, bloqueio de
 publicação com pendências, fechamento das contagens e regras de acompanhamento.
 
+## Gravação das versões (fase 2)
+
+`services/api/result-versions.mjs` grava versões provisórias dentro da mesma
+transação da correção. Nunca publica.
+
+| Origem | Quando | Observação |
+| --- | --- | --- |
+| `omr` | O worker identifica o aluno pelo QR. | Com leitura duvidosa, a versão fica em `needs_review`. |
+| `manual_review` | `POST /api/card-scans/:id/confirm` | Respostas conferidas pelo professor; ausência de marcação conta como branco. Registra as alterações em `assessment_result_changes`. |
+| `manual_review` | `POST /api/submissions/:id/manual-review` | Notas das discursivas de correções vindas de cartão. |
+
+- Reprocessar o mesmo cartão ou repetir uma confirmação idêntica não cria versão nova.
+- Uma versão nova de um resultado publicado muda `publication_status` para `republish_required`. O aluno continua vendo a versão publicada.
+- **Duplicidade:** se já existe outro cartão lido ou em revisão do mesmo aluno na mesma aplicação, o worker deixa o novo cartão em `review` com `result.duplicateOfScanId` e não altera o resultado. A confirmação do professor decide qual leitura vale.
+- **Respostas da API (aditivas):**
+  - `GET /api/card-scans` inclui `duplicateOfScanId`, `resultProcessingStatus` e `publicationStatus`.
+  - `GET /api/card-scans/:id` inclui também `otherScans` e `resultId`.
+  - A confirmação devolve `resultId`, `resultVersion`, `publicationStatus` e `publishable`.
+- **Assinatura:** `POST /api/card-scans` (somente envios novos) e `POST /api/card-scans/:id/retry` respondem 402 com a assinatura da instituição inativa. Repetir um envio já recebido continua respondendo normalmente. O aplicativo mantém a foto na fila e retoma o envio depois da regularização.
+
 ## Próximas fases
 
-O worker OMR e a confirmação manual ainda gravam apenas em `card_scans` e
-`assessment_submissions`, e `GET /api/student/activities` ainda lê essas
-tabelas. A fase 2 passa a gravar versões provisórias. A fase 3 cria as rotas de
-autorização e muda a consulta do aluno para a versão publicada.
+`GET /api/student/activities` ainda lê `card_scans` e `assessment_submissions`.
+A fase 3 cria as rotas de autorização, individual e em lote, e muda a consulta
+do aluno para a versão publicada.
 
 Publique a 103 em produção junto com a fase 3. Se ela for aplicada antes, os
 cartões corrigidos nesse intervalo não viram legado; a fase 3 repete a mesma
