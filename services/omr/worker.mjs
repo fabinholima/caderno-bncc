@@ -224,6 +224,14 @@ async function tick() {
     await rm(d, { recursive: true, force: true });
   }
 }
+// Cartões concluídos pela versão anterior durante a troca (antes desta
+// versão assumir) viram publicação legada, como a migração 103 fez com os
+// demais. A função é idempotente; repete-se depois para cobrir a sobreposição.
+async function convertLegacyResults() {
+  const result = await pool.query('SELECT publish_legacy_scan_results() converted');
+  if (result.rows[0].converted) console.log(`Resultados legados convertidos: ${result.rows[0].converted}`);
+}
+for (const delay of [0, 5 * 60_000, 30 * 60_000]) setTimeout(() => { convertLegacyResults().catch(console.error); }, delay);
 console.log('Worker OMR ativo');
 for (;;) {
   await tick().catch(console.error);

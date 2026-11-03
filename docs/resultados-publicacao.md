@@ -215,7 +215,7 @@ As rotas de aluno e de resultados respondem com `cache-control: no-store`.
 
 1. Faça backup do banco.
 2. Publique API e worker OMR juntos. O `preDeployCommand` aplica a 103, que converte em legado o que o aluno já via.
-3. Depois que o worker antigo parar, execute uma vez `node services/api/backfill-legacy-results.mjs`, com o `DATABASE_URL` de produção. Ele converte os cartões concluídos pelo worker antigo durante a troca e é idempotente.
+3. O novo worker OMR converte sozinho os cartões concluídos pela versão antiga durante a troca: executa `publish_legacy_scan_results()` ao iniciar e de novo após 5 e 30 minutos (idempotente). O script `node services/api/backfill-legacy-results.mjs` continua disponível para uma execução manual.
 4. A partir daí, novos resultados só chegam ao aluno pela autorização.
 
 ## Conferência antes da correção (fase 7)
