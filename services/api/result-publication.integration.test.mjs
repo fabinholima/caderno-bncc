@@ -18,8 +18,19 @@ test('result publication migration keeps legacy results visible and blocks unsaf
   url.searchParams.set('options', `-c search_path=${schema},public`);
   const db = new pg.Pool({ connectionString: url.href, max: 1 });
   const files = (await readdir(databaseDir)).filter((file) => /^\d{3}_.*\.sql$/.test(file)).sort();
+  // A trava evita corrida em CREATE EXTENSION quando outros testes aplicam
+  // migrações no mesmo banco ao mesmo tempo.
   const apply = async (filter) => {
-    for (const file of files.filter(filter)) await db.query(await readFile(path.join(databaseDir, file), 'utf8'));
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('ufaprova:schema-migrations',0))");
+      for (const file of files.filter(filter)) await client.query(await readFile(path.join(databaseDir, file), 'utf8'));
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
   };
   const expectCheck = (promise) => assert.rejects(promise, (error) => ['23514', '23505', '23503'].includes(error.code));
   try {

@@ -35,10 +35,13 @@ test(
  CREATE TABLE password_reset_tokens(user_id uuid,token_hash text,expires_at timestamptz,used_at timestamptz);
  CREATE TABLE subscription_plans(id text,monthly_assessments integer,max_students integer);
  CREATE TABLE portal_settings(id integer,question_bank_id uuid);
- CREATE TABLE assessments(id uuid PRIMARY KEY,title text);
+ CREATE TABLE assessments(id uuid PRIMARY KEY,title text,subject text);
  CREATE TABLE assessment_applications(id uuid PRIMARY KEY,assessment_id uuid,class_id uuid,institution_id uuid,scheduled_at timestamptz,status text);
  CREATE TABLE application_students(id uuid PRIMARY KEY,application_id uuid,student_id uuid);
  CREATE TABLE card_scans(application_student_id uuid,submission_id uuid,status text,completed_at timestamptz);
+ CREATE TABLE assessment_results(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),application_student_id uuid UNIQUE,published_version_id uuid);
+ CREATE TABLE assessment_result_versions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),score numeric,max_score numeric,percent numeric,valid_count int,correct_count int,incorrect_count int,blank_count int,invalid_count int,annulled_count int);
+ CREATE TABLE assessment_result_publications(result_version_id uuid,authorized_at timestamptz DEFAULT now());
  CREATE TABLE assessment_submissions(id uuid PRIMARY KEY,score numeric,max_score numeric,requires_manual_review boolean);
  `);
       for (const name of [
@@ -233,15 +236,22 @@ test(
         application,
         existingStudent,
       ]);
+      // Sem autorização do professor o aluno vê apenas "em correção", sem nota.
       await pool.query("INSERT INTO assessment_submissions VALUES($1,8,10,false)", [submission]);
       await pool.query("INSERT INTO card_scans VALUES($1,$2,'completed',now())", [
         assignment,
         submission,
       ]);
-      assert.equal((await api.myActivities(student))[0].score, "8");
+      assert.equal((await api.myActivities(student))[0].resultStatus, "not_corrected");
+      const version = (await pool.query("INSERT INTO assessment_result_versions(score,max_score,percent,valid_count,correct_count,incorrect_count,blank_count,invalid_count,annulled_count) VALUES(8,10,80,10,8,1,1,0,0) RETURNING id")).rows[0].id;
+      await pool.query("INSERT INTO assessment_results(application_student_id) VALUES($1)", [assignment]);
+      let [activity] = await api.myActivities(student);
+      assert.deepEqual([activity.score, activity.requiresManualReview, activity.resultStatus], [null, true, "in_correction"]);
+      await pool.query("UPDATE assessment_results SET published_version_id=$1", [version]);
+      await pool.query("INSERT INTO assessment_result_publications(result_version_id) VALUES($1)", [version]);
+      [activity] = await api.myActivities(student);
+      assert.deepEqual([activity.score, activity.percent, activity.correctCount, activity.resultStatus, activity.requiresManualReview], ["8", 80, 8, "published", false]);
       assert.deepEqual(await api.myActivities(g), []);
-      await pool.query("UPDATE assessment_submissions SET requires_manual_review=true");
-      assert.equal((await api.myActivities(student))[0].score, null);
       const newStudent = await loginWithGoogle(
         { sub: "new-student-account", email: "new-student@example.test", name: "Aluno Novo" },
         null,

@@ -188,8 +188,11 @@ CREATE INDEX IF NOT EXISTS performance_followups_result_idx
 -- Resultados que o aluno já via antes desta migração continuam visíveis:
 -- cada um vira a versão 1, publicada como legado. Correções com revisão
 -- manual pendente permanecem sem publicação, como já estavam para o aluno.
-DO $$
-DECLARE r record; result uuid; version uuid;
+-- Só considera cartões sem resultado: o código novo sempre cria um. A função
+-- fica disponível para converter cartões concluídos pelo worker antigo
+-- durante a troca de versão (services/api/backfill-legacy-results.mjs).
+CREATE OR REPLACE FUNCTION publish_legacy_scan_results() RETURNS integer AS $$
+DECLARE r record; result uuid; version uuid; converted integer := 0;
 BEGIN
   FOR r IN
     SELECT DISTINCT ON (cs.application_student_id)
@@ -245,8 +248,11 @@ BEGIN
     UPDATE assessment_results
     SET current_version_id = version, published_version_id = version, publication_status = 'published'
     WHERE id = result;
+    converted := converted + 1;
   END LOOP;
-END $$;
+  RETURN converted;
+END $$ LANGUAGE plpgsql;
+SELECT publish_legacy_scan_results();
 
 COMMENT ON TABLE assessment_results IS
   'Resultado de um aluno em uma aplicação. O aluno vê somente published_version_id.';

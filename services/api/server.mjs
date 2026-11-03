@@ -18,6 +18,7 @@ import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
 import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
 import { qrSigningWarning } from './qr-signing.mjs';
+import { listApplicationResults, getResultDetail, authorizeResults, getResultSettings, saveResultSettings } from './result-publication.mjs';
 import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
 import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
 import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
@@ -1113,6 +1114,24 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
+    // Revisão e autorização de resultados (docs/resultados-publicacao.md).
+    const applicationResultsMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/assessment-applications\/([0-9a-f-]{36})\/results$/i);
+    if (applicationResultsMatch)
+      return json(response, 200, { data: await listApplicationResults({ institutionId, applicationId: applicationResultsMatch[1] }) });
+    const resultSettingsMatch = url.pathname.match(/^\/api\/assessment-applications\/([0-9a-f-]{36})\/result-settings$/i);
+    if (resultSettingsMatch && request.method === 'GET')
+      return json(response, 200, { data: await getResultSettings({ institutionId, applicationId: resultSettingsMatch[1] }) });
+    if (resultSettingsMatch && request.method === 'PUT')
+      return json(response, 200, { data: await saveResultSettings({ institutionId, userId, applicationId: resultSettingsMatch[1], input: await readJson(request, 32768) }) });
+    if (request.method === 'POST' && url.pathname === '/api/assessment-results/authorize')
+      return json(response, 200, { data: await authorizeResults({ institutionId, userId, input: await readJson(request, 65536) }) });
+    const resultDetailMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/assessment-results\/([0-9a-f-]{36})$/i);
+    if (resultDetailMatch)
+      return json(response, 200, { data: await getResultDetail({ institutionId, resultId: resultDetailMatch[1] }) });
     if (request.method === 'GET' && url.pathname === '/api/render-templates')
       return json(response, 200, {
         data: renderTemplateCatalog,

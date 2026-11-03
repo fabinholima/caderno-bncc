@@ -87,12 +87,94 @@ transação da correção. Nunca publica.
   - A confirmação devolve `resultId`, `resultVersion`, `publicationStatus` e `publishable`.
 - **Assinatura:** `POST /api/card-scans` (somente envios novos) e `POST /api/card-scans/:id/retry` respondem 402 com a assinatura da instituição inativa. Repetir um envio já recebido continua respondendo normalmente. O aplicativo mantém a foto na fila e retoma o envio depois da regularização.
 
-## Próximas fases
+## Revisão e autorização (fase 3)
 
-`GET /api/student/activities` ainda lê `card_scans` e `assessment_submissions`.
-A fase 3 cria as rotas de autorização, individual e em lote, e muda a consulta
-do aluno para a versão publicada.
+Todas as rotas exigem sessão de professor, coordenador ou administrador. Elas
+filtram pela instituição da sessão: um ID de outra instituição responde 404.
+Mutações seguem a verificação de origem existente: no navegador, a origem
+precisa ser autorizada; o aplicativo envia `x-client: mobile` e Bearer.
 
-Publique a 103 em produção junto com a fase 3. Se ela for aplicada antes, os
-cartões corrigidos nesse intervalo não viram legado; a fase 3 repete a mesma
-conversão para esses casos antes de mudar a consulta do aluno.
+### `GET /api/assessment-applications/:id/results`
+
+Devolve `{ application, students }`.
+
+- `application`: título, disciplina (`subject`), turma, `questionCounts`, `settings` e `minExpectedPercent` efetivo.
+- `students[]`, um item por aluno da aplicação:
+  - identificação: `applicationStudentId`, `studentName`, `registration`, `number`, `resultId`;
+  - estados: `processingStatus` (`not_scanned` quando não há leitura) e `publicationStatus`;
+  - versão atual: `currentVersionId`, `currentVersion`, `source`;
+  - resultado: `counts` (questions, valid, correct, incorrect, blank, invalid, annulled, reviewPending, manualPending), `percent`, `score`, `maxScore`;
+  - cartões: `cardScanId` e `scansInReview` (outro cartão aguardando decisão);
+  - publicação: `publishable` e `published` (`version`, `authorizedAt`, `authorizerName`, `legacy`);
+  - acompanhamento: `belowExpected` e `followupStatus`.
+
+### `GET /api/assessment-results/:id`
+
+Devolve o resultado com:
+
+- `versions[]`: itens por questão, regra, contagens, autor e data de cada versão;
+- `changes[]`: alterações manuais, questão a questão;
+- `publications[]`: quem autorizou, quando, qual versão e se foi substituída;
+- `scans[]`: cartões do aluno nessa aplicação. A foto continua em `GET /api/card-scans/:id/image`, com a mesma verificação de instituição.
+
+### `POST /api/assessment-results/authorize`
+
+```json
+{ "applicationId": "uuid", "clientMutationId": "uuid opcional",
+  "items": [{ "resultId": "uuid", "versionId": "uuid" }] }
+```
+
+Aceita de 1 a 500 itens e processa todos numa transação. `versionId` é a
+versão que o professor conferiu. A resposta é
+`{ batchId, published, items: [{ resultId, versionId, outcome }] }`, com
+`outcome` igual a:
+
+| `outcome` | Significado |
+| --- | --- |
+| `published` | Versão publicada agora. |
+| `already_published` | A mesma versão já estava publicada; nada muda. |
+| `stale` | Surgiu outra versão depois da conferência. Nada é publicado sem nova revisão. |
+| `pending_review` | Há leitura duvidosa, discursiva sem nota ou outro cartão do aluno aguardando decisão. |
+| `not_found` | Resultado inexistente nesta aplicação ou instituição. |
+
+Repetir o mesmo `clientMutationId` devolve a resposta original. Publicar
+substitui a publicação ativa anterior, que fica no histórico. O lançamento é
+registrado em `audit_log` (`result.authorize`). Não há módulo de notas
+separado no projeto: a versão publicada é o lançamento.
+
+### `GET` e `PUT /api/assessment-applications/:id/result-settings`
+
+```json
+{ "minExpectedPercent": 60, "releasePolicy": "summary|answers|answers_and_key",
+  "annulledQuestions": [3], "annulledPolicy": "exclude|award_full" }
+```
+
+- O `GET` inclui `effectiveMinExpectedPercent`, já considerando os padrões de escola e disciplina.
+- Anular questões sem `annulledPolicy`, ou com um número inexistente em alguma versão da aplicação, responde 422.
+- Mudar a anulação recalcula todos os resultados da aplicação (origem `recalculation`). As alterações ficam registradas, e os resultados publicados passam a `republish_required`. A resposta inclui `recalculated`.
+
+### Aluno: `GET /api/student/activities`
+
+Lê somente a versão publicada. Campos novos:
+
+- `subject`, `resultId`;
+- `resultStatus`: `published`, `in_correction` ou `not_corrected`;
+- `percent`, `validCount`, `correctCount`, `incorrectCount`, `blankCount`, `invalidCount`, `annulledCount`;
+- `publishedAt`.
+
+Sem publicação, `score`, `maxScore` e as contagens vêm nulos e
+`requiresManualReview` vem `true`, o que mantém compatíveis as versões
+anteriores do app e do portal. A consulta não verifica a assinatura: o
+histórico publicado continua visível com a assinatura inativa.
+
+## Implantação
+
+1. Faça backup do banco.
+2. Publique API e worker OMR juntos. O `preDeployCommand` aplica a 103, que converte em legado o que o aluno já via.
+3. Depois que o worker antigo parar, execute uma vez `node services/api/backfill-legacy-results.mjs`, com o `DATABASE_URL` de produção. Ele converte os cartões concluídos pelo worker antigo durante a troca e é idempotente.
+4. A partir daí, novos resultados só chegam ao aluno pela autorização.
+
+## Limitações conhecidas
+
+- O acesso segue o modelo atual: a instituição da sessão e o papel de professor, coordenador ou administrador. A tabela `class_memberships` existe, mas ainda não é aplicada nas rotas da API. Restringir por turma depende de populá-la para as turmas existentes.
+- A política de liberação (`releasePolicy`) é gravada, mas o detalhe por questão para o aluno ainda não existe (fase 4).

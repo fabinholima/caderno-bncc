@@ -81,7 +81,10 @@ export function summarizeResult(snapshot, answers = [], rule = scoringRule(), ma
     if (annulled.has(question.number)) {
       annulledCount += 1;
       if (rule.annulledPolicy === 'award_full') { score += points; maxScore += points; }
-      return { ...base, status: 'annulled', awardedPoints: rule.annulledPolicy === 'award_full' ? points : null };
+      // A marcação lida é preservada para um recálculo futuro.
+      const answer = byNumber.get(question.number);
+      return { ...base, status: 'annulled', awardedPoints: rule.annulledPolicy === 'award_full' ? points : null,
+        selectedLabels: answer?.selectedLabels ?? [], answerStatus: answer?.status ?? null };
     }
     maxScore += points;
     if (MANUAL_TYPES.has(question.type)) {
@@ -94,7 +97,8 @@ export function summarizeResult(snapshot, answers = [], rule = scoringRule(), ma
       manualPending += 1;
       return { ...base, status: 'manual_pending', awardedPoints: null };
     }
-    const item = classifyObjective(question, byNumber.get(question.number));
+    const answer = byNumber.get(question.number);
+    const item = { ...classifyObjective(question, answer), answerStatus: answer?.status ?? null };
     counts[item.status] += 1;
     const awardedPoints = item.status === 'correct' ? points : item.status === 'review_pending' ? null : 0;
     score += awardedPoints ?? 0;
