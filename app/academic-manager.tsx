@@ -3099,8 +3099,8 @@ export function AcademicManager({
             </label>
             {teacherSchools?.length === 0 && (
               <p className="rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-                {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
                 Cadastre a escola em{' '}
+                {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
                 <a
                   href="/configuracoes/escolas"
                   className="font-semibold underline"
