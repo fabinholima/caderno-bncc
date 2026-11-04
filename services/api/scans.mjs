@@ -167,7 +167,7 @@ export async function listScans({ institutionId }) {
            LEFT JOIN assessments a ON a.id=aa.assessment_id
            LEFT JOIN classes c ON c.id=aa.class_id
            -- Pendências nunca somem da fila; dos corrigidos, só os mais recentes.
-           WHERE cs.institution_id=$1
+           WHERE cs.institution_id=$1 AND cs.status<>'discarded'
              AND (cs.status<>'completed' OR cs.id IN (
                SELECT id FROM card_scans WHERE institution_id=$1 AND status='completed'
                ORDER BY created_at DESC LIMIT 50))
@@ -310,6 +310,27 @@ export async function retryScan({
   if (!result.rowCount)
     throw Object.assign(
       new Error('Este cartão não possui imagem disponível para reprocessar.'),
+      { statusCode: 409 },
+    );
+  return result.rows[0];
+}
+
+// Só sai da fila o cartão com erro que não chegou a identificar o aluno:
+// ele não gerou resultado, então nenhuma nota ou relatório muda.
+export async function discardScan({ institutionId, userId, scanId }) {
+  const result = await pool.query({
+    text: `UPDATE card_scans
+           SET status='discarded',discarded_at=now(),discarded_by=$3
+           WHERE id=$1 AND institution_id=$2
+             AND status IN ('review','failed') AND application_student_id IS NULL
+           RETURNING id,status`,
+    values: [scanId, institutionId, userId],
+  });
+  if (!result.rowCount)
+    throw Object.assign(
+      new Error(
+        'Só é possível remover da fila cartões com erro e sem aluno identificado. Para os demais, confirme a revisão ou reprocesse.',
+      ),
       { statusCode: 409 },
     );
   return result.rows[0];

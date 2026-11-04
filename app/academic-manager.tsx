@@ -167,6 +167,9 @@ function scanTabOf(scan: CardScan): ScanTab {
     return 'processing';
   return scan.status === 'completed' ? 'completed' : 'review';
 }
+// Cartão com erro que não identificou o aluno: não gerou resultado.
+const canDiscardScan = (scan: { status: string; studentName?: string }) =>
+  ['review', 'failed'].includes(scan.status) && !scan.studentName;
 const canReviewScan = (scan: CardScan) =>
   scanTabOf(scan) === 'review' && Boolean(scan.imageAvailable);
 // Uma questão de múltiplas respostas pode ter várias bolhas marcadas.
@@ -895,6 +898,26 @@ export function AcademicManager({
     setScanReview(null);
     const latest = (await refresh()) || [];
     if (reviewSequence)
+      await continueReviewSequence(latest, scanId, reviewSequence);
+  };
+  const discardCard = async (scanId: string) => {
+    if (
+      !window.confirm(
+        'Remover este cartão da fila? Ele não identificou nenhum aluno, então nenhuma nota será alterada.',
+      )
+    )
+      return;
+    const response = await apiFetch(
+      `${apiUrl}/api/card-scans/${scanId}/discard`,
+      { method: 'POST' },
+    );
+    const body = (await response.json()) as ApiBody<unknown>;
+    if (!response.ok) throw new Error(body.error);
+    setMessage('Cartão removido da fila.');
+    const reviewing = scanReview?.id === scanId;
+    if (reviewing) setScanReview(null);
+    const latest = (await refresh()) || [];
+    if (reviewing && reviewSequence)
       await continueReviewSequence(latest, scanId, reviewSequence);
   };
   const updateStudent = async (
@@ -2648,6 +2671,22 @@ export function AcademicManager({
                         {scanTabOf(x) === 'review' ? 'Revisar' : 'Ver cartão'}
                       </Button>
                     )}
+                    {canDiscardScan(x) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-rose-700"
+                        onClick={() =>
+                          discardCard(x.id).catch((error) =>
+                            setMessage(error.message),
+                          )
+                        }
+                      >
+                        <Trash2 />
+                        Remover
+                      </Button>
+                    )}
                     {x.status === 'completed' && x.applicationId && (
                       <Button
                         type="button"
@@ -2716,6 +2755,22 @@ export function AcademicManager({
                   Reprocessar OMR
                 </Button>
               )}
+              {['review', 'failed'].includes(scanReview.status) &&
+                !scanReview.applicationStudentId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-rose-700"
+                    onClick={() =>
+                      discardCard(scanReview.id).catch((error) =>
+                        setMessage(error.message),
+                      )
+                    }
+                  >
+                    <Trash2 />
+                    Remover da fila
+                  </Button>
+                )}
               <Button
                 type="button"
                 variant="outline"
