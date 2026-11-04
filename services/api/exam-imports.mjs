@@ -47,11 +47,22 @@ export const examImportSchema = z
   })
   .refine(
     (value) =>
-      value.documents.filter((item) => item.kind === 'exam').length + Number(Boolean(value.examPdfUrl)) + Number(Boolean(value.pastedText.trim())) === 1 && !(value.pastedText.trim() && (value.documents.length || value.answerKeyPdfUrl)),
+      value.documents.filter((item) => item.kind === 'exam').length +
+        Number(Boolean(value.examPdfUrl)) +
+        Number(Boolean(value.pastedText.trim())) ===
+        1 &&
+      !(
+        value.pastedText.trim() &&
+        (value.documents.length || value.answerKeyPdfUrl)
+      ),
     'Escolha PDF ou texto colado para a prova, sem misturar as fontes.',
   )
   .refine(
-    value => !(value.answerKeyPdfUrl && value.documents.some(item => item.kind === 'answer_key')),
+    (value) =>
+      !(
+        value.answerKeyPdfUrl &&
+        value.documents.some((item) => item.kind === 'answer_key')
+      ),
     'Escolha arquivo ou URL para o gabarito.',
   )
   .refine(
@@ -81,8 +92,11 @@ export const decodePdf = (document) => {
 };
 
 export function looksLikeTrueFalse(text) {
-  return /\b(?:certo\s+ou\s+errado|certo\s*\/\s*errado|verdadeiro\s+ou\s+falso|julgue\s+(?:os\s+)?(?:itens|afirmações)|assinale\s+certo\s+ou\s+errado)\b/i.test(text) ||
-    /(?:^|\s)C\s*\(\s*\)\s*E\s*\(\s*\)/i.test(text);
+  return (
+    /\b(?:certo\s+ou\s+errado|certo\s*\/\s*errado|verdadeiro\s+ou\s+falso|julgue\s+(?:os\s+)?(?:itens|afirmações)|assinale\s+certo\s+ou\s+errado)\b/i.test(
+      text,
+    ) || /(?:^|\s)C\s*\(\s*\)\s*E\s*\(\s*\)/i.test(text)
+  );
 }
 
 export function splitExamQuestions(text) {
@@ -125,7 +139,11 @@ export function splitExamQuestions(text) {
           sourceNumber: Number(match[1]),
           rawText,
           selected: true,
-          questionType: looksLikeTrueFalse(rawText) ? 'true_false' : alternativeCount >= 4 ? 'single_choice' : 'essay',
+          questionType: looksLikeTrueFalse(rawText)
+            ? 'true_false'
+            : alternativeCount >= 4
+              ? 'single_choice'
+              : 'essay',
           status:
             alternativeCount === 5 || alternativeCount === 0
               ? 'complete'
@@ -532,7 +550,10 @@ const aiReviewSchema = z
 
 export const candidateUpdateSchema = z.object({
   registeredQuestionId: z.uuid().optional(),
-  registeredQuestionCode: z.string().regex(/^[A-Z]{2,4}-\d{4}$/).optional(),
+  registeredQuestionCode: z
+    .string()
+    .regex(/^[A-Z]{2,4}-\d{4}$/)
+    .optional(),
   resetAi: z.boolean().optional(),
   resolution: z.string().max(20000).optional(),
   editorialReviewed: z.boolean().optional(),
@@ -613,13 +634,39 @@ export async function updateExamImportCandidate({
         statusCode: 404,
       });
     const previous = candidates[index];
-    if ((previous.status === 'completed' || previous.registeredQuestionId) && value.status && value.status !== 'completed')
-      throw Object.assign(new Error('A importação já foi cadastrada. A questão permanece disponível no banco e no histórico de concluídas.'),{statusCode:409});
-    if (value.status === 'completed' && previous.status !== 'completed' && !value.registeredQuestionId && !previous.registeredQuestionId)
-      throw Object.assign(new Error('Cadastre a questão no banco antes de concluir a importação.'),{statusCode:422});
+    if (
+      (previous.status === 'completed' || previous.registeredQuestionId) &&
+      value.status &&
+      value.status !== 'completed'
+    )
+      throw Object.assign(
+        new Error(
+          'A importação já foi cadastrada. A questão permanece disponível no banco e no histórico de concluídas.',
+        ),
+        { statusCode: 409 },
+      );
+    if (
+      value.status === 'completed' &&
+      previous.status !== 'completed' &&
+      !value.registeredQuestionId &&
+      !previous.registeredQuestionId
+    )
+      throw Object.assign(
+        new Error(
+          'Cadastre a questão no banco antes de concluir a importação.',
+        ),
+        { statusCode: 422 },
+      );
     if (value.registeredQuestionId) {
-      const question = await client.query('SELECT id,public_code FROM questions WHERE id=$1 AND institution_id=$2',[value.registeredQuestionId,institutionId]);
-      if (!question.rowCount) throw Object.assign(new Error('Questão cadastrada não encontrada nesta instituição.'),{statusCode:422});
+      const question = await client.query(
+        'SELECT id,public_code FROM questions WHERE id=$1 AND institution_id=$2',
+        [value.registeredQuestionId, institutionId],
+      );
+      if (!question.rowCount)
+        throw Object.assign(
+          new Error('Questão cadastrada não encontrada nesta instituição.'),
+          { statusCode: 422 },
+        );
       value.registeredQuestionCode = question.rows[0].public_code;
       value.status = 'completed';
       value.selected = false;
@@ -666,8 +713,14 @@ export async function updateExamImportCandidate({
     candidates[index] = {
       ...candidates[index],
       ...value,
-      ...(value.registeredQuestionId ? {registeredAt: previous.registeredAt || new Date().toISOString()} : {}),
-      ...((value.rawText !== undefined || value.resolution !== undefined || value.adoteNote !== undefined) ? {editorialReviewed:false} : {}),
+      ...(value.registeredQuestionId
+        ? { registeredAt: previous.registeredAt || new Date().toISOString() }
+        : {}),
+      ...(value.rawText !== undefined ||
+      value.resolution !== undefined ||
+      value.adoteNote !== undefined
+        ? { editorialReviewed: false }
+        : {}),
       ...(value.aiReview
         ? {
             aiReview: {
@@ -706,22 +759,39 @@ export async function updateExamImportCandidate({
 
 export function pastedQuestionType(question) {
   const alternatives = question.alternatives || {};
-  const isLabeledJudgment = Object.keys(alternatives).sort().join('') === 'CE' &&
-    /certo/i.test(alternatives.C || '') && /errado/i.test(alternatives.E || '');
-  const isFixedTrueFalse = Object.keys(alternatives).sort().join('') === 'AB' &&
-    /certo/i.test(alternatives.A || '') && /errado/i.test(alternatives.B || '');
+  const isLabeledJudgment =
+    Object.keys(alternatives).sort().join('') === 'CE' &&
+    /certo/i.test(alternatives.C || '') &&
+    /errado/i.test(alternatives.E || '');
+  const isFixedTrueFalse =
+    Object.keys(alternatives).sort().join('') === 'AB' &&
+    /certo/i.test(alternatives.A || '') &&
+    /errado/i.test(alternatives.B || '');
   const statement = question.statement || '';
-  const isJudgmentPrompt = /\b(?:certo\s+ou\s+errado|certo\s*\/\s*errado|verdadeiro\s+ou\s+falso|julgue\s+(?:os\s+)?(?:itens|afirmações))\b/i.test(statement);
-  if (isLabeledJudgment || isFixedTrueFalse || isJudgmentPrompt) return 'true_false';
-  return question.correctAnswers?.length > 1 ? 'multiple_choice' : Object.keys(alternatives).length ? 'single_choice' : 'essay';
+  const isJudgmentPrompt =
+    /\b(?:certo\s+ou\s+errado|certo\s*\/\s*errado|verdadeiro\s+ou\s+falso|julgue\s+(?:os\s+)?(?:itens|afirmações))\b/i.test(
+      statement,
+    );
+  if (isLabeledJudgment || isFixedTrueFalse || isJudgmentPrompt)
+    return 'true_false';
+  return question.correctAnswers?.length > 1
+    ? 'multiple_choice'
+    : Object.keys(alternatives).length
+      ? 'single_choice'
+      : 'essay';
 }
 
 export function pastedQuestionAnswers(question) {
-  if (pastedQuestionType(question) !== 'true_false') return question.correctAnswers || [];
+  if (pastedQuestionType(question) !== 'true_false')
+    return question.correctAnswers || [];
   const alternatives = question.alternatives || {};
   if (Object.keys(alternatives).sort().join('') === 'CE')
-    return (question.correctAnswers || []).map((answer) => answer === 'C' ? 'A' : answer === 'E' ? 'B' : answer);
-  return (question.correctAnswers || []).map((answer) => answer === 'B' || answer === 'E' ? 'B' : 'A');
+    return (question.correctAnswers || []).map((answer) =>
+      answer === 'C' ? 'A' : answer === 'E' ? 'B' : answer,
+    );
+  return (question.correctAnswers || []).map((answer) =>
+    answer === 'B' || answer === 'E' ? 'B' : 'A',
+  );
 }
 
 export async function createExamImport({ institutionId, userId, role, input }) {
@@ -736,23 +806,43 @@ export async function createExamImport({ institutionId, userId, role, input }) {
       ),
       { statusCode: 403 },
     );
-  if (value.examPdfUrl) value.documents.push(await downloadPdfUrl(value.examPdfUrl, 'exam'));
-  if (value.answerKeyPdfUrl) value.documents.push(await downloadPdfUrl(value.answerKeyPdfUrl, 'answer_key'));
+  if (value.examPdfUrl)
+    value.documents.push(await downloadPdfUrl(value.examPdfUrl, 'exam'));
+  if (value.answerKeyPdfUrl)
+    value.documents.push(
+      await downloadPdfUrl(value.answerKeyPdfUrl, 'answer_key'),
+    );
   let pastedCandidates = [];
   if (value.pastedText.trim()) {
-    try { pastedCandidates = parsePastedExam(value.pastedText).map(question => ({
-      id:randomUUID(), sourceNumber:question.sourceNumber, rawText:question.rawText,
-      resolution:question.resolution, adoteNote:question.adoteNote, ...(question.skill ? {skill:question.skill} : {}), selected:true, status:'review',
-      questionType: pastedQuestionType(question),
-      correctAnswers: pastedQuestionAnswers(question), answerStatus:question.correctAnswers.length ? 'suggested' : 'missing', extractionMethod:'pasted-text',
-    })); } catch(error) { throw Object.assign(error,{statusCode:422}); }
+    try {
+      pastedCandidates = parsePastedExam(value.pastedText).map((question) => ({
+        id: randomUUID(),
+        sourceNumber: question.sourceNumber,
+        rawText: question.rawText,
+        resolution: question.resolution,
+        adoteNote: question.adoteNote,
+        ...(question.skill ? { skill: question.skill } : {}),
+        selected: true,
+        status: 'review',
+        questionType: pastedQuestionType(question),
+        correctAnswers: pastedQuestionAnswers(question),
+        answerStatus: question.correctAnswers.length ? 'suggested' : 'missing',
+        extractionMethod: 'pasted-text',
+      }));
+    } catch (error) {
+      throw Object.assign(error, { statusCode: 422 });
+    }
   }
   const documents = value.documents.map((document) => ({
     ...document,
     contents: decodePdf(document),
   }));
   return transaction(async (client) => {
-    const skillCodes = [...new Set(pastedCandidates.map(candidate => candidate.skill).filter(Boolean))];
+    const skillCodes = [
+      ...new Set(
+        pastedCandidates.map((candidate) => candidate.skill).filter(Boolean),
+      ),
+    ];
     if (skillCodes.length) {
       const catalog = await client.query(
         `SELECT DISTINCT skill.code FROM curriculum_skills skill
@@ -760,11 +850,23 @@ export async function createExamImport({ institutionId, userId, role, input }) {
          JOIN pedagogical_disciplines discipline ON discipline.id=relation.discipline_id
          WHERE discipline.institution_id=$1 AND skill.code=ANY($2::text[])
            AND ($3::text='' OR discipline.name=$3)`,
-        [institutionId,skillCodes,value.subjectMode === 'single' ? value.primarySubject : ''],
+        [
+          institutionId,
+          skillCodes,
+          value.subjectMode === 'single' ? value.primarySubject : '',
+        ],
       );
-      const validCodes = new Set(catalog.rows.map(row=>row.code));
-      const invalid = pastedCandidates.find(candidate=>candidate.skill && !validCodes.has(candidate.skill));
-      if (invalid) throw Object.assign(new Error(`Questão ${invalid.sourceNumber}: habilidade ${invalid.skill} não cadastrada para a disciplina desta importação. Confira o código em Planejamento.`),{statusCode:422});
+      const validCodes = new Set(catalog.rows.map((row) => row.code));
+      const invalid = pastedCandidates.find(
+        (candidate) => candidate.skill && !validCodes.has(candidate.skill),
+      );
+      if (invalid)
+        throw Object.assign(
+          new Error(
+            `Questão ${invalid.sourceNumber}: habilidade ${invalid.skill} não cadastrada para a disciplina desta importação. Confira o código em Planejamento.`,
+          ),
+          { statusCode: 422 },
+        );
     }
     const created = await client.query(
       `INSERT INTO exam_imports
@@ -784,10 +886,15 @@ export async function createExamImport({ institutionId, userId, role, input }) {
         value.rightsStatus,
       ],
     );
-    if (pastedCandidates.length) await client.query(
-      `UPDATE exam_imports SET status='needs_review',detected_questions=$2,extracted_candidates=$3::jsonb WHERE id=$1`,
-      [created.rows[0].id,pastedCandidates.length,JSON.stringify(pastedCandidates)],
-    );
+    if (pastedCandidates.length)
+      await client.query(
+        `UPDATE exam_imports SET status='needs_review',detected_questions=$2,extracted_candidates=$3::jsonb WHERE id=$1`,
+        [
+          created.rows[0].id,
+          pastedCandidates.length,
+          JSON.stringify(pastedCandidates),
+        ],
+      );
     for (const document of documents) {
       const stored = await storeExamDocument(
         created.rows[0].id,
@@ -1011,7 +1118,11 @@ export async function extractExamImportQuestions({
             rawText: region.rawText,
             pageNumber: region.pageNumber,
             selected: true,
-            questionType: looksLikeTrueFalse(region.rawText) ? 'true_false' : alternatives >= 4 ? 'single_choice' : 'essay',
+            questionType: looksLikeTrueFalse(region.rawText)
+              ? 'true_false'
+              : alternatives >= 4
+                ? 'single_choice'
+                : 'essay',
             status:
               alternatives === 5 || alternatives === 0 ? 'complete' : 'review',
             extractionMethod: 'text-region',
@@ -1037,23 +1148,48 @@ export async function extractExamImportQuestions({
       // remains valid for those documents.
     }
     await checkpoint('extracting_text', 35);
-    const useGeminiPdf = process.env.EXAM_AI_PROVIDER === 'gemini' && Boolean(process.env.GEMINI_API_KEY)
-      && (!candidates.length || pageTexts.some(pdfTextNeedsOcr));
+    const useGeminiPdf =
+      process.env.EXAM_AI_PROVIDER === 'gemini' &&
+      Boolean(process.env.GEMINI_API_KEY) &&
+      (!candidates.length || pageTexts.some(pdfTextNeedsOcr));
     if (useGeminiPdf) {
-      await transaction(async client => {
-        await client.query("SELECT pg_advisory_xact_lock(hashtext('exam-ai-daily-admission'))");
-        const allowed = await client.query(`SELECT EXISTS(SELECT 1 FROM exam_ai_daily_admissions WHERE usage_day=(now() AT TIME ZONE 'America/Campo_Grande')::date AND exam_import_id=$1) AS admitted,
-          (SELECT count(*)::int FROM exam_ai_daily_admissions WHERE usage_day=(now() AT TIME ZONE 'America/Campo_Grande')::date) AS total`,[examImportId]);
+      await transaction(async (client) => {
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtext('exam-ai-daily-admission'))",
+        );
+        const allowed = await client.query(
+          `SELECT EXISTS(SELECT 1 FROM exam_ai_daily_admissions WHERE usage_day=(now() AT TIME ZONE 'America/Campo_Grande')::date AND exam_import_id=$1) AS admitted,
+          (SELECT count(*)::int FROM exam_ai_daily_admissions WHERE usage_day=(now() AT TIME ZONE 'America/Campo_Grande')::date) AS total`,
+          [examImportId],
+        );
         if (!allowed.rows[0].admitted && allowed.rows[0].total >= 3)
-          throw Object.assign(new Error('Limite de três provas com IA por dia atingido. A extração aguardará uma nova tentativa.'),{code:'AI_QUOTA_EXHAUSTED',retryAfterSeconds:3600});
-        await client.query("INSERT INTO exam_ai_daily_admissions(usage_day,exam_import_id) VALUES((now() AT TIME ZONE 'America/Campo_Grande')::date,$1) ON CONFLICT DO NOTHING",[examImportId]);
+          throw Object.assign(
+            new Error(
+              'Limite de três provas com IA por dia atingido. A extração aguardará uma nova tentativa.',
+            ),
+            { code: 'AI_QUOTA_EXHAUSTED', retryAfterSeconds: 3600 },
+          );
+        await client.query(
+          "INSERT INTO exam_ai_daily_admissions(usage_day,exam_import_id) VALUES((now() AT TIME ZONE 'America/Campo_Grande')::date,$1) ON CONFLICT DO NOTHING",
+          [examImportId],
+        );
       });
       await checkpoint('reading_pdf_with_gemini', 55);
-      const {stdout:pdfInfo}=await execFileAsync('pdfinfo',[pdfPath],{maxBuffer:1000000});
-      const pageCount=Number(/^Pages:\s+(\d+)/m.exec(pdfInfo)?.[1]);
-      candidates = await extractPdfInBatches({pdfPath,directory:workingDirectory,pageCount,onProgress:checkpoint});
+      const { stdout: pdfInfo } = await execFileAsync('pdfinfo', [pdfPath], {
+        maxBuffer: 1000000,
+      });
+      const pageCount = Number(/^Pages:\s+(\d+)/m.exec(pdfInfo)?.[1]);
+      candidates = await extractPdfInBatches({
+        pdfPath,
+        directory: workingDirectory,
+        pageCount,
+        onProgress: checkpoint,
+      });
     }
-    if (!useGeminiPdf && (!candidates.length || pageTexts.some(pdfTextNeedsOcr))) {
+    if (
+      !useGeminiPdf &&
+      (!candidates.length || pageTexts.some(pdfTextNeedsOcr))
+    ) {
       await checkpoint('rendering_pages', 45);
       const imagePrefix = join(workingDirectory, 'pagina');
       await execFileAsync(
@@ -1177,7 +1313,11 @@ export async function extractExamImportQuestions({
       [
         institutionId,
         examImportId,
-        error.code === 'IMPORT_CANCELLED' ? 'cancelled' : error.code === 'AI_QUOTA_EXHAUSTED' ? 'queued' : 'failed',
+        error.code === 'IMPORT_CANCELLED'
+          ? 'cancelled'
+          : error.code === 'AI_QUOTA_EXHAUSTED'
+            ? 'queued'
+            : 'failed',
         error.message || 'Falha na extração.',
       ],
     );
@@ -1350,7 +1490,12 @@ export function parseAnswerKeyText(text, expectedNumbers = []) {
   )) {
     const number = Number(match[1]);
     if ((!expected.size || expected.has(number)) && !answers.has(number))
-      answers.set(number, ({ CERTO: 'C', VERDADEIRO: 'C', ERRADO: 'E', FALSO: 'E' }[match[2].toUpperCase()] || match[2].toUpperCase()));
+      answers.set(
+        number,
+        { CERTO: 'C', VERDADEIRO: 'C', ERRADO: 'E', FALSO: 'E' }[
+          match[2].toUpperCase()
+        ] || match[2].toUpperCase(),
+      );
   }
   const expectedCount = expected.size || answers.size;
   const coverage = expectedCount ? answers.size / expectedCount : 0;
@@ -1419,7 +1564,11 @@ export async function extractExamImportAnswerKey({
       return answer && candidate.questionType !== 'essay'
         ? {
             ...candidate,
-            correctAnswers: [candidate.questionType === 'true_false' ? ({ C: 'A', E: 'B' }[answer] || answer) : answer],
+            correctAnswers: [
+              candidate.questionType === 'true_false'
+                ? { C: 'A', E: 'B' }[answer] || answer
+                : answer,
+            ],
             answerStatus: 'suggested',
             answerConfidence: parsed.confidence,
             status: 'review',

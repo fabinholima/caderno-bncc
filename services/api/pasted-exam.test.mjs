@@ -51,7 +51,10 @@ test('Markdown files with titled question headings and formatted list alternativ
       'GABARITO: A',
     ].join('\n'),
   );
-  assert.deepEqual(result.map((question) => question.sourceNumber), [12, 13]);
+  assert.deepEqual(
+    result.map((question) => question.sourceNumber),
+    [12, 13],
+  );
   assert.equal(result[0].alternatives.A, 'Primeira alternativa');
   assert.deepEqual(result[0].correctAnswers, ['C']);
   assert.equal(result[1].alternatives.B, 'Segunda alternativa');

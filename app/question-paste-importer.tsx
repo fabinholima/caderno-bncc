@@ -3,7 +3,11 @@
 import { useRef, useState } from 'react';
 import { normalizeAlternativeLabels } from '@/lib/question-alternative-labels.mjs';
 import Image from 'next/image';
-import { CONTEXT_PASTE_MARKER, PASTED_EXAM_EXAMPLE, parseSinglePastedQuestion } from '@/lib/pasted-exam.mjs';
+import {
+  CONTEXT_PASTE_MARKER,
+  PASTED_EXAM_EXAMPLE,
+  parseSinglePastedQuestion,
+} from '@/lib/pasted-exam.mjs';
 import {
   AlertTriangle,
   ClipboardPaste,
@@ -214,7 +218,15 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
     <article className="rounded-lg border border-slate-300 bg-white p-5 text-slate-950 shadow-sm">
       <div className="space-y-3 font-serif text-[15px] leading-7">
         {value.statementBlocks.map((block, index) => {
-          if (block.type === 'contextRaw') return <pre key={index} className="whitespace-pre-wrap font-mono text-xs">{block.code}</pre>;
+          if (block.type === 'contextRaw')
+            return (
+              <pre
+                key={index}
+                className="whitespace-pre-wrap font-mono text-xs"
+              >
+                {block.code}
+              </pre>
+            );
           if (block.type === 'paragraph')
             return (
               <p key={index}>
@@ -287,7 +299,11 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
             <li key={label} className="ml-6 pl-1">
               {blocks.map((block, index) => (
                 <span key={index}>
-                  {block.type === 'contextRaw' ? block.code : block.type === 'paragraph' ? unitPreview(block.text) : ''}
+                  {block.type === 'contextRaw'
+                    ? block.code
+                    : block.type === 'paragraph'
+                      ? unitPreview(block.text)
+                      : ''}
                 </span>
               ))}
             </li>
@@ -298,17 +314,37 @@ function QuestionPreview({ value }: { value: ParsedQuestion }) {
 }
 
 export function parsePastedQuestion(raw: string): ParsedQuestion {
-  if (/^\s*(?:#{1,6}\s+)?(?:\*\*)?QUEST[ÃA]O\s+\d+|^\s*\([A-Ea-e]\)\s+/im.test(raw) || raw.startsWith(CONTEXT_PASTE_MARKER) || /\\[a-zA-Z]+|^\s*(?:GABARITO|HABILIDADE(?: BNCC)?|RESOLU[ÇC][ÃA]O)\s*:/im.test(raw)) {
-    const parsed = parseSinglePastedQuestion(raw.replace(CONTEXT_PASTE_MARKER, '').trim());
-    const blocks = (code: string): RichContentBlock[] => code ? [{type:'contextRaw', code}] : [];
+  if (
+    /^\s*(?:#{1,6}\s+)?(?:\*\*)?QUEST[ÃA]O\s+\d+|^\s*\([A-Ea-e]\)\s+/im.test(
+      raw,
+    ) ||
+    raw.startsWith(CONTEXT_PASTE_MARKER) ||
+    /\\[a-zA-Z]+|^\s*(?:GABARITO|HABILIDADE(?: BNCC)?|RESOLU[ÇC][ÃA]O)\s*:/im.test(
+      raw,
+    )
+  ) {
+    const parsed = parseSinglePastedQuestion(
+      raw.replace(CONTEXT_PASTE_MARKER, '').trim(),
+    );
+    const blocks = (code: string): RichContentBlock[] =>
+      code ? [{ type: 'contextRaw', code }] : [];
     return {
-      sourceInstitution: '', sourceYear: '',
+      sourceInstitution: '',
+      sourceYear: '',
       statementBlocks: blocks(parsed.statement),
-      alternatives: Object.fromEntries(Object.entries(parsed.alternatives).map(([key, text]) => [key, blocks(text as string)])),
+      alternatives: Object.fromEntries(
+        Object.entries(parsed.alternatives).map(([key, text]) => [
+          key,
+          blocks(text as string),
+        ]),
+      ),
       adoteNote: parsed.adoteNote,
-      correctAnswers: parsed.correctAnswers, skill: 'skill' in parsed ? parsed.skill : '',
+      correctAnswers: parsed.correctAnswers,
+      skill: 'skill' in parsed ? parsed.skill : '',
       answerBlocks: blocks(parsed.resolution),
-      warnings: ['Revise a classificação curricular e confira a prévia em PDF antes de salvar.'],
+      warnings: [
+        'Revise a classificação curricular e confira a prévia em PDF antes de salvar.',
+      ],
     };
   }
   const warnings: string[] = [];
@@ -509,7 +545,8 @@ export function QuestionPasteImporter({
                 ...current.statementBlocks,
                 {
                   type: 'image',
-                  dataUrl: typeof reader.result === 'string' ? reader.result : '',
+                  dataUrl:
+                    typeof reader.result === 'string' ? reader.result : '',
                   alt: file.name.replace(/\.[^.]+$/, ''),
                   caption: '',
                 },
@@ -530,7 +567,11 @@ export function QuestionPasteImporter({
     <section className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
       <div>
         <strong>Colar questão → Analisar → Confirmar</strong>
-        <p className="text-xs text-slate-500">Mesmo formato da importação por texto: enunciado, alternativas, GABARITO, HABILIDADE e RESOLUÇÃO. Os comandos ConTeXt são preservados. Nada será salvo nesta etapa.</p>
+        <p className="text-xs text-slate-500">
+          Mesmo formato da importação por texto: enunciado, alternativas,
+          GABARITO, HABILIDADE e RESOLUÇÃO. Os comandos ConTeXt são preservados.
+          Nada será salvo nesta etapa.
+        </p>
       </div>
       <textarea
         value={text}
@@ -545,7 +586,9 @@ export function QuestionPasteImporter({
           if (!file) return;
           event.preventDefault();
           if (!preview) {
-            window.alert('Analise o texto da questão antes de colar uma imagem.');
+            window.alert(
+              'Analise o texto da questão antes de colar uma imagem.',
+            );
             return;
           }
           addImage(file);
@@ -557,7 +600,18 @@ export function QuestionPasteImporter({
       <div className="flex gap-2">
         <Button
           type="button"
-          onClick={() => { try { setPreview(parsePastedQuestion(text)); } catch (error) { setPreview(null); window.alert(error instanceof Error ? error.message : 'Confira o texto da questão.'); } }}
+          onClick={() => {
+            try {
+              setPreview(parsePastedQuestion(text));
+            } catch (error) {
+              setPreview(null);
+              window.alert(
+                error instanceof Error
+                  ? error.message
+                  : 'Confira o texto da questão.',
+              );
+            }
+          }}
           disabled={text.trim().length < 20}
         >
           <WandSparkles className="size-4" />
@@ -593,8 +647,22 @@ export function QuestionPasteImporter({
             />
           </div>
           <QuestionPreview value={preview} />
-          <p>Gabarito: {preview.correctAnswers?.join(', ') || 'não identificado'} · Habilidade: {preview.skill || 'não identificada'}</p>
-          {preview.answerBlocks?.length ? <details><summary>Resolução importada</summary><pre className="whitespace-pre-wrap text-xs">{preview.answerBlocks.map(block => block.type === 'contextRaw' ? block.code : '').join('\n')}</pre></details> : null}
+          <p>
+            Gabarito: {preview.correctAnswers?.join(', ') || 'não identificado'}{' '}
+            · Habilidade: {preview.skill || 'não identificada'}
+          </p>
+          {preview.answerBlocks?.length ? (
+            <details>
+              <summary>Resolução importada</summary>
+              <pre className="whitespace-pre-wrap text-xs">
+                {preview.answerBlocks
+                  .map((block) =>
+                    block.type === 'contextRaw' ? block.code : '',
+                  )
+                  .join('\n')}
+              </pre>
+            </details>
+          ) : null}
           {preview.warnings.map((warning) => (
             <p key={warning} className="flex gap-2 text-amber-700">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -602,8 +670,9 @@ export function QuestionPasteImporter({
             </p>
           ))}
           <p className="text-xs text-slate-500">
-            Esta conferência mostra o conteúdo importado. Use a prévia em PDF para conferir a impressão. A confirmação abre todos os blocos
-            para ajustes antes de salvar.
+            Esta conferência mostra o conteúdo importado. Use a prévia em PDF
+            para conferir a impressão. A confirmação abre todos os blocos para
+            ajustes antes de salvar.
           </p>
           <Button
             type="button"

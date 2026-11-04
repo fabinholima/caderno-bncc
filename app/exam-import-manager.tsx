@@ -252,7 +252,10 @@ function editableTextFromBlocks(blocks: RichContentBlock[]) {
     .join('\n\n');
 }
 
-function splitImportedQuestion(rawText: string, judgment = false): ImportedQuestionFields {
+function splitImportedQuestion(
+  rawText: string,
+  judgment = false,
+): ImportedQuestionFields {
   const parsed = parsePastedQuestion(rawText);
   return {
     preserveContext: rawText.startsWith(CONTEXT_PASTE_MARKER),
@@ -260,19 +263,28 @@ function splitImportedQuestion(rawText: string, judgment = false): ImportedQuest
     alternatives: Object.fromEntries(
       alternativeLetters.map((letter) => [
         letter,
-        editableTextFromBlocks(judgment ? [] : parsed.alternatives[letter] || []),
+        editableTextFromBlocks(
+          judgment ? [] : parsed.alternatives[letter] || [],
+        ),
       ]),
     ) as ImportedQuestionFields['alternatives'],
   };
 }
 
-function joinImportedQuestion(fields: ImportedQuestionFields, judgment = false) {
+function joinImportedQuestion(
+  fields: ImportedQuestionFields,
+  judgment = false,
+) {
   return [
     ...(fields.preserveContext ? [CONTEXT_PASTE_MARKER] : []),
     fields.statement.trim(),
-    ...(judgment ? [] : alternativeLetters.map(
-      (letter) => fields.preserveContext && !fields.alternatives[letter].trim() ? '' : `${letter}) ${fields.alternatives[letter].trim()}`,
-    )),
+    ...(judgment
+      ? []
+      : alternativeLetters.map((letter) =>
+          fields.preserveContext && !fields.alternatives[letter].trim()
+            ? ''
+            : `${letter}) ${fields.alternatives[letter].trim()}`,
+        )),
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -327,34 +339,38 @@ function ContextTextField({
   };
   return (
     <div>
-      <div className={`mb-2 flex flex-wrap items-center justify-between gap-2${showContextTools ? '' : ' min-h-0'}`}>
+      <div
+        className={`mb-2 flex flex-wrap items-center justify-between gap-2${showContextTools ? '' : ' min-h-0'}`}
+      >
         <label className="text-xs font-bold text-slate-700">{label}</label>
-        {showContextTools && <div className="flex flex-wrap gap-1">
-          {(['m', 'chemical', 'unit', 'bold'] as const).map((command) => (
+        {showContextTools && (
+          <div className="flex flex-wrap gap-1">
+            {(['m', 'chemical', 'unit', 'bold'] as const).map((command) => (
+              <Button
+                key={command}
+                type="button"
+                size="sm"
+                variant="outline"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => insert(command)}
+                className="h-7 px-2 font-mono text-xs"
+              >
+                \\{command}
+                {'{ }'}
+              </Button>
+            ))}
             <Button
-              key={command}
               type="button"
               size="sm"
               variant="outline"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => insert(command)}
+              onClick={insertFormula}
               className="h-7 px-2 font-mono text-xs"
             >
-              \\{command}
-              {'{ }'}
+              \\startformula
             </Button>
-          ))}
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={insertFormula}
-            className="h-7 px-2 font-mono text-xs"
-          >
-            \\startformula
-          </Button>
-        </div>}
+          </div>
+        )}
       </div>
       <textarea
         ref={editor}
@@ -382,7 +398,10 @@ function ImportedQuestionTextEditor({
   const lastJoinedValue = useRef(candidate.rawText);
   const lastQuestionType = useRef(candidate.questionType);
   const [fields, setFields] = useState(() =>
-    splitImportedQuestion(candidate.rawText, candidate.questionType === 'true_false'),
+    splitImportedQuestion(
+      candidate.rawText,
+      candidate.questionType === 'true_false',
+    ),
   );
 
   useEffect(() => {
@@ -394,18 +413,29 @@ function ImportedQuestionTextEditor({
     lastJoinedValue.current = candidate.rawText;
     savedValue.current = candidate.rawText;
     lastQuestionType.current = candidate.questionType;
-    setFields(splitImportedQuestion(candidate.rawText, candidate.questionType === 'true_false'));
+    setFields(
+      splitImportedQuestion(
+        candidate.rawText,
+        candidate.questionType === 'true_false',
+      ),
+    );
   }, [candidate.id, candidate.rawText, candidate.questionType]);
 
   const updateFields = (next: ImportedQuestionFields) => {
     setFields(next);
-    const rawText = joinImportedQuestion(next, candidate.questionType === 'true_false');
+    const rawText = joinImportedQuestion(
+      next,
+      candidate.questionType === 'true_false',
+    );
     lastJoinedValue.current = rawText;
     onChange(rawText);
   };
 
   const save = () => {
-    const rawText = joinImportedQuestion(fields, candidate.questionType === 'true_false');
+    const rawText = joinImportedQuestion(
+      fields,
+      candidate.questionType === 'true_false',
+    );
     if (rawText.trim() === savedValue.current.trim()) return;
     savedValue.current = rawText;
     onSave(rawText);
@@ -419,7 +449,9 @@ function ImportedQuestionTextEditor({
             Editor estruturado da questão
           </p>
           <p className="text-xs text-slate-500">
-            {candidate.questionType === 'true_false' ? 'Afirmação para julgar como certa ou errada, com ConTeXt livre.' : 'Enunciado e alternativas A–E separados, todos com ConTeXt livre.'}
+            {candidate.questionType === 'true_false'
+              ? 'Afirmação para julgar como certa ou errada, com ConTeXt livre.'
+              : 'Enunciado e alternativas A–E separados, todos com ConTeXt livre.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -430,10 +462,18 @@ function ImportedQuestionTextEditor({
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               const repaired = repairPdfTextBreaks(
-                joinImportedQuestion(fields, candidate.questionType === 'true_false'),
+                joinImportedQuestion(
+                  fields,
+                  candidate.questionType === 'true_false',
+                ),
               );
               lastJoinedValue.current = repaired;
-              setFields(splitImportedQuestion(repaired, candidate.questionType === 'true_false'));
+              setFields(
+                splitImportedQuestion(
+                  repaired,
+                  candidate.questionType === 'true_false',
+                ),
+              );
               onChange(repaired);
             }}
           >
@@ -452,23 +492,25 @@ function ImportedQuestionTextEditor({
           rows={12}
           onChange={(statement) => updateFields({ ...fields, statement })}
         />
-        {candidate.questionType !== 'true_false' && <div className="grid gap-4 xl:grid-cols-2">
-          {alternativeLetters.map((letter) => (
-            <ContextTextField
-              key={letter}
-              label={`Alternativa ${letter}`}
-              value={fields.alternatives[letter]}
-              rows={4}
-              showContextTools={false}
-              onChange={(value) =>
-                updateFields({
-                  ...fields,
-                  alternatives: { ...fields.alternatives, [letter]: value },
-                })
-              }
-            />
-          ))}
-        </div>}
+        {candidate.questionType !== 'true_false' && (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {alternativeLetters.map((letter) => (
+              <ContextTextField
+                key={letter}
+                label={`Alternativa ${letter}`}
+                value={fields.alternatives[letter]}
+                rows={4}
+                showContextTools={false}
+                onChange={(value) =>
+                  updateFields({
+                    ...fields,
+                    alternatives: { ...fields.alternatives, [letter]: value },
+                  })
+                }
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -498,8 +540,15 @@ function candidateReadiness(candidate: ExamImportCandidate) {
     )
   )
     reasons.push('conversão da IA exige revisão individual');
-  if (candidate.extractionMethod === 'pasted-text' && !candidate.editorialReviewed) reasons.push('confirme a revisão desta questão');
-  if (candidate.questionType === 'essay' && candidate.extractionMethod !== 'pasted-text')
+  if (
+    candidate.extractionMethod === 'pasted-text' &&
+    !candidate.editorialReviewed
+  )
+    reasons.push('confirme a revisão desta questão');
+  if (
+    candidate.questionType === 'essay' &&
+    candidate.extractionMethod !== 'pasted-text'
+  )
     reasons.push('discursiva exige revisão individual');
   const labels = Object.keys(
     parsePastedQuestion(candidate.rawText).alternatives,
@@ -517,7 +566,8 @@ function candidateReadiness(candidate: ExamImportCandidate) {
     candidate.answerStatus !== 'confirmed'
   )
     reasons.push('gabarito não confirmado');
-  if (candidate.questionType === 'essay' && !candidate.resolution?.trim()) reasons.push('informe a resolução ou resposta esperada');
+  if (candidate.questionType === 'essay' && !candidate.resolution?.trim())
+    reasons.push('informe a resolução ou resposta esperada');
   const answerCount = candidate.correctAnswers?.length || 0;
   if (candidate.questionType === 'single_choice' && answerCount !== 1)
     reasons.push('selecione uma resposta correta');
@@ -617,7 +667,8 @@ function candidateMatchesReviewFilters(
 }
 
 function blockPlainText(block: RichContentBlock) {
-  if (block.type === 'paragraph' || block.type === 'adoteNote') return block.text;
+  if (block.type === 'paragraph' || block.type === 'adoteNote')
+    return block.text;
   if (block.type === 'romanList') return block.items.join(' ');
   if (
     block.type === 'contextFormula' ||
@@ -991,7 +1042,9 @@ export function ExamImportManager({
     topicId: '',
   });
   const [batchActionBusy, setBatchActionBusy] = useState(false);
-  const [reviewTab, setReviewTab] = useState<'pending' | 'completed' | 'discarded'>('pending');
+  const [reviewTab, setReviewTab] = useState<
+    'pending' | 'completed' | 'discarded'
+  >('pending');
   const [cropDraft, setCropDraft] = useState({
     x: 10,
     y: 20,
@@ -1054,8 +1107,12 @@ export function ExamImportManager({
   }, [apiUrl]);
 
   useEffect(() => {
-    void Promise.resolve().then(refresh).catch((error) => setMessage(error.message));
-    void Promise.resolve().then(refreshDuplicates).catch((error) => setMessage(error.message));
+    void Promise.resolve()
+      .then(refresh)
+      .catch((error) => setMessage(error.message));
+    void Promise.resolve()
+      .then(refreshDuplicates)
+      .catch((error) => setMessage(error.message));
   }, [refresh, refreshDuplicates]);
 
   useEffect(() => {
@@ -1113,16 +1170,21 @@ export function ExamImportManager({
   };
 
   const visibleCandidates = (item: ExamImport) =>
-    item.candidates.filter((candidate) =>
-      importReviewGroup(candidate) === reviewTab && candidateMatchesReviewFilters(
-        candidate,
-        item,
-        reviewFilters,
-        pedagogicalTopics,
-      ),
+    item.candidates.filter(
+      (candidate) =>
+        importReviewGroup(candidate) === reviewTab &&
+        candidateMatchesReviewFilters(
+          candidate,
+          item,
+          reviewFilters,
+          pedagogicalTopics,
+        ),
     );
 
-  const visibleCount = imports.reduce((total, item) => total + visibleCandidates(item).length, 0);
+  const visibleCount = imports.reduce(
+    (total, item) => total + visibleCandidates(item).length,
+    0,
+  );
   const applyVisibleAction = async (
     action: 'select' | 'unselect' | 'confirm' | 'ignore' | 'restore',
   ) => {
@@ -1145,7 +1207,12 @@ export function ExamImportManager({
       return;
     }
     // Descartar em massa pede confirmação (as questões podem ser restauradas na aba Descartadas).
-    if (action === 'ignore' && !window.confirm(`Descartar ${actionable.length} questão(ões) visível(is)? Elas podem ser restauradas na aba Descartadas.`))
+    if (
+      action === 'ignore' &&
+      !window.confirm(
+        `Descartar ${actionable.length} questão(ões) visível(is)? Elas podem ser restauradas na aba Descartadas.`,
+      )
+    )
       return;
     setBatchActionBusy(true);
     try {
@@ -1188,14 +1255,17 @@ export function ExamImportManager({
           throw new Error(body.error || 'Falha ao carregar as disciplinas.');
         const disciplines = body.data || [];
         setPedagogicalDisciplines(disciplines);
-        const topicsResponse = await apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics`);
+        const topicsResponse = await apiFetch(
+          `${apiUrl}/api/curriculum/pedagogical-topics`,
+        );
         const topicsBody = (await topicsResponse.json()) as {
           data?: PedagogicalTopic[];
           error?: string;
         };
         if (!topicsResponse.ok)
           throw new Error(
-            topicsBody.error || 'Falha ao carregar os conteúdos das disciplinas.',
+            topicsBody.error ||
+              'Falha ao carregar os conteúdos das disciplinas.',
           );
         setPedagogicalTopics(topicsBody.data || []);
       })
@@ -1211,26 +1281,42 @@ export function ExamImportManager({
     const examPdfUrl = formString(data, 'examPdfUrl').trim();
     const answerKeyPdfUrl = formString(data, 'answerKeyPdfUrl').trim();
     const examFile = exam instanceof File && exam.size ? exam : null;
-    const keyFile = answerKey instanceof File && answerKey.size ? answerKey : null;
+    const keyFile =
+      answerKey instanceof File && answerKey.size ? answerKey : null;
     if (importMode === 'text') {
-      try { parsePastedExam(pastedText); } catch (error) { return setMessage(error instanceof Error ? error.message : 'Lote inválido.'); }
+      try {
+        parsePastedExam(pastedText);
+      } catch (error) {
+        return setMessage(
+          error instanceof Error ? error.message : 'Lote inválido.',
+        );
+      }
     }
-    if (importMode === 'pdf' && ((!examFile && !examPdfUrl) || (examFile && examPdfUrl)))
+    if (
+      importMode === 'pdf' &&
+      ((!examFile && !examPdfUrl) || (examFile && examPdfUrl))
+    )
       return setMessage('Informe um arquivo ou uma URL para a prova.');
-    if (importMode === 'pdf' && keyFile && answerKeyPdfUrl) return setMessage('Informe arquivo ou URL para o gabarito, apenas uma opção.');
-    const files = importMode === 'text' ? [] : [
-      ...(examFile ? [{file:examFile,kind:'exam'}] : []),
-      ...(keyFile ? [{file:keyFile,kind:'answer_key'}] : []),
-    ];
-    if (files.some(({file}) => file.type !== 'application/pdf'))
+    if (importMode === 'pdf' && keyFile && answerKeyPdfUrl)
+      return setMessage(
+        'Informe arquivo ou URL para o gabarito, apenas uma opção.',
+      );
+    const files =
+      importMode === 'text'
+        ? []
+        : [
+            ...(examFile ? [{ file: examFile, kind: 'exam' }] : []),
+            ...(keyFile ? [{ file: keyFile, kind: 'answer_key' }] : []),
+          ];
+    if (files.some(({ file }) => file.type !== 'application/pdf'))
       return setMessage('Envie somente arquivos PDF.');
-    if (files.some(({file}) => file.size > 15_000_000))
+    if (files.some(({ file }) => file.size > 15_000_000))
       return setMessage('Cada PDF deve ter no máximo 15 MB.');
     setBusy(true);
     setMessage('Enviando os documentos para a área de preparação...');
     try {
       const documents = await Promise.all(
-        files.map(async ({file,kind}) => ({
+        files.map(async ({ file, kind }) => ({
           kind,
           fileName: file.name,
           dataUrl: await fileToDataUrl(file),
@@ -1245,9 +1331,7 @@ export function ExamImportManager({
           examType: formString(data, 'examType'),
           subjectMode,
           primarySubject:
-            subjectMode === 'single'
-              ? formString(data, 'primarySubject')
-              : '',
+            subjectMode === 'single' ? formString(data, 'primarySubject') : '',
           sourceUrl: formString(data, 'sourceUrl'),
           examPdfUrl: importMode === 'pdf' ? examPdfUrl : '',
           answerKeyPdfUrl: importMode === 'pdf' ? answerKeyPdfUrl : '',
@@ -1265,7 +1349,11 @@ export function ExamImportManager({
       setExamPreview(null);
       setAnswerKeyPreview(null);
       setPastedText('');
-      setMessage(importMode === 'text' ? 'Lote separado em questões e salvo para revisão. Confirme os gabaritos, classifique e cadastre as selecionadas.' : 'Prova recebida. Ela permanece isolada até a revisão editorial.');
+      setMessage(
+        importMode === 'text'
+          ? 'Lote separado em questões e salvo para revisão. Confirme os gabaritos, classifique e cadastre as selecionadas.'
+          : 'Prova recebida. Ela permanece isolada até a revisão editorial.',
+      );
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Erro no envio.');
@@ -1343,7 +1431,11 @@ export function ExamImportManager({
     const suffix = action === 'start' ? 'analyze' : `analyze/${action}`;
     const response = await apiFetch(
       `${apiUrl}/api/exam-imports/${item.id}/${suffix}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: aiProviders[item.id] || 'gemini' }) },
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: aiProviders[item.id] || 'gemini' }),
+      },
     );
     const body = (await response.json()) as { error?: string };
     if (!response.ok)
@@ -1484,7 +1576,12 @@ export function ExamImportManager({
               ...item,
               candidates: item.candidates.map((candidate) =>
                 candidate.id === candidateId
-                  ? { ...candidate, rawText, editorialReviewed:false, status: 'review' }
+                  ? {
+                      ...candidate,
+                      rawText,
+                      editorialReviewed: false,
+                      status: 'review',
+                    }
                   : candidate,
               ),
             }
@@ -1625,7 +1722,13 @@ export function ExamImportManager({
     }
     const unclassified = readyCandidates.filter(
       (candidate) =>
-        !resolveImportClassification({candidate,settings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics}).topicId,
+        !resolveImportClassification({
+          candidate,
+          settings,
+          item,
+          disciplines: pedagogicalDisciplines,
+          topics: pedagogicalTopics,
+        }).topicId,
     );
     if (unclassified.length) {
       setMessage(
@@ -1634,7 +1737,13 @@ export function ExamImportManager({
       return;
     }
     const invalidSkill = readyCandidates.find((candidate) => {
-      const skill = resolveImportClassification({candidate,settings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics}).skill;
+      const skill = resolveImportClassification({
+        candidate,
+        settings,
+        item,
+        disciplines: pedagogicalDisciplines,
+        topics: pedagogicalTopics,
+      }).skill;
       return skill && !/^[A-Z]{2}[0-9A-Z]{4,12}$/.test(skill);
     });
     if (invalidSkill) {
@@ -1648,7 +1757,13 @@ export function ExamImportManager({
     const failures: string[] = [];
     for (const candidate of readyCandidates) {
       try {
-        const classification = resolveImportClassification({candidate,settings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics});
+        const classification = resolveImportClassification({
+          candidate,
+          settings,
+          item,
+          disciplines: pedagogicalDisciplines,
+          topics: pedagogicalTopics,
+        });
         const parsed = parsePastedQuestion(candidate.rawText);
         const statementBlocks: RichContentBlock[] = [
           ...parsed.statementBlocks,
@@ -1674,7 +1789,14 @@ export function ExamImportManager({
             statementBlocks,
             metapostCode: '',
             answerGuide: candidate.resolution || '',
-            ...(candidate.adoteNote ? {statementBlocks:[...statementBlocks,{type:'adoteNote',text:candidate.adoteNote}]} : {}),
+            ...(candidate.adoteNote
+              ? {
+                  statementBlocks: [
+                    ...statementBlocks,
+                    { type: 'adoteNote', text: candidate.adoteNote },
+                  ],
+                }
+              : {}),
             subject: classification.subject,
             grade: classification.grade,
             sourceInstitution: item.sourceInstitution,
@@ -1683,24 +1805,38 @@ export function ExamImportManager({
             pedagogicalDisciplineId: classification.discipline?.id || '',
             pedagogicalTopicId: classification.topicId,
             difficulty: candidate.difficulty || settings.difficulty,
-            alternatives: candidate.questionType === 'essay' ? [] : candidate.questionType === 'true_false' ? ['Certo', 'Errado'].map((content, index) => ({
-              stableKey: index === 0 ? 'alt-a' : 'alt-b', content,
-              contentBlocks: [{ type: 'paragraph', text: content }],
-              isCorrect: (candidate.correctAnswers || []).includes(index === 0 ? 'A' : 'B'), position: index + 1,
-            })) : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
-              const contentBlocks = parsed.alternatives[letter];
-              return {
-                stableKey: `alt-${letter.toLowerCase()}`,
-                content: contentBlocks.map(blockPlainText).join(' ').trim(),
-                contentBlocks,
-                isCorrect: (candidate.correctAnswers || []).includes(letter),
-                position: index + 1,
-              };
-            }),
+            alternatives:
+              candidate.questionType === 'essay'
+                ? []
+                : candidate.questionType === 'true_false'
+                  ? ['Certo', 'Errado'].map((content, index) => ({
+                      stableKey: index === 0 ? 'alt-a' : 'alt-b',
+                      content,
+                      contentBlocks: [{ type: 'paragraph', text: content }],
+                      isCorrect: (candidate.correctAnswers || []).includes(
+                        index === 0 ? 'A' : 'B',
+                      ),
+                      position: index + 1,
+                    }))
+                  : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
+                      const contentBlocks = parsed.alternatives[letter];
+                      return {
+                        stableKey: `alt-${letter.toLowerCase()}`,
+                        content: contentBlocks
+                          .map(blockPlainText)
+                          .join(' ')
+                          .trim(),
+                        contentBlocks,
+                        isCorrect: (candidate.correctAnswers || []).includes(
+                          letter,
+                        ),
+                        position: index + 1,
+                      };
+                    }),
           }),
         });
         const body = (await response.json()) as {
-          data?: {id:string;code:string};
+          data?: { id: string; code: string };
           error?: string;
           issues?: Array<{ message: string }>;
           duplicateQuestionId?: string;
@@ -1721,7 +1857,12 @@ export function ExamImportManager({
               'falha no cadastro',
           );
         }
-        await updateCandidate(item.id, candidate.id, { status: 'completed', selected:false, registeredQuestionId:body.data?.id, registeredQuestionCode:body.data?.code });
+        await updateCandidate(item.id, candidate.id, {
+          status: 'completed',
+          selected: false,
+          registeredQuestionId: body.data?.id,
+          registeredQuestionCode: body.data?.code,
+        });
         registered += 1;
       } catch (error) {
         failures.push(
@@ -1941,18 +2082,45 @@ export function ExamImportManager({
           </span>
         </div>
         <div className="mt-5 flex gap-2" aria-label="Origem da importação">
-          <Button type="button" variant={importMode === 'pdf' ? 'default' : 'outline'} onClick={() => setImportMode('pdf')}>PDF</Button>
-          <Button type="button" variant={importMode === 'text' ? 'default' : 'outline'} onClick={() => setImportMode('text')}>Lote por texto / TXT / Markdown</Button>
+          <Button
+            type="button"
+            variant={importMode === 'pdf' ? 'default' : 'outline'}
+            onClick={() => setImportMode('pdf')}
+          >
+            PDF
+          </Button>
+          <Button
+            type="button"
+            variant={importMode === 'text' ? 'default' : 'outline'}
+            onClick={() => setImportMode('text')}
+          >
+            Lote por texto / TXT / Markdown
+          </Button>
         </div>
         <form onSubmit={submit} className="mt-5 space-y-5">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label htmlFor="import-source-institution" className={fieldLabel}>
               Instituição
-              <Input id="import-source-institution" name="sourceInstitution" required placeholder="Ex.: ITA, Fuvest, ENEM" className="font-normal" />
+              <Input
+                id="import-source-institution"
+                name="sourceInstitution"
+                required
+                placeholder="Ex.: ITA, Fuvest, ENEM"
+                className="font-normal"
+              />
             </label>
             <label htmlFor="import-source-year" className={fieldLabel}>
               Ano da prova
-              <Input id="import-source-year" name="sourceYear" required type="number" min="1900" max="2100" defaultValue={String(new Date().getFullYear())} className="font-normal" />
+              <Input
+                id="import-source-year"
+                name="sourceYear"
+                required
+                type="number"
+                min="1900"
+                max="2100"
+                defaultValue={String(new Date().getFullYear())}
+                className="font-normal"
+              />
             </label>
             <SelectField
               name="examType"
@@ -1995,14 +2163,25 @@ export function ExamImportManager({
                       ),
                     ),
                   ].map((name) => (
-                    <option key={name} value={name}>{name}</option>
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
                   ))}
                 </datalist>
               </label>
             )}
             <label htmlFor="import-source-url" className={fieldLabel}>
-              <span>Página de referência <span className="font-normal text-slate-500">(opcional)</span></span>
-              <Input id="import-source-url" name="sourceUrl" type="url" placeholder="https://… (não baixa o PDF)" className="font-normal" />
+              <span>
+                Página de referência{' '}
+                <span className="font-normal text-slate-500">(opcional)</span>
+              </span>
+              <Input
+                id="import-source-url"
+                name="sourceUrl"
+                type="url"
+                placeholder="https://… (não baixa o PDF)"
+                className="font-normal"
+              />
             </label>
             <SelectField
               name="rightsStatus"
@@ -2025,54 +2204,117 @@ export function ExamImportManager({
             />
           </div>
           <div hidden={importMode !== 'pdf'}>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PdfField
-              key={`exam-${formGeneration}`}
-              name="examPdf"
-              title="PDF da prova"
-              onFileSelected={(file) => updatePreview(file, setExamPreview)}
-            />
-            <PdfField
-              key={`key-${formGeneration}`}
-              name="answerKeyPdf"
-              title="PDF do gabarito"
-              onFileSelected={(file) =>
-                updatePreview(file, setAnswerKeyPreview)
-              }
-            />
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <label htmlFor="exam-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF da prova<Input id="exam-pdf-url" name="examPdfUrl" type="url" placeholder="https://instituicao.br/prova.pdf" className="font-normal" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
-            <label htmlFor="answer-key-pdf-url" className="space-y-2 text-sm font-semibold text-slate-700">Ou URL do PDF do gabarito (opcional)<Input id="answer-key-pdf-url" name="answerKeyPdfUrl" type="url" placeholder="https://instituicao.br/gabarito.pdf" className="font-normal" /><span className="block text-xs font-normal text-slate-500">Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.</span></label>
-          </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <PdfField
+                key={`exam-${formGeneration}`}
+                name="examPdf"
+                title="PDF da prova"
+                onFileSelected={(file) => updatePreview(file, setExamPreview)}
+              />
+              <PdfField
+                key={`key-${formGeneration}`}
+                name="answerKeyPdf"
+                title="PDF do gabarito"
+                onFileSelected={(file) =>
+                  updatePreview(file, setAnswerKeyPreview)
+                }
+              />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label
+                htmlFor="exam-pdf-url"
+                className="space-y-2 text-sm font-semibold text-slate-700"
+              >
+                Ou URL do PDF da prova
+                <Input
+                  id="exam-pdf-url"
+                  name="examPdfUrl"
+                  type="url"
+                  placeholder="https://instituicao.br/prova.pdf"
+                  className="font-normal"
+                />
+                <span className="block text-xs font-normal text-slate-500">
+                  Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.
+                </span>
+              </label>
+              <label
+                htmlFor="answer-key-pdf-url"
+                className="space-y-2 text-sm font-semibold text-slate-700"
+              >
+                Ou URL do PDF do gabarito (opcional)
+                <Input
+                  id="answer-key-pdf-url"
+                  name="answerKeyPdfUrl"
+                  type="url"
+                  placeholder="https://instituicao.br/gabarito.pdf"
+                  className="font-normal"
+                />
+                <span className="block text-xs font-normal text-slate-500">
+                  Link direto HTTPS, público, até 15 MB. Escolha arquivo ou URL.
+                </span>
+              </label>
+            </div>
           </div>
           {importMode === 'text' && (
             <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-bold text-slate-900">Importar questões em lote</h3>
+                  <h3 className="font-bold text-slate-900">
+                    Importar questões em lote
+                  </h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    Cole o texto da prova ou carregue um arquivo. Você poderá revisar cada questão antes de cadastrar.
+                    Cole o texto da prova ou carregue um arquivo. Você poderá
+                    revisar cada questão antes de cadastrar.
                   </p>
                 </div>
                 <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                   <FileUp className="size-4" />
                   Carregar TXT ou Markdown
-                  <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" className="sr-only" onChange={async (event) => {
-                    const input = event.currentTarget;
-                    const file = input.files?.[0];
-                    if (!file) return;
-                    if (!/\.(txt|md|markdown)$/i.test(file.name) || file.size > 2_000_000) { setMessage('Escolha TXT ou Markdown em UTF-8, até 2 MB.'); return; }
-                    try { setPastedText(await file.text()); setMessage('Arquivo carregado. Confira o texto e envie o lote para revisão.'); } catch { setMessage('Não foi possível ler o arquivo.'); }
-                    input.value = '';
-                  }} />
+                  <input
+                    type="file"
+                    accept=".txt,.md,.markdown,text/plain,text/markdown"
+                    className="sr-only"
+                    onChange={async (event) => {
+                      const input = event.currentTarget;
+                      const file = input.files?.[0];
+                      if (!file) return;
+                      if (
+                        !/\.(txt|md|markdown)$/i.test(file.name) ||
+                        file.size > 2_000_000
+                      ) {
+                        setMessage(
+                          'Escolha TXT ou Markdown em UTF-8, até 2 MB.',
+                        );
+                        return;
+                      }
+                      try {
+                        setPastedText(await file.text());
+                        setMessage(
+                          'Arquivo carregado. Confira o texto e envie o lote para revisão.',
+                        );
+                      } catch {
+                        setMessage('Não foi possível ler o arquivo.');
+                      }
+                      input.value = '';
+                    }}
+                  />
                 </label>
               </div>
               <label className="block text-sm font-semibold text-slate-700">
                 Texto do lote
-                <textarea aria-label="Texto do lote" value={pastedText} onChange={(event) => setPastedText(event.target.value)} rows={12} maxLength={1_000_000} spellCheck={false} className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="Cole aqui o texto das questões..." />
+                <textarea
+                  aria-label="Texto do lote"
+                  value={pastedText}
+                  onChange={(event) => setPastedText(event.target.value)}
+                  rows={12}
+                  maxLength={1_000_000}
+                  spellCheck={false}
+                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-6"
+                  placeholder="Cole aqui o texto das questões..."
+                />
                 <span className="mt-1 block text-xs font-normal text-slate-500">
-                  TXT ou Markdown, até 2 MB. O lote pode conter até 100 questões.
+                  TXT ou Markdown, até 2 MB. O lote pode conter até 100
+                  questões.
                 </span>
               </label>
               <details className="rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -2080,7 +2322,7 @@ export function ExamImportManager({
                   Ver exemplo do formato de importação
                 </summary>
                 <pre className="mt-3 overflow-x-auto rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-700">
-{`# Questões de certo ou errado
+                  {`# Questões de certo ou errado
 ## Bloco 1: Tema das questões
 **1.** Afirmação a ser julgada como certa ou errada.
 **2.** Outra afirmação para julgar.
@@ -2095,7 +2337,9 @@ export function ExamImportManager({
 **2. ERRADO.** Comentário ou resolução da segunda questão.`}
                 </pre>
                 <p className="mt-2 text-xs text-slate-500">
-                  Também aceitamos o gabarito em tabela e os comentários separados por número. O exemplo é apenas uma referência e não será inserido no campo.
+                  Também aceitamos o gabarito em tabela e os comentários
+                  separados por número. O exemplo é apenas uma referência e não
+                  será inserido no campo.
                 </p>
               </details>
             </section>
@@ -2177,31 +2421,56 @@ export function ExamImportManager({
             </div>
           ))}
         </div>
-        <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Fila de revisão das importações">
-          {([['pending','Pendentes'],['completed','Concluídas'],['discarded','Descartadas']] as const).map(([group,label])=>(
-            <Button key={group} type="button" role="tab" aria-selected={reviewTab===group}
-              variant={reviewTab===group?'default':'outline'}
-              onClick={()=>{setReviewTab(group);setReviewFilters(current=>({...current,status:''}));}}>
-              {label} ({imports.flatMap(item=>item.candidates).filter(candidate=>importReviewGroup(candidate)===group).length})
+        <div
+          className="mt-5 flex flex-wrap gap-2"
+          role="tablist"
+          aria-label="Fila de revisão das importações"
+        >
+          {(
+            [
+              ['pending', 'Pendentes'],
+              ['completed', 'Concluídas'],
+              ['discarded', 'Descartadas'],
+            ] as const
+          ).map(([group, label]) => (
+            <Button
+              key={group}
+              type="button"
+              role="tab"
+              aria-selected={reviewTab === group}
+              variant={reviewTab === group ? 'default' : 'outline'}
+              onClick={() => {
+                setReviewTab(group);
+                setReviewFilters((current) => ({ ...current, status: '' }));
+              }}
+            >
+              {label} (
+              {
+                imports
+                  .flatMap((item) => item.candidates)
+                  .filter((candidate) => importReviewGroup(candidate) === group)
+                  .length
+              }
+              )
             </Button>
           ))}
         </div>
         <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
           <div className="grid items-end gap-2 md:grid-cols-2 xl:grid-cols-6">
             <label htmlFor="import-review-search" className={fieldLabel}>
-            Buscar
-            <Input
-              id="import-review-search"
-              className="h-9 font-normal"
-              value={reviewFilters.query}
-              onChange={(event) =>
-                setReviewFilters((current) => ({
-                  ...current,
-                  query: event.target.value,
-                }))
-              }
-              placeholder="Questão ou trecho..."
-            />
+              Buscar
+              <Input
+                id="import-review-search"
+                className="h-9 font-normal"
+                value={reviewFilters.query}
+                onChange={(event) =>
+                  setReviewFilters((current) => ({
+                    ...current,
+                    query: event.target.value,
+                  }))
+                }
+                placeholder="Questão ou trecho..."
+              />
             </label>
             <SelectField
               name="review-status"
@@ -2212,7 +2481,18 @@ export function ExamImportManager({
               }
               options={[
                 ['', 'Todas as situações'],
-                ...((reviewTab === 'pending' ? [['complete','Completa'],['pending','Pendente'],['review','Em revisão']] : reviewTab === 'discarded' ? [['duplicate','Duplicada'],['ignored','Descartada']] : [['completed','Concluída']]) as Array<[string,string]>),
+                ...((reviewTab === 'pending'
+                  ? [
+                      ['complete', 'Completa'],
+                      ['pending', 'Pendente'],
+                      ['review', 'Em revisão'],
+                    ]
+                  : reviewTab === 'discarded'
+                    ? [
+                        ['duplicate', 'Duplicada'],
+                        ['ignored', 'Descartada'],
+                      ]
+                    : [['completed', 'Concluída']]) as Array<[string, string]>),
               ]}
             />
             <SelectField
@@ -2296,15 +2576,17 @@ export function ExamImportManager({
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-600">
-              {visibleCount}{' '}
-              questão(ões) visível(is). As ações afetam somente este resultado.
+              {visibleCount} questão(ões) visível(is). As ações afetam somente
+              este resultado.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
+                disabled={
+                  batchActionBusy || !visibleCount || reviewTab !== 'pending'
+                }
                 onClick={() => applyVisibleAction('select')}
               >
                 Selecionar visíveis
@@ -2313,7 +2595,9 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
+                disabled={
+                  batchActionBusy || !visibleCount || reviewTab !== 'pending'
+                }
                 onClick={() => applyVisibleAction('unselect')}
               >
                 Desmarcar visíveis
@@ -2322,7 +2606,9 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
+                disabled={
+                  batchActionBusy || !visibleCount || reviewTab !== 'pending'
+                }
                 onClick={() => applyVisibleAction('confirm')}
               >
                 Confirmar gabaritos sugeridos
@@ -2331,7 +2617,9 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || !visibleCount || reviewTab !== 'pending'}
+                disabled={
+                  batchActionBusy || !visibleCount || reviewTab !== 'pending'
+                }
                 onClick={() => applyVisibleAction('ignore')}
               >
                 Descartar visíveis
@@ -2340,7 +2628,9 @@ export function ExamImportManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={batchActionBusy || !visibleCount || reviewTab !== 'discarded'}
+                disabled={
+                  batchActionBusy || !visibleCount || reviewTab !== 'discarded'
+                }
                 onClick={() => applyVisibleAction('restore')}
               >
                 Restaurar descartadas
@@ -2349,9 +2639,16 @@ export function ExamImportManager({
           </div>
         </section>
         <div className="mt-4 space-y-3">
-          {imports.length > 0 && !imports.some(item => visibleCandidates(item).length || (reviewTab === 'pending' && !item.candidates.length)) && (
-            <p className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">Nenhuma questão nesta aba com os filtros atuais.</p>
-          )}
+          {imports.length > 0 &&
+            !imports.some(
+              (item) =>
+                visibleCandidates(item).length ||
+                (reviewTab === 'pending' && !item.candidates.length),
+            ) && (
+              <p className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
+                Nenhuma questão nesta aba com os filtros atuais.
+              </p>
+            )}
           {!imports.length && (
             <p className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
               Nenhuma prova foi enviada ainda.
@@ -2360,7 +2657,8 @@ export function ExamImportManager({
           {imports
             .filter(
               (item) =>
-                visibleCandidates(item).length > 0 || (reviewTab === 'pending' && !item.candidates.length),
+                visibleCandidates(item).length > 0 ||
+                (reviewTab === 'pending' && !item.candidates.length),
             )
             .map((item) => (
               <article
@@ -2621,27 +2919,46 @@ export function ExamImportManager({
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {Boolean(item.documents?.some(document => document.kind === 'exam')) && <Button
-                            type="button"
-                            variant="outline"
-                            disabled={
-                              extractingId === item.id ||
-                              ['queued', 'running'].includes(
-                                item.processingJob?.status || '',
-                              )
-                            }
-                            onClick={() => extractQuestions(item)}
-                          >
-                            <ScanText />
-                            {extractingId === item.id
-                              ? 'Extraindo...'
-                              : item.candidates?.length
-                                ? 'Extrair novamente'
-                                : 'Extrair questões'}
-                          </Button>}
+                          {Boolean(
+                            item.documents?.some(
+                              (document) => document.kind === 'exam',
+                            ),
+                          ) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={
+                                extractingId === item.id ||
+                                ['queued', 'running'].includes(
+                                  item.processingJob?.status || '',
+                                )
+                              }
+                              onClick={() => extractQuestions(item)}
+                            >
+                              <ScanText />
+                              {extractingId === item.id
+                                ? 'Extraindo...'
+                                : item.candidates?.length
+                                  ? 'Extrair novamente'
+                                  : 'Extrair questões'}
+                            </Button>
+                          )}
                           <label className="flex items-center gap-2 text-sm text-slate-700">
                             IA para conversão
-                            <select aria-label="IA para conversão" className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={aiProviders[item.id] || 'gemini'} disabled={['queued', 'running'].includes(item.aiJob?.status || '')} onChange={(event) => setAiProviders((current) => ({ ...current, [item.id]: event.target.value }))}>
+                            <select
+                              aria-label="IA para conversão"
+                              className="rounded-lg border border-slate-300 bg-white px-3 py-2"
+                              value={aiProviders[item.id] || 'gemini'}
+                              disabled={['queued', 'running'].includes(
+                                item.aiJob?.status || '',
+                              )}
+                              onChange={(event) =>
+                                setAiProviders((current) => ({
+                                  ...current,
+                                  [item.id]: event.target.value,
+                                }))
+                              }
+                            >
                               <option value="gemini">Gemini</option>
                               <option value="deepseek">DeepSeek</option>
                               <option value="openai">ChatGPT (OpenAI)</option>
@@ -2694,490 +3011,641 @@ export function ExamImportManager({
                             página e crie cada questão por recorte.
                           </div>
                         )}
-                      {Boolean(item.candidates?.length) && reviewTab === 'pending' && (
-                        <BulkRegistrationPanel
-                          item={item}
-                          settings={
-                            bulkSettings[item.id] || defaultBulkSettings
-                          }
-                          disciplines={pedagogicalDisciplines}
-                          topics={pedagogicalTopics}
-                          registering={bulkRegisteringId === item.id}
-                          onSettingChange={(field, value) =>
-                            updateBulkSetting(item.id, field, value)
-                          }
-                          onRegister={() => registerSelectedCandidates(item)}
-                        />
-                      )}
+                      {Boolean(item.candidates?.length) &&
+                        reviewTab === 'pending' && (
+                          <BulkRegistrationPanel
+                            item={item}
+                            settings={
+                              bulkSettings[item.id] || defaultBulkSettings
+                            }
+                            disciplines={pedagogicalDisciplines}
+                            topics={pedagogicalTopics}
+                            registering={bulkRegisteringId === item.id}
+                            onSettingChange={(field, value) =>
+                              updateBulkSetting(item.id, field, value)
+                            }
+                            onRegister={() => registerSelectedCandidates(item)}
+                          />
+                        )}
                       <div className="mt-3 space-y-3">
-                        {visibleCandidates(item).map((candidate) => (
-                          reviewTab !== 'pending' ? <article key={candidate.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-semibold">Questão {candidate.sourceNumber} · {reviewTab==='completed'?'Concluída':candidate.status==='duplicate'?'Duplicada':'Descartada'}</p>
-                              {(candidate.registeredQuestionId || candidate.duplicateQuestionId) && <Button type="button" size="sm" variant="outline"
-                                onClick={()=>onOpenQuestion((candidate.registeredQuestionId || candidate.duplicateQuestionId)!)}>
-                                Abrir {candidate.registeredQuestionCode || candidate.duplicateQuestionCode || 'questão no banco'} <ArrowRight />
-                              </Button>}
-                              {candidate.status==='ignored' && <Button type="button" size="sm" variant="outline"
-                                onClick={()=>updateCandidate(item.id,candidate.id,{status:'review',selected:true}).catch(error=>setMessage(error.message))}>Restaurar para pendentes</Button>}
-                            </div>
-                            {candidate.registeredAt && <p className="mt-1 text-xs text-slate-500">Cadastrada em {new Date(candidate.registeredAt).toLocaleString('pt-BR')}</p>}
-                            <details className="mt-3"><summary className="cursor-pointer text-sm">Ver conteúdo importado</summary><pre className="mt-2 whitespace-pre-wrap text-xs">{candidate.rawText}</pre>
-                              {candidate.resolution && <pre className="mt-2 whitespace-pre-wrap text-xs">Resolução: {candidate.resolution}</pre>}
-                            </details>
-                          </article> : <article
-                            key={candidate.id}
-                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
-                          >
-                            <div className="flex flex-wrap items-center gap-3">
-                              <label className="flex items-center gap-2 text-sm font-semibold">
-                                <input
-                                  type="checkbox"
-                                  checked={candidate.selected}
-                                  disabled={[
-                                    'completed',
-                                    'duplicate',
-                                    'ignored',
-                                  ].includes(candidate.status)}
-                                  onChange={(event) =>
-                                    updateCandidate(item.id, candidate.id, {
-                                      selected: event.target.checked,
-                                    }).catch((error) =>
-                                      setMessage(error.message),
-                                    )
-                                  }
-                                  className="size-4 accent-blue-700"
-                                />
-                                Questão {candidate.sourceNumber}
-                              </label>
-                              <select
-                                aria-label={`Tipo da questão ${candidate.sourceNumber}`}
-                                value={candidate.questionType}
-                                onChange={(event) =>
-                                  updateCandidate(item.id, candidate.id, {
-                                    questionType: event.target
-                                      .value as ExamImportCandidate['questionType'],
-                                  }).catch((error) => setMessage(error.message))
-                                }
-                                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs"
-                              >
-                                <option value="single_choice">
-                                  Múltipla escolha · uma resposta
-                                </option>
-                                <option value="multiple_choice">
-                                  Múltipla escolha · várias respostas
-                                </option>
-                                <option value="true_false">Certo ou errado · uma afirmação</option>
-                                <option value="essay">Discursiva</option>
-                              </select>
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}
-                              >
-                                {candidate.status === 'completed'
-                                  ? 'Concluída'
-                                  : candidate.status === 'duplicate'
-                                    ? `Duplicada${candidate.duplicateQuestionCode ? ` de ${candidate.duplicateQuestionCode}` : ''}`
-                                    : candidate.status === 'ignored'
-                                      ? 'Ignorada'
-                                      : candidate.status === 'review'
-                                        ? 'Em revisão'
-                                        : 'Completa'}
-                              </span>
-                              {candidate.pageNumber && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    setPagePreviewCandidateId((current) =>
-                                      current === candidate.id
-                                        ? ''
-                                        : candidate.id,
-                                    )
-                                  }
-                                >
-                                  <Eye /> Página {candidate.pageNumber}
-                                </Button>
-                              )}
-                              {candidate.extractionMethod === 'ocr' && (
-                                <span className="text-xs font-semibold text-sky-700">
-                                  Texto obtido por OCR
-                                </span>
-                              )}
-                              {candidate.extractionMethod === 'gemini-pdf' && <span className="text-xs font-semibold text-blue-700">PDF lido diretamente pelo Gemini · revisão obrigatória</span>}
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {candidateEditorialChecks(candidate).map(
-                                (check) => (
-                                  <span
-                                    key={check.label}
-                                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${check.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
-                                  >
-                                    {check.ok ? '✓' : '!'} {check.label}
-                                  </span>
-                                ),
-                              )}
-                            </div>
-                            {candidate.aiSuggestion &&
-                              !['completed', 'duplicate', 'ignored'].includes(
-                                candidate.status,
-                              ) && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="mt-3"
-                                  disabled={['queued', 'running'].includes(
-                                    item.aiJob?.status || '',
-                                  )}
-                                  onClick={() =>
-                                    updateCandidate(item.id, candidate.id, {
-                                      resetAi: true,
-                                    })
-                                      .then(() =>
-                                        setMessage(
-                                          'Questão selecionada para nova conversão. Use Converter próximo lote para reprocessá-la.',
-                                        ),
-                                      )
-                                      .catch((error) =>
-                                        setMessage(error.message),
-                                      )
-                                  }
-                                >
-                                  Preparar nova conversão desta questão
-                                </Button>
-                              )}
-                            {candidate.aiSuggestion && (
-                              <AiSuggestionReview
-                                candidate={candidate}
-                                disciplines={pedagogicalDisciplines}
-                                topics={pedagogicalTopics}
-                                onAccept={(fields) =>
-                                  decideAiSuggestionFields(
-                                    item,
-                                    candidate,
-                                    fields,
-                                    'accept',
-                                  ).catch((error) => {
-                                    setMessage(error.message);
-                                  })
-                                }
-                                onReject={(fields) =>
-                                  decideAiSuggestionFields(
-                                    item,
-                                    candidate,
-                                    fields,
-                                    'reject',
-                                  ).catch((error) => {
-                                    setMessage(error.message);
-                                  })
-                                }
-                              />
-                            )}
-                            {pagePreviewCandidateId === candidate.id &&
-                              candidate.pageNumber && (
-                                <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                                  <div
-                                    className="relative cursor-crosshair select-none overflow-hidden rounded-lg border border-slate-200 bg-white"
-                                    onPointerDown={(event) =>
-                                      beginCropSelection(candidate.id, event)
-                                    }
-                                    onPointerMove={updateCropSelection}
-                                    onPointerUp={finishCropSelection}
-                                  >
-                                    <Image unoptimized width={1200} height={1600}
-                                      draggable={false}
-                                      alt={`Página original da questão ${candidate.sourceNumber}`}
-                                      src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
-                                      className="block max-h-[620px] w-full object-contain"
-                                    />
-                                    {cropPointer?.candidateId ===
-                                      candidate.id && (
-                                      <div
-                                        className="pointer-events-none absolute border-2 border-blue-600 bg-blue-300/20"
-                                        style={{
-                                          left: `${Math.min(cropPointer.startX, cropPointer.currentX)}%`,
-                                          top: `${Math.min(cropPointer.startY, cropPointer.currentY)}%`,
-                                          width: `${Math.abs(cropPointer.currentX - cropPointer.startX)}%`,
-                                          height: `${Math.abs(cropPointer.currentY - cropPointer.startY)}%`,
-                                        }}
-                                      />
-                                    )}
-                                  </div>
-                                  <p className="mt-2 text-xs text-slate-500">
-                                    Arraste o mouse sobre a página para
-                                    selecionar o gráfico, tabela ou trecho da
-                                    questão.
-                                  </p>
-                                  <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                                    {[
-                                      ['x', 'Esquerda %'],
-                                      ['y', 'Topo %'],
-                                      ['width', 'Largura %'],
-                                      ['height', 'Altura %'],
-                                    ].map(([field, label]) => (
-                                      <label
-                                        key={field}
-                                        className="text-xs font-semibold text-slate-600"
-                                      >
-                                        {label}
-                                        <input
-                                          type="number"
-                                          min={
-                                            field === 'x' || field === 'y'
-                                              ? 0
-                                              : 1
-                                          }
-                                          max="100"
-                                          value={
-                                            cropDraft[
-                                              field as keyof typeof cropDraft
-                                            ]
-                                          }
-                                          onChange={(event) =>
-                                            setCropDraft((current) => ({
-                                              ...current,
-                                              [field]: Number(
-                                                event.target.value,
-                                              ),
-                                            }))
-                                          }
-                                          className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2"
-                                        />
-                                      </label>
-                                    ))}
-                                  </div>
-                                  <div className="mt-3 flex justify-end">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      disabled={croppingId === candidate.id}
-                                      onClick={() =>
-                                        createCrop(item, candidate)
-                                      }
-                                    >
-                                      {croppingId === candidate.id
-                                        ? 'Recortando...'
-                                        : 'Criar recorte e extrair texto'}
-                                    </Button>
-                                  </div>
-                                </section>
-                              )}
-                            {candidate.imageDataUrl && (
-                              <figure className="mt-3 rounded-lg border border-emerald-200 bg-white p-3">
-                                <Image unoptimized width={1200} height={1600}
-                                  src={candidate.imageDataUrl}
-                                  alt={
-                                    candidate.imageAlt || 'Recorte da questão'
-                                  }
-                                  className="mx-auto max-h-80 w-auto object-contain"
-                                />
-                                <figcaption className="mt-2 text-center text-xs font-semibold text-emerald-800">
-                                  {candidate.imageExtractionMethod ===
-                                  'automatic_page_region'
-                                    ? 'Conteúdo visual detectado e recortado automaticamente — confira antes do cadastro'
-                                    : 'Imagem pronta para acompanhar a questão no cadastro'}
-                                </figcaption>
-                              </figure>
-                            )}
-                            {candidate.visualCaptureWarning && (
-                              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
-                                {candidate.visualCaptureWarning}
-                              </p>
-                            )}
-                            {candidate.status === 'duplicate' &&
-                              candidate.duplicateQuestionId && (
-                                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
-                                  <p className="text-xs font-semibold text-rose-900">
-                                    Esta questão já existe como{' '}
-                                    {candidate.duplicateQuestionCode ||
-                                      'questão cadastrada'}
-                                    .
-                                  </p>
+                        {visibleCandidates(item).map((candidate) =>
+                          reviewTab !== 'pending' ? (
+                            <article
+                              key={candidate.id}
+                              className="rounded-xl border border-slate-200 bg-white p-4"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="font-semibold">
+                                  Questão {candidate.sourceNumber} ·{' '}
+                                  {reviewTab === 'completed'
+                                    ? 'Concluída'
+                                    : candidate.status === 'duplicate'
+                                      ? 'Duplicada'
+                                      : 'Descartada'}
+                                </p>
+                                {(candidate.registeredQuestionId ||
+                                  candidate.duplicateQuestionId) && (
                                   <Button
                                     type="button"
                                     size="sm"
                                     variant="outline"
                                     onClick={() =>
                                       onOpenQuestion(
-                                        candidate.duplicateQuestionId!,
+                                        (candidate.registeredQuestionId ||
+                                          candidate.duplicateQuestionId)!,
                                       )
                                     }
                                   >
-                                    Abrir questão principal
+                                    Abrir{' '}
+                                    {candidate.registeredQuestionCode ||
+                                      candidate.duplicateQuestionCode ||
+                                      'questão no banco'}{' '}
+                                    <ArrowRight />
                                   </Button>
-                                </div>
-                              )}
-                            <CandidateClassificationFields
-                              candidate={candidate}
-                              item={item}
-                              settings={bulkSettings[item.id] || defaultBulkSettings}
-                              disciplines={pedagogicalDisciplines}
-                              topics={pedagogicalTopics}
-                              onChange={(changes) =>
-                                updateCandidate(
-                                  item.id,
-                                  candidate.id,
-                                  changes,
-                                ).catch((error) => setMessage(error.message))
-                              }
-                            />
-                            <ImportedQuestionTextEditor
-                              candidate={candidate}
-                              onChange={(rawText) =>
-                                updateCandidateDraft(
-                                  item.id,
-                                  candidate.id,
-                                  rawText,
-                                )
-                              }
-                              onSave={(rawText) =>
-                                updateCandidate(item.id, candidate.id, {
-                                  rawText,
-                                  status: 'review',
-                                })
-                                  .then(() =>
-                                    setMessage(
-                                      `Texto da questão ${candidate.sourceNumber} salvo.`,
-                                    ),
-                                  )
-                                  .catch((error) => setMessage(error.message))
-                              }
-                            />
-                            {candidate.questionType !== 'essay' && (
-                              <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <p className="text-xs font-semibold text-slate-700">
-                                    Gabarito da questão
-                                  </p>
-                                  {candidate.answerStatus === 'suggested' && (
-                                    <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
-                                      Sugestão automática ·{' '}
-                                      {Math.round(
-                                        (candidate.answerConfidence || 0) * 100,
-                                      )}
-                                      % de confiança
-                                    </span>
-                                  )}
-                                  {candidate.answerStatus === 'confirmed' && (
-                                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
-                                      Confirmado pelo professor
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {(candidate.questionType === 'true_false' ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E']).map((letter) => {
-                                    const checked = (
-                                      candidate.correctAnswers || []
-                                    ).includes(letter);
-                                    return (
-                                      <button
-                                        key={letter}
-                                        type="button"
-                                        aria-pressed={checked}
-                                        onClick={() => {
-                                          const correctAnswers =
-                                            (candidate.questionType === 'single_choice' || candidate.questionType === 'true_false')
-                                              ? [letter]
-                                              : checked
-                                                ? (
-                                                    candidate.correctAnswers ||
-                                                    []
-                                                  ).filter(
-                                                    (answer) =>
-                                                      answer !== letter,
-                                                  )
-                                                : [
-                                                    ...(candidate.correctAnswers ||
-                                                      []),
-                                                    letter,
-                                                  ];
-                                          updateCandidate(
-                                            item.id,
-                                            candidate.id,
-                                            {
-                                              correctAnswers,
-                                              answerStatus: 'confirmed',
-                                              answerConfidence: 1,
-                                              status: 'review',
-                                            },
-                                          ).catch((error) =>
-                                            setMessage(error.message),
-                                          );
-                                        }}
-                                        className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
-                                      >
-                                        {candidate.questionType === 'true_false' ? (letter === 'A' ? 'C' : 'E') : letter}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </section>
-                            )}
-                            {candidate.selected &&
-                              candidate.status !== 'completed' &&
-                              !candidateReadiness(candidate).ready && (
-                                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
-                                  Pendente para o lote:{' '}
-                                  {candidateReadiness(candidate)
-                                    .reasons.filter(
-                                      (reason) => reason !== 'não selecionada',
-                                    )
-                                    .join(' · ')}
+                                )}
+                                {candidate.status === 'ignored' && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      updateCandidate(item.id, candidate.id, {
+                                        status: 'review',
+                                        selected: true,
+                                      }).catch((error) =>
+                                        setMessage(error.message),
+                                      )
+                                    }
+                                  >
+                                    Restaurar para pendentes
+                                  </Button>
+                                )}
+                              </div>
+                              {candidate.registeredAt && (
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Cadastrada em{' '}
+                                  {new Date(
+                                    candidate.registeredAt,
+                                  ).toLocaleString('pt-BR')}
                                 </p>
                               )}
-                            <label className="mt-4 block text-sm font-semibold text-slate-700">Resolução em ConTeXt (opcional)
-                              <textarea aria-label={`Resolução da questão ${candidate.sourceNumber}`} key={`${candidate.id}-resolution`} defaultValue={candidate.resolution || ''} maxLength={20000} rows={6} spellCheck={false} disabled={['completed', 'duplicate'].includes(candidate.status)} onBlur={(event) => { if(event.target.value !== (candidate.resolution || '')) updateCandidate(item.id, candidate.id, {resolution:event.target.value}).catch(error => setMessage(error.message)); }} className="mt-2 w-full rounded-lg border border-slate-300 p-3 font-mono text-sm" />
-                            </label>
-                            <p className="mt-1 text-xs text-slate-500">Use Editar, gerar prévia e cadastrar para conferir a resolução no gabarito comentado.</p>
-                            {candidate.extractionMethod === 'pasted-text' && <label className="mt-3 flex items-center gap-2 text-sm font-semibold">
-                              <input type="checkbox" checked={Boolean(candidate.editorialReviewed)} disabled={['completed','duplicate'].includes(candidate.status)} onChange={(event) => updateCandidate(item.id,candidate.id,{editorialReviewed:event.target.checked}).catch(error => setMessage(error.message))} />
-                              Revisei o enunciado, as alternativas e a resolução desta questão
-                            </label>}
-                            <div className="mt-3 flex justify-end">
-                              <Button
-                                type="button"
-                                disabled={
-                                  !candidate.selected ||
-                                  ['completed', 'duplicate'].includes(
-                                    candidate.status,
-                                  ) ||
-                                  candidate.status === 'ignored'
+                              <details className="mt-3">
+                                <summary className="cursor-pointer text-sm">
+                                  Ver conteúdo importado
+                                </summary>
+                                <pre className="mt-2 whitespace-pre-wrap text-xs">
+                                  {candidate.rawText}
+                                </pre>
+                                {candidate.resolution && (
+                                  <pre className="mt-2 whitespace-pre-wrap text-xs">
+                                    Resolução: {candidate.resolution}
+                                  </pre>
+                                )}
+                              </details>
+                            </article>
+                          ) : (
+                            <article
+                              key={candidate.id}
+                              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                            >
+                              <div className="flex flex-wrap items-center gap-3">
+                                <label className="flex items-center gap-2 text-sm font-semibold">
+                                  <input
+                                    type="checkbox"
+                                    checked={candidate.selected}
+                                    disabled={[
+                                      'completed',
+                                      'duplicate',
+                                      'ignored',
+                                    ].includes(candidate.status)}
+                                    onChange={(event) =>
+                                      updateCandidate(item.id, candidate.id, {
+                                        selected: event.target.checked,
+                                      }).catch((error) =>
+                                        setMessage(error.message),
+                                      )
+                                    }
+                                    className="size-4 accent-blue-700"
+                                  />
+                                  Questão {candidate.sourceNumber}
+                                </label>
+                                <select
+                                  aria-label={`Tipo da questão ${candidate.sourceNumber}`}
+                                  value={candidate.questionType}
+                                  onChange={(event) =>
+                                    updateCandidate(item.id, candidate.id, {
+                                      questionType: event.target
+                                        .value as ExamImportCandidate['questionType'],
+                                    }).catch((error) =>
+                                      setMessage(error.message),
+                                    )
+                                  }
+                                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs"
+                                >
+                                  <option value="single_choice">
+                                    Múltipla escolha · uma resposta
+                                  </option>
+                                  <option value="multiple_choice">
+                                    Múltipla escolha · várias respostas
+                                  </option>
+                                  <option value="true_false">
+                                    Certo ou errado · uma afirmação
+                                  </option>
+                                  <option value="essay">Discursiva</option>
+                                </select>
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}
+                                >
+                                  {candidate.status === 'completed'
+                                    ? 'Concluída'
+                                    : candidate.status === 'duplicate'
+                                      ? `Duplicada${candidate.duplicateQuestionCode ? ` de ${candidate.duplicateQuestionCode}` : ''}`
+                                      : candidate.status === 'ignored'
+                                        ? 'Ignorada'
+                                        : candidate.status === 'review'
+                                          ? 'Em revisão'
+                                          : 'Completa'}
+                                </span>
+                                {candidate.pageNumber && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setPagePreviewCandidateId((current) =>
+                                        current === candidate.id
+                                          ? ''
+                                          : candidate.id,
+                                      )
+                                    }
+                                  >
+                                    <Eye /> Página {candidate.pageNumber}
+                                  </Button>
+                                )}
+                                {candidate.extractionMethod === 'ocr' && (
+                                  <span className="text-xs font-semibold text-sky-700">
+                                    Texto obtido por OCR
+                                  </span>
+                                )}
+                                {candidate.extractionMethod ===
+                                  'gemini-pdf' && (
+                                  <span className="text-xs font-semibold text-blue-700">
+                                    PDF lido diretamente pelo Gemini · revisão
+                                    obrigatória
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {candidateEditorialChecks(candidate).map(
+                                  (check) => (
+                                    <span
+                                      key={check.label}
+                                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${check.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
+                                    >
+                                      {check.ok ? '✓' : '!'} {check.label}
+                                    </span>
+                                  ),
+                                )}
+                              </div>
+                              {candidate.aiSuggestion &&
+                                !['completed', 'duplicate', 'ignored'].includes(
+                                  candidate.status,
+                                ) && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="mt-3"
+                                    disabled={['queued', 'running'].includes(
+                                      item.aiJob?.status || '',
+                                    )}
+                                    onClick={() =>
+                                      updateCandidate(item.id, candidate.id, {
+                                        resetAi: true,
+                                      })
+                                        .then(() =>
+                                          setMessage(
+                                            'Questão selecionada para nova conversão. Use Converter próximo lote para reprocessá-la.',
+                                          ),
+                                        )
+                                        .catch((error) =>
+                                          setMessage(error.message),
+                                        )
+                                    }
+                                  >
+                                    Preparar nova conversão desta questão
+                                  </Button>
+                                )}
+                              {candidate.aiSuggestion && (
+                                <AiSuggestionReview
+                                  candidate={candidate}
+                                  disciplines={pedagogicalDisciplines}
+                                  topics={pedagogicalTopics}
+                                  onAccept={(fields) =>
+                                    decideAiSuggestionFields(
+                                      item,
+                                      candidate,
+                                      fields,
+                                      'accept',
+                                    ).catch((error) => {
+                                      setMessage(error.message);
+                                    })
+                                  }
+                                  onReject={(fields) =>
+                                    decideAiSuggestionFields(
+                                      item,
+                                      candidate,
+                                      fields,
+                                      'reject',
+                                    ).catch((error) => {
+                                      setMessage(error.message);
+                                    })
+                                  }
+                                />
+                              )}
+                              {pagePreviewCandidateId === candidate.id &&
+                                candidate.pageNumber && (
+                                  <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                                    <div
+                                      className="relative cursor-crosshair select-none overflow-hidden rounded-lg border border-slate-200 bg-white"
+                                      onPointerDown={(event) =>
+                                        beginCropSelection(candidate.id, event)
+                                      }
+                                      onPointerMove={updateCropSelection}
+                                      onPointerUp={finishCropSelection}
+                                    >
+                                      <Image
+                                        unoptimized
+                                        width={1200}
+                                        height={1600}
+                                        draggable={false}
+                                        alt={`Página original da questão ${candidate.sourceNumber}`}
+                                        src={`${apiUrl}/api/exam-imports/${item.id}/pages/${candidate.pageNumber}.jpg`}
+                                        className="block max-h-[620px] w-full object-contain"
+                                      />
+                                      {cropPointer?.candidateId ===
+                                        candidate.id && (
+                                        <div
+                                          className="pointer-events-none absolute border-2 border-blue-600 bg-blue-300/20"
+                                          style={{
+                                            left: `${Math.min(cropPointer.startX, cropPointer.currentX)}%`,
+                                            top: `${Math.min(cropPointer.startY, cropPointer.currentY)}%`,
+                                            width: `${Math.abs(cropPointer.currentX - cropPointer.startX)}%`,
+                                            height: `${Math.abs(cropPointer.currentY - cropPointer.startY)}%`,
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                    <p className="mt-2 text-xs text-slate-500">
+                                      Arraste o mouse sobre a página para
+                                      selecionar o gráfico, tabela ou trecho da
+                                      questão.
+                                    </p>
+                                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                                      {[
+                                        ['x', 'Esquerda %'],
+                                        ['y', 'Topo %'],
+                                        ['width', 'Largura %'],
+                                        ['height', 'Altura %'],
+                                      ].map(([field, label]) => (
+                                        <label
+                                          key={field}
+                                          className="text-xs font-semibold text-slate-600"
+                                        >
+                                          {label}
+                                          <input
+                                            type="number"
+                                            min={
+                                              field === 'x' || field === 'y'
+                                                ? 0
+                                                : 1
+                                            }
+                                            max="100"
+                                            value={
+                                              cropDraft[
+                                                field as keyof typeof cropDraft
+                                              ]
+                                            }
+                                            onChange={(event) =>
+                                              setCropDraft((current) => ({
+                                                ...current,
+                                                [field]: Number(
+                                                  event.target.value,
+                                                ),
+                                              }))
+                                            }
+                                            className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2"
+                                          />
+                                        </label>
+                                      ))}
+                                    </div>
+                                    <div className="mt-3 flex justify-end">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={croppingId === candidate.id}
+                                        onClick={() =>
+                                          createCrop(item, candidate)
+                                        }
+                                      >
+                                        {croppingId === candidate.id
+                                          ? 'Recortando...'
+                                          : 'Criar recorte e extrair texto'}
+                                      </Button>
+                                    </div>
+                                  </section>
+                                )}
+                              {candidate.imageDataUrl && (
+                                <figure className="mt-3 rounded-lg border border-emerald-200 bg-white p-3">
+                                  <Image
+                                    unoptimized
+                                    width={1200}
+                                    height={1600}
+                                    src={candidate.imageDataUrl}
+                                    alt={
+                                      candidate.imageAlt || 'Recorte da questão'
+                                    }
+                                    className="mx-auto max-h-80 w-auto object-contain"
+                                  />
+                                  <figcaption className="mt-2 text-center text-xs font-semibold text-emerald-800">
+                                    {candidate.imageExtractionMethod ===
+                                    'automatic_page_region'
+                                      ? 'Conteúdo visual detectado e recortado automaticamente — confira antes do cadastro'
+                                      : 'Imagem pronta para acompanhar a questão no cadastro'}
+                                  </figcaption>
+                                </figure>
+                              )}
+                              {candidate.visualCaptureWarning && (
+                                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                                  {candidate.visualCaptureWarning}
+                                </p>
+                              )}
+                              {candidate.status === 'duplicate' &&
+                                candidate.duplicateQuestionId && (
+                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                                    <p className="text-xs font-semibold text-rose-900">
+                                      Esta questão já existe como{' '}
+                                      {candidate.duplicateQuestionCode ||
+                                        'questão cadastrada'}
+                                      .
+                                    </p>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        onOpenQuestion(
+                                          candidate.duplicateQuestionId!,
+                                        )
+                                      }
+                                    >
+                                      Abrir questão principal
+                                    </Button>
+                                  </div>
+                                )}
+                              <CandidateClassificationFields
+                                candidate={candidate}
+                                item={item}
+                                settings={
+                                  bulkSettings[item.id] || defaultBulkSettings
                                 }
-                                onClick={() => {
-                                  const classification = resolveImportClassification({candidate,settings:bulkSettings[item.id] || defaultBulkSettings,item,disciplines:pedagogicalDisciplines,topics:pedagogicalTopics});
+                                disciplines={pedagogicalDisciplines}
+                                topics={pedagogicalTopics}
+                                onChange={(changes) =>
+                                  updateCandidate(
+                                    item.id,
+                                    candidate.id,
+                                    changes,
+                                  ).catch((error) => setMessage(error.message))
+                                }
+                              />
+                              <ImportedQuestionTextEditor
+                                candidate={candidate}
+                                onChange={(rawText) =>
+                                  updateCandidateDraft(
+                                    item.id,
+                                    candidate.id,
+                                    rawText,
+                                  )
+                                }
+                                onSave={(rawText) =>
                                   updateCandidate(item.id, candidate.id, {
+                                    rawText,
                                     status: 'review',
-                                  }).catch((error) =>
-                                    setMessage(error.message),
-                                  );
-                                  onRegisterQuestion({
-                                    importId: item.id,
-                                    candidateId: candidate.id,
-                                    rawText: candidate.rawText,
-                                    resolution: candidate.resolution,
-                                    adoteNote: candidate.adoteNote,
-                                    sourceInstitution: item.sourceInstitution,
-                                    sourceYear: item.sourceYear,
-                                    questionType: candidate.questionType,
-                                    imageDataUrl: candidate.imageDataUrl,
-                                    imageAlt: candidate.imageAlt,
-                                    correctAnswers: candidate.correctAnswers,
-                                    grade: classification.grade,
-                                    subject: classification.subject,
-                                    difficulty: candidate.difficulty,
-                                    skill: classification.skill,
-                                    pedagogicalDisciplineId: classification.discipline?.id,
-                                    pedagogicalTopicId: classification.topicId,
-                                  });
-                                }}
-                              >
-                                Editar, gerar prévia e cadastrar <ArrowRight />
-                              </Button>
-                            </div>
-                          </article>
-                        ))}
+                                  })
+                                    .then(() =>
+                                      setMessage(
+                                        `Texto da questão ${candidate.sourceNumber} salvo.`,
+                                      ),
+                                    )
+                                    .catch((error) => setMessage(error.message))
+                                }
+                              />
+                              {candidate.questionType !== 'essay' && (
+                                <section className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-xs font-semibold text-slate-700">
+                                      Gabarito da questão
+                                    </p>
+                                    {candidate.answerStatus === 'suggested' && (
+                                      <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
+                                        Sugestão automática ·{' '}
+                                        {Math.round(
+                                          (candidate.answerConfidence || 0) *
+                                            100,
+                                        )}
+                                        % de confiança
+                                      </span>
+                                    )}
+                                    {candidate.answerStatus === 'confirmed' && (
+                                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                                        Confirmado pelo professor
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {(candidate.questionType === 'true_false'
+                                      ? ['A', 'B']
+                                      : ['A', 'B', 'C', 'D', 'E']
+                                    ).map((letter) => {
+                                      const checked = (
+                                        candidate.correctAnswers || []
+                                      ).includes(letter);
+                                      return (
+                                        <button
+                                          key={letter}
+                                          type="button"
+                                          aria-pressed={checked}
+                                          onClick={() => {
+                                            const correctAnswers =
+                                              candidate.questionType ===
+                                                'single_choice' ||
+                                              candidate.questionType ===
+                                                'true_false'
+                                                ? [letter]
+                                                : checked
+                                                  ? (
+                                                      candidate.correctAnswers ||
+                                                      []
+                                                    ).filter(
+                                                      (answer) =>
+                                                        answer !== letter,
+                                                    )
+                                                  : [
+                                                      ...(candidate.correctAnswers ||
+                                                        []),
+                                                      letter,
+                                                    ];
+                                            updateCandidate(
+                                              item.id,
+                                              candidate.id,
+                                              {
+                                                correctAnswers,
+                                                answerStatus: 'confirmed',
+                                                answerConfidence: 1,
+                                                status: 'review',
+                                              },
+                                            ).catch((error) =>
+                                              setMessage(error.message),
+                                            );
+                                          }}
+                                          className={`grid size-9 place-items-center rounded-full border text-xs font-bold ${checked ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
+                                        >
+                                          {candidate.questionType ===
+                                          'true_false'
+                                            ? letter === 'A'
+                                              ? 'C'
+                                              : 'E'
+                                            : letter}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </section>
+                              )}
+                              {candidate.selected &&
+                                candidate.status !== 'completed' &&
+                                !candidateReadiness(candidate).ready && (
+                                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                                    Pendente para o lote:{' '}
+                                    {candidateReadiness(candidate)
+                                      .reasons.filter(
+                                        (reason) =>
+                                          reason !== 'não selecionada',
+                                      )
+                                      .join(' · ')}
+                                  </p>
+                                )}
+                              <label className="mt-4 block text-sm font-semibold text-slate-700">
+                                Resolução em ConTeXt (opcional)
+                                <textarea
+                                  aria-label={`Resolução da questão ${candidate.sourceNumber}`}
+                                  key={`${candidate.id}-resolution`}
+                                  defaultValue={candidate.resolution || ''}
+                                  maxLength={20000}
+                                  rows={6}
+                                  spellCheck={false}
+                                  disabled={['completed', 'duplicate'].includes(
+                                    candidate.status,
+                                  )}
+                                  onBlur={(event) => {
+                                    if (
+                                      event.target.value !==
+                                      (candidate.resolution || '')
+                                    )
+                                      updateCandidate(item.id, candidate.id, {
+                                        resolution: event.target.value,
+                                      }).catch((error) =>
+                                        setMessage(error.message),
+                                      );
+                                  }}
+                                  className="mt-2 w-full rounded-lg border border-slate-300 p-3 font-mono text-sm"
+                                />
+                              </label>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Use Editar, gerar prévia e cadastrar para
+                                conferir a resolução no gabarito comentado.
+                              </p>
+                              {candidate.extractionMethod === 'pasted-text' && (
+                                <label className="mt-3 flex items-center gap-2 text-sm font-semibold">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(
+                                      candidate.editorialReviewed,
+                                    )}
+                                    disabled={[
+                                      'completed',
+                                      'duplicate',
+                                    ].includes(candidate.status)}
+                                    onChange={(event) =>
+                                      updateCandidate(item.id, candidate.id, {
+                                        editorialReviewed: event.target.checked,
+                                      }).catch((error) =>
+                                        setMessage(error.message),
+                                      )
+                                    }
+                                  />
+                                  Revisei o enunciado, as alternativas e a
+                                  resolução desta questão
+                                </label>
+                              )}
+                              <div className="mt-3 flex justify-end">
+                                <Button
+                                  type="button"
+                                  disabled={
+                                    !candidate.selected ||
+                                    ['completed', 'duplicate'].includes(
+                                      candidate.status,
+                                    ) ||
+                                    candidate.status === 'ignored'
+                                  }
+                                  onClick={() => {
+                                    const classification =
+                                      resolveImportClassification({
+                                        candidate,
+                                        settings:
+                                          bulkSettings[item.id] ||
+                                          defaultBulkSettings,
+                                        item,
+                                        disciplines: pedagogicalDisciplines,
+                                        topics: pedagogicalTopics,
+                                      });
+                                    updateCandidate(item.id, candidate.id, {
+                                      status: 'review',
+                                    }).catch((error) =>
+                                      setMessage(error.message),
+                                    );
+                                    onRegisterQuestion({
+                                      importId: item.id,
+                                      candidateId: candidate.id,
+                                      rawText: candidate.rawText,
+                                      resolution: candidate.resolution,
+                                      adoteNote: candidate.adoteNote,
+                                      sourceInstitution: item.sourceInstitution,
+                                      sourceYear: item.sourceYear,
+                                      questionType: candidate.questionType,
+                                      imageDataUrl: candidate.imageDataUrl,
+                                      imageAlt: candidate.imageAlt,
+                                      correctAnswers: candidate.correctAnswers,
+                                      grade: classification.grade,
+                                      subject: classification.subject,
+                                      difficulty: candidate.difficulty,
+                                      skill: classification.skill,
+                                      pedagogicalDisciplineId:
+                                        classification.discipline?.id,
+                                      pedagogicalTopicId:
+                                        classification.topicId,
+                                    });
+                                  }}
+                                >
+                                  Editar, gerar prévia e cadastrar{' '}
+                                  <ArrowRight />
+                                </Button>
+                              </div>
+                            </article>
+                          ),
+                        )}
                       </div>
                     </section>
                     <p className="mt-3 text-xs text-slate-500">
@@ -3245,10 +3713,24 @@ function CandidateClassificationFields({
   topics: PedagogicalTopic[];
   onChange: (changes: Partial<ExamImportCandidate>) => void;
 }) {
-  const batchDiscipline = resolveImportClassification({settings,item,disciplines,topics}).discipline;
-  const {discipline,grade} = resolveImportClassification({candidate,settings,item,disciplines,topics});
+  const batchDiscipline = resolveImportClassification({
+    settings,
+    item,
+    disciplines,
+    topics,
+  }).discipline;
+  const { discipline, grade } = resolveImportClassification({
+    candidate,
+    settings,
+    item,
+    disciplines,
+    topics,
+  });
   const selected = topics.find(
-    (topic) => topic.id === candidate.pedagogicalTopicId && topic.discipline_id === discipline?.id && topic.grade_range === grade,
+    (topic) =>
+      topic.id === candidate.pedagogicalTopicId &&
+      topic.discipline_id === discipline?.id &&
+      topic.grade_range === grade,
   );
   const selectedDetail = selected?.depth === 2 ? selected : undefined;
   const selectedSubtopic =
@@ -3286,10 +3768,31 @@ function CandidateClassificationFields({
         Classificação desta questão
       </p>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        <SelectField name={`candidate-discipline-${candidate.id}`} label={`Disciplina da questão ${candidate.sourceNumber}`} value={candidate.pedagogicalDisciplineId || ''} onChange={(pedagogicalDisciplineId) => onChange({pedagogicalDisciplineId,pedagogicalTopicId:'',skill:disciplines.find(d => d.id === pedagogicalDisciplineId)?.skills?.some(s => s.code === candidate.skill) ? candidate.skill : ''})} options={[
-          ['', `Disciplina: usar padrão do lote${batchDiscipline ? ` (${batchDiscipline.name})` : ''}`],
-          ...orderedHighSchoolDisciplines(disciplines).map(d => [d.id,d.name] as [string,string]),
-        ]} />
+        <SelectField
+          name={`candidate-discipline-${candidate.id}`}
+          label={`Disciplina da questão ${candidate.sourceNumber}`}
+          value={candidate.pedagogicalDisciplineId || ''}
+          onChange={(pedagogicalDisciplineId) =>
+            onChange({
+              pedagogicalDisciplineId,
+              pedagogicalTopicId: '',
+              skill: disciplines
+                .find((d) => d.id === pedagogicalDisciplineId)
+                ?.skills?.some((s) => s.code === candidate.skill)
+                ? candidate.skill
+                : '',
+            })
+          }
+          options={[
+            [
+              '',
+              `Disciplina: usar padrão do lote${batchDiscipline ? ` (${batchDiscipline.name})` : ''}`,
+            ],
+            ...orderedHighSchoolDisciplines(disciplines).map(
+              (d) => [d.id, d.name] as [string, string],
+            ),
+          ]}
+        />
         <SelectField
           name={`candidate-grade-${candidate.id}`}
           label={`Série da questão ${candidate.sourceNumber}`}
@@ -3389,7 +3892,15 @@ function CandidateClassificationFields({
           onChange={(skill) => onChange({ skill })}
           options={[
             ['', 'Selecione a habilidade BNCC'],
-            ...(candidate.skill && !availableSkills.some(s => s.code === candidate.skill) ? [[candidate.skill, `${candidate.skill} · informada na importação` ] as [string,string]] : []),
+            ...(candidate.skill &&
+            !availableSkills.some((s) => s.code === candidate.skill)
+              ? [
+                  [
+                    candidate.skill,
+                    `${candidate.skill} · informada na importação`,
+                  ] as [string, string],
+                ]
+              : []),
             ...availableSkills.map(
               (skill) =>
                 [skill.code, `${skill.code} · ${skill.description}`] as [
@@ -3430,7 +3941,12 @@ function BulkRegistrationPanel({
   const ready = selected.filter(
     (candidate) => candidateReadiness(candidate).ready,
   );
-  const {discipline} = resolveImportClassification({settings,item,disciplines,topics});
+  const { discipline } = resolveImportClassification({
+    settings,
+    item,
+    disciplines,
+    topics,
+  });
   const objects = topics.filter(
     (topic) =>
       !topic.parent_id &&
@@ -3438,10 +3954,14 @@ function BulkRegistrationPanel({
       topic.grade_range === settings.grade,
   );
   const subtopics = topics.filter(
-    (topic) => topic.parent_id === settings.objectId && topic.discipline_id === discipline?.id,
+    (topic) =>
+      topic.parent_id === settings.objectId &&
+      topic.discipline_id === discipline?.id,
   );
   const details = topics.filter(
-    (topic) => topic.parent_id === settings.topicId && topic.discipline_id === discipline?.id,
+    (topic) =>
+      topic.parent_id === settings.topicId &&
+      topic.discipline_id === discipline?.id,
   );
   const defaultTopicId =
     settings.detailId || settings.topicId || settings.objectId;
@@ -3452,7 +3972,15 @@ function BulkRegistrationPanel({
   const classifiable = ready.every(
     (candidate) =>
       Boolean((candidate.grade || settings.grade).trim()) &&
-      Boolean(resolveImportClassification({candidate,settings,item,disciplines,topics}).topicId),
+      Boolean(
+        resolveImportClassification({
+          candidate,
+          settings,
+          item,
+          disciplines,
+          topics,
+        }).topicId,
+      ),
   );
   return (
     <section className="mt-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
@@ -3477,13 +4005,24 @@ function BulkRegistrationPanel({
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <SelectField name={`bulk-discipline-${item.id}`} label="Disciplina padrão do lote" value={discipline?.id || ''} onChange={(value) => {
-          onSettingChange('pedagogicalDisciplineId',value);
-          onSettingChange('objectId',''); onSettingChange('topicId',''); onSettingChange('detailId',''); onSettingChange('skill','');
-        }} options={[
-          ['', 'Selecione a disciplina'],
-          ...orderedHighSchoolDisciplines(disciplines).map(d => [d.id,d.name] as [string,string]),
-        ]} />
+        <SelectField
+          name={`bulk-discipline-${item.id}`}
+          label="Disciplina padrão do lote"
+          value={discipline?.id || ''}
+          onChange={(value) => {
+            onSettingChange('pedagogicalDisciplineId', value);
+            onSettingChange('objectId', '');
+            onSettingChange('topicId', '');
+            onSettingChange('detailId', '');
+            onSettingChange('skill', '');
+          }}
+          options={[
+            ['', 'Selecione a disciplina'],
+            ...orderedHighSchoolDisciplines(disciplines).map(
+              (d) => [d.id, d.name] as [string, string],
+            ),
+          ]}
+        />
         <SelectField
           name={`bulk-grade-${item.id}`}
           label="Série do Ensino Médio"
@@ -3627,7 +4166,10 @@ function PdfField({
       <span className="mt-3 inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700">
         {fileName ? 'Trocar arquivo' : 'Escolher PDF'}
       </span>
-      <span className="mt-2 block truncate text-xs text-slate-600" aria-live="polite">
+      <span
+        className="mt-2 block truncate text-xs text-slate-600"
+        aria-live="polite"
+      >
         {fileName || 'Nenhum arquivo escolhido'}
       </span>
       <input
