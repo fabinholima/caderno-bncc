@@ -2341,6 +2341,27 @@ export function ExamImportManager({
                   separados por número. O exemplo é apenas uma referência e não
                   será inserido no campo.
                 </p>
+                <p className="mt-3 text-sm font-semibold text-slate-700">
+                  Questões com classificação do catálogo
+                </p>
+                <pre className="mt-2 overflow-x-auto rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+                  {`QUESTÃO 1
+DISCIPLINA: Química
+SÉRIE: 2ª série
+TÓPICO: Estequiometria
+SUBTÓPICO: Cálculo estequiométrico
+HABILIDADE: EM13CNT301
+Enunciado da questão...
+(A) Primeira alternativa
+(B) Segunda alternativa
+GABARITO: B`}
+                </pre>
+                <p className="mt-2 text-xs text-slate-500">
+                  Os campos são opcionais e usam os nomes cadastrados em
+                  Planejamento, sem diferenciar maiúsculas ou acentos. Nome não
+                  encontrado impede o lote e indica a questão. Sem os campos,
+                  valem os padrões do lote.
+                </p>
               </details>
             </section>
           )}

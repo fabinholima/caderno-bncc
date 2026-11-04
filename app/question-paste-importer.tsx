@@ -344,6 +344,13 @@ export function parsePastedQuestion(raw: string): ParsedQuestion {
       answerBlocks: blocks(parsed.resolution),
       warnings: [
         'Revise a classificação curricular e confira a prévia em PDF antes de salvar.',
+        ...(['discipline', 'grade', 'topic', 'subtopic', 'detail'].some(
+          (field) => field in parsed,
+        )
+          ? [
+              'DISCIPLINA, SÉRIE, TÓPICO e SUBTÓPICO só são aplicados na importação em lote; selecione-os no formulário.',
+            ]
+          : []),
       ],
     };
   }

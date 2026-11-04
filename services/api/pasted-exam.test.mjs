@@ -287,3 +287,144 @@ test('server validates skill in the institution discipline catalog and rolls bac
     pool.connect = original;
   }
 });
+
+test('reads DISCIPLINA, SÉRIE, TÓPICO and SUBTÓPICO as metadata outside the content', () => {
+  const text = PASTED_EXAM_EXAMPLE.replace(
+    'DISCIPLINA:',
+    '**DISCIPLINA:** Química',
+  )
+    .replace('SÉRIE:', 'Serie: 2º ano')
+    .replace('TÓPICO:', 'TOPICO: Estequiometria')
+    .replace('SUBTÓPICO:', 'SUBTÓPICO: Cálculo estequiométrico');
+  const [q] = parsePastedExam(text);
+  assert.equal(q.discipline, 'Química');
+  assert.equal(q.grade, '2ª série');
+  assert.equal(q.topic, 'Estequiometria');
+  assert.equal(q.subtopic, 'Cálculo estequiométrico');
+  assert.doesNotMatch(q.rawText, /DISCIPLINA|Estequiometria|SÉRIE/i);
+  assert.equal(parsePastedExam(PASTED_EXAM_EXAMPLE)[0].topic, undefined);
+  assert.throws(
+    () => parsePastedExam(text.replace('2º ano', '6º ano')),
+    /Série inválida/,
+  );
+  assert.throws(
+    () => parsePastedExam(text.replace('TOPICO: Estequiometria', 'TOPICO:')),
+    /TÓPICO antes do SUBTÓPICO/,
+  );
+  assert.throws(
+    () =>
+      parsePastedExam(text.replace('RESOLUÇÃO:', 'TÓPICO: Outro\nRESOLUÇÃO:')),
+    /repetido/,
+  );
+});
+
+test('server maps catalog names to discipline, grade and deepest topic and rejects unknown names', async () => {
+  const { pool } = await import('./db.mjs');
+  const { createExamImport } = await import('./exam-imports.mjs');
+  const original = pool.connect,
+    queries = [];
+  const discipline = '00000000-0000-4000-8000-000000000001';
+  const topics = [
+    {
+      id: 't1',
+      name: 'Estequiometria',
+      discipline_id: discipline,
+      parent_id: null,
+      grade_range: '2º Ano',
+    },
+    {
+      id: 't2',
+      name: 'Cálculo estequiométrico',
+      discipline_id: discipline,
+      parent_id: 't1',
+      grade_range: null,
+    },
+    {
+      id: 't3',
+      name: 'Estequiometria',
+      discipline_id: discipline,
+      parent_id: null,
+      grade_range: '3ª série',
+    },
+  ];
+  pool.connect = async () => ({
+    release() {},
+    async query(sql, args) {
+      queries.push({ sql, args });
+      if (sql.includes('FROM pedagogical_disciplines'))
+        return { rows: [{ id: discipline, name: 'Química' }] };
+      if (sql.includes('FROM pedagogical_topics')) return { rows: topics };
+      return {
+        rowCount: 1,
+        rows: sql.includes('INSERT INTO exam_imports')
+          ? [{ id: 'batch', status: 'uploaded', created_at: 'today' }]
+          : [],
+      };
+    },
+  });
+  const run = (pastedText, subjectMode = 'multidisciplinary') =>
+    createExamImport({
+      institutionId: 'school',
+      userId: 'user',
+      role: 'teacher',
+      input: {
+        sourceInstitution: 'UFG',
+        sourceYear: 2025,
+        examType: 'vestibular',
+        subjectMode,
+        primarySubject: subjectMode === 'single' ? 'Química' : '',
+        pastedText,
+      },
+    });
+  const text = PASTED_EXAM_EXAMPLE.replace('DISCIPLINA:', 'DISCIPLINA: quimica')
+    .replace('TÓPICO:', 'TÓPICO: Estequiometria')
+    .replace('SUBTÓPICO:', 'SUBTÓPICO: calculo estequiometrico');
+  try {
+    await assert.rejects(
+      run(text),
+      (e) => e.statusCode === 422 && /mais de uma série/.test(e.message),
+    );
+    queries.length = 0;
+    await run(text.replace('SÉRIE:', 'SÉRIE: 2ª série'));
+    const write = queries.find((q) => q.sql.includes('extracted_candidates'));
+    const [candidate] = JSON.parse(write.args[2]);
+    assert.equal(candidate.pedagogicalDisciplineId, discipline);
+    assert.equal(candidate.pedagogicalTopicId, 't2');
+    assert.equal(candidate.grade, '2ª série');
+    assert.equal(candidate.topic, undefined);
+    queries.length = 0;
+    await run(
+      PASTED_EXAM_EXAMPLE.replace('TÓPICO:', 'TÓPICO: Estequiometria').replace(
+        'SÉRIE:',
+        'SÉRIE: 3',
+      ),
+      'single',
+    );
+    assert.equal(
+      JSON.parse(
+        queries.find((q) => q.sql.includes('extracted_candidates')).args[2],
+      )[0].pedagogicalTopicId,
+      't3',
+    );
+    await assert.rejects(
+      run(
+        text
+          .replace('calculo estequiometrico', 'Balanceamento')
+          .replace('SÉRIE:', 'SÉRIE: 2ª série'),
+      ),
+      (e) =>
+        e.statusCode === 422 &&
+        /Questão 1: subtópico Balanceamento/.test(e.message),
+    );
+    await assert.rejects(
+      run(text.replace('quimica', 'Física'), 'single'),
+      (e) => e.statusCode === 422 && /difere/.test(e.message),
+    );
+    await assert.rejects(
+      run(PASTED_EXAM_EXAMPLE.replace('TÓPICO:', 'TÓPICO: Estequiometria')),
+      (e) => e.statusCode === 422 && /informe a DISCIPLINA/.test(e.message),
+    );
+  } finally {
+    pool.connect = original;
+  }
+});
