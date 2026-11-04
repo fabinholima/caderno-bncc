@@ -157,6 +157,26 @@ class CompactCardReading(unittest.TestCase):
             cv2.imwrite(path, image)
             self.assertEqual(reader.read_card(path, qr_only=True), {'qrPayload': payload})
 
+    def test_grid_drops_footer_rows_and_restores_a_missed_row(self):
+        rows = [[(180, 375 + row * 25, 10), (208, 375 + row * 25, 10)] for row in range(15)]
+        second = [[(x + 145, y, r) for x, y, r in group] for index, group in enumerate(rows) if index not in (2, 3)]
+        footer = [(273, 1456, 8), (307, 1459, 10)]
+        ordered = reader.order_groups_by_column(rows + second + [footer])
+        self.assertEqual(len(ordered), 30)
+        self.assertEqual(ordered[17:19], [[(325, 425, 10), (353, 425, 10)], [(325, 450, 10), (353, 450, 10)]])
+        self.assertTrue(all(group[0][1] < 800 for group in ordered))
+
+    def test_regular_judgment_sheet_reads_slightly_rotated_photo(self):
+        for count, angle in ((30, 2.5), (100, -3)):
+            matrix = cv2.getRotationMatrix2D((1000, 800), angle, 1)
+            rotated = cv2.warpAffine(standard_judgment_card(count), matrix, (2000, 1600), borderValue=(255, 255, 255))
+            result = self.read(rotated, {'labels': ['C', 'E']})
+            self.assertFalse(result['requiresReview'])
+            self.assertEqual(
+                [row['selectedLabels'] for row in result['answers']],
+                [['C' if index % 2 == 0 else 'E'] for index in range(count)],
+            )
+
     def test_regular_judgment_sheet_reads_certo_and_errado(self):
         result = self.read(standard_judgment_card(), {'labels': ['C', 'E']})
         self.assertFalse(result['requiresReview'])
