@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { normalizeHighSchoolGrade } from './pedagogical-disciplines.mjs';
 import { readExamDocument, storeExamDocument } from './exam-import-storage.mjs';
 import { parsePastedExam } from '../../lib/pasted-exam.mjs';
 import { downloadPdfUrl } from './pdf-url.mjs';
@@ -794,6 +795,116 @@ export function pastedQuestionAnswers(question) {
   );
 }
 
+const catalogKey = (text) =>
+  String(text || '')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// Turns DISCIPLINA/SÉRIE/TÓPICO/SUBTÓPICO names from a text batch into catalog
+// ids. Nothing is created: an unknown or ambiguous name rejects the whole batch.
+export async function resolvePastedClassification(
+  client,
+  institutionId,
+  value,
+  candidates,
+) {
+  if (!candidates.some((candidate) => candidate.discipline || candidate.topic))
+    return candidates;
+  const fail = (candidate, message) => {
+    throw Object.assign(
+      new Error(
+        `Questão ${candidate.sourceNumber}: ${message} Confira o cadastro em Planejamento.`,
+      ),
+      { statusCode: 422 },
+    );
+  };
+  const disciplines = (
+    await client.query(
+      `SELECT id,name FROM pedagogical_disciplines
+      WHERE institution_id=$1 AND stage='Ensino Médio'`,
+      [institutionId],
+    )
+  ).rows;
+  const topics = (
+    await client.query(
+      `SELECT id,name,discipline_id,parent_id,grade_range FROM pedagogical_topics
+      WHERE institution_id=$1 AND active`,
+      [institutionId],
+    )
+  ).rows;
+  const byId = new Map(topics.map((topic) => [topic.id, topic]));
+  const topicGrade = (topic) => {
+    for (let current = topic; current; current = byId.get(current.parent_id))
+      if (current.grade_range)
+        return normalizeHighSchoolGrade(current.grade_range);
+    return '';
+  };
+  const primary = value.subjectMode === 'single' ? value.primarySubject : '';
+  return candidates.map((candidate) => {
+    const {
+      discipline: disciplineName,
+      topic: topicName,
+      subtopic,
+      detail,
+      ...rest
+    } = candidate;
+    if (!disciplineName && !topicName) return rest;
+    const name = disciplineName || primary;
+    if (
+      disciplineName &&
+      primary &&
+      catalogKey(disciplineName) !== catalogKey(primary)
+    )
+      fail(
+        candidate,
+        `a disciplina ${disciplineName} difere da disciplina da prova (${primary}).`,
+      );
+    if (!name) fail(candidate, 'informe a DISCIPLINA para localizar o tópico.');
+    const discipline = disciplines.find(
+      (item) => catalogKey(item.name) === catalogKey(name),
+    );
+    if (!discipline)
+      fail(candidate, `disciplina ${name} não cadastrada no Ensino Médio.`);
+    const resolved = { ...rest, pedagogicalDisciplineId: discipline.id };
+    if (!topicName) return resolved;
+    let parent = null;
+    for (const [label, text] of [
+      ['tópico', topicName],
+      ['subtópico', subtopic],
+      ['detalhamento', detail],
+    ]) {
+      if (!text) break;
+      const matches = topics.filter(
+        (topic) =>
+          topic.discipline_id === discipline.id &&
+          (topic.parent_id || null) === (parent?.id || null) &&
+          catalogKey(topic.name) === catalogKey(text) &&
+          (!candidate.grade ||
+            !topicGrade(topic) ||
+            topicGrade(topic) === candidate.grade),
+      );
+      if (!matches.length)
+        fail(
+          candidate,
+          `${label} ${text} não encontrado em ${discipline.name}${candidate.grade ? `, ${candidate.grade}` : ''}${parent ? `, dentro de ${parent.name}` : ''}.`,
+        );
+      if (matches.length > 1)
+        fail(
+          candidate,
+          `${label} ${text} existe em mais de uma série; informe a SÉRIE.`,
+        );
+      parent = matches[0];
+    }
+    resolved.pedagogicalTopicId = parent.id;
+    if (!resolved.grade && topicGrade(parent))
+      resolved.grade = topicGrade(parent);
+    return resolved;
+  });
+}
+
 export async function createExamImport({ institutionId, userId, role, input }) {
   const value = examImportSchema.parse(input);
   if (
@@ -822,6 +933,11 @@ export async function createExamImport({ institutionId, userId, role, input }) {
         resolution: question.resolution,
         adoteNote: question.adoteNote,
         ...(question.skill ? { skill: question.skill } : {}),
+        ...Object.fromEntries(
+          ['discipline', 'grade', 'topic', 'subtopic', 'detail']
+            .filter((field) => question[field])
+            .map((field) => [field, question[field]]),
+        ),
         selected: true,
         status: 'review',
         questionType: pastedQuestionType(question),
@@ -838,6 +954,12 @@ export async function createExamImport({ institutionId, userId, role, input }) {
     contents: decodePdf(document),
   }));
   return transaction(async (client) => {
+    pastedCandidates = await resolvePastedClassification(
+      client,
+      institutionId,
+      value,
+      pastedCandidates,
+    );
     const skillCodes = [
       ...new Set(
         pastedCandidates.map((candidate) => candidate.skill).filter(Boolean),
@@ -845,7 +967,7 @@ export async function createExamImport({ institutionId, userId, role, input }) {
     ];
     if (skillCodes.length) {
       const catalog = await client.query(
-        `SELECT DISTINCT skill.code FROM curriculum_skills skill
+        `SELECT DISTINCT skill.code,discipline.id AS discipline_id FROM curriculum_skills skill
          JOIN pedagogical_discipline_skills relation ON relation.skill_id=skill.id
          JOIN pedagogical_disciplines discipline ON discipline.id=relation.discipline_id
          WHERE discipline.institution_id=$1 AND skill.code=ANY($2::text[])
@@ -856,14 +978,21 @@ export async function createExamImport({ institutionId, userId, role, input }) {
           value.subjectMode === 'single' ? value.primarySubject : '',
         ],
       );
-      const validCodes = new Set(catalog.rows.map((row) => row.code));
+      const valid = (candidate) =>
+        catalog.rows.some(
+          (row) =>
+            row.code === candidate.skill &&
+            (!candidate.pedagogicalDisciplineId ||
+              !row.discipline_id ||
+              row.discipline_id === candidate.pedagogicalDisciplineId),
+        );
       const invalid = pastedCandidates.find(
-        (candidate) => candidate.skill && !validCodes.has(candidate.skill),
+        (candidate) => candidate.skill && !valid(candidate),
       );
       if (invalid)
         throw Object.assign(
           new Error(
-            `Questão ${invalid.sourceNumber}: habilidade ${invalid.skill} não cadastrada para a disciplina desta importação. Confira o código em Planejamento.`,
+            `Questão ${invalid.sourceNumber}: habilidade ${invalid.skill} não cadastrada para a disciplina desta ${invalid.pedagogicalDisciplineId ? 'questão' : 'importação'}. Confira o código em Planejamento.`,
           ),
           { statusCode: 422 },
         );
