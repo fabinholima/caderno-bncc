@@ -147,6 +147,8 @@ export async function getApplicationBatchFile({
   if (application.rows[0].status === 'cancelled')
     return { status: 409, error: 'A aplicação foi cancelada.' };
 
+  // Transferidos e remanejados não recebem cartão-resposta; a prova completa
+  // continua no lote, como cadastrada na aplicação.
   const jobs = await pool.query({
     text: `SELECT rj.status, rj.output_manifest, rj.template_version
            FROM application_students aps
@@ -158,9 +160,15 @@ export async function getApplicationBatchFile({
             )
            LEFT JOIN render_jobs rj ON rj.application_student_id = aps.id
            WHERE aps.application_id = $1
+             AND ($2 <> 'answer-card' OR COALESCE(s.status, '') NOT IN ('transferido', 'remanejado'))
            ORDER BY ce.number NULLS LAST, s.name, aps.id`,
-    values: [applicationId],
+    values: [applicationId, kind],
   });
+  if (kind === 'answer-card' && !jobs.rowCount)
+    return {
+      status: 422,
+      error: 'Nenhum aluno desta aplicação precisa de cartão-resposta.',
+    };
   const state = applicationBatchState(jobs.rows);
   if (state.error) return state;
   if (
@@ -209,7 +217,9 @@ export async function getApplicationBatchFile({
           pagePrefix,
         );
         if (!pageFile)
-          throw new Error('Não foi possível localizar a página do cartão-resposta.');
+          throw new Error(
+            'Não foi possível localizar a página do cartão-resposta.',
+          );
         sources.push(path.join(batchDirectory, pageFile));
       } else {
         sources.push(source);
@@ -232,7 +242,10 @@ export async function getApplicationBatchFile({
       size: file.size,
       stream: createReadStream(destination),
       cleanup: () =>
-        (cleanupPromise ??= rm(batchDirectory, { recursive: true, force: true })),
+        (cleanupPromise ??= rm(batchDirectory, {
+          recursive: true,
+          force: true,
+        })),
     };
   } catch (error) {
     await rm(batchDirectory, { recursive: true, force: true });

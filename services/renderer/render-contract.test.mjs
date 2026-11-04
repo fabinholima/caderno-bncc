@@ -13,10 +13,7 @@ test('converte o contrato imutável para t-basicexam e escapa conteúdo', async 
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\usemodule\[basicexam\]\[mode=student\]/);
   assert.match(tex, /\\mainlanguage\[pt\]/);
-  assert.match(
-    tex,
-    /\\setupalign\[hyphenated,hz,hanging,tolerant,stretch\]/,
-  );
+  assert.match(tex, /\\setupalign\[hyphenated,hz,hanging,tolerant,stretch\]/);
   assert.match(tex, /layout basicexam-v1/);
   assert.match(tex, /Prova 100\\% segura \\& versionada/);
   assert.match(tex, /\\startcitem\[\*\] 30 \\stopcitem/);
@@ -64,7 +61,10 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.match(tex, /\\bf A/);
   assert.match(tex, /\\bf E/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
-  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
+  assert.equal(
+    (tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length,
+    5,
+  );
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   // Nome impresso a partir da turma; o único campo para preencher é a assinatura.
   assert.match(tex, /\{\\tfa\\bold\{\\WORD\{Aluno Demonstração\}\}\}/);
@@ -75,7 +75,10 @@ test('renderiza cartão OMR com marcas de alinhamento e cinco círculos', async 
   assert.doesNotMatch(tex, /Nome completo do aluno/);
   assert.doesNotMatch(tex, /AnswerCardNameGrid/);
   assert.match(tex, /\\externalfigure\[qr\.png\]/);
-  assert.equal((tex.match(/\\startframedtext\[width=\\textwidth/g) || []).length, 0);
+  assert.equal(
+    (tex.match(/\\startframedtext\[width=\\textwidth/g) || []).length,
+    0,
+  );
 });
 
 test('mantém o cartão clássico e os círculos mesmo sem QR associado', async () => {
@@ -86,7 +89,10 @@ test('mantém o cartão clássico e os círculos mesmo sem QR associado', async 
   );
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
-  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 5);
+  assert.equal(
+    (tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length,
+    5,
+  );
   assert.match(tex, /Aluno\(a\):/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.doesNotMatch(tex, /\\externalfigure\[undefined\]/);
@@ -108,11 +114,21 @@ test('mantém círculos alinhados no cartão do Simulado sem QR associado', asyn
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\bold\{CARTÃO-RESPOSTA\}/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]\\bf A\}"\)/);
-  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 95);
+  assert.equal(
+    (tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length,
+    95,
+  );
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]01\}"\)/);
   assert.match(tex, /label\(textext\("\{\\switchtobodyfont\[7pt\]19\}"\)/);
-  assert.equal((tex.match(/setbounds currentpicture to unitsquare xscaled 41\.4mm/g) || []).length, 1);
-  assert.match(tex, /setbounds currentpicture to unitsquare xscaled 41\.4mm yscaled 115\.6mm/);
+  assert.equal(
+    (tex.match(/setbounds currentpicture to unitsquare xscaled 41\.4mm/g) || [])
+      .length,
+    1,
+  );
+  assert.match(
+    tex,
+    /setbounds currentpicture to unitsquare xscaled 41\.4mm yscaled 115\.6mm/,
+  );
 });
 
 test('organiza o simulado com logotipo à esquerda, QR à direita e cartão simplificado', async () => {
@@ -247,10 +263,21 @@ test('renderiza MetaPost e questão discursiva sem lista de alternativas', async
 });
 
 test('preserva rótulos btex e etex e rejeita escapes TeX codificados', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  snapshot.questions[0].statement.push({ type: 'metapost', code: 'label.ulft(btex $B$ etex, origin);' });
-  assert.match(renderAssessment(snapshot), /label.ulft\(btex \$B\$ etex, origin\);/);
-  snapshot.questions[0].statement.at(-1).code = 'label(btex ^^5cinput arquivo etex, origin);';
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions[0].statement.push({
+    type: 'metapost',
+    code: 'label.ulft(btex $B$ etex, origin);',
+  });
+  assert.match(
+    renderAssessment(snapshot),
+    /label.ulft\(btex \$B\$ etex, origin\);/,
+  );
+  snapshot.questions[0].statement.at(-1).code =
+    'label(btex ^^5cinput arquivo etex, origin);';
   assert.throws(() => renderAssessment(snapshot), /MetaPost inválido/);
 });
 test('rejeita MetaPost com execução de script', async () => {
@@ -332,7 +359,10 @@ test('normaliza a grafia portuguesa alfa para o comando nativo do ConTeXt', asyn
     ),
   );
   snapshot.questions[0].statement = [
-    { type: 'paragraph', text: String.raw`Partículas alfa (\m{\alfa}) e beta.` },
+    {
+      type: 'paragraph',
+      text: String.raw`Partículas alfa (\m{\alfa}) e beta.`,
+    },
   ];
   const tex = renderAssessment(snapshot);
   assert.match(tex, /\\m\{\\alpha\}/);
@@ -428,7 +458,11 @@ test('interrompe e retoma duas colunas para questão em largura total nos três 
       questions,
     },
   ];
-  for (const template of ['basicexam-v1', 'simulado-v1', 'caderno-duas-colunas-v1']) {
+  for (const template of [
+    'basicexam-v1',
+    'simulado-v1',
+    'caderno-duas-colunas-v1',
+  ]) {
     base.render.template = template;
     const tex = renderAssessment(base);
     assert.equal(tex.match(/\\startmixedcolumns\[/g)?.length, 2);
@@ -440,18 +474,35 @@ test('interrompe e retoma duas colunas para questão em largura total nos três 
 });
 
 test('respeita uma coluna no Modelo 3 e limita figuras à largura da coluna ativa', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
   const image = { type: 'image', fileName: 'question-image-1.png' };
   snapshot.render.template = 'caderno-duas-colunas-v1';
   snapshot.questions[0].statement.push(image);
-  snapshot.sections = [{ title: 'Matemática', subject: 'Matemática', columns: 1, questions: snapshot.questions }];
+  snapshot.sections = [
+    {
+      title: 'Matemática',
+      subject: 'Matemática',
+      columns: 1,
+      questions: snapshot.questions,
+    },
+  ];
   const single = renderAssessment(snapshot);
   assert.doesNotMatch(single, /\\startmixedcolumns/);
-  assert.match(single, /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\hsize/);
+  assert.match(
+    single,
+    /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\hsize/,
+  );
   snapshot.sections[0].columns = 2;
   const double = renderAssessment(snapshot);
   assert.match(double, /\\startmixedcolumns/);
-  assert.match(double, /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\hsize/);
+  assert.match(
+    double,
+    /\\externalfigure\[question-image-1\.png\]\[maxwidth=\.88\\hsize/,
+  );
 });
 
 test('gera gabarito limpo com a letra correta e sem marcações internas', async () => {
@@ -486,7 +537,10 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   snapshot.institution.logoFileName = 'institution-logo.png';
   snapshot.version.qrFileName = 'assessment-qr.png';
   const tex = renderAssessment(snapshot);
-  assert.match(tex, /\\externalfigure\[institution-logo\.png\]\[width=22mm,height=14mm,factor=fit\]/);
+  assert.match(
+    tex,
+    /\\externalfigure\[institution-logo\.png\]\[width=22mm,height=14mm,factor=fit\]/,
+  );
   assert.match(tex, /\\framed\[width=\\textwidth,frame=on/);
   assert.match(tex, /Prof\. Ana \\& Silva/);
   assert.match(tex, /7º A/);
@@ -494,7 +548,10 @@ test('renderiza os dados e o logotipo do cabeçalho institucional', async () => 
   assert.match(tex, /15\/09\/2026/);
   assert.match(tex, /\\bold\{Aluno\(a\):\}/);
   assert.match(tex, /Professor\(a\): Prof\. Ana/);
-  assert.match(tex, /\\externalfigure\[assessment-qr\.png\]\[width=15mm,height=15mm\]/);
+  assert.match(
+    tex,
+    /\\externalfigure\[assessment-qr\.png\]\[width=15mm,height=15mm\]/,
+  );
   assert.doesNotMatch(tex, /AVALIAÇÃO BIMESTRAL/);
   assert.match(tex, /\\setuppapersize\[A4\]/);
   assert.match(tex, /header=\.1cm/);
@@ -798,61 +855,119 @@ test('permite exibir o descritor SAEB antes do enunciado', async () => {
 });
 
 test('separa questões com quebra de linha real sem imprimir n em todos os layouts', async () => {
-  const sample = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json',import.meta.url)));
-  for (const template of ['basicexam-v1','simulado-v1','caderno-duas-colunas-v1']) {
-    for (const mode of ['student','answer-key']) {
-      const snapshot=structuredClone(sample);
-      snapshot.render={...snapshot.render,template,mode};
-      snapshot.questions.push({...structuredClone(snapshot.questions[0]),number:2,id:'second-question'});
-      snapshot.sections=[{title:'',columns:2,questions:snapshot.questions}];
-      const tex=renderAssessment(snapshot);
-      assert.doesNotMatch(tex,/\\stopquestion\\n/);
-      if(mode==='student') assert.match(tex,/\\stopquestion\n\\blank\[(?:medium|small)\]/);
+  const sample = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  for (const template of [
+    'basicexam-v1',
+    'simulado-v1',
+    'caderno-duas-colunas-v1',
+  ]) {
+    for (const mode of ['student', 'answer-key']) {
+      const snapshot = structuredClone(sample);
+      snapshot.render = { ...snapshot.render, template, mode };
+      snapshot.questions.push({
+        ...structuredClone(snapshot.questions[0]),
+        number: 2,
+        id: 'second-question',
+      });
+      snapshot.sections = [
+        { title: '', columns: 2, questions: snapshot.questions },
+      ];
+      const tex = renderAssessment(snapshot);
+      assert.doesNotMatch(tex, /\\stopquestion\\n/);
+      if (mode === 'student')
+        assert.match(tex, /\\stopquestion\n\\blank\[(?:medium|small)\]/);
     }
   }
 });
 
-test('Note e adote respeita a largura local e permite quebra e hifenização em todos os layouts',async()=>{
- const base=JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json',import.meta.url)));
- const note=String.raw`\startitemize[packed]
+test('Note e adote respeita a largura local e permite quebra e hifenização em todos os layouts', async () => {
+  const base = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  const note = String.raw`\startitemize[packed]
 \item Experimentalmente estima-se que a força à qual o projétil é submetido, em Newtons, é numericamente igual a 45 vezes o produto entre o campo magnético produzido pela circulação da corrente no interior do solenoide e o campo magnético produzido pelo ímã (ambos em Tesla).
 \stopitemize`;
- for(const template of ['basicexam-v1','simulado-v1','caderno-duas-colunas-v1']) {
-  for(const columns of [1,2]) {
-   const snapshot=structuredClone(base);
-   snapshot.render.template=template;
-   snapshot.questions[0].statement.push({type:'adoteNote',text:note});
-   snapshot.sections=[{title:'',columns,questions:snapshot.questions}];
-   const tex=renderAssessment(snapshot);
-   assert.match(tex,/\\startframedtext\[[^\]]*width=\\hsize,align=\{normal,hyphenated,verytolerant,stretch\},offset=3mm\]/);
-   assert.ok(tex.includes(note));
+  for (const template of [
+    'basicexam-v1',
+    'simulado-v1',
+    'caderno-duas-colunas-v1',
+  ]) {
+    for (const columns of [1, 2]) {
+      const snapshot = structuredClone(base);
+      snapshot.render.template = template;
+      snapshot.questions[0].statement.push({ type: 'adoteNote', text: note });
+      snapshot.sections = [
+        { title: '', columns, questions: snapshot.questions },
+      ];
+      const tex = renderAssessment(snapshot);
+      assert.match(
+        tex,
+        /\\startframedtext\[[^\]]*width=\\hsize,align=\{normal,hyphenated,verytolerant,stretch\},offset=3mm\]/,
+      );
+      assert.ok(tex.includes(note));
+    }
   }
- }
 });
 
-
 test('renderiza uma afirmação com as duas opções de certo ou errado', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  snapshot.questions = [{
-    ...snapshot.questions[0], type: 'true_false',
-    statement: [
-      { type: 'paragraph', text: 'Considere a multiplicação de números naturais. Julgue o item a seguir.' },
-      { type: 'paragraph', text: 'Seis vezes sete é igual a 42.' },
-    ],
-    alternatives: [
-      { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
-      { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
-    ],
-    answer: { correctStableKeys: ['alt-a'] },
-  }];
-  snapshot.version.qrPayload = 'CB1:49de6dd7-2236-4fab-b260-5daa54e2bc09:0123456789abcdef0123';
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  snapshot.questions = [
+    {
+      ...snapshot.questions[0],
+      type: 'true_false',
+      statement: [
+        {
+          type: 'paragraph',
+          text: 'Considere a multiplicação de números naturais. Julgue o item a seguir.',
+        },
+        { type: 'paragraph', text: 'Seis vezes sete é igual a 42.' },
+      ],
+      alternatives: [
+        {
+          stableKey: 'alt-a',
+          label: 'A',
+          content: [{ type: 'paragraph', text: 'Certo' }],
+        },
+        {
+          stableKey: 'alt-b',
+          label: 'B',
+          content: [{ type: 'paragraph', text: 'Errado' }],
+        },
+      ],
+      answer: { correctStableKeys: ['alt-a'] },
+    },
+  ];
+  snapshot.version.qrPayload =
+    'CB1:49de6dd7-2236-4fab-b260-5daa54e2bc09:0123456789abcdef0123';
   snapshot.render.template = 'certo-errado-v1';
   const tex = renderAssessment(snapshot);
-  assert.ok(tex.indexOf('Julgue o item a seguir') < tex.indexOf('Seis vezes sete é igual a 42'));
+  assert.ok(
+    tex.indexOf('Julgue o item a seguir') <
+      tex.indexOf('Seis vezes sete é igual a 42'),
+  );
   assert.match(tex, /Seis vezes sete é igual a 42/);
-  assert.equal((tex.match(/draw fullcircle scaled 4mm shifted/g) || []).length, 2);
-  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Certo\}"\)/);
-  assert.match(tex, /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Errado\}"\)/);
+  assert.equal(
+    (tex.match(/draw fullcircle scaled 4mm shifted/g) || []).length,
+    2,
+  );
+  assert.match(
+    tex,
+    /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Certo\}"\)/,
+  );
+  assert.match(
+    tex,
+    /label\.rt\(textext\("\{\\switchtobodyfont\[8pt\]Errado\}"\)/,
+  );
   assert.equal((tex.match(/\\startcitem/g) || []).length, 0);
   assert.ok(!tex.includes('{A}'));
   assert.ok(!tex.includes('{B}'));
@@ -862,13 +977,19 @@ test('renderiza uma afirmação com as duas opções de certo ou errado', async 
   assert.match(tex, /\\switchtobodyfont\[6pt\]\\bf C/);
   assert.match(tex, /\\switchtobodyfont\[6pt\]\\bf E/);
   assert.match(tex, /\\switchtobodyfont\[7pt\]01/);
-  assert.equal((tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length, 2);
+  assert.equal(
+    (tex.match(/draw fullcircle scaled 4\.6mm shifted/g) || []).length,
+    2,
+  );
   assert.doesNotMatch(tex, /\\framed\[width=4\.6mm/);
 });
 
-
 test('mantém até 20 respostas C/E em uma coluna e distribui 100 em blocos consecutivos', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
   const original = snapshot.questions[0];
   snapshot.render.template = 'certo-errado-v1';
   snapshot.questions = Array.from({ length: 100 }, (_, index) => ({
@@ -877,8 +998,16 @@ test('mantém até 20 respostas C/E em uma coluna e distribui 100 em blocos cons
     type: 'true_false',
     statement: [{ type: 'paragraph', text: `Afirmação ${index + 1}.` }],
     alternatives: [
-      { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
-      { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
+      {
+        stableKey: 'alt-a',
+        label: 'A',
+        content: [{ type: 'paragraph', text: 'Certo' }],
+      },
+      {
+        stableKey: 'alt-b',
+        label: 'B',
+        content: [{ type: 'paragraph', text: 'Errado' }],
+      },
     ],
     answer: { correctStableKeys: [index % 2 ? 'alt-b' : 'alt-a'] },
   }));
@@ -897,13 +1026,27 @@ test('mantém até 20 respostas C/E em uma coluna e distribui 100 em blocos cons
 });
 
 test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
   const original = snapshot.questions[0];
   snapshot.questions = ['alt-a', 'alt-b'].map((correct, index) => ({
-    ...original, number: index + 2, type: 'true_false',
+    ...original,
+    number: index + 2,
+    type: 'true_false',
     alternatives: [
-      { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
-      { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
+      {
+        stableKey: 'alt-a',
+        label: 'A',
+        content: [{ type: 'paragraph', text: 'Certo' }],
+      },
+      {
+        stableKey: 'alt-b',
+        label: 'B',
+        content: [{ type: 'paragraph', text: 'Errado' }],
+      },
     ],
     answer: { correctStableKeys: [correct] },
   }));
@@ -921,10 +1064,17 @@ test('gabarito exclusivo de certo ou errado usa somente C e E e rejeita mistura'
 });
 
 test('prova vinculada a um aluno imprime nome e número e deixa só a assinatura', async () => {
-  const snapshot = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const snapshot = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
   snapshot.candidate = { name: 'Ana Souza', number: '12' };
   const tex = renderAssessment(snapshot);
-  const header = tex.slice(tex.indexOf('\\framed[width=\\textwidth,frame=on'), tex.indexOf('CARTÃO-RESPOSTA'));
+  const header = tex.slice(
+    tex.indexOf('\\framed[width=\\textwidth,frame=on'),
+    tex.indexOf('CARTÃO-RESPOSTA'),
+  );
   assert.match(header, /\\bold\{Ana Souza\}\}\\hskip 3mm Nº 12/);
   assert.match(header, /\\bold\{Assinatura:\}/);
   assert.doesNotMatch(header, /\\bold\{Nº\}/);
@@ -935,47 +1085,119 @@ test('prova vinculada a um aluno imprime nome e número e deixa só a assinatura
 });
 
 test('foto do aluno no cartão-resposta só quando a prova pede e há aluno vinculado', async () => {
-  const base = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
-  const withPhoto = { ...base, render: { ...base.render, showStudentPhoto: true }, candidate: { name: 'Fabio de Souza', number: '3', photoFileName: 'student-photo.jpg' } };
+  const base = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
+  const withPhoto = {
+    ...base,
+    render: { ...base.render, showStudentPhoto: true },
+    candidate: {
+      name: 'Fabio de Souza',
+      number: '3',
+      photoFileName: 'student-photo.jpg',
+    },
+  };
   const card = (tex) => tex.slice(tex.indexOf('CARTÃO-RESPOSTA'));
-  assert.match(card(renderAssessment(withPhoto)), /\\externalfigure\[student-photo\.jpg\]\[width=18mm,height=24mm,factor=fit\]/);
+  // Foto pequena para o cabeçalho do cartão não crescer.
+  assert.match(
+    card(renderAssessment(withPhoto)),
+    /\\externalfigure\[student-photo\.jpg\]\[width=14mm,height=18\.5mm,factor=fit\]/,
+  );
+  // O simulado também mostra a foto no cartão da página separada.
+  const simulado = renderAssessment({
+    ...withPhoto,
+    render: { ...withPhoto.render, template: 'simulado-v1' },
+  });
+  assert.match(card(simulado), /\\externalfigure\[student-photo\.jpg\]/);
+  assert.doesNotMatch(
+    simulado.slice(0, simulado.indexOf('CARTÃO-RESPOSTA')),
+    /student-photo/,
+  );
   // Aluno sem foto cadastrada: o espaço aparece vazio, sem quebrar a prova.
-  const noPhoto = card(renderAssessment({ ...withPhoto, candidate: { name: 'Fabio de Souza' } }));
+  const noPhoto = card(
+    renderAssessment({ ...withPhoto, candidate: { name: 'Fabio de Souza' } }),
+  );
   assert.match(noPhoto, /sem foto/);
   assert.doesNotMatch(noPhoto, /externalfigure\[student-photo/);
   // Nome de arquivo inesperado nunca chega ao ConTeXt.
-  assert.doesNotMatch(renderAssessment({ ...withPhoto, candidate: { name: 'X', photoFileName: '../segredo.png' } }), /segredo/);
+  assert.doesNotMatch(
+    renderAssessment({
+      ...withPhoto,
+      candidate: { name: 'X', photoFileName: '../segredo.png' },
+    }),
+    /segredo/,
+  );
   // Opção desligada ou PDF da versão (sem aluno): sem foto.
-  assert.doesNotMatch(renderAssessment({ ...withPhoto, render: base.render }), /student-photo|sem foto/);
+  assert.doesNotMatch(
+    renderAssessment({ ...withPhoto, render: base.render }),
+    /student-photo|sem foto/,
+  );
   const { candidate: _c, ...generic } = withPhoto;
   assert.doesNotMatch(renderAssessment(generic), /student-photo|sem foto/);
 });
 
 test('questão marcada para uma coluna no cadastro sai em largura total em todos os modelos', async () => {
   const { renderTemplateIds } = await import('../../lib/render-templates.mjs');
-  const { isJudgmentTemplate } = await import('../../lib/compact-assessment.mjs');
-  const base = JSON.parse(await readFile(new URL('../../samples/assessment-snapshot.json', import.meta.url)));
+  const { isJudgmentTemplate } =
+    await import('../../lib/compact-assessment.mjs');
+  const base = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  );
   for (const template of renderTemplateIds) {
     const judgment = isJudgmentTemplate(template);
     const question = (number, text, extra = {}) => ({
-      ...base.questions[0], id: `q${number}`, number,
-      ...(judgment ? {
-        type: 'true_false',
-        alternatives: [
-          { stableKey: 'alt-a', label: 'A', content: [{ type: 'paragraph', text: 'Certo' }] },
-          { stableKey: 'alt-b', label: 'B', content: [{ type: 'paragraph', text: 'Errado' }] },
-        ],
-        answer: { correctStableKeys: ['alt-a'] },
-      } : {}),
+      ...base.questions[0],
+      id: `q${number}`,
+      number,
+      ...(judgment
+        ? {
+            type: 'true_false',
+            alternatives: [
+              {
+                stableKey: 'alt-a',
+                label: 'A',
+                content: [{ type: 'paragraph', text: 'Certo' }],
+              },
+              {
+                stableKey: 'alt-b',
+                label: 'B',
+                content: [{ type: 'paragraph', text: 'Errado' }],
+              },
+            ],
+            answer: { correctStableKeys: ['alt-a'] },
+          }
+        : {}),
       statement: [{ type: 'paragraph', text }],
       ...extra,
     });
-    const questions = [question(1, 'Antes da figura.'), question(2, 'Figura larga.', { recommendSingleColumn: true }), question(3, 'Depois da figura.')];
-    const tex = renderAssessment({ ...base, questions, sections: [{ title: 'Seção', subject: 'Matemática', columns: 2, questions }], render: { ...base.render, template } });
+    const questions = [
+      question(1, 'Antes da figura.'),
+      question(2, 'Figura larga.', { recommendSingleColumn: true }),
+      question(3, 'Depois da figura.'),
+    ];
+    const tex = renderAssessment({
+      ...base,
+      questions,
+      sections: [
+        { title: 'Seção', subject: 'Matemática', columns: 2, questions },
+      ],
+      render: { ...base.render, template },
+    });
     const wide = tex.indexOf('Figura larga.');
     // A questão larga fica entre um \stopmixedcolumns e o próximo \startmixedcolumns.
     assert.ok(wide > 0, template);
-    assert.ok(tex.lastIndexOf('\\stopmixedcolumns', wide) > tex.lastIndexOf('\\startmixedcolumns', wide), `${template}: questão larga dentro das colunas`);
-    assert.ok(tex.indexOf('\\startmixedcolumns', wide) > wide, `${template}: questões seguintes voltam às colunas`);
+    assert.ok(
+      tex.lastIndexOf('\\stopmixedcolumns', wide) >
+        tex.lastIndexOf('\\startmixedcolumns', wide),
+      `${template}: questão larga dentro das colunas`,
+    );
+    assert.ok(
+      tex.indexOf('\\startmixedcolumns', wide) > wide,
+      `${template}: questões seguintes voltam às colunas`,
+    );
   }
 });
