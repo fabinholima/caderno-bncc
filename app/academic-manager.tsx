@@ -4,11 +4,13 @@ import { formString } from '@/lib/form-data';
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import {
+  ArrowRight,
   BarChart3,
   CalendarCheck,
   Download,
   Eye,
   GraduationCap,
+  Loader2,
   Plus,
   Printer,
   RefreshCw,
@@ -105,6 +107,10 @@ type ApplicationDetail = Application & {
 type CardScan = {
   id: string;
   status: string;
+  applicationId?: string | null;
+  assessmentTitle?: string | null;
+  className?: string | null;
+  createdAt?: string;
   studentName?: string;
   versionCode?: string;
   submissionId?: string;
@@ -155,6 +161,14 @@ const DETECTION_DOUBTS: Record<string, string> = {
   multiple: 'Mais de uma marcação detectada',
   blank: 'Nenhuma marcação detectada',
 };
+type ScanTab = 'review' | 'processing' | 'completed';
+function scanTabOf(scan: CardScan): ScanTab {
+  if (scan.status === 'queued' || scan.status === 'processing')
+    return 'processing';
+  return scan.status === 'completed' ? 'completed' : 'review';
+}
+const canReviewScan = (scan: CardScan) =>
+  scanTabOf(scan) === 'review' && Boolean(scan.imageAvailable);
 // Uma questão de múltiplas respostas pode ter várias bolhas marcadas.
 function readWithCertainty(status: string | undefined, questionType = '') {
   return (
@@ -347,11 +361,13 @@ export function AcademicManager({
   initialSection,
   initialApplicationId,
   onOpenCorrection,
+  onOpenResults,
 }: {
   apiUrl: string;
   initialSection?: 'correction' | 'reports';
   initialApplicationId?: string;
   onOpenCorrection?: () => void;
+  onOpenResults?: (applicationId: string) => void;
 }) {
   const [activePanel, setActivePanel] = useState<AcademicPanel>(
     initialSection === 'correction'
@@ -372,6 +388,16 @@ export function AcademicManager({
   const [applicationDetail, setApplicationDetail] =
     useState<ApplicationDetail | null>(null);
   const [scans, setScans] = useState<CardScan[]>([]);
+  const [scanTab, setScanTab] = useState<ScanTab>('review');
+  // Revisão em sequência: ao confirmar um cartão, abre o próximo pendente.
+  const [reviewSequence, setReviewSequence] = useState<{
+    reviewed: number;
+    applicationIds: string[];
+  } | null>(null);
+  const [reviewFinished, setReviewFinished] = useState<{
+    reviewed: number;
+    applicationIds: string[];
+  } | null>(null);
   const [scanReview, setScanReview] = useState<ScanReview | null>(null);
   const [reviewCandidateId, setReviewCandidateId] = useState('');
   const [reviewAnswers, setReviewAnswers] = useState<Record<number, string[]>>(
@@ -429,7 +455,42 @@ export function AcademicManager({
     setAssessments(a.data || []);
     setApplications(ap.data || []);
     setScans(sc.data || []);
+    return sc.data || [];
   }, [apiUrl]);
+  const refreshScans = useCallback(async () => {
+    if (!apiUrl) return;
+    const response = await apiFetch(`${apiUrl}/api/card-scans`);
+    const body = (await response.json()) as ApiBody<CardScan[]>;
+    if (!response.ok || !body.data) return;
+    const latest = body.data;
+    setScans(latest);
+    // Terminada a fila, mostra o que precisa do professor.
+    setScanTab((tab) =>
+      tab === 'processing' &&
+      !latest.some((scan) => scanTabOf(scan) === 'processing')
+        ? latest.some((scan) => scanTabOf(scan) === 'review')
+          ? 'review'
+          : 'completed'
+        : tab,
+    );
+  }, [apiUrl]);
+  const reviewedScanId = scanReview?.id;
+  useEffect(() => {
+    if (!reviewedScanId) return;
+    document
+      .getElementById('scan-review')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [reviewedScanId]);
+  const processingScans = scans.filter(
+    (scan) => scanTabOf(scan) === 'processing',
+  ).length;
+  useEffect(() => {
+    if (activePanel !== 'correction' || !processingScans) return;
+    const timer = window.setInterval(() => {
+      refreshScans().catch(() => undefined);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [activePanel, processingScans, refreshScans]);
   useEffect(() => {
     void Promise.resolve()
       .then(refresh)
@@ -760,8 +821,66 @@ export function AcademicManager({
     setMessage(
       `Cartão confirmado. Nota: ${body.data.score.toLocaleString('pt-BR')} de ${body.data.maxScore.toLocaleString('pt-BR')}.`,
     );
+    const confirmedId = scanReview.id;
     setScanReview(null);
-    await refresh();
+    const latest = (await refresh()) || [];
+    if (reviewSequence) {
+      const applicationId = latest.find(
+        (scan) => scan.id === confirmedId,
+      )?.applicationId;
+      await continueReviewSequence(latest, confirmedId, {
+        reviewed: reviewSequence.reviewed + 1,
+        applicationIds:
+          applicationId &&
+          !reviewSequence.applicationIds.includes(applicationId)
+            ? [...reviewSequence.applicationIds, applicationId]
+            : reviewSequence.applicationIds,
+      });
+    }
+  };
+  const continueReviewSequence = async (
+    latest: CardScan[],
+    currentId: string,
+    progress: { reviewed: number; applicationIds: string[] },
+  ) => {
+    const next = latest.find(
+      (scan) => canReviewScan(scan) && scan.id !== currentId,
+    );
+    if (!next) {
+      setReviewSequence(null);
+      setScanReview(null);
+      setReviewFinished(progress);
+      setScanTab('completed');
+      return;
+    }
+    setReviewSequence(progress);
+    await loadScanReview(next.id);
+  };
+  const startReviewSequence = async () => {
+    const first = scans.find(canReviewScan);
+    if (!first) return;
+    setReviewFinished(null);
+    setReviewSequence({ reviewed: 0, applicationIds: [] });
+    await loadScanReview(first.id);
+  };
+  const skipScanReview = async () => {
+    if (!scanReview || !reviewSequence) return;
+    // Pular deixa o cartão pendente; a sequência segue para o próximo.
+    const pending = scans.filter(canReviewScan);
+    const index = pending.findIndex((scan) => scan.id === scanReview.id);
+    const next = pending[index + 1];
+    if (!next) {
+      setReviewSequence(null);
+      setScanReview(null);
+      setReviewFinished(reviewSequence);
+      return;
+    }
+    await loadScanReview(next.id);
+  };
+  const openResults = (applicationId: string) => {
+    if (onOpenResults) return onOpenResults(applicationId);
+    setActivePanel('results');
+    loadReport(applicationId).catch((error) => setMessage(error.message));
   };
   const retryCard = async (scanId: string) => {
     const response = await apiFetch(
@@ -774,7 +893,9 @@ export function AcademicManager({
     if (!response.ok) throw new Error(body.error);
     setMessage('Cartão reenviado para leitura automática.');
     setScanReview(null);
-    await refresh();
+    const latest = (await refresh()) || [];
+    if (reviewSequence)
+      await continueReviewSequence(latest, scanId, reviewSequence);
   };
   const updateStudent = async (
     student: Student,
@@ -2335,9 +2456,11 @@ export function AcademicManager({
                       }),
                     );
                     setMessage(
-                      `${files.length} arquivo(s) enviado(s) para leitura OMR.`,
+                      `${files.length} arquivo(s) na fila de leitura. A lista se atualiza sozinha.`,
                     );
                     e.target.value = '';
+                    setReviewFinished(null);
+                    setScanTab('processing');
                     await refresh();
                   } catch (error) {
                     setMessage(
@@ -2350,80 +2473,235 @@ export function AcademicManager({
               }}
             />
           </label>
-          <div className="mt-4 space-y-2">
-            {scans.map((x) => (
-              <div
-                key={x.id}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              >
-                <div className="flex justify-between">
-                  <span>
-                    {x.studentName || 'Identificando cartão'}{' '}
-                    {x.versionCode ? `· Versão ${x.versionCode}` : ''}
-                    {x.sourcePages && x.sourcePages > 1
-                      ? ` · Página ${x.sourcePage}/${x.sourcePages}`
-                      : ''}
-                  </span>
-                  <b>
-                    {x.status === 'completed'
-                      ? 'Corrigido'
-                      : x.status === 'review'
-                        ? 'Revisar'
-                        : x.status === 'failed'
-                          ? 'Falhou'
-                          : 'Processando'}
-                  </b>
+          {reviewFinished && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <p className="font-semibold">
+                Revisão concluída: {reviewFinished.reviewed} cartão(ões)
+                confirmado(s).
+              </p>
+              {reviewFinished.applicationIds.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {reviewFinished.applicationIds.map((applicationId) => {
+                    const scan = scans.find(
+                      (item) => item.applicationId === applicationId,
+                    );
+                    return (
+                      <Button
+                        key={applicationId}
+                        type="button"
+                        size="sm"
+                        onClick={() => openResults(applicationId)}
+                      >
+                        Ver resultados
+                        {scan?.assessmentTitle
+                          ? ` · ${scan.assessmentTitle}`
+                          : ''}
+                        {scan?.className ? ` · ${scan.className}` : ''}
+                        <ArrowRight />
+                      </Button>
+                    );
+                  })}
                 </div>
-                {x.result?.answers?.map((a) => (
-                  <p
-                    key={a.questionNumber}
-                    className="mt-1 text-xs text-slate-500"
+              )}
+            </div>
+          )}
+          <div
+            role="tablist"
+            aria-label="Fila de cartões"
+            className="mt-5 flex flex-wrap gap-2 border-b border-slate-200"
+          >
+            {(
+              [
+                ['review', 'Para revisar'],
+                ['processing', 'Processando'],
+                ['completed', 'Corrigidos'],
+              ] as const
+            ).map(([tab, label]) => {
+              const count = scans.filter(
+                (scan) => scanTabOf(scan) === tab,
+              ).length;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={scanTab === tab}
+                  onClick={() => setScanTab(tab)}
+                  className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${scanTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                >
+                  {label}
+                  <span
+                    className={`ml-2 rounded-full px-2 py-0.5 text-xs ${tab === 'review' && count ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}
                   >
-                    Questão {a.questionNumber}:{' '}
-                    {a.selectedLabels.join(', ') || 'em branco'} · {a.status}
-                  </p>
-                ))}
-                {x.score != null && x.maxScore != null && (
-                  <p className="mt-2 font-semibold text-emerald-700">
-                    Nota: {x.score.toLocaleString('pt-BR')} de{' '}
-                    {x.maxScore.toLocaleString('pt-BR')}
-                  </p>
-                )}
-                {x.error && (
-                  <p className="mt-1 text-xs text-rose-600">{x.error}</p>
-                )}
-                {x.imageAvailable && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() =>
-                      loadScanReview(x.id).catch((error) =>
-                        setMessage(error.message),
-                      )
-                    }
-                  >
-                    Revisar cartão
-                  </Button>
-                )}
-              </div>
-            ))}
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+          {scanTab === 'review' && scans.some(canReviewScan) && (
+            <Button
+              type="button"
+              className="mt-4"
+              disabled={Boolean(reviewSequence)}
+              onClick={() =>
+                startReviewSequence().catch((error) =>
+                  setMessage(error.message),
+                )
+              }
+            >
+              Revisar pendentes em sequência (
+              {scans.filter(canReviewScan).length})
+              <ArrowRight />
+            </Button>
+          )}
+          {scanTab === 'processing' && processingScans > 0 && (
+            <p className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+              <Loader2 className="size-4 animate-spin" />
+              Lendo os cartões. A lista se atualiza sozinha; você pode continuar
+              usando o portal.
+            </p>
+          )}
+          <ul className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200">
+            {scans
+              .filter((scan) => scanTabOf(scan) === scanTab)
+              .map((x) => (
+                <li
+                  key={x.id}
+                  className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 text-sm ${scanReview?.id === x.id ? 'bg-amber-50' : ''}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-800">
+                      {x.studentName || 'Aluno não identificado'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {[
+                        x.assessmentTitle,
+                        x.className,
+                        x.versionCode ? `Versão ${x.versionCode}` : '',
+                        x.sourcePages && x.sourcePages > 1
+                          ? `Página ${x.sourcePage}/${x.sourcePages}`
+                          : '',
+                        x.createdAt
+                          ? new Date(x.createdAt).toLocaleString('pt-BR', {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                    {scanTab === 'review' && x.error && (
+                      <p className="mt-1 text-xs text-rose-700">{x.error}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {x.status === 'queued' && (
+                      <span className="text-xs text-slate-500">Na fila</span>
+                    )}
+                    {x.status === 'processing' && (
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <Loader2 className="size-3 animate-spin" />
+                        Lendo
+                      </span>
+                    )}
+                    {x.status === 'failed' && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
+                        Falhou
+                      </span>
+                    )}
+                    {x.status === 'completed' &&
+                      x.score != null &&
+                      x.maxScore != null && (
+                        <span className="font-semibold text-emerald-700">
+                          {x.score.toLocaleString('pt-BR')} de{' '}
+                          {x.maxScore.toLocaleString('pt-BR')}
+                        </span>
+                      )}
+                    {x.status === 'failed' && !x.imageAvailable && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          retryCard(x.id).catch((error) =>
+                            setMessage(error.message),
+                          )
+                        }
+                      >
+                        <RefreshCw />
+                        Reprocessar
+                      </Button>
+                    )}
+                    {x.imageAvailable && scanTabOf(x) !== 'processing' && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          loadScanReview(x.id).catch((error) =>
+                            setMessage(error.message),
+                          )
+                        }
+                      >
+                        {scanTabOf(x) === 'review' ? 'Revisar' : 'Ver cartão'}
+                      </Button>
+                    )}
+                    {x.status === 'completed' && x.applicationId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openResults(x.applicationId!)}
+                      >
+                        Resultados
+                        <ArrowRight />
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            {!scans.some((scan) => scanTabOf(scan) === scanTab) && (
+              <li className="px-3 py-6 text-center text-sm text-slate-500">
+                {scanTab === 'review'
+                  ? 'Nenhum cartão aguardando revisão.'
+                  : scanTab === 'processing'
+                    ? 'Nenhum cartão sendo lido agora.'
+                    : 'Nenhum cartão corrigido ainda.'}
+              </li>
+            )}
+          </ul>
         </section>
       )}
       {activePanel === 'correction' && scanReview && (
-        <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/40 p-5">
+        <section
+          id="scan-review"
+          className="mt-5 scroll-mt-24 rounded-2xl border border-amber-200 bg-amber-50/40 p-5"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-bold">
                 Revisão do cartão-resposta
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Confira o aluno e cada marcação antes de recalcular a nota.
+                {reviewSequence
+                  ? `Revisão em sequência · ${reviewSequence.reviewed} confirmado(s) · ${scans.filter(canReviewScan).length} pendente(s). Ao confirmar, o próximo cartão abre sozinho.`
+                  : 'Confira o aluno e cada marcação antes de recalcular a nota.'}
               </p>
             </div>
             <div className="flex gap-2">
+              {reviewSequence && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    skipScanReview().catch((error) => setMessage(error.message))
+                  }
+                >
+                  Pular
+                </Button>
+              )}
               {['review', 'failed'].includes(scanReview.status) && (
                 <Button
                   type="button"
@@ -2441,9 +2719,12 @@ export function AcademicManager({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setScanReview(null)}
+                onClick={() => {
+                  setScanReview(null);
+                  setReviewSequence(null);
+                }}
               >
-                Fechar
+                {reviewSequence ? 'Encerrar revisão' : 'Fechar'}
               </Button>
             </div>
           </div>
@@ -2580,7 +2861,9 @@ export function AcademicManager({
                   confirmScan().catch((error) => setMessage(error.message))
                 }
               >
-                Confirmar e calcular nota
+                {reviewSequence
+                  ? 'Confirmar e abrir o próximo'
+                  : 'Confirmar e calcular nota'}
               </Button>
             </div>
           </div>
@@ -2856,7 +3139,9 @@ export function AcademicManager({
           apiUrl={apiUrl}
           classes={classes}
           students={students}
-          refresh={refresh}
+          refresh={async () => {
+            await refresh();
+          }}
           setMessage={setMessage}
           savingStudent={savingStudent}
           updateStudent={updateStudent}
