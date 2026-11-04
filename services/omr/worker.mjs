@@ -14,6 +14,7 @@ import {
   recordResultVersion,
   findDuplicateScan,
 } from '../api/result-versions.mjs';
+import { friendlyScanError } from '../api/scan-errors.mjs';
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const python =
   process.env.OMR_PYTHON ||
@@ -193,10 +194,10 @@ async function processCard(
     }
   } catch (error) {
     const reviewImage = await readFile(card).catch(() => null);
-    const message = String(error.message).slice(0, 1000);
-    const status = /QR Code não localizado|QR desconhecido/.test(message)
+    const status = /QR Code não localizado|QR desconhecido/.test(error.message)
       ? 'review'
       : 'failed';
+    const message = friendlyScanError(String(error.message)).slice(0, 1000);
     await pool.query(
       `UPDATE card_scans SET status=$2,error_message=$3,source_page=$4,
               source_pages=$5,completed_at=now(),image_data='\\x',
@@ -272,7 +273,7 @@ async function tick() {
   } catch (e) {
     await pool.query(
       "UPDATE card_scans SET status='failed',error_message=$2,completed_at=now() WHERE id=$1",
-      [j.id, String(e.message).slice(0, 1000)],
+      [j.id, friendlyScanError(String(e.message)).slice(0, 1000)],
     );
   } finally {
     await rm(d, { recursive: true, force: true });

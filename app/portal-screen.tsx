@@ -1633,6 +1633,11 @@ export default function Home() {
                 setActive('Corrigir');
                 window.scrollTo({ top: 0 });
               }}
+              onOpenResults={(id) => {
+                setInitialApplicationId(id);
+                setActive('Diagnosticar');
+                window.scrollTo({ top: 0 });
+              }}
             />
           ) : active === 'Importar provas' ? (
             <ExamImportManager

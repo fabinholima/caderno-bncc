@@ -7,6 +7,7 @@ import { answerKeyStatus } from './assessment-results.mjs';
 import { gradeSubmission } from './submissions.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 import { recordResultVersion, confirmedAnswers } from './result-versions.mjs';
+import { friendlyScanError } from './scan-errors.mjs';
 export const scanSchema = z.object({
   clientScanId: z.uuid().optional(),
   expectedApplicationId: z.uuid().optional(),
@@ -154,22 +155,34 @@ export async function listScans({ institutionId }) {
                   cs.parent_scan_id,s.name student_name,av.code version_code,
                   sub.score,sub.max_score,sub.requires_manual_review,
                   (cs.review_image_data IS NOT NULL) image_available,
-                  ar.processing_status result_processing_status,ar.publication_status
+                  ar.processing_status result_processing_status,ar.publication_status,
+                  aa.id application_id,a.title assessment_title,c.name class_name
            FROM card_scans cs
            LEFT JOIN assessment_results ar ON ar.application_student_id=cs.application_student_id
            LEFT JOIN application_students aps ON aps.id=cs.application_student_id
            LEFT JOIN students s ON s.id=aps.student_id
            LEFT JOIN assessment_versions av ON av.id=aps.assessment_version_id
            LEFT JOIN assessment_submissions sub ON sub.id=cs.submission_id
-           WHERE cs.institution_id=$1 ORDER BY cs.created_at DESC LIMIT 50`,
+           LEFT JOIN assessment_applications aa ON aa.id=coalesce(aps.application_id,cs.expected_application_id)
+           LEFT JOIN assessments a ON a.id=aa.assessment_id
+           LEFT JOIN classes c ON c.id=aa.class_id
+           -- Pendências nunca somem da fila; dos corrigidos, só os mais recentes.
+           WHERE cs.institution_id=$1
+             AND (cs.status<>'completed' OR cs.id IN (
+               SELECT id FROM card_scans WHERE institution_id=$1 AND status='completed'
+               ORDER BY created_at DESC LIMIT 50))
+           ORDER BY cs.created_at DESC LIMIT 500`,
     values: [institutionId],
   });
   return r.rows.map((x) => ({
     id: x.id,
     status: x.status,
     result: x.result,
-    error: x.error_message,
+    error: friendlyScanError(x.error_message),
     studentName: x.student_name,
+    applicationId: x.application_id ?? null,
+    assessmentTitle: x.assessment_title ?? null,
+    className: x.class_name ?? null,
     versionCode: x.version_code,
     submissionId: x.submission_id,
     score: x.score == null ? null : Number(x.score),
@@ -221,7 +234,8 @@ export async function getScanReview({ institutionId, scanId }) {
   return {
     id: row.id,
     status: row.status,
-    error: row.error_message || row.result?.reviewReason || null,
+    error:
+      friendlyScanError(row.error_message) || row.result?.reviewReason || null,
     submissionId: row.submission_id,
     score: row.score == null ? null : Number(row.score),
     maxScore: row.max_score == null ? null : Number(row.max_score),
