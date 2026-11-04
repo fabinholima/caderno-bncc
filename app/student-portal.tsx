@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api-client";
+import { shrinkStudentPhoto } from "@/lib/shrink-photo";
 type Request = { id: string; status: string; className: string; schoolName: string };
 type Activity = {
   id: string;
@@ -170,18 +171,13 @@ export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }
           event.preventDefault();
           const form = event.currentTarget;
           const file = new FormData(form).get('photo');
-          if (!(file instanceof File) || !file.size || file.size > 400000 || !['image/png', 'image/jpeg'].includes(file.type)) {
-            setMessage('Selecione uma foto PNG/JPEG de até 400 KB.');
+          if (!(file instanceof File) || !file.size || file.size > 15_000_000 || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+            setMessage('Selecione uma foto PNG, JPEG ou WebP de até 15 MB.');
             return;
           }
           setBusy(true);
           try {
-            const selfieDataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Não foi possível ler a foto.'));
-              reader.onerror = () => reject(new Error('Não foi possível ler a foto.'));
-              reader.readAsDataURL(file);
-            });
+            const selfieDataUrl = await shrinkStudentPhoto(file);
             await call('/api/student/profile', { studentId: profile.id, selfieDataUrl });
             form.reset();
             setMessage('Foto salva no seu cadastro.');
@@ -192,8 +188,8 @@ export function StudentPortal({ apiUrl, name }: { apiUrl: string; name: string }
         }}>
           <p>{profile.name} · Código do aluno: {profile.registration}</p>
           {profile.selfieDataUrl && <Image src={profile.selfieDataUrl} alt="Sua foto de cadastro" width={96} height={96} unoptimized className="size-24 rounded-xl object-cover" />}
-          <label htmlFor={`photo-${profile.id}`} className="block text-sm">Foto PNG/JPEG de até 400 KB</label>
-          <Input id={`photo-${profile.id}`} name="photo" type="file" accept="image/png,image/jpeg" required disabled={busy} />
+          <label htmlFor={`photo-${profile.id}`} className="block text-sm">Foto PNG, JPEG ou WebP (o portal reduz para 320 px)</label>
+          <Input id={`photo-${profile.id}`} name="photo" type="file" accept="image/png,image/jpeg,image/webp" required disabled={busy} />
           <Button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar minha foto'}</Button>
         </form>)}
         <h2 className="mt-6 font-semibold">Minhas atividades e resultados</h2>

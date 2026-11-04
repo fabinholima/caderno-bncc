@@ -21,7 +21,7 @@ test('photo is restricted to the authenticated student and approved linked recor
     await assert.rejects(myStudentProfiles({ role: 'teacher' }), { statusCode: 403 });
     await assert.rejects(updateMyStudentPhoto({ role: 'teacher' }, input), { statusCode: 403 });
     await assert.rejects(updateMyStudentPhoto(identity, { ...input, selfieDataUrl: 'data:text/html;base64,aA==' }));
-    await assert.rejects(updateMyStudentPhoto(identity, { ...input, selfieDataUrl: 'data:image/png;base64,' + Buffer.alloc(400001).toString('base64') }));
+    await assert.rejects(updateMyStudentPhoto(identity, { ...input, selfieDataUrl: 'data:image/png;base64,' + Buffer.alloc(100001).toString('base64') }));
     await assert.rejects(updateMyStudentPhoto(identity, { studentId: input.studentId }));
     assert.equal(calls, 0);
     assert.equal((await myStudentProfiles(identity)).length, 1);

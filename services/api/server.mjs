@@ -455,7 +455,7 @@ const server = createServer(async (request, response) => {
     if (url.pathname === '/api/student/profile' && request.method === 'GET') return json(response, 200, { data: await myStudentProfiles(identity) });
     if (url.pathname === '/api/student/profile' && request.method === 'POST') {
       if (requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, { data: await updateMyStudentPhoto(identity, await readJson(request, 560000)) });
+      return json(response, 200, { data: await updateMyStudentPhoto(identity, await readJson(request, 150000)) });
     }
     if(identity.role==='student' && !['/api/auth/me','/api/auth/logout'].includes(url.pathname)) return json(response,403,{error:'Este recurso é exclusivo de professores e gestores.'});
     if (url.pathname === '/api/admin/maintenance') {

@@ -19,7 +19,7 @@ export async function myStudentProfiles(identity) {
 export async function updateMyStudentPhoto(identity, input) {
   studentOnly(identity);
   const value = z.object({ studentId: z.uuid(), selfieDataUrl: studentSchema.shape.selfieDataUrl }).strict().parse(input);
-  if (!value.selfieDataUrl) throw Object.assign(new Error('Selecione uma foto PNG/JPEG de até 400 KB.'), { statusCode: 422 });
+  if (!value.selfieDataUrl) throw Object.assign(new Error('Selecione uma foto PNG/JPEG de até 100 KB.'), { statusCode: 422 });
   const result = await pool.query(`UPDATE students SET selfie_data_url=$3 WHERE id=$2 AND id IN (SELECT s.id ${ownProfile}) RETURNING id`, [identity.userId, value.studentId, value.selfieDataUrl]);
   if (!result.rowCount) throw Object.assign(new Error('Cadastro não vinculado à sua conta. Aguarde a aprovação do professor.'), { statusCode: 403 });
   return result.rows[0];

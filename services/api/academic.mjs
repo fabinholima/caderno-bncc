@@ -21,7 +21,8 @@ export const studentSchema = z.object({
   adaptedExam: z.boolean().default(false),
   registration: z.string().trim().min(1).max(60),
   name: z.string().trim().min(2).max(160),
-  selfieDataUrl: z.string().max(550000).refine((v) => !v || (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.byteLength(v.split(',')[1], 'base64') <= 400000), 'Use selfie PNG/JPEG de até 400 KB.').default(''),
+  // Foto do cadastro: o app e o portal reduzem para 320 px (cerca de 20 a 60 KB).
+  selfieDataUrl: z.string().max(140000).refine((v) => !v || (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.byteLength(v.split(',')[1], 'base64') <= 100000), 'Use foto PNG/JPEG de até 100 KB.').default(''),
 });
 export const enrollmentSchema = z.object({
   studentId: z.uuid(),
