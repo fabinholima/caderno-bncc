@@ -145,9 +145,23 @@ type ScanReview = {
   detectedAnswers: Array<{
     questionNumber: number;
     selectedLabels: string[];
+    status?: string;
   }>;
   candidates: ScanReviewCandidate[];
 };
+// Por que a leitura automática não teve certeza da questão.
+const DETECTION_DOUBTS: Record<string, string> = {
+  uncertain: 'Marcação duvidosa',
+  multiple: 'Mais de uma marcação detectada',
+  blank: 'Nenhuma marcação detectada',
+};
+// Uma questão de múltiplas respostas pode ter várias bolhas marcadas.
+function readWithCertainty(status: string | undefined, questionType = '') {
+  return (
+    status === 'recognized' ||
+    (status === 'multiple' && questionType === 'multiple_choice')
+  );
+}
 type ApiBody<T> = { data?: T; error?: string };
 type ApplicationReport = {
   application: {
@@ -695,14 +709,25 @@ export function AcademicManager({
       throw new Error(body.error || 'Não foi possível abrir o cartão.');
     const candidateId =
       body.data.applicationStudentId || body.data.candidates[0]?.id || '';
+    const questionTypes = new Map(
+      body.data.candidates
+        .find((candidate) => candidate.id === candidateId)
+        ?.questions.map((question) => [question.number, question.type]),
+    );
     setScanReview(body.data);
     setReviewCandidateId(candidateId);
+    // Só as marcações que a leitura reconheceu com certeza vêm assinaladas;
+    // as demais ficam em branco e destacadas para o professor conferir.
     setReviewAnswers(
       Object.fromEntries(
-        body.data.detectedAnswers.map((answer) => [
-          answer.questionNumber,
-          answer.selectedLabels,
-        ]),
+        body.data.detectedAnswers
+          .filter((answer) =>
+            readWithCertainty(
+              answer.status,
+              questionTypes.get(answer.questionNumber),
+            ),
+          )
+          .map((answer) => [answer.questionNumber, answer.selectedLabels]),
       ),
     );
   };
@@ -861,6 +886,32 @@ export function AcademicManager({
   const reviewCandidate = scanReview?.candidates.find(
     (candidate) => candidate.id === reviewCandidateId,
   );
+  const detectedByQuestion = new Map(
+    (scanReview?.detectedAnswers ?? []).map((answer) => [
+      answer.questionNumber,
+      answer,
+    ]),
+  );
+  const reviewDoubt = (question: { number: number; type: string }) => {
+    const detected = detectedByQuestion.get(question.number);
+    if (!detected) return null;
+    if (readWithCertainty(detected.status, question.type)) return null;
+    const reason =
+      DETECTION_DOUBTS[detected.status ?? ''] || 'Conferir na foto';
+    return detected.selectedLabels.length
+      ? `${reason}: ${detected.selectedLabels.join(', ')}`
+      : reason;
+  };
+  const reviewDoubtCount =
+    reviewCandidate?.questions.filter((question) => reviewDoubt(question))
+      .length ?? 0;
+  const reviewRecognizedCount =
+    reviewCandidate?.questions.filter((question) =>
+      readWithCertainty(
+        detectedByQuestion.get(question.number)?.status,
+        question.type,
+      ),
+    ).length ?? 0;
   const visibleClasses = classes.filter((item) => {
     const query = classSearch.trim().toLocaleLowerCase('pt-BR');
     return (
@@ -2439,58 +2490,87 @@ export function AcademicManager({
                   Leitura automática: {scanReview.error}
                 </p>
               )}
+              {reviewCandidate && (
+                <p className="mt-3 rounded-lg bg-white p-3 text-sm text-slate-600">
+                  {scanReview.detectedAnswers.length ? (
+                    <>
+                      <b>{reviewRecognizedCount}</b> questão(ões) já
+                      assinalada(s) pela leitura automática.{' '}
+                      {reviewDoubtCount ? (
+                        <>
+                          <b className="text-amber-700">{reviewDoubtCount}</b>{' '}
+                          para conferir, destacada(s) em amarelo.
+                        </>
+                      ) : (
+                        'Confira a foto e confirme.'
+                      )}
+                    </>
+                  ) : (
+                    'A leitura automática não identificou as respostas. Assinale cada questão conforme a foto.'
+                  )}
+                </p>
+              )}
               <div className="mt-4 space-y-3">
-                {reviewCandidate?.questions.map((question) => (
-                  <div
-                    key={question.number}
-                    className="rounded-xl border border-slate-200 bg-white p-3"
-                  >
-                    <p className="text-sm font-semibold">
-                      Questão {question.number}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {question.labels.map((label) => {
-                        const selected = (
-                          reviewAnswers[question.number] || []
-                        ).includes(label);
-                        return (
-                          <button
-                            key={label}
-                            type="button"
-                            aria-pressed={selected}
-                            className={`grid size-10 place-items-center rounded-full border text-sm font-bold ${
-                              selected
-                                ? 'border-blue-600 bg-blue-600 text-white'
-                                : 'border-slate-300 bg-white text-slate-700'
-                            }`}
-                            onClick={() =>
-                              setReviewAnswers((current) => {
-                                const answers = current[question.number] || [];
-                                return {
-                                  ...current,
-                                  [question.number]: [
-                                    'single_choice',
-                                    'true_false',
-                                  ].includes(question.type)
-                                    ? selected
-                                      ? []
-                                      : [label]
-                                    : selected
-                                      ? answers.filter(
-                                          (answer) => answer !== label,
-                                        )
-                                      : [...answers, label],
-                                };
-                              })
-                            }
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
+                {reviewCandidate?.questions.map((question) => {
+                  const doubt = reviewDoubt(question);
+                  return (
+                    <div
+                      key={question.number}
+                      className={`rounded-xl border p-3 ${doubt ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white'}`}
+                    >
+                      <p className="text-sm font-semibold">
+                        Questão {question.number}
+                        {doubt && (
+                          <span className="ml-2 font-normal text-amber-800">
+                            · {doubt}
+                          </span>
+                        )}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {question.labels.map((label) => {
+                          const selected = (
+                            reviewAnswers[question.number] || []
+                          ).includes(label);
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              aria-pressed={selected}
+                              className={`grid size-10 place-items-center rounded-full border text-sm font-bold ${
+                                selected
+                                  ? 'border-blue-600 bg-blue-600 text-white'
+                                  : 'border-slate-300 bg-white text-slate-700'
+                              }`}
+                              onClick={() =>
+                                setReviewAnswers((current) => {
+                                  const answers =
+                                    current[question.number] || [];
+                                  return {
+                                    ...current,
+                                    [question.number]: [
+                                      'single_choice',
+                                      'true_false',
+                                    ].includes(question.type)
+                                      ? selected
+                                        ? []
+                                        : [label]
+                                      : selected
+                                        ? answers.filter(
+                                            (answer) => answer !== label,
+                                          )
+                                        : [...answers, label],
+                                  };
+                                })
+                              }
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <Button
                 type="button"
