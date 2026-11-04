@@ -144,6 +144,19 @@ class CompactCardReading(unittest.TestCase):
         self.assertTrue(result['requiresReview'])
         self.assertEqual(result['answers'], [])
 
+    def test_small_squashed_qr_from_scanner_app_is_decoded(self):
+        # CamScanner-like page: ~2 px per module and the height shrunk ~13%.
+        payload = 'CBS1:00000000-0000-4000-8000-000000000001:0123456789abcdef0123'
+        qr = cv2.resize(cv2.QRCodeEncoder_create().encode(payload), (70, 61), interpolation=cv2.INTER_AREA)
+        image = np.full((1340, 1000), 255, np.uint8)
+        image[157:218, 884:954] = qr
+        image = cv2.cvtColor(cv2.GaussianBlur(image, (3, 3), .8), cv2.COLOR_GRAY2BGR)
+        self.assertEqual(cv2.QRCodeDetector().detectAndDecode(image)[0], '')
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / 'photo.png')
+            cv2.imwrite(path, image)
+            self.assertEqual(reader.read_card(path, qr_only=True), {'qrPayload': payload})
+
     def test_regular_judgment_sheet_reads_certo_and_errado(self):
         result = self.read(standard_judgment_card(), {'labels': ['C', 'E']})
         self.assertFalse(result['requiresReview'])
