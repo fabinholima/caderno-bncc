@@ -5,9 +5,15 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from '../api/node_modules/pg/lib/index.js';
-import { reconcileCardReading, assertCardApplication } from './card-reading.mjs';
+import {
+  reconcileCardReading,
+  assertCardApplication,
+} from './card-reading.mjs';
 import { gradeSubmission } from '../api/submissions.mjs';
-import { recordResultVersion, findDuplicateScan } from '../api/result-versions.mjs';
+import {
+  recordResultVersion,
+  findDuplicateScan,
+} from '../api/result-versions.mjs';
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const python =
   process.env.OMR_PYTHON ||
@@ -30,7 +36,14 @@ const runCommand = (command, args) =>
         : no(new Error(e || `${command} terminou com código ${c}`)),
     );
   });
-const run = async (f, profile) => JSON.parse(await runCommand(python, [script, f, typeof profile === 'string' ? profile : JSON.stringify(profile)]));
+const run = async (f, profile) =>
+  JSON.parse(
+    await runCommand(python, [
+      script,
+      f,
+      typeof profile === 'string' ? profile : JSON.stringify(profile),
+    ]),
+  );
 
 async function renderPdfCards(pdf, directory) {
   const info = await runCommand('pdfinfo', [pdf]);
@@ -50,7 +63,14 @@ async function renderPdfCards(pdf, directory) {
   return files.map((file) => path.join(directory, file));
 }
 
-async function processCard(scanId, card, sourcePage, sourcePages, institutionId, expectedApplicationId) {
+async function processCard(
+  scanId,
+  card,
+  sourcePage,
+  sourcePages,
+  institutionId,
+  expectedApplicationId,
+) {
   try {
     const reviewImage = await readFile(card);
     const identity = await run(card, '--qr-only');
@@ -69,20 +89,38 @@ async function processCard(scanId, card, sourcePage, sourcePages, institutionId,
     );
     if (!a.rowCount) throw new Error('QR desconhecido');
     const assignment = a.rows[0];
-    assertCardApplication(assignment,expectedApplicationId);
-    const profile = compactCardProfile(assignment.snapshot.render?.template, assignment.snapshot.questions.length)
-      || { labels: assignment.snapshot.questions.every(question => question.type === 'true_false') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'] };
+    assertCardApplication(assignment, expectedApplicationId);
+    const profile = compactCardProfile(
+      assignment.snapshot.render?.template,
+      assignment.snapshot.questions.length,
+    ) || {
+      labels: assignment.snapshot.questions.every(
+        (question) => question.type === 'true_false',
+      )
+        ? ['C', 'E']
+        : ['A', 'B', 'C', 'D', 'E'],
+    };
     const raw = await run(card, profile);
-    if (raw.qrPayload !== identity.qrPayload) throw new Error('A identificação do cartão mudou durante a leitura.');
-    let result = reconcileCardReading(assignment.snapshot,raw);
+    if (raw.qrPayload !== identity.qrPayload)
+      throw new Error('A identificação do cartão mudou durante a leitura.');
+    let result = reconcileCardReading(assignment.snapshot, raw);
     // A leitura gera somente um resultado provisório; a publicação ao aluno
     // depende da autorização do professor.
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const duplicateOf = await findDuplicateScan(client, { applicationStudentId: assignment.id, scanId });
-      if (duplicateOf) result = { ...result, requiresReview: true, duplicateOfScanId: duplicateOf,
-        reviewReason: 'Já existe outro cartão deste aluno nesta aplicação. Compare as fotos e confirme qual leitura vale.' };
+      const duplicateOf = await findDuplicateScan(client, {
+        applicationStudentId: assignment.id,
+        scanId,
+      });
+      if (duplicateOf)
+        result = {
+          ...result,
+          requiresReview: true,
+          duplicateOfScanId: duplicateOf,
+          reviewReason:
+            'Já existe outro cartão deste aluno nesta aplicação. Compare as fotos e confirme qual leitura vale.',
+        };
       let submissionId = null;
       let grade = null;
       if (!result.requiresReview) {
@@ -115,10 +153,15 @@ async function processCard(scanId, card, sourcePage, sourcePages, institutionId,
         submissionId = submission.rows[0].id;
       }
       // Um cartão duplicado não altera o resultado até o professor decidir.
-      const version = duplicateOf ? null : await recordResultVersion(client, {
-        applicationStudentId: assignment.id, source: 'omr', answers: result.answers,
-        cardScanId: scanId, submissionId,
-      });
+      const version = duplicateOf
+        ? null
+        : await recordResultVersion(client, {
+            applicationStudentId: assignment.id,
+            source: 'omr',
+            answers: result.answers,
+            cardScanId: scanId,
+            submissionId,
+          });
       await client.query(
         `UPDATE card_scans
          SET status=$2,application_student_id=$3,result=$4::jsonb,
@@ -130,7 +173,11 @@ async function processCard(scanId, card, sourcePage, sourcePages, institutionId,
           scanId,
           result.requiresReview ? 'review' : 'completed',
           assignment.id,
-          JSON.stringify({ ...result, grade, resultVersionId: version?.versionId ?? null }),
+          JSON.stringify({
+            ...result,
+            grade,
+            resultVersionId: version?.versionId ?? null,
+          }),
           submissionId,
           sourcePage,
           sourcePages,
@@ -213,7 +260,14 @@ async function tick() {
         );
         scanId = child.rows[0].id;
       }
-      await processCard(scanId, cards[index], index + 1, cards.length, j.institution_id,j.expected_application_id);
+      await processCard(
+        scanId,
+        cards[index],
+        index + 1,
+        cards.length,
+        j.institution_id,
+        j.expected_application_id,
+      );
     }
   } catch (e) {
     await pool.query(
@@ -228,10 +282,16 @@ async function tick() {
 // versão assumir) viram publicação legada, como a migração 103 fez com os
 // demais. A função é idempotente; repete-se depois para cobrir a sobreposição.
 async function convertLegacyResults() {
-  const result = await pool.query('SELECT publish_legacy_scan_results() converted');
-  if (result.rows[0].converted) console.log(`Resultados legados convertidos: ${result.rows[0].converted}`);
+  const result = await pool.query(
+    'SELECT publish_legacy_scan_results() converted',
+  );
+  if (result.rows[0].converted)
+    console.log(`Resultados legados convertidos: ${result.rows[0].converted}`);
 }
-for (const delay of [0, 5 * 60_000, 30 * 60_000]) setTimeout(() => { convertLegacyResults().catch(console.error); }, delay);
+for (const delay of [0, 5 * 60_000, 30 * 60_000])
+  setTimeout(() => {
+    convertLegacyResults().catch(console.error);
+  }, delay);
 console.log('Worker OMR ativo');
 for (;;) {
   await tick().catch(console.error);
