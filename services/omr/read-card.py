@@ -233,6 +233,35 @@ def with_quality(result, issues):
             ' Se preferir manter esta foto, confira cada marcação antes de confirmar.'}
 
 
+def decode_small_qr(image):
+    """Decode a QR too small or squashed for the detector's own sampling.
+
+    Scanner apps often shrink the page so each module is ~3 px. The detector
+    still finds the code on an enlarged copy; rectifying that quad onto a
+    large square with a quiet zone lets the decoder sample it reliably.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    detector = cv2.QRCodeDetector()
+    for scale in (2, 3):
+        found, points = detector.detect(cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC))
+        if not found or points is None:
+            continue
+        quad = points.reshape(-1, 2).astype(np.float32) / scale
+        center = quad.mean(axis=0)
+        side, quiet = 400, 60
+        destination = np.float32([[quiet, quiet], [quiet + side, quiet], [quiet + side, quiet + side], [quiet, quiet + side]])
+        for margin in (0, .03, .06):
+            source = (center + (quad - center) * (1 + margin)).astype(np.float32)
+            matrix = cv2.getPerspectiveTransform(source, destination)
+            warped = cv2.warpPerspective(gray, matrix, (side + 2 * quiet,) * 2, flags=cv2.INTER_CUBIC, borderValue=255)
+            binary = cv2.threshold(cv2.GaussianBlur(warped, (3, 3), 0), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            for candidate in (warped, binary):
+                payload = detector.detectAndDecode(candidate)[0]
+                if payload:
+                    return payload, quad.reshape(1, -1, 2)
+    return '', None
+
+
 def read_card(file_name, profile=None, qr_only=False):
     image = cv2.imread(file_name)
     if image is None:
@@ -242,6 +271,8 @@ def read_card(file_name, profile=None, qr_only=False):
     for turns in range(4):
         candidate = np.ascontiguousarray(np.rot90(image, turns))
         payload, qr_points, _ = cv2.QRCodeDetector().detectAndDecode(candidate)
+        if not payload:
+            payload, qr_points = decode_small_qr(candidate)
         if payload:
             image = candidate
             break
