@@ -24,7 +24,21 @@ def detect_answer_groups(image, gray, option_count=5):
             for x, y, radius in circles[0]
             if y > image.shape[0] * 0.2 and radius >= 8
         ]
-    found.sort(key=lambda circle: (circle[1], circle[0]))
+    # On a tilted photo a row's y drifts across the sheet; estimate the tilt
+    # from nearest right-hand neighbours and compare rows without it.
+    tilts = []
+    for x, y, radius in found:
+        right = [(other_x - x, other_y - y) for other_x, other_y, _ in found
+                 if radius * 1.5 < other_x - x < radius * 8 and abs(other_y - y) < (other_x - x) * .2]
+        if right:
+            dx, dy = min(right)
+            tilts.append(dy / dx)
+    tilt = float(np.median(tilts)) if tilts else 0.0
+
+    def level(circle):
+        return circle[1] - tilt * circle[0]
+
+    found.sort(key=lambda circle: (level(circle), circle[0]))
 
     visual_rows = []
     for circle in found:
@@ -32,7 +46,7 @@ def detect_answer_groups(image, gray, option_count=5):
             (
                 candidate
                 for candidate in visual_rows
-                if abs(candidate[0][1] - circle[1]) < 12
+                if abs(level(candidate[0]) - level(circle)) < 12
             ),
             None,
         )
@@ -63,9 +77,20 @@ def order_groups_by_column(groups):
         return []
     radius = float(np.median([circle[2] for group in groups for circle in group]))
     tolerance = max(20.0, radius * 2.5)
+    # A pair of circles that are not neighbours on the same row (one of them
+    # was missed) spans a different width from the printed groups.
+    width = float(np.median([group[-1][0] - group[0][0] for group in groups]))
+    groups = [group for group in groups if abs(group[-1][0] - group[0][0] - width) <= width * .4]
+    # Rows tilt with the photo; columns tilt the opposite way. Measure the
+    # tilt along each group and work in deskewed coordinates.
+    slope = float(np.median([(group[-1][1] - group[0][1]) / (group[-1][0] - group[0][0]) for group in groups]))
+
+    def column_x(group):
+        return sum(circle[0] + slope * circle[1] for circle in group) / len(group)
+
     columns = []
-    for group in sorted(groups, key=lambda item: sum(c[0] for c in item) / len(item)):
-        center_x = sum(circle[0] for circle in group) / len(group)
+    for group in sorted(groups, key=column_x):
+        center_x = column_x(group)
         column = next(
             (
                 candidate
@@ -78,21 +103,63 @@ def order_groups_by_column(groups):
             columns.append({"center_x": center_x, "groups": [group]})
         else:
             column["groups"].append(group)
-            centers = [
-                sum(circle[0] for circle in item) / len(item)
-                for item in column["groups"]
-            ]
-            column["center_x"] = float(np.median(centers))
+            column["center_x"] = float(np.median([column_x(item) for item in column["groups"]]))
 
     columns.sort(key=lambda column: column["center_x"])
+    return snap_to_grid([column["groups"] for column in columns], radius, slope)
+
+
+def snap_to_grid(columns, radius, slope):
+    """Rebuild each column as an evenly spaced grid of bubble positions.
+
+    Low-resolution scans give noisy Hough circles: text far below the grid
+    (e.g. a scanner-app footer) forms extra rows, and a row whose circles
+    were missed shifts every later answer up by one question.
+    """
+    def row_of(group):
+        # Constant along a printed row whatever the photo's tilt.
+        return sum(circle[1] - slope * circle[0] for circle in group) / len(group)
+
+    columns = [sorted(groups, key=row_of) for groups in columns]
+    steps = [b - a for groups in columns for a, b in zip(map(row_of, groups), map(row_of, groups[1:]))]
+    if len(steps) < 2:
+        return [group for groups in columns for group in groups]
+    pitch = float(np.median(steps))
+    main = max(columns, key=len)
+    top, bottom = row_of(main[0]) - pitch * .75, row_of(main[-1]) + pitch * .75
+    columns = [kept for kept in ([g for g in groups if top <= row_of(g) <= bottom] for groups in columns) if kept]
+    first = min(row_of(groups[0]) for groups in columns)
+    radius = round(radius)
     ordered = []
-    for column in columns:
-        ordered.extend(
-            sorted(
-                column["groups"],
-                key=lambda group: sum(circle[1] for circle in group) / len(group),
-            )
-        )
+    for groups in columns:
+        found = [row_of(group) for group in groups]
+        # Along a straight column each option's x and y are linear in the
+        # row position; refit once without circles that landed off the line.
+        fits = []
+        for option in range(len(groups[0])):
+            points = np.float32([group[option][:2] for group in groups])
+            rows = np.float32(found)
+            if len(set(found)) < 2:
+                fits.append(lambda row, point=points[0]: point)
+                continue
+            fit = [np.polyfit(rows, points[:, axis], 1) for axis in (0, 1)]
+            error = np.hypot(*(np.polyval(fit[axis], rows) - points[:, axis] for axis in (0, 1)))
+            inliers = error <= max(radius, float(np.median(error)) * 3)
+            if inliers.sum() >= 2 and len(set(rows[inliers])) > 1:
+                fit = [np.polyfit(rows[inliers], points[inliers, axis], 1) for axis in (0, 1)]
+            fits.append(lambda row, fit=fit: (np.polyval(fit[0], row), np.polyval(fit[1], row)))
+        rows = [found[0]]
+        for row in found[1:]:
+            previous = rows[-1]
+            missing = round((row - previous) / pitch)
+            if missing >= 2 and abs((row - previous) / missing - pitch) < pitch * .25:
+                rows.extend([previous + (row - previous) * step / missing for step in range(1, missing)])
+            rows.append(row)
+        # Columns share the first printed row; restore leading rows missed here.
+        while rows[0] - pitch >= first - pitch * .4:
+            rows.insert(0, rows[0] - pitch)
+        for row in rows:
+            ordered.append([(*(round(float(value)) for value in fit(row)), radius) for fit in fits])
     return ordered
 
 
