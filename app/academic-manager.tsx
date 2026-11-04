@@ -1,7 +1,7 @@
 'use client';
 import { formString } from '@/lib/form-data';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import {
   ArrowRight,
@@ -14,10 +14,13 @@ import {
   Plus,
   Printer,
   RefreshCw,
+  RotateCw,
   ScanLine,
   Trash2,
   Users,
   XCircle,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -161,6 +164,20 @@ const DETECTION_DOUBTS: Record<string, string> = {
   multiple: 'Mais de uma marcação detectada',
   blank: 'Nenhuma marcação detectada',
 };
+// Mesma divisão em colunas do cartão impresso: até 15 linhas por coluna,
+// no máximo 6 colunas (Certo/Errado) ou 4 (A–E).
+function cardColumns<T extends { type: string }>(questions: T[]) {
+  const maxColumns = questions.every(
+    (question) => question.type === 'true_false',
+  )
+    ? 6
+    : 4;
+  const columns = Math.min(maxColumns, Math.ceil(questions.length / 15)) || 1;
+  const rows = Math.ceil(questions.length / columns);
+  return Array.from({ length: columns }, (_, index) =>
+    questions.slice(index * rows, (index + 1) * rows),
+  ).filter((column) => column.length);
+}
 type ScanTab = 'review' | 'processing' | 'completed';
 function scanTabOf(scan: CardScan): ScanTab {
   if (scan.status === 'queued' || scan.status === 'processing')
@@ -392,6 +409,9 @@ export function AcademicManager({
     useState<ApplicationDetail | null>(null);
   const [scans, setScans] = useState<CardScan[]>([]);
   const [scanTab, setScanTab] = useState<ScanTab>('review');
+  const [photoZoom, setPhotoZoom] = useState(false);
+  const [photoRotation, setPhotoRotation] = useState(0);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   // Revisão em sequência: ao confirmar um cartão, abre o próximo pendente.
   const [reviewSequence, setReviewSequence] = useState<{
     reviewed: number;
@@ -780,6 +800,8 @@ export function AcademicManager({
     );
     setScanReview(body.data);
     setReviewCandidateId(candidateId);
+    setPhotoZoom(false);
+    setPhotoRotation(0);
     // Só as marcações que a leitura reconheceu com certeza vêm assinaladas;
     // as demais ficam em branco e destacadas para o professor conferir.
     setReviewAnswers(
@@ -794,6 +816,24 @@ export function AcademicManager({
           .map((answer) => [answer.questionNumber, answer.selectedLabels]),
       ),
     );
+  };
+  const continueReviewSequence = async (
+    latest: CardScan[],
+    currentId: string,
+    progress: { reviewed: number; applicationIds: string[] },
+  ) => {
+    const next = latest.find(
+      (scan) => canReviewScan(scan) && scan.id !== currentId,
+    );
+    if (!next) {
+      setReviewSequence(null);
+      setScanReview(null);
+      setReviewFinished(progress);
+      setScanTab('completed');
+      return;
+    }
+    setReviewSequence(progress);
+    await loadScanReview(next.id);
   };
   const confirmScan = async () => {
     if (!scanReview || !reviewCandidateId)
@@ -841,24 +881,40 @@ export function AcademicManager({
       });
     }
   };
-  const continueReviewSequence = async (
-    latest: CardScan[],
-    currentId: string,
-    progress: { reviewed: number; applicationIds: string[] },
-  ) => {
-    const next = latest.find(
-      (scan) => canReviewScan(scan) && scan.id !== currentId,
-    );
-    if (!next) {
-      setReviewSequence(null);
-      setScanReview(null);
-      setReviewFinished(progress);
-      setScanTab('completed');
-      return;
+  const submitReview = async () => {
+    if (reviewSubmitting) return;
+    setReviewSubmitting(true);
+    try {
+      await confirmScan();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setReviewSubmitting(false);
     }
-    setReviewSequence(progress);
-    await loadScanReview(next.id);
   };
+  // Enter confirma o cartão aberto. Nas bolhas da grade também, para que
+  // marcar uma resposta e teclar Enter não desmarque o que acabou de marcar.
+  const submitReviewRef = useRef(submitReview);
+  useEffect(() => {
+    submitReviewRef.current = submitReview;
+  });
+  useEffect(() => {
+    if (!reviewedScanId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.repeat || event.isComposing) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          'input, textarea, select, a, [contenteditable="true"], button:not([data-review-bubble])',
+        )
+      )
+        return;
+      event.preventDefault();
+      void submitReviewRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [reviewedScanId]);
   const startReviewSequence = async () => {
     const first = scans.find(canReviewScan);
     if (!first) return;
@@ -2593,7 +2649,7 @@ export function AcademicManager({
                   key={x.id}
                   className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 text-sm ${scanReview?.id === x.id ? 'bg-amber-50' : ''}`}
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-[14rem] flex-1">
                     <p className="font-semibold text-slate-800">
                       {x.studentName || 'Aluno não identificado'}
                     </p>
@@ -2729,7 +2785,7 @@ export function AcademicManager({
                   : 'Confira o aluno e cada marcação antes de recalcular a nota.'}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {reviewSequence && (
                 <Button
                   type="button"
@@ -2783,21 +2839,56 @@ export function AcademicManager({
               </Button>
             </div>
           </div>
-          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
-            <div className="overflow-hidden rounded-xl border bg-slate-100">
-              {scanReview.imageAvailable ? (
-                <Image
-                  unoptimized
-                  width={1200}
-                  height={1600}
-                  src={`${apiUrl}/api/card-scans/${scanReview.id}/image`}
-                  alt="Página original do cartão-resposta"
-                  className="mx-auto max-h-[760px] w-full object-contain"
-                />
-              ) : (
-                <p className="p-6 text-sm text-slate-500">
-                  A imagem original não está disponível.
-                </p>
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+            <div className="self-start lg:sticky lg:top-24">
+              <div
+                className={`rounded-xl border bg-slate-100 ${photoZoom ? 'max-h-[calc(100vh-9rem)] overflow-auto' : 'overflow-hidden'}`}
+              >
+                {scanReview.imageAvailable ? (
+                  <Image
+                    unoptimized
+                    width={1200}
+                    height={1600}
+                    src={`${apiUrl}/api/card-scans/${scanReview.id}/image`}
+                    alt="Página original do cartão-resposta"
+                    title={
+                      photoZoom ? 'Clique para reduzir' : 'Clique para ampliar'
+                    }
+                    onClick={() => setPhotoZoom((zoom) => !zoom)}
+                    style={{
+                      transform: `rotate(${photoRotation}deg)${photoRotation % 180 ? ' scale(0.72)' : ''}`,
+                    }}
+                    className={`mx-auto transition-transform ${photoZoom ? 'max-w-none w-[200%] cursor-zoom-out' : 'max-h-[50vh] w-full cursor-zoom-in object-contain lg:max-h-[calc(100vh-9rem)]'}`}
+                  />
+                ) : (
+                  <p className="p-6 text-sm text-slate-500">
+                    A imagem original não está disponível.
+                  </p>
+                )}
+              </div>
+              {scanReview.imageAvailable && (
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPhotoZoom((zoom) => !zoom)}
+                  >
+                    {photoZoom ? <ZoomOut /> : <ZoomIn />}
+                    {photoZoom ? 'Reduzir' : 'Ampliar'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setPhotoRotation((rotation) => (rotation + 90) % 360)
+                    }
+                  >
+                    <RotateCw />
+                    Girar
+                  </Button>
+                </div>
               )}
             </div>
             <div>
@@ -2827,18 +2918,26 @@ export function AcademicManager({
                 </p>
               )}
               {reviewCandidate && (
-                <p className="mt-3 rounded-lg bg-white p-3 text-sm text-slate-600">
+                <p className="mt-3 text-sm text-slate-600">
                   {scanReview.detectedAnswers.length ? (
                     <>
-                      <b>{reviewRecognizedCount}</b> questão(ões) já
-                      assinalada(s) pela leitura automática.{' '}
+                      <b>{reviewRecognizedCount}</b> assinalada(s) pela leitura
+                      automática
                       {reviewDoubtCount ? (
                         <>
-                          <b className="text-amber-700">{reviewDoubtCount}</b>{' '}
-                          para conferir, destacada(s) em amarelo.
+                          {' · '}
+                          <b className="text-amber-700">
+                            {reviewDoubtCount} para conferir:{' '}
+                            {reviewCandidate.questions
+                              .filter((question) => reviewDoubt(question))
+                              .map((question) =>
+                                String(question.number).padStart(2, '0'),
+                              )
+                              .join(', ')}
+                          </b>
                         </>
                       ) : (
-                        'Confira a foto e confirme.'
+                        '. Confira a foto e confirme.'
                       )}
                     </>
                   ) : (
@@ -2846,80 +2945,87 @@ export function AcademicManager({
                   )}
                 </p>
               )}
-              <div className="mt-4 space-y-3">
-                {reviewCandidate?.questions.map((question) => {
-                  const doubt = reviewDoubt(question);
-                  return (
-                    <div
-                      key={question.number}
-                      className={`rounded-xl border p-3 ${doubt ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white'}`}
-                    >
-                      <p className="text-sm font-semibold">
-                        Questão {question.number}
-                        {doubt && (
-                          <span className="ml-2 font-normal text-amber-800">
-                            · {doubt}
-                          </span>
-                        )}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {question.labels.map((label) => {
-                          const selected = (
-                            reviewAnswers[question.number] || []
-                          ).includes(label);
-                          return (
-                            <button
-                              key={label}
-                              type="button"
-                              aria-pressed={selected}
-                              className={`grid size-10 place-items-center rounded-full border text-sm font-bold ${
-                                selected
-                                  ? 'border-blue-600 bg-blue-600 text-white'
-                                  : 'border-slate-300 bg-white text-slate-700'
-                              }`}
-                              onClick={() =>
-                                setReviewAnswers((current) => {
-                                  const answers =
-                                    current[question.number] || [];
-                                  return {
-                                    ...current,
-                                    [question.number]: [
-                                      'single_choice',
-                                      'true_false',
-                                    ].includes(question.type)
-                                      ? selected
-                                        ? []
-                                        : [label]
-                                      : selected
-                                        ? answers.filter(
-                                            (answer) => answer !== label,
-                                          )
-                                        : [...answers, label],
-                                  };
-                                })
-                              }
+              {reviewCandidate && (
+                <div className="mt-3 flex flex-wrap gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-white p-3">
+                  {cardColumns(reviewCandidate.questions).map((column) => (
+                    <div key={column[0].number} className="space-y-0.5">
+                      {column.map((question) => {
+                        const doubt = reviewDoubt(question);
+                        return (
+                          <div
+                            key={question.number}
+                            title={doubt ?? undefined}
+                            className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 ${doubt ? 'bg-amber-100 ring-1 ring-amber-300' : ''}`}
+                          >
+                            <span
+                              className={`w-6 text-xs tabular-nums ${doubt ? 'font-semibold text-amber-800' : 'text-slate-500'}`}
                             >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                              {String(question.number).padStart(2, '0')}
+                            </span>
+                            {question.labels.map((label) => {
+                              const selected = (
+                                reviewAnswers[question.number] || []
+                              ).includes(label);
+                              return (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  data-review-bubble
+                                  aria-pressed={selected}
+                                  aria-label={`Questão ${question.number}, alternativa ${label}${doubt ? ` (${doubt})` : ''}`}
+                                  className={`grid size-7 place-items-center rounded-full border text-xs font-bold ${
+                                    selected
+                                      ? 'border-blue-600 bg-blue-600 text-white'
+                                      : 'border-slate-300 bg-white text-slate-600 hover:border-blue-400'
+                                  }`}
+                                  onClick={() =>
+                                    setReviewAnswers((current) => {
+                                      const answers =
+                                        current[question.number] || [];
+                                      return {
+                                        ...current,
+                                        [question.number]: [
+                                          'single_choice',
+                                          'true_false',
+                                        ].includes(question.type)
+                                          ? selected
+                                            ? []
+                                            : [label]
+                                          : selected
+                                            ? answers.filter(
+                                                (answer) => answer !== label,
+                                              )
+                                            : [...answers, label],
+                                      };
+                                    })
+                                  }
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              )}
+              <div className="mt-4 flex items-center gap-3">
+                <Button
+                  type="button"
+                  className="flex-1"
+                  disabled={!reviewCandidate || reviewSubmitting}
+                  onClick={() => void submitReview()}
+                >
+                  {reviewSequence
+                    ? 'Confirmar e abrir o próximo'
+                    : 'Confirmar e calcular nota'}
+                </Button>
+                <kbd className="hidden rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-500 sm:inline">
+                  Enter
+                </kbd>
               </div>
-              <Button
-                type="button"
-                className="mt-5 w-full"
-                disabled={!reviewCandidate}
-                onClick={() =>
-                  confirmScan().catch((error) => setMessage(error.message))
-                }
-              >
-                {reviewSequence
-                  ? 'Confirmar e abrir o próximo'
-                  : 'Confirmar e calcular nota'}
-              </Button>
             </div>
           </div>
         </section>
