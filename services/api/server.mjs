@@ -1,5 +1,8 @@
-import { myStudentProfiles, updateMyStudentPhoto } from "./student-profile.mjs";
-import { importClassStudents, previewClassStudentImport } from './student-import.mjs';
+import { myStudentProfiles, updateMyStudentPhoto } from './student-profile.mjs';
+import {
+  importClassStudents,
+  previewClassStudentImport,
+} from './student-import.mjs';
 import { regenerateAssessment } from './assessments.mjs';
 import { getClassRoster, listClassStudents } from './academic.mjs';
 import {
@@ -10,26 +13,88 @@ import {
   pinWorkspace,
   deleteWorkspace,
 } from './assessment-workspaces.mjs';
-import {questionStatusHistory,approveQuestionsInBulk,sendQuestionsToReviewInBulk} from './question-workflow.mjs';
-import {listDrafts,getDraft,saveDraft,completeDraft} from './question-drafts.mjs';
+import {
+  questionStatusHistory,
+  approveQuestionsInBulk,
+  sendQuestionsToReviewInBulk,
+} from './question-workflow.mjs';
+import {
+  listDrafts,
+  getDraft,
+  saveDraft,
+  completeDraft,
+} from './question-drafts.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
-import { maintenanceStatus, maintenanceBlocks, saveMaintenance } from './maintenance.mjs';
+import {
+  maintenanceStatus,
+  maintenanceBlocks,
+  saveMaintenance,
+} from './maintenance.mjs';
 import { createServer } from 'node:http';
 import { authOriginAllowed } from './auth-origin.mjs';
-import { apiSecurityHeaders, clientIp, configuredOrigins, jsonBodyAllowed, mutationOriginAllowed } from './request-security.mjs';
+import {
+  apiSecurityHeaders,
+  clientIp,
+  configuredOrigins,
+  jsonBodyAllowed,
+  mutationOriginAllowed,
+} from './request-security.mjs';
 import { qrSigningWarning } from './qr-signing.mjs';
 import { myResultDetail, mySkillPerformance } from './student-results.mjs';
-import { listApplicationResults, getResultDetail, authorizeResults, getResultSettings, saveResultSettings, listFollowups, saveFollowup } from './result-publication.mjs';
-import { revenueReport, revenueReportCsv, listSubscribers, manageSubscriber } from './admin-dashboard.mjs';
-import { catalogAccess, sharedCatalogRoute, setPortalEditor } from './portal-access.mjs';
-import { deleteEducatorSchool, getEducatorProfile, saveEducatorProfile, saveEducatorProfileOnly, saveEducatorSchool, setHeaderSchool } from './educator-profile.mjs';
+import {
+  listApplicationResults,
+  getResultDetail,
+  authorizeResults,
+  getResultSettings,
+  saveResultSettings,
+  listFollowups,
+  saveFollowup,
+} from './result-publication.mjs';
+import {
+  revenueReport,
+  revenueReportCsv,
+  listSubscribers,
+  manageSubscriber,
+} from './admin-dashboard.mjs';
+import {
+  catalogAccess,
+  sharedCatalogRoute,
+  setPortalEditor,
+} from './portal-access.mjs';
+import {
+  deleteEducatorSchool,
+  getEducatorProfile,
+  saveEducatorProfile,
+  saveEducatorProfileOnly,
+  saveEducatorSchool,
+  setHeaderSchool,
+} from './educator-profile.mjs';
 import { schoolCatalogReady, searchSchools } from './inep-schools.mjs';
-import { googleConfigured, startGoogle, startGoogleLink, finishGoogle } from './google-auth.mjs';
-import { createGoogleSessionExchange, claimGoogleSessionExchange } from './google-session-exchange.mjs';
+import {
+  googleConfigured,
+  startGoogle,
+  startGoogleLink,
+  finishGoogle,
+} from './google-auth.mjs';
+import {
+  createGoogleSessionExchange,
+  claimGoogleSessionExchange,
+} from './google-session-exchange.mjs';
 import { canManageInstitutionTeam } from './institution-permissions.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
-import { billingStatus, createCheckout, cancelBilling, billingWebhook, previewBillingCoupon } from './billing.mjs';
-import { publicBillingPlans, listBillingSettings, updateBillingPlan, saveBillingCoupon } from './billing-admin.mjs';
+import {
+  billingStatus,
+  createCheckout,
+  cancelBilling,
+  billingWebhook,
+  previewBillingCoupon,
+} from './billing.mjs';
+import {
+  publicBillingPlans,
+  listBillingSettings,
+  updateBillingPlan,
+  saveBillingCoupon,
+} from './billing-admin.mjs';
 import { ZodError } from 'zod';
 import { pool } from './db.mjs';
 import {
@@ -104,8 +169,16 @@ import {
   retryApplicationRenders,
 } from './academic.mjs';
 import {
-  createInvite, getInvite, deactivateInvite, inspectInvite, requestJoin,
-  listRequests, listCandidates, decideRequest, myJoinRequests, myActivities,
+  createInvite,
+  getInvite,
+  deactivateInvite,
+  inspectInvite,
+  requestJoin,
+  listRequests,
+  listCandidates,
+  decideRequest,
+  myJoinRequests,
+  myActivities,
 } from './class-invites.mjs';
 import {
   confirmScanReview,
@@ -149,7 +222,16 @@ import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
 import { allowAuthAttempt } from './auth-attempts.mjs';
-import { inspectAccessCode, claimAccessCode, unlinkStudentAccount, inspectFirstAccess, completeFirstAccess, loginWithCode, allowCodeAttempt, renewAccessCode } from './student-access-code.mjs';
+import {
+  inspectAccessCode,
+  claimAccessCode,
+  unlinkStudentAccount,
+  inspectFirstAccess,
+  completeFirstAccess,
+  loginWithCode,
+  allowCodeAttempt,
+  renewAccessCode,
+} from './student-access-code.mjs';
 import {
   createExamImport,
   cropExamImportCandidateImage,
@@ -201,7 +283,10 @@ async function readJson(request, maxBytes = 8_500_000) {
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > maxBytes) throw Object.assign(new Error('Conteúdo enviado é grande demais.'), { statusCode: 413 });
+    if (size > maxBytes)
+      throw Object.assign(new Error('Conteúdo enviado é grande demais.'), {
+        statusCode: 413,
+      });
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
@@ -237,136 +322,319 @@ const securityHeaders = apiSecurityHeaders();
 const server = createServer(async (request, response) => {
   const requestOrigin = request.headers.origin;
   response.corsOrigin = allowedOrigins.has(requestOrigin) ? requestOrigin : '';
-  for (const [name, value] of Object.entries(securityHeaders)) response.setHeader(name, value);
+  for (const [name, value] of Object.entries(securityHeaders))
+    response.setHeader(name, value);
   if (request.method === 'OPTIONS') return json(response, 204, null);
   // A identidade é consultada antes do roteamento e nas rotas: resolve uma vez só.
   let identityPromise;
   const authenticate = (req) => (identityPromise ??= authenticateSession(req));
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
-    if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/') &&
-      !mutationOriginAllowed({ method: request.method, origin: requestOrigin, cookie: request.headers.cookie, mobileClient: request.headers['x-client'], allowedOrigins }))
-      return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-    if (url.pathname.startsWith('/api/') && !jsonBodyAllowed({ method: request.method, headers: request.headers }))
+    if (
+      url.pathname.startsWith('/api/') &&
+      !url.pathname.startsWith('/api/auth/') &&
+      !mutationOriginAllowed({
+        method: request.method,
+        origin: requestOrigin,
+        cookie: request.headers.cookie,
+        mobileClient: request.headers['x-client'],
+        allowedOrigins,
+      })
+    )
+      return json(response, 403, {
+        error: 'Origem da requisição não autorizada.',
+      });
+    if (
+      url.pathname.startsWith('/api/') &&
+      !jsonBodyAllowed({ method: request.method, headers: request.headers })
+    )
       return json(response, 415, { error: 'Envie os dados no formato JSON.' });
     if (request.method === 'GET' && url.pathname === '/api/maintenance') {
-      response.setHeader('cache-control','no-store');
-      return json(response,200,{data:await maintenanceStatus()});
+      response.setHeader('cache-control', 'no-store');
+      return json(response, 200, { data: await maintenanceStatus() });
     }
-    if (request.method === 'GET' && url.pathname === '/api/public/billing-plans') {
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/api/public/billing-plans'
+    ) {
       response.setHeader('cache-control', 'public, max-age=60');
       return json(response, 200, { data: await publicBillingPlans() });
     }
     // Keep login/recovery, payment callbacks and health available during maintenance.
-    if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/') && url.pathname !== '/api/billing/webhook') {
+    if (
+      url.pathname.startsWith('/api/') &&
+      !url.pathname.startsWith('/api/auth/') &&
+      url.pathname !== '/api/billing/webhook'
+    ) {
       const state = await maintenanceStatus();
-      if (maintenanceBlocks(state,await authenticate(request))) {
-        response.setHeader('retry-after','300');
-        response.setHeader('cache-control','no-store');
-        return json(response,503,{error:state.message,maintenance:true});
+      if (maintenanceBlocks(state, await authenticate(request))) {
+        response.setHeader('retry-after', '300');
+        response.setHeader('cache-control', 'no-store');
+        return json(response, 503, { error: state.message, maintenance: true });
       }
     }
     if (request.method === 'GET' && url.pathname === '/api/auth/config')
-      return json(response, 200, { data: { google: googleConfigured(), googleMobile: googleConfigured(), passwordRecovery: mailConfigured() || developmentMail() } });
+      return json(response, 200, {
+        data: {
+          google: googleConfigured(),
+          googleMobile: googleConfigured(),
+          passwordRecovery: mailConfigured() || developmentMail(),
+        },
+      });
     if (request.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
-      if (!authOriginAllowed({ path: url.pathname, origin: requestOrigin, mobileClient: request.headers['x-client'], allowedOrigins }))
-        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      if (['/api/auth/login', '/api/auth/register', '/api/auth/student/register', '/api/auth/student/first-access/inspect', '/api/auth/student/first-access', '/api/auth/student/code-login', '/api/auth/google/start', '/api/auth/google/link/start', '/api/auth/google/claim', '/api/auth/google/mobile/start', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/resend-verification', '/api/auth/verify-email'].includes(url.pathname)) {
+      if (
+        !authOriginAllowed({
+          path: url.pathname,
+          origin: requestOrigin,
+          mobileClient: request.headers['x-client'],
+          allowedOrigins,
+        })
+      )
+        return json(response, 403, {
+          error: 'Origem da requisição não autorizada.',
+        });
+      if (
+        [
+          '/api/auth/login',
+          '/api/auth/register',
+          '/api/auth/student/register',
+          '/api/auth/student/first-access/inspect',
+          '/api/auth/student/first-access',
+          '/api/auth/student/code-login',
+          '/api/auth/google/start',
+          '/api/auth/google/link/start',
+          '/api/auth/google/claim',
+          '/api/auth/google/mobile/start',
+          '/api/auth/forgot-password',
+          '/api/auth/reset-password',
+          '/api/auth/resend-verification',
+          '/api/auth/verify-email',
+        ].includes(url.pathname)
+      ) {
         if (!allowAuthAttempt(clientIp(request) || 'unknown'))
-          return json(response, 429, { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
+          return json(response, 429, {
+            error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.',
+          });
       }
     }
-    if (request.method === 'POST' && url.pathname === '/api/auth/google/mobile/start') {
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/google/mobile/start'
+    ) {
       response.setHeader('cache-control', 'no-store');
-      return json(response, 200, { data: await mobileGoogleAuth.start(await readJson(request, 4096)) });
+      return json(response, 200, {
+        data: await mobileGoogleAuth.start(await readJson(request, 4096)),
+      });
     }
-    if (request.method === 'POST' && url.pathname === '/api/auth/google/mobile/status') {
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/google/mobile/status'
+    ) {
       response.setHeader('cache-control', 'no-store');
-      return json(response, 200, { data: await mobileGoogleAuth.status(await readJson(request, 4096)) });
+      return json(response, 200, {
+        data: await mobileGoogleAuth.status(await readJson(request, 4096)),
+      });
     }
-    if (request.method === 'GET' && url.pathname === '/api/auth/google/mobile/browser') {
-      if (!allowAuthAttempt(clientIp(request) || 'unknown')) return json(response, 429, { error: 'Muitas tentativas. Aguarde e tente novamente.' });
-      const result = await mobileGoogleAuth.browser(url.searchParams.get('ticket'));
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/api/auth/google/mobile/browser'
+    ) {
+      if (!allowAuthAttempt(clientIp(request) || 'unknown'))
+        return json(response, 429, {
+          error: 'Muitas tentativas. Aguarde e tente novamente.',
+        });
+      const result = await mobileGoogleAuth.browser(
+        url.searchParams.get('ticket'),
+      );
       response.setHeader('set-cookie', oauthCookie(result.browser, 600));
-      response.writeHead(303, { location: result.url, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+      response.writeHead(303, {
+        location: result.url,
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+      });
       return response.end();
     }
-    if (request.method === 'POST' && url.pathname === '/api/auth/google/start') {
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/google/start'
+    ) {
       const result = await startGoogle(await readJson(request, 4096));
       return json(response, 200, { data: { url: result.url } });
     }
-    if (request.method === 'POST' && url.pathname === '/api/auth/google/claim') {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/google/claim'
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, {
+          error: 'Origem da requisição não autorizada.',
+        });
       const { code } = await readJson(request, 4096);
       const token = await claimGoogleSessionExchange(code);
       await recordSessionNetwork(token, request);
       setSessionCookie(response, token);
       return json(response, 200, { data: { authenticated: true } });
     }
-    if (request.method === 'POST' && url.pathname === '/api/auth/session/cookie') {
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/session/cookie'
+    ) {
       // PWA: a entrada Google usa o fluxo do aplicativo e termina com um token
       // Bearer. O navegador troca o token por este cookie HttpOnly e o descarta,
       // para que nenhuma sessão fique em armazenamento acessível ao JavaScript.
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      const token = /^Bearer\s+(.+)$/i.exec(request.headers.authorization || '')?.[1];
-      if (!token || !(await authenticate(request))) return json(response, 401, { error: 'Sessão inválida. Entre novamente.' });
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, {
+          error: 'Origem da requisição não autorizada.',
+        });
+      const token = /^Bearer\s+(.+)$/i.exec(
+        request.headers.authorization || '',
+      )?.[1];
+      if (!token || !(await authenticate(request)))
+        return json(response, 401, {
+          error: 'Sessão inválida. Entre novamente.',
+        });
       response.setHeader('cache-control', 'no-store');
       setSessionCookie(response, token);
       return json(response, 200, { data: { authenticated: true } });
     }
-    if (request.method === 'POST' && url.pathname === '/api/auth/google/link/start') {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem da requisição não autorizada.' });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/google/link/start'
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, {
+          error: 'Origem da requisição não autorizada.',
+        });
       const identity = await authenticate(request);
-      if (!identity) return json(response, 401, { error: 'Entre na conta que deseja vincular antes de continuar.' });
-      if (identity.role === 'student') return json(response, 403, { error: 'A vinculação do Google está disponível para contas de professores e gestores.' });
+      if (!identity)
+        return json(response, 401, {
+          error: 'Entre na conta que deseja vincular antes de continuar.',
+        });
+      if (identity.role === 'student')
+        return json(response, 403, {
+          error:
+            'A vinculação do Google está disponível para contas de professores e gestores.',
+        });
       const result = await startGoogleLink(identity.userId);
       response.setHeader('set-cookie', oauthCookie(result.browser, 600));
       return json(response, 200, { data: { url: result.url } });
     }
-    if (request.method === 'GET' && url.pathname === '/api/auth/google/callback') {
-      if (!googleConfigured()) return json(response, 503, { error: 'Login Google não configurado.' });
-      const mobile = await mobileGoogleAuth.callback(url, request.headers.cookie);
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/api/auth/google/callback'
+    ) {
+      if (!googleConfigured())
+        return json(response, 503, { error: 'Login Google não configurado.' });
+      const mobile = await mobileGoogleAuth.callback(
+        url,
+        request.headers.cookie,
+      );
       if (mobile) {
         response.setHeader('set-cookie', oauthCookie('', 0));
-        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
-          'referrer-policy': 'no-referrer', 'content-security-policy': "default-src 'none'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff' });
-        const text = mobile.status === 'completed' ? 'Entrada confirmada. Feche esta aba e volte ao aplicativo UFA Prova.' : mobile.message;
-        return response.end(`<!doctype html><html lang="pt-BR"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UFA Prova</title><body><h1>UFA Prova</h1><p>${text}</p></body></html>`);
+        response.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+          'referrer-policy': 'no-referrer',
+          'content-security-policy':
+            "default-src 'none'; frame-ancestors 'none'",
+          'x-content-type-options': 'nosniff',
+        });
+        const text =
+          mobile.status === 'completed'
+            ? 'Entrada confirmada. Feche esta aba e volte ao aplicativo UFA Prova.'
+            : mobile.message;
+        return response.end(
+          `<!doctype html><html lang="pt-BR"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UFA Prova</title><body><h1>UFA Prova</h1><p>${text}</p></body></html>`,
+        );
       }
       const destination = new URL('/portal', process.env.AUTH_FRONTEND_URL);
       try {
         const result = await finishGoogle(url, request.headers.cookie);
-        if (result.linked) destination.searchParams.set('google_link', 'success');
-        else destination.searchParams.set('google_session', await createGoogleSessionExchange(result.sessionId));
+        if (result.linked)
+          destination.searchParams.set('google_link', 'success');
+        else
+          destination.searchParams.set(
+            'google_session',
+            await createGoogleSessionExchange(result.sessionId),
+          );
         const sessionCookie = response.getHeader('set-cookie');
-        response.setHeader('set-cookie', [...(Array.isArray(sessionCookie) ? sessionCookie : sessionCookie ? [sessionCookie] : []), oauthCookie('', 0)]);
+        response.setHeader('set-cookie', [
+          ...(Array.isArray(sessionCookie)
+            ? sessionCookie
+            : sessionCookie
+              ? [sessionCookie]
+              : []),
+          oauthCookie('', 0),
+        ]);
       } catch (error) {
         console.error('Google OAuth callback failed', {
           message: error instanceof Error ? error.message : String(error),
           code: error?.code || null,
           statusCode: error?.statusCode || null,
         });
-        destination.searchParams.set(error.googleLink ? 'google_link_error' : 'auth_error', error.statusCode === 428 ? 'registration_required' : error.statusCode === 409 || error.code === '23505' ? 'existing_account' : 'google_failed');
+        destination.searchParams.set(
+          error.googleLink ? 'google_link_error' : 'auth_error',
+          error.statusCode === 428
+            ? 'registration_required'
+            : error.statusCode === 409 || error.code === '23505'
+              ? 'existing_account'
+              : 'google_failed',
+        );
         response.setHeader('set-cookie', oauthCookie('', 0));
       }
-      response.writeHead(303, { location: destination.href, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+      response.writeHead(303, {
+        location: destination.href,
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+      });
       return response.end();
     }
     if (request.method === 'POST' && url.pathname === '/api/billing/webhook')
-      return json(response, 200, { data: await billingWebhook(request, url, await readJson(request, 64000)) });
+      return json(response, 200, {
+        data: await billingWebhook(
+          request,
+          url,
+          await readJson(request, 64000),
+        ),
+      });
     if (request.method === 'GET' && url.pathname === '/health') {
-      const readiness = await pool.query("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename='066_mobile_sync_manual_review.sql') AS mobile_sync_ready");
+      const readiness = await pool.query(
+        "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename='066_mobile_sync_manual_review.sql') AS mobile_sync_ready",
+      );
       const ready = readiness.rows[0]?.mobile_sync_ready === true;
-      return json(response, ready ? 200 : 503, { status: ready ? 'ok' : 'migration_pending', release: process.env.RENDER_GIT_COMMIT || null, mobileSyncSchemaVersion: ready ? 1 : 0 });
+      return json(response, ready ? 200 : 503, {
+        status: ready ? 'ok' : 'migration_pending',
+        release: process.env.RENDER_GIT_COMMIT || null,
+        mobileSyncSchemaVersion: ready ? 1 : 0,
+      });
     }
-    if (request.method === 'POST' && url.pathname === '/api/auth/student/register') return json(response,201,{data:await registerStudent(await readJson(request,4096))});
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/student/register'
+    )
+      return json(response, 201, {
+        data: await registerStudent(await readJson(request, 4096)),
+      });
     // Aluno sem e-mail: primeiro acesso pelo código pessoal e login com código e senha.
-    if (request.method === 'POST' && ['/api/auth/student/first-access/inspect', '/api/auth/student/first-access', '/api/auth/student/code-login'].includes(url.pathname)) {
+    if (
+      request.method === 'POST' &&
+      [
+        '/api/auth/student/first-access/inspect',
+        '/api/auth/student/first-access',
+        '/api/auth/student/code-login',
+      ].includes(url.pathname)
+    ) {
       const input = await readJson(request, 4096);
       if (!allowCodeAttempt(input))
-        return json(response, 429, { error: 'Muitas tentativas com este código. Aguarde 15 minutos e tente novamente.' });
-      if (url.pathname.endsWith('/inspect')) return json(response, 200, { data: await inspectFirstAccess(input) });
-      const result = url.pathname.endsWith('/code-login') ? await loginWithCode(input) : await completeFirstAccess(input);
+        return json(response, 429, {
+          error:
+            'Muitas tentativas com este código. Aguarde 15 minutos e tente novamente.',
+        });
+      if (url.pathname.endsWith('/inspect'))
+        return json(response, 200, { data: await inspectFirstAccess(input) });
+      const result = url.pathname.endsWith('/code-login')
+        ? await loginWithCode(input)
+        : await completeFirstAccess(input);
       await recordSessionNetwork(result.token, request);
       setSessionCookie(response, result.token);
       const { token: _token, ...data } = result;
@@ -380,8 +648,18 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname === '/api/auth/login') {
       const credentials = await readJson(request, 16384);
       // Além do limite por IP, limita tentativas por conta contra ataques distribuídos.
-      if (!allowAuthAttempt(`login:${String(credentials?.email || '').trim().toLowerCase()}`, 10))
-        return json(response, 429, { error: 'Muitas tentativas para esta conta. Aguarde 15 minutos e tente novamente.' });
+      if (
+        !allowAuthAttempt(
+          `login:${String(credentials?.email || '')
+            .trim()
+            .toLowerCase()}`,
+          10,
+        )
+      )
+        return json(response, 429, {
+          error:
+            'Muitas tentativas para esta conta. Aguarde 15 minutos e tente novamente.',
+        });
       const result = await login(credentials);
       await recordSessionNetwork(result.token, request);
       setSessionCookie(response, result.token);
@@ -403,161 +681,424 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await resetPassword(await readJson(request, 16384)),
       });
-    if (request.method === 'POST' && url.pathname === '/api/auth/resend-verification')
-      return json(response, 202, { data: await requestEmailVerification(await readJson(request, 4096)) });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/auth/resend-verification'
+    )
+      return json(response, 202, {
+        data: await requestEmailVerification(await readJson(request, 4096)),
+      });
     if (request.method === 'POST' && url.pathname === '/api/auth/verify-email')
-      return json(response, 200, { data: await verifyEmail(await readJson(request, 4096)) });
+      return json(response, 200, {
+        data: await verifyEmail(await readJson(request, 4096)),
+      });
     const identity = await authenticate(request);
     if (!identity)
       return json(response, 401, { error: 'Faça login para continuar.' });
     const { userId } = identity;
-    response.setHeader('cache-control','no-store');
-    if (/^\/api\/(?:class-invites|class-join-requests|student\/access-code|classes\/[^/]+\/(?:invite|join-requests|join-candidates))/.test(url.pathname) && !['GET','HEAD'].includes(request.method)) {
-      if(requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response,403,{error:'Origem não autorizada.'});
+    response.setHeader('cache-control', 'no-store');
+    if (
+      /^\/api\/(?:class-invites|class-join-requests|student\/access-code|classes\/[^/]+\/(?:invite|join-requests|join-candidates))/.test(
+        url.pathname,
+      ) &&
+      !['GET', 'HEAD'].includes(request.method)
+    ) {
+      if (
+        requestOrigin
+          ? !allowedOrigins.has(requestOrigin)
+          : request.headers['x-client'] !== 'mobile'
+      )
+        return json(response, 403, { error: 'Origem não autorizada.' });
     }
-    if(request.method === 'POST' && url.pathname === '/api/class-invites/inspect') {
-      if(!allowAuthAttempt(`invite:${identity.userId}`))return json(response,429,{error:'Muitas tentativas de código. Aguarde 15 minutos.'});
-      return json(response,200,{data:await inspectInvite(identity,await readJson(request,4096))});
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/class-invites/inspect'
+    ) {
+      if (!allowAuthAttempt(`invite:${identity.userId}`))
+        return json(response, 429, {
+          error: 'Muitas tentativas de código. Aguarde 15 minutos.',
+        });
+      return json(response, 200, {
+        data: await inspectInvite(identity, await readJson(request, 4096)),
+      });
     }
     // Convites de turma ficam antes das exigências de perfil para permitir que
     // contas de aluno entrem pelo aplicativo sem preencher dados de professor.
-    const classInviteMatch = url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/invite$/i);
-    if (classInviteMatch && request.method === 'GET') return json(response,200,{data:await getInvite(identity,classInviteMatch[1])});
+    const classInviteMatch = url.pathname.match(
+      /^\/api\/classes\/([0-9a-f-]{36})\/invite$/i,
+    );
+    if (classInviteMatch && request.method === 'GET')
+      return json(response, 200, {
+        data: await getInvite(identity, classInviteMatch[1]),
+      });
     if (classInviteMatch && request.method === 'POST')
-      return json(response, 201, { data: await createInvite(identity, classInviteMatch[1], await readJson(request,4096)) });
+      return json(response, 201, {
+        data: await createInvite(
+          identity,
+          classInviteMatch[1],
+          await readJson(request, 4096),
+        ),
+      });
     if (classInviteMatch && request.method === 'DELETE')
-      return json(response, 200, { data: await deactivateInvite(identity, classInviteMatch[1]) });
-    if (request.method === 'POST' && url.pathname === '/api/class-invites/request')
-      { if(!allowAuthAttempt(`invite:${identity.userId}`))return json(response,429,{error:'Muitas tentativas. Aguarde 15 minutos.'}); return json(response, 201, { data: await requestJoin(identity, await readJson(request, 4096)) }); }
-    if (request.method === 'GET' && url.pathname === '/api/class-join-requests/me')
+      return json(response, 200, {
+        data: await deactivateInvite(identity, classInviteMatch[1]),
+      });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/class-invites/request'
+    ) {
+      if (!allowAuthAttempt(`invite:${identity.userId}`))
+        return json(response, 429, {
+          error: 'Muitas tentativas. Aguarde 15 minutos.',
+        });
+      return json(response, 201, {
+        data: await requestJoin(identity, await readJson(request, 4096)),
+      });
+    }
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/api/class-join-requests/me'
+    )
       return json(response, 200, { data: await myJoinRequests(identity) });
-    const candidatesMatch=url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/join-candidates$/i);
-    if(candidatesMatch && request.method === 'GET')return json(response,200,{data:await listCandidates(identity,candidatesMatch[1])});
-    const classRequestsMatch = url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/join-requests$/i);
+    const candidatesMatch = url.pathname.match(
+      /^\/api\/classes\/([0-9a-f-]{36})\/join-candidates$/i,
+    );
+    if (candidatesMatch && request.method === 'GET')
+      return json(response, 200, {
+        data: await listCandidates(identity, candidatesMatch[1]),
+      });
+    const classRequestsMatch = url.pathname.match(
+      /^\/api\/classes\/([0-9a-f-]{36})\/join-requests$/i,
+    );
     if (classRequestsMatch && request.method === 'GET')
-      return json(response, 200, { data: await listRequests(identity, classRequestsMatch[1]) });
-    const requestDecisionMatch = url.pathname.match(/^\/api\/class-join-requests\/([0-9a-f-]{36})$/i);
+      return json(response, 200, {
+        data: await listRequests(identity, classRequestsMatch[1]),
+      });
+    const requestDecisionMatch = url.pathname.match(
+      /^\/api\/class-join-requests\/([0-9a-f-]{36})$/i,
+    );
     if (requestDecisionMatch && request.method === 'POST')
-      return json(response, 200, { data: await decideRequest(identity, requestDecisionMatch[1], await readJson(request, 8192)) });
+      return json(response, 200, {
+        data: await decideRequest(
+          identity,
+          requestDecisionMatch[1],
+          await readJson(request, 8192),
+        ),
+      });
     // Notas e resultados são dados escolares privados: nem o navegador nem o
     // service worker do aplicativo devem guardá-los.
-    if (/^\/api\/(student\/|assessment-results|assessment-applications\/[0-9a-f-]{36}\/(results|result-settings)$)/i.test(url.pathname))
+    if (
+      /^\/api\/(student\/|assessment-results|assessment-applications\/[0-9a-f-]{36}\/(results|result-settings)$)/i.test(
+        url.pathname,
+      )
+    )
       response.setHeader('cache-control', 'no-store');
     // Código individual do aluno: vínculo imediato, sem aprovação do professor.
-    if (request.method === 'POST' && url.pathname === '/api/student/access-code/inspect')
-      return json(response, 200, { data: await inspectAccessCode(identity, await readJson(request, 4096)) });
-    if (request.method === 'POST' && url.pathname === '/api/student/access-code/claim')
-      return json(response, 200, { data: await claimAccessCode(identity, await readJson(request, 4096)) });
-    if(request.method==='GET' && url.pathname==='/api/student/activities')return json(response,200,{data:await myActivities(identity)});
-    if (request.method === 'GET' && url.pathname === '/api/student/skill-performance') return json(response, 200, { data: await mySkillPerformance(identity) });
-    const studentResultMatch = request.method === 'GET' && url.pathname.match(/^\/api\/student\/results\/([0-9a-f-]{36})$/i);
-    if (studentResultMatch) return json(response, 200, { data: await myResultDetail(identity, studentResultMatch[1]) });
-    if (url.pathname === '/api/student/profile' && request.method === 'GET') return json(response, 200, { data: await myStudentProfiles(identity) });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/student/access-code/inspect'
+    )
+      return json(response, 200, {
+        data: await inspectAccessCode(identity, await readJson(request, 4096)),
+      });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/student/access-code/claim'
+    )
+      return json(response, 200, {
+        data: await claimAccessCode(identity, await readJson(request, 4096)),
+      });
+    if (request.method === 'GET' && url.pathname === '/api/student/activities')
+      return json(response, 200, { data: await myActivities(identity) });
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/api/student/skill-performance'
+    )
+      return json(response, 200, { data: await mySkillPerformance(identity) });
+    const studentResultMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/student\/results\/([0-9a-f-]{36})$/i);
+    if (studentResultMatch)
+      return json(response, 200, {
+        data: await myResultDetail(identity, studentResultMatch[1]),
+      });
+    if (url.pathname === '/api/student/profile' && request.method === 'GET')
+      return json(response, 200, { data: await myStudentProfiles(identity) });
     if (url.pathname === '/api/student/profile' && request.method === 'POST') {
-      if (requestOrigin ? !allowedOrigins.has(requestOrigin) : request.headers['x-client'] !== 'mobile') return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, { data: await updateMyStudentPhoto(identity, await readJson(request, 150000)) });
+      if (
+        requestOrigin
+          ? !allowedOrigins.has(requestOrigin)
+          : request.headers['x-client'] !== 'mobile'
+      )
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await updateMyStudentPhoto(
+          identity,
+          await readJson(request, 150000),
+        ),
+      });
     }
-    if(identity.role==='student' && !['/api/auth/me','/api/auth/logout'].includes(url.pathname)) return json(response,403,{error:'Este recurso é exclusivo de professores e gestores.'});
+    if (
+      identity.role === 'student' &&
+      !['/api/auth/me', '/api/auth/logout'].includes(url.pathname)
+    )
+      return json(response, 403, {
+        error: 'Este recurso é exclusivo de professores e gestores.',
+      });
     if (url.pathname === '/api/admin/maintenance') {
       if (request.method === 'GET') {
         requirePortalAdmin(identity);
-        return json(response,200,{data:await maintenanceStatus()});
+        return json(response, 200, { data: await maintenanceStatus() });
       }
       if (request.method === 'POST') {
-        if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
-        return json(response,200,{data:await saveMaintenance(identity,await readJson(request,4096))});
+        if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+          return json(response, 403, { error: 'Origem não autorizada.' });
+        return json(response, 200, {
+          data: await saveMaintenance(identity, await readJson(request, 4096)),
+        });
       }
     }
-    if (url.pathname.startsWith('/api/admin/')) response.setHeader('cache-control','no-store');
+    if (url.pathname.startsWith('/api/admin/'))
+      response.setHeader('cache-control', 'no-store');
     if (request.method === 'GET' && url.pathname === '/api/admin/revenue.csv') {
-      const year=url.searchParams.get('year') || new Date().getFullYear();
-      const csv=await revenueReportCsv(identity,{year});
-      response.writeHead(200,{'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="receitas-${Number(year)}.csv"`,'cache-control':'no-store',...corsHeaders(response)});
+      const year = url.searchParams.get('year') || new Date().getFullYear();
+      const csv = await revenueReportCsv(identity, { year });
+      response.writeHead(200, {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="receitas-${Number(year)}.csv"`,
+        'cache-control': 'no-store',
+        ...corsHeaders(response),
+      });
       return response.end(csv);
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/revenue')
-      return json(response,200,{data:await revenueReport(identity,{year:url.searchParams.get('year') || new Date().getFullYear()})});
+      return json(response, 200, {
+        data: await revenueReport(identity, {
+          year: url.searchParams.get('year') || new Date().getFullYear(),
+        }),
+      });
     if (url.pathname === '/api/admin/billing-settings') {
       if (request.method === 'GET')
-        return json(response, 200, { data: await listBillingSettings(identity) });
+        return json(response, 200, {
+          data: await listBillingSettings(identity),
+        });
       if (request.method === 'POST') {
         if (!requestOrigin || !allowedOrigins.has(requestOrigin))
-          return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-        return json(response, 200, { data: await updateBillingPlan(identity, await readJson(request, 4096)) });
+          return json(response, 403, {
+            error: 'Origem da requisição não autorizada.',
+          });
+        return json(response, 200, {
+          data: await updateBillingPlan(
+            identity,
+            await readJson(request, 4096),
+          ),
+        });
       }
     }
-    if (request.method === 'POST' && url.pathname === '/api/admin/billing-coupons') {
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/admin/billing-coupons'
+    ) {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin))
-        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      return json(response, 200, { data: await saveBillingCoupon(identity, await readJson(request, 4096)) });
+        return json(response, 403, {
+          error: 'Origem da requisição não autorizada.',
+        });
+      return json(response, 200, {
+        data: await saveBillingCoupon(identity, await readJson(request, 4096)),
+      });
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/subscribers')
-      return json(response,200,{data:await listSubscribers(identity,Object.fromEntries(['q','ip','status','plan','sort','page'].map(key=>[key,url.searchParams.get(key) || undefined])))});
-    if (request.method === 'POST' && url.pathname === '/api/admin/subscribers') {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
-      return json(response,200,{data:await manageSubscriber(identity,await readJson(request,4096))});
+      return json(response, 200, {
+        data: await listSubscribers(
+          identity,
+          Object.fromEntries(
+            ['q', 'ip', 'status', 'plan', 'sort', 'page'].map((key) => [
+              key,
+              url.searchParams.get(key) || undefined,
+            ]),
+          ),
+        ),
+      });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/admin/subscribers'
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await manageSubscriber(identity, await readJson(request, 4096)),
+      });
     }
-    const canEditCatalog = catalogAccess(identity, request.method, url.pathname);
+    const canEditCatalog = catalogAccess(
+      identity,
+      request.method,
+      url.pathname,
+    );
     const sharedRoute = sharedCatalogRoute(url.pathname);
-    const institutionId = sharedRoute ? identity.questionBankId || identity.institutionId : identity.institutionId;
-    const role = sharedRoute ? (canEditCatalog ? 'admin' : 'teacher') : identity.role;
-    if (request.method === 'POST' && url.pathname === '/api/admin/bank-context') {
-      return json(response,410,{error:'O portal agora usa um painel único. Atualize a página.'});
+    const institutionId = sharedRoute
+      ? identity.questionBankId || identity.institutionId
+      : identity.institutionId;
+    const role = sharedRoute
+      ? canEditCatalog
+        ? 'admin'
+        : 'teacher'
+      : identity.role;
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/admin/bank-context'
+    ) {
+      return json(response, 410, {
+        error: 'O portal agora usa um painel único. Atualize a página.',
+      });
     }
     if (request.method === 'POST' && url.pathname === '/api/admin/editors') {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
-      return json(response,200,{data:await setPortalEditor(identity,await readJson(request,4096))});
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await setPortalEditor(identity, await readJson(request, 4096)),
+      });
     }
-    if (request.method === 'POST' && url.pathname === '/api/invitations' && !canManageInstitutionTeam(identity))
-      return json(response,403,{error:'Somente o administrador da instituição pode convidar membros da equipe.'});
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/invitations' &&
+      !canManageInstitutionTeam(identity)
+    )
+      return json(response, 403, {
+        error:
+          'Somente o administrador da instituição pode convidar membros da equipe.',
+      });
     if (request.method === 'POST' && url.pathname === '/api/auth/complete-cpf')
-      return json(response, 200, { data: await completeCpf(identity, await readJson(request, 4096)) });
-    if (identity.role !== 'student' && !identity.portalAdmin && !identity.cpfComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
-      return json(response, 428, { error: 'Complete o cadastro com seu CPF para continuar.' });
-    if (identity.role === 'student' && (url.pathname.startsWith('/api/educator-profile') || url.pathname === '/api/escolas'))
-      return json(response, 403, { error: 'Esta área é exclusiva para professores e gestores.' });
+      return json(response, 200, {
+        data: await completeCpf(identity, await readJson(request, 4096)),
+      });
+    if (
+      identity.role !== 'student' &&
+      !identity.portalAdmin &&
+      !identity.cpfComplete &&
+      !identity.developmentBypass &&
+      !['/api/auth/me', '/api/auth/logout'].includes(url.pathname)
+    )
+      return json(response, 428, {
+        error: 'Complete o cadastro com seu CPF para continuar.',
+      });
+    if (
+      identity.role === 'student' &&
+      (url.pathname.startsWith('/api/educator-profile') ||
+        url.pathname === '/api/escolas')
+    )
+      return json(response, 403, {
+        error: 'Esta área é exclusiva para professores e gestores.',
+      });
     if (request.method === 'GET' && url.pathname === '/api/educator-profile')
       return json(response, 200, { data: await getEducatorProfile(userId) });
     if (request.method === 'GET' && url.pathname === '/api/escolas') {
-      const data = await searchSchools({ q: url.searchParams.get('q') || '', uf: url.searchParams.get('uf') || '' });
-      return json(response, 200, { data, catalogAvailable: data.length > 0 || await schoolCatalogReady() });
+      const data = await searchSchools({
+        q: url.searchParams.get('q') || '',
+        uf: url.searchParams.get('uf') || '',
+      });
+      return json(response, 200, {
+        data,
+        catalogAvailable: data.length > 0 || (await schoolCatalogReady()),
+      });
     }
     if (request.method === 'POST' && url.pathname === '/api/educator-profile') {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, { data: await saveEducatorProfile(userId, await readJson(request, 650000)) });
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await saveEducatorProfile(
+          userId,
+          await readJson(request, 650000),
+        ),
+      });
     }
-    if (request.method === 'POST' && url.pathname === '/api/educator-profile/profile') {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, { data: await saveEducatorProfileOnly(userId, await readJson(request, 650000)) });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/educator-profile/profile'
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await saveEducatorProfileOnly(
+          userId,
+          await readJson(request, 650000),
+        ),
+      });
     }
-    if (request.method === 'POST' && url.pathname === '/api/educator-profile/schools') {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, { data: await saveEducatorSchool(userId, await readJson(request, 650000)) });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/educator-profile/schools'
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await saveEducatorSchool(userId, await readJson(request, 650000)),
+      });
     }
-    const educatorSchoolMatch = url.pathname.match(/^\/api\/educator-profile\/schools\/([0-9a-f-]{36})(?:\/(header-default))?$/i);
-    if (educatorSchoolMatch && request.method === 'DELETE' && !educatorSchoolMatch[2]) {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, { data: await deleteEducatorSchool(userId, educatorSchoolMatch[1]) });
+    const educatorSchoolMatch = url.pathname.match(
+      /^\/api\/educator-profile\/schools\/([0-9a-f-]{36})(?:\/(header-default))?$/i,
+    );
+    if (
+      educatorSchoolMatch &&
+      request.method === 'DELETE' &&
+      !educatorSchoolMatch[2]
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await deleteEducatorSchool(userId, educatorSchoolMatch[1]),
+      });
     }
-    if (educatorSchoolMatch && request.method === 'PATCH' && educatorSchoolMatch[2]) {
-      if (!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, { data: await setHeaderSchool(userId, educatorSchoolMatch[1]) });
+    if (
+      educatorSchoolMatch &&
+      request.method === 'PATCH' &&
+      educatorSchoolMatch[2]
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await setHeaderSchool(userId, educatorSchoolMatch[1]),
+      });
     }
-    if (identity.role !== 'student' && !identity.portalAdmin && !identity.profileComplete && !identity.developmentBypass && !['/api/auth/me','/api/auth/logout'].includes(url.pathname))
-      return json(response, 428, { error: 'Complete seu perfil e cadastre sua escola para continuar.' });
+    if (
+      identity.role !== 'student' &&
+      !identity.portalAdmin &&
+      !identity.profileComplete &&
+      !identity.developmentBypass &&
+      !['/api/auth/me', '/api/auth/logout'].includes(url.pathname)
+    )
+      return json(response, 428, {
+        error: 'Complete seu perfil e cadastre sua escola para continuar.',
+      });
     if (request.method === 'GET' && url.pathname === '/api/billing')
       return json(response, 200, { data: await billingStatus(identity) });
-    if (request.method === 'POST' && url.pathname === '/api/billing/coupon/validate') {
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/billing/coupon/validate'
+    ) {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin))
-        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      return json(response, 200, { data: await previewBillingCoupon(identity, await readJson(request, 4096)) });
+        return json(response, 403, {
+          error: 'Origem da requisição não autorizada.',
+        });
+      return json(response, 200, {
+        data: await previewBillingCoupon(
+          identity,
+          await readJson(request, 4096),
+        ),
+      });
     }
-    if (request.method === 'POST' && ['/api/billing/checkout', '/api/billing/cancel'].includes(url.pathname)) {
+    if (
+      request.method === 'POST' &&
+      ['/api/billing/checkout', '/api/billing/cancel'].includes(url.pathname)
+    ) {
       if (!requestOrigin || !allowedOrigins.has(requestOrigin))
-        return json(response, 403, { error: 'Origem da requisição não autorizada.' });
-      return json(response, 200, { data: url.pathname.endsWith('/checkout')
-        ? await createCheckout(identity, await readJson(request, 4096))
-        : await cancelBilling(identity) });
+        return json(response, 403, {
+          error: 'Origem da requisição não autorizada.',
+        });
+      return json(response, 200, {
+        data: url.pathname.endsWith('/checkout')
+          ? await createCheckout(identity, await readJson(request, 4096))
+          : await cancelBilling(identity),
+      });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/logout') {
       await logout(identity.sessionId);
@@ -609,7 +1150,8 @@ const server = createServer(async (request, response) => {
       });
       if (!deleted)
         return json(response, 409, {
-          error: 'Cancele o processamento ativo antes de remover esta importação.',
+          error:
+            'Cancele o processamento ativo antes de remover esta importação.',
         });
       return json(response, 200, { data: { deleted: true } });
     }
@@ -784,14 +1326,45 @@ const server = createServer(async (request, response) => {
     if (request.method === 'GET' && url.pathname === '/api/subscription')
       return json(response, 200, { data: await getSubscription(identity) });
     if (request.method === 'GET' && url.pathname === '/api/mobile-sync') {
-      const ready = await pool.query("SELECT to_regclass('mobile_mutations') AS ledger");
-      if (!ready.rows[0]?.ledger) return json(response, 503, { error: 'A migração de sincronização móvel ainda não foi aplicada.' });
-      return json(response, 200, { data: { version: 1, idempotentUploads: true, manualReview: true, applicationScopedUploads:true, userId, institutionId } });
+      const ready = await pool.query(
+        "SELECT to_regclass('mobile_mutations') AS ledger",
+      );
+      if (!ready.rows[0]?.ledger)
+        return json(response, 503, {
+          error: 'A migração de sincronização móvel ainda não foi aplicada.',
+        });
+      return json(response, 200, {
+        data: {
+          version: 1,
+          idempotentUploads: true,
+          manualReview: true,
+          applicationScopedUploads: true,
+          userId,
+          institutionId,
+        },
+      });
     }
-    const classStudentsMatch=request.method==='GET' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students$/i);
-    if(classStudentsMatch) return json(response,200,{data:await listClassStudents({institutionId,classId:classStudentsMatch[1]})});
-    const classRosterMatch=request.method==='GET' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/roster$/i);
-    if(classRosterMatch) return json(response,200,{data:await getClassRoster({institutionId,userId,classId:classRosterMatch[1]})});
+    const classStudentsMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students$/i);
+    if (classStudentsMatch)
+      return json(response, 200, {
+        data: await listClassStudents({
+          institutionId,
+          classId: classStudentsMatch[1],
+        }),
+      });
+    const classRosterMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/roster$/i);
+    if (classRosterMatch)
+      return json(response, 200, {
+        data: await getClassRoster({
+          institutionId,
+          userId,
+          classId: classRosterMatch[1],
+        }),
+      });
     if (request.method === 'GET' && url.pathname === '/api/classes')
       return json(response, 200, {
         data: await listClasses({ institutionId }),
@@ -804,9 +1377,7 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
-    const classMatch = url.pathname.match(
-      /^\/api\/classes\/([0-9a-f-]{36})$/i,
-    );
+    const classMatch = url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})$/i);
     if (classMatch && request.method === 'DELETE')
       return json(response, 200, {
         data: await deleteClass({
@@ -828,21 +1399,60 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await listStudents({ institutionId }),
       });
-    const studentActiveMatch = request.method === 'PATCH' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})$/i);
+    const studentActiveMatch =
+      request.method === 'PATCH' &&
+      url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})$/i);
     if (studentActiveMatch)
-      return json(response, 200, { data: await updateStudent({
-        institutionId, studentId: studentActiveMatch[1], input: await readJson(request),
-      }) });
-    const studentAccessCodeMatch = request.method === 'POST' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/access-code$/i);
+      return json(response, 200, {
+        data: await updateStudent({
+          institutionId,
+          studentId: studentActiveMatch[1],
+          input: await readJson(request),
+        }),
+      });
+    const studentAccessCodeMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/access-code$/i);
     if (studentAccessCodeMatch)
-      return json(response, 200, { data: await renewAccessCode(identity, studentAccessCodeMatch[1]) });
-    const studentAccountLinkMatch = request.method === 'DELETE' && url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/account-link$/i);
+      return json(response, 200, {
+        data: await renewAccessCode(identity, studentAccessCodeMatch[1]),
+      });
+    const studentAccountLinkMatch =
+      request.method === 'DELETE' &&
+      url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/account-link$/i);
     if (studentAccountLinkMatch)
-      return json(response, 200, { data: await unlinkStudentAccount(identity, studentAccountLinkMatch[1]) });
-    const studentImportMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import$/i);
-    if (studentImportMatch) return json(response, 200, { data: await importClassStudents({ institutionId, userId, classId: studentImportMatch[1], portalAdmin: identity.portalAdmin, developmentBypass: identity.developmentBypass, input: await readJson(request, 2_800_100) }) });
-    const studentImportPreviewMatch = request.method === 'POST' && url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/students\/import\/preview$/i);
-    if (studentImportPreviewMatch) return json(response, 200, { data: await previewClassStudentImport({ institutionId, classId: studentImportPreviewMatch[1], input: await readJson(request, 2_800_100) }) });
+      return json(response, 200, {
+        data: await unlinkStudentAccount(identity, studentAccountLinkMatch[1]),
+      });
+    const studentImportMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/classes\/([0-9a-f-]{36})\/students\/import$/i,
+      );
+    if (studentImportMatch)
+      return json(response, 200, {
+        data: await importClassStudents({
+          institutionId,
+          userId,
+          classId: studentImportMatch[1],
+          portalAdmin: identity.portalAdmin,
+          developmentBypass: identity.developmentBypass,
+          input: await readJson(request, 2_800_100),
+        }),
+      });
+    const studentImportPreviewMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/classes\/([0-9a-f-]{36})\/students\/import\/preview$/i,
+      );
+    if (studentImportPreviewMatch)
+      return json(response, 200, {
+        data: await previewClassStudentImport({
+          institutionId,
+          classId: studentImportPreviewMatch[1],
+          input: await readJson(request, 2_800_100),
+        }),
+      });
     const enrollmentMatch =
       request.method === 'POST' &&
       url.pathname.match(/^\/api\/classes\/([0-9a-f-]{36})\/enrollments$/i);
@@ -1153,26 +1763,75 @@ const server = createServer(async (request, response) => {
     // Revisão e autorização de resultados (docs/resultados-publicacao.md).
     const applicationResultsMatch =
       request.method === 'GET' &&
-      url.pathname.match(/^\/api\/assessment-applications\/([0-9a-f-]{36})\/results$/i);
+      url.pathname.match(
+        /^\/api\/assessment-applications\/([0-9a-f-]{36})\/results$/i,
+      );
     if (applicationResultsMatch)
-      return json(response, 200, { data: await listApplicationResults({ institutionId, applicationId: applicationResultsMatch[1] }) });
-    const resultSettingsMatch = url.pathname.match(/^\/api\/assessment-applications\/([0-9a-f-]{36})\/result-settings$/i);
+      return json(response, 200, {
+        data: await listApplicationResults({
+          institutionId,
+          applicationId: applicationResultsMatch[1],
+        }),
+      });
+    const resultSettingsMatch = url.pathname.match(
+      /^\/api\/assessment-applications\/([0-9a-f-]{36})\/result-settings$/i,
+    );
     if (resultSettingsMatch && request.method === 'GET')
-      return json(response, 200, { data: await getResultSettings({ institutionId, applicationId: resultSettingsMatch[1] }) });
+      return json(response, 200, {
+        data: await getResultSettings({
+          institutionId,
+          applicationId: resultSettingsMatch[1],
+        }),
+      });
     if (resultSettingsMatch && request.method === 'PUT')
-      return json(response, 200, { data: await saveResultSettings({ institutionId, userId, applicationId: resultSettingsMatch[1], input: await readJson(request, 32768) }) });
-    if (request.method === 'POST' && url.pathname === '/api/assessment-results/authorize')
-      return json(response, 200, { data: await authorizeResults({ institutionId, userId, input: await readJson(request, 65536) }) });
-    const followupMatch = url.pathname.match(/^\/api\/assessment-results\/([0-9a-f-]{36})\/followups$/i);
+      return json(response, 200, {
+        data: await saveResultSettings({
+          institutionId,
+          userId,
+          applicationId: resultSettingsMatch[1],
+          input: await readJson(request, 32768),
+        }),
+      });
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/assessment-results/authorize'
+    )
+      return json(response, 200, {
+        data: await authorizeResults({
+          institutionId,
+          userId,
+          input: await readJson(request, 65536),
+        }),
+      });
+    const followupMatch = url.pathname.match(
+      /^\/api\/assessment-results\/([0-9a-f-]{36})\/followups$/i,
+    );
     if (followupMatch && request.method === 'GET')
-      return json(response, 200, { data: await listFollowups({ institutionId, resultId: followupMatch[1] }) });
+      return json(response, 200, {
+        data: await listFollowups({
+          institutionId,
+          resultId: followupMatch[1],
+        }),
+      });
     if (followupMatch && request.method === 'POST')
-      return json(response, 201, { data: await saveFollowup({ institutionId, userId, resultId: followupMatch[1], input: await readJson(request, 32768) }) });
+      return json(response, 201, {
+        data: await saveFollowup({
+          institutionId,
+          userId,
+          resultId: followupMatch[1],
+          input: await readJson(request, 32768),
+        }),
+      });
     const resultDetailMatch =
       request.method === 'GET' &&
       url.pathname.match(/^\/api\/assessment-results\/([0-9a-f-]{36})$/i);
     if (resultDetailMatch)
-      return json(response, 200, { data: await getResultDetail({ institutionId, resultId: resultDetailMatch[1] }) });
+      return json(response, 200, {
+        data: await getResultDetail({
+          institutionId,
+          resultId: resultDetailMatch[1],
+        }),
+      });
     if (request.method === 'GET' && url.pathname === '/api/render-templates')
       return json(response, 200, {
         data: renderTemplateCatalog,
@@ -1293,21 +1952,59 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
-    if(request.method==='POST' && ['/api/questions/status/bulk-approve','/api/questions/status/bulk-review'].includes(url.pathname)){
-      if(!requestOrigin || !allowedOrigins.has(requestOrigin))return json(response,403,{error:'Origem não autorizada.'});
-      return json(response,200,{data:await (url.pathname.endsWith('bulk-review')?sendQuestionsToReviewInBulk:approveQuestionsInBulk)({institutionId,userId,role:identity.portalAdmin&&!identity.developmentBypass?'admin':'teacher',input:await readJson(request)})});
+    if (
+      request.method === 'POST' &&
+      [
+        '/api/questions/status/bulk-approve',
+        '/api/questions/status/bulk-review',
+      ].includes(url.pathname)
+    ) {
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      return json(response, 200, {
+        data: await (
+          url.pathname.endsWith('bulk-review')
+            ? sendQuestionsToReviewInBulk
+            : approveQuestionsInBulk
+        )({
+          institutionId,
+          userId,
+          role:
+            identity.portalAdmin && !identity.developmentBypass
+              ? 'admin'
+              : 'teacher',
+          input: await readJson(request),
+        }),
+      });
     }
-    const historyMatch=request.method==='GET' && url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/status-history$/i);
-    if(historyMatch){response.setHeader('cache-control','no-store');return json(response,200,{data:await questionStatusHistory({institutionId,userId,questionId:historyMatch[1]})});}
+    const historyMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/questions\/([0-9a-f-]{36})\/status-history$/i,
+      );
+    if (historyMatch) {
+      response.setHeader('cache-control', 'no-store');
+      return json(response, 200, {
+        data: await questionStatusHistory({
+          institutionId,
+          userId,
+          questionId: historyMatch[1],
+        }),
+      });
+    }
     const questionStatusMatch =
       request.method === 'PATCH' &&
       url.pathname.match(/^\/api\/questions\/([0-9a-f-]{36})\/status$/i);
     if (questionStatusMatch) {
-      if(!requestOrigin || !allowedOrigins.has(requestOrigin))return json(response,403,{error:'Origem não autorizada.'});
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
       const question = await setQuestionStatus({
         institutionId,
         userId,
-        role:identity.portalAdmin && !identity.developmentBypass ? 'admin' : 'teacher',
+        role:
+          identity.portalAdmin && !identity.developmentBypass
+            ? 'admin'
+            : 'teacher',
         questionId: questionStatusMatch[1],
         input: await readJson(request),
       });
@@ -1438,7 +2135,8 @@ const server = createServer(async (request, response) => {
     ) {
       if (role === 'teacher')
         return json(response, 403, {
-          error: 'Somente coordenação e administração podem importar o catálogo.',
+          error:
+            'Somente coordenação e administração podem importar o catálogo.',
         });
       return json(response, 201, {
         data: await importPedagogicalTopicCatalog({
@@ -1459,9 +2157,14 @@ const server = createServer(async (request, response) => {
           error:
             'Somente coordenação e administração podem alterar o catálogo.',
         });
-      if (request.method === 'DELETE') return json(response, 200, {
-        data: await deletePedagogicalTopic({institutionId,topicId:pedagogicalTopicMatch[1],input:await readJson(request)}),
-      });
+      if (request.method === 'DELETE')
+        return json(response, 200, {
+          data: await deletePedagogicalTopic({
+            institutionId,
+            topicId: pedagogicalTopicMatch[1],
+            input: await readJson(request),
+          }),
+        });
       return json(response, 200, {
         data: await updatePedagogicalTopic({
           institutionId,
@@ -1576,7 +2279,10 @@ const server = createServer(async (request, response) => {
         // Durante o desenvolvimento, devolva o diagnóstico do ConTeXt para
         // que o editor consiga exibir o log e apontar o comando inválido.
         return json(response, error?.statusCode || 422, {
-          error: error instanceof Error ? error.message : 'Falha ao compilar a prévia.',
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Falha ao compilar a prévia.',
         });
       } finally {
         activePreviewUsers.delete(userId);
@@ -1584,19 +2290,36 @@ const server = createServer(async (request, response) => {
       }
     }
     if (request.method === 'GET' && url.pathname === '/api/questions/drafts') {
-      if (!canEditCatalog) return json(response,403,{error:'Rascunhos são exclusivos de editores e administradores.'});
-      response.setHeader('cache-control','no-store');
-      return json(response,200,{data:await listDrafts({institutionId,userId})});
+      if (!canEditCatalog)
+        return json(response, 403, {
+          error: 'Rascunhos são exclusivos de editores e administradores.',
+        });
+      response.setHeader('cache-control', 'no-store');
+      return json(response, 200, {
+        data: await listDrafts({ institutionId, userId }),
+      });
     }
-    const draftMatch=/^\/api\/questions\/drafts\/([0-9a-f-]{36})(\/complete)?$/.exec(url.pathname);
+    const draftMatch =
+      /^\/api\/questions\/drafts\/([0-9a-f-]{36})(\/complete)?$/.exec(
+        url.pathname,
+      );
     if (draftMatch) {
-      if (!canEditCatalog) return json(response,403,{error:'Rascunhos são exclusivos de editores e administradores.'});
-      response.setHeader('cache-control','no-store');
-      const args={institutionId,userId,id:draftMatch[1]};
-      if(request.method==='GET' && !draftMatch[2]) return json(response,200,{data:await getDraft(args)});
-      if(request.method==='POST') {
-        if(!requestOrigin || !allowedOrigins.has(requestOrigin)) return json(response,403,{error:'Origem não autorizada.'});
-        return json(response,200,{data:draftMatch[2]?await completeDraft(args):await saveDraft({...args,input:await readJson(request)})});
+      if (!canEditCatalog)
+        return json(response, 403, {
+          error: 'Rascunhos são exclusivos de editores e administradores.',
+        });
+      response.setHeader('cache-control', 'no-store');
+      const args = { institutionId, userId, id: draftMatch[1] };
+      if (request.method === 'GET' && !draftMatch[2])
+        return json(response, 200, { data: await getDraft(args) });
+      if (request.method === 'POST') {
+        if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+          return json(response, 403, { error: 'Origem não autorizada.' });
+        return json(response, 200, {
+          data: draftMatch[2]
+            ? await completeDraft(args)
+            : await saveDraft({ ...args, input: await readJson(request) }),
+        });
       }
     }
     if (request.method === 'POST' && url.pathname === '/api/questions')
@@ -1615,23 +2338,61 @@ const server = createServer(async (request, response) => {
         data: await listQuestionDuplicates({ institutionId }),
       });
     if (url.pathname === '/api/assessment-workspaces') {
-      if (request.method === 'GET') return json(response,200,{data:await listWorkspaces({institutionId,userId,offset:Math.min(100000,Math.max(0,Number(url.searchParams.get('offset'))||0))})});
-      if (request.method === 'POST') return json(response,201,{data:await createWorkspace({institutionId,userId,input:await readJson(request)})});
+      if (request.method === 'GET')
+        return json(response, 200, {
+          data: await listWorkspaces({
+            institutionId,
+            userId,
+            offset: Math.min(
+              100000,
+              Math.max(0, Number(url.searchParams.get('offset')) || 0),
+            ),
+          }),
+        });
+      if (request.method === 'POST')
+        return json(response, 201, {
+          data: await createWorkspace({
+            institutionId,
+            userId,
+            input: await readJson(request),
+          }),
+        });
     }
-    const workspaceMatch=url.pathname.match(/^\/api\/assessment-workspaces\/([0-9a-f-]{36})(\/pin)?$/i);
-    if(workspaceMatch) {
-      const args={institutionId,userId,id:workspaceMatch[1]};
-      if(request.method==='GET' && !workspaceMatch[2]) return json(response,200,{data:await getWorkspace(args)});
-      if(request.method==='PUT' && !workspaceMatch[2]) return json(response,200,{data:await saveWorkspace({...args,input:await readJson(request)})});
-      if(request.method==='PATCH' && workspaceMatch[2]) return json(response,200,{data:await pinWorkspace({...args,input:await readJson(request)})});
-      if(request.method==='DELETE' && !workspaceMatch[2]) return json(response,200,{data:await deleteWorkspace(args)});
+    const workspaceMatch = url.pathname.match(
+      /^\/api\/assessment-workspaces\/([0-9a-f-]{36})(\/pin)?$/i,
+    );
+    if (workspaceMatch) {
+      const args = { institutionId, userId, id: workspaceMatch[1] };
+      if (request.method === 'GET' && !workspaceMatch[2])
+        return json(response, 200, { data: await getWorkspace(args) });
+      if (request.method === 'PUT' && !workspaceMatch[2])
+        return json(response, 200, {
+          data: await saveWorkspace({
+            ...args,
+            input: await readJson(request),
+          }),
+        });
+      if (request.method === 'PATCH' && workspaceMatch[2])
+        return json(response, 200, {
+          data: await pinWorkspace({ ...args, input: await readJson(request) }),
+        });
+      if (request.method === 'DELETE' && !workspaceMatch[2])
+        return json(response, 200, { data: await deleteWorkspace(args) });
     }
     if (request.method === 'GET' && url.pathname === '/api/assessments')
       return json(response, 200, {
         data: await listAssessments({ institutionId }),
       });
-    const regenerateMatch=request.method==='POST' && url.pathname.match(/^\/api\/assessments\/([0-9a-f-]{36})\/renders$/i);
-    if(regenerateMatch)return json(response,202,{data:await regenerateAssessment({institutionId,assessmentId:regenerateMatch[1]})});
+    const regenerateMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/assessments\/([0-9a-f-]{36})\/renders$/i);
+    if (regenerateMatch)
+      return json(response, 202, {
+        data: await regenerateAssessment({
+          institutionId,
+          assessmentId: regenerateMatch[1],
+        }),
+      });
     const assessmentMatch = url.pathname.match(
       /^\/api\/assessments\/([0-9a-f-]{36})$/i,
     );
@@ -1690,8 +2451,20 @@ const server = createServer(async (request, response) => {
           input: await readJson(request),
         }),
       });
-    const manualReviewMatch = request.method === 'POST' && url.pathname.match(/^\/api\/submissions\/([0-9a-f-]{36})\/manual-review$/i);
-    if (manualReviewMatch) return json(response, 200, { data: await saveManualReview({ institutionId, userId, submissionId: manualReviewMatch[1], input: await readJson(request) }) });
+    const manualReviewMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/submissions\/([0-9a-f-]{36})\/manual-review$/i,
+      );
+    if (manualReviewMatch)
+      return json(response, 200, {
+        data: await saveManualReview({
+          institutionId,
+          userId,
+          submissionId: manualReviewMatch[1],
+          input: await readJson(request),
+        }),
+      });
     const submissionMatch =
       request.method === 'GET' &&
       url.pathname.match(/^\/api\/submissions\/([0-9a-f-]{36})$/i);
@@ -1706,8 +2479,15 @@ const server = createServer(async (request, response) => {
     }
     return json(response, 404, { error: 'Rota não encontrada.' });
   } catch (error) {
-    if (error.code === '23505' && (error.constraint === 'users_cpf_hash_unique' || error.constraint === 'users_email_key'))
-      return json(response, 409, { error: 'Já existe cadastro com os dados informados. Entre na conta existente ou procure suporte.' });
+    if (
+      error.code === '23505' &&
+      (error.constraint === 'users_cpf_hash_unique' ||
+        error.constraint === 'users_email_key')
+    )
+      return json(response, 409, {
+        error:
+          'Já existe cadastro com os dados informados. Entre na conta existente ou procure suporte.',
+      });
     if (error instanceof ZodError)
       return json(response, 422, {
         error: error.issues.map((issue) => issue.message).join(' '),
