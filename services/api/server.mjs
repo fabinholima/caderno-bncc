@@ -187,6 +187,7 @@ import {
   getScanReview,
   listScans,
   retryScan,
+  discardScan,
 } from './scans.mjs';
 import {
   createApplicationReportRender,
@@ -1746,6 +1747,17 @@ const server = createServer(async (request, response) => {
           portalAdmin: identity.portalAdmin,
           developmentBypass: identity.developmentBypass,
           scanId: scanRetryMatch[1],
+        }),
+      });
+    const scanDiscardMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/card-scans\/([0-9a-f-]{36})\/discard$/i);
+    if (scanDiscardMatch)
+      return json(response, 200, {
+        data: await discardScan({
+          institutionId,
+          userId,
+          scanId: scanDiscardMatch[1],
         }),
       });
     const scanConfirmMatch =
