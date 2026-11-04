@@ -29,7 +29,13 @@ export const reviewSchema = z.object({
     }),
   ),
 });
-export async function createScan({ institutionId, userId, portalAdmin = false, developmentBypass = false, input }) {
+export async function createScan({
+  institutionId,
+  userId,
+  portalAdmin = false,
+  developmentBypass = false,
+  input,
+}) {
   const v = scanSchema.parse(input);
   assertInstitutionScope(institutionId, v.expectedInstitutionId);
   const [, mimeType, data] = v.imageDataUrl.match(
@@ -40,32 +46,90 @@ export async function createScan({ institutionId, userId, portalAdmin = false, d
     throw Object.assign(new Error('A digitalização deve ter no máximo 6 MB.'), {
       statusCode: 422,
     });
-  const hash = createHash('sha256').update(mimeType).update(bytes).update(v.expectedApplicationId ? `:application:${v.expectedApplicationId}` : '').digest('hex');
-  return transaction(async client => {
-    if(v.expectedApplicationId) {
-      const application=await client.query("SELECT id FROM assessment_applications WHERE id=$1 AND institution_id=$2 AND status<>'cancelled'",[v.expectedApplicationId,institutionId]);
-      if(!application.rowCount)throw Object.assign(new Error('Aplicação indisponível. Confira a avaliação e a turma no portal.'),{statusCode:422});
-      const versions=await client.query('SELECT av.code,av.snapshot FROM assessment_applications aa JOIN assessment_versions av ON av.assessment_id=aa.assessment_id WHERE aa.id=$1',[v.expectedApplicationId]);
-      const incomplete=versions.rows.map(row=>({code:row.code,...answerKeyStatus(row.snapshot)})).filter(row=>row.missingAnswerKeys.length);
-      if(!versions.rowCount||incomplete.length)throw Object.assign(new Error(`O gabarito desta avaliação está incompleto${incomplete.length?` (versão ${incomplete[0].code}, questões ${incomplete[0].missingAnswerKeys.join(', ')})`:''}. Complete-o no portal antes de corrigir os cartões.`),{statusCode:422,code:'answer_key_incomplete'});
+  const hash = createHash('sha256')
+    .update(mimeType)
+    .update(bytes)
+    .update(
+      v.expectedApplicationId ? `:application:${v.expectedApplicationId}` : '',
+    )
+    .digest('hex');
+  return transaction(async (client) => {
+    if (v.expectedApplicationId) {
+      const application = await client.query(
+        "SELECT id FROM assessment_applications WHERE id=$1 AND institution_id=$2 AND status<>'cancelled'",
+        [v.expectedApplicationId, institutionId],
+      );
+      if (!application.rowCount)
+        throw Object.assign(
+          new Error(
+            'Aplicação indisponível. Confira a avaliação e a turma no portal.',
+          ),
+          { statusCode: 422 },
+        );
+      const versions = await client.query(
+        'SELECT av.code,av.snapshot FROM assessment_applications aa JOIN assessment_versions av ON av.assessment_id=aa.assessment_id WHERE aa.id=$1',
+        [v.expectedApplicationId],
+      );
+      const incomplete = versions.rows
+        .map((row) => ({ code: row.code, ...answerKeyStatus(row.snapshot) }))
+        .filter((row) => row.missingAnswerKeys.length);
+      if (!versions.rowCount || incomplete.length)
+        throw Object.assign(
+          new Error(
+            `O gabarito desta avaliação está incompleto${incomplete.length ? ` (versão ${incomplete[0].code}, questões ${incomplete[0].missingAnswerKeys.join(', ')})` : ''}. Complete-o no portal antes de corrigir os cartões.`,
+          ),
+          { statusCode: 422, code: 'answer_key_incomplete' },
+        );
     }
     const id = v.clientScanId || randomUUID();
     const r = await client.query({
       text: `INSERT INTO card_scans(id,institution_id,uploaded_by,mime_type,image_data,upload_sha256,expected_application_id)
              VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING RETURNING id,status,created_at`,
-      values: [id, institutionId, userId, mimeType, bytes, hash, v.expectedApplicationId || null],
+      values: [
+        id,
+        institutionId,
+        userId,
+        mimeType,
+        bytes,
+        hash,
+        v.expectedApplicationId || null,
+      ],
     });
     if (!r.rowCount) {
-      const existing = await client.query('SELECT id,status,created_at,institution_id,uploaded_by,upload_sha256 FROM card_scans WHERE id=$1', [id]);
+      const existing = await client.query(
+        'SELECT id,status,created_at,institution_id,uploaded_by,upload_sha256 FROM card_scans WHERE id=$1',
+        [id],
+      );
       const row = existing.rows[0];
-      if (!row || row.institution_id !== institutionId || row.uploaded_by !== userId || row.upload_sha256 !== hash) throw Object.assign(new Error('O identificador de envio já foi usado com outros dados.'), { statusCode: 409 });
+      if (
+        !row ||
+        row.institution_id !== institutionId ||
+        row.uploaded_by !== userId ||
+        row.upload_sha256 !== hash
+      )
+        throw Object.assign(
+          new Error('O identificador de envio já foi usado com outros dados.'),
+          { statusCode: 409 },
+        );
       return { id: row.id, status: row.status, created_at: row.created_at };
     }
     // Novas correções dependem da assinatura do responsável; repetir um envio
     // já recebido continua respondendo, e resultados publicados seguem
     // disponíveis aos alunos.
-    await requireActiveSubscription({ institutionId, portalAdmin, developmentBypass, db: client });
-    await client.query(`INSERT INTO usage_events(institution_id,user_id,kind,quantity,metadata) VALUES($1,$2,'omr',1,$3::jsonb)`, [institutionId, userId, JSON.stringify({ scanId: id, bytes: bytes.length })]);
+    await requireActiveSubscription({
+      institutionId,
+      portalAdmin,
+      developmentBypass,
+      db: client,
+    });
+    await client.query(
+      `INSERT INTO usage_events(institution_id,user_id,kind,quantity,metadata) VALUES($1,$2,'omr',1,$3::jsonb)`,
+      [
+        institutionId,
+        userId,
+        JSON.stringify({ scanId: id, bytes: bytes.length }),
+      ],
+    );
     return r.rows[0];
   });
 }
@@ -74,7 +138,12 @@ async function requireActiveSubscription(options) {
     await assertInstitutionLimit({ ...options, kind: 'correction' });
   } catch (error) {
     if (error.statusCode !== 402) throw error;
-    throw Object.assign(new Error('A assinatura da instituição está inativa. As fotos continuam salvas no aparelho e o envio será retomado quando a assinatura for regularizada.'), { statusCode: 402 });
+    throw Object.assign(
+      new Error(
+        'A assinatura da instituição está inativa. As fotos continuam salvas no aparelho e o envio será retomado quando a assinatura for regularizada.',
+      ),
+      { statusCode: 402 },
+    );
   }
 }
 
@@ -146,7 +215,7 @@ export async function getScanReview({ institutionId, scanId }) {
            WHERE aa.institution_id=$1 AND aa.status<>'cancelled' AND ($2::uuid IS NULL OR aa.id=$2)
            ORDER BY aa.created_at DESC,ce.number NULLS LAST,s.name
            LIMIT 1000`,
-    values: [institutionId,scan.rows[0].expected_application_id],
+    values: [institutionId, scan.rows[0].expected_application_id],
   });
   const row = scan.rows[0];
   return {
@@ -204,8 +273,17 @@ export async function getScanImage({ institutionId, scanId }) {
   };
 }
 
-export async function retryScan({ institutionId, scanId, portalAdmin = false, developmentBypass = false }) {
-  await requireActiveSubscription({ institutionId, portalAdmin, developmentBypass });
+export async function retryScan({
+  institutionId,
+  scanId,
+  portalAdmin = false,
+  developmentBypass = false,
+}) {
+  await requireActiveSubscription({
+    institutionId,
+    portalAdmin,
+    developmentBypass,
+  });
   const result = await pool.query({
     text: `UPDATE card_scans
            SET status='queued',mime_type='image/png',image_data=review_image_data,
@@ -223,12 +301,28 @@ export async function retryScan({ institutionId, scanId, portalAdmin = false, de
   return result.rows[0];
 }
 
-export async function confirmScanReview({ institutionId, userId, scanId, input }) {
+export async function confirmScanReview({
+  institutionId,
+  userId,
+  scanId,
+  input,
+}) {
   const value = reviewSchema.parse(input);
   assertInstitutionScope(institutionId, value.expectedInstitutionId);
-  return transaction(client => mobileMutation(client, { institutionId, userId, requestId: value.clientMutationId, kind: 'scan-confirm', entityId: scanId, input: value }, async () => {
-    const assignment = await client.query({
-      text: `SELECT aps.id,aps.application_id,aps.assessment_version_id,av.snapshot,s.name,
+  return transaction((client) =>
+    mobileMutation(
+      client,
+      {
+        institutionId,
+        userId,
+        requestId: value.clientMutationId,
+        kind: 'scan-confirm',
+        entityId: scanId,
+        input: value,
+      },
+      async () => {
+        const assignment = await client.query({
+          text: `SELECT aps.id,aps.application_id,aps.assessment_version_id,av.snapshot,s.name,
                     ce.number,c.name class_name
              FROM application_students aps
              JOIN assessment_applications aa ON aa.id=aps.application_id
@@ -238,104 +332,124 @@ export async function confirmScanReview({ institutionId, userId, scanId, input }
              LEFT JOIN class_enrollments ce
                ON ce.class_id=aa.class_id AND ce.student_id=s.id
              WHERE aps.id=$1 AND aa.institution_id=$2 AND aa.status<>'cancelled'`,
-      values: [value.applicationStudentId, institutionId],
-    });
-    if (!assignment.rowCount)
-      throw Object.assign(new Error('Aluno ou aplicação não encontrado.'), {
-        statusCode: 404,
-      });
-    const scan = await client.query({
-      text: `SELECT id,submission_id,status,expected_application_id FROM card_scans
+          values: [value.applicationStudentId, institutionId],
+        });
+        if (!assignment.rowCount)
+          throw Object.assign(new Error('Aluno ou aplicação não encontrado.'), {
+            statusCode: 404,
+          });
+        const scan = await client.query({
+          text: `SELECT id,submission_id,status,expected_application_id FROM card_scans
              WHERE id=$1 AND institution_id=$2 FOR UPDATE`,
-      values: [scanId, institutionId],
-    });
-    if (!scan.rowCount)
-      throw Object.assign(new Error('Cartão não encontrado.'), {
-        statusCode: 404,
-      });
-    if (value.clientMutationId && scan.rows[0].status !== 'review') throw Object.assign(new Error('O cartão não está mais pendente de revisão. Atualize a leitura antes de continuar.'), { statusCode: 409 });
-    const selected = assignment.rows[0];
-    if(scan.rows[0].expected_application_id && scan.rows[0].expected_application_id!==selected.application_id)throw Object.assign(new Error('O aluno não pertence à aplicação selecionada para este cartão.'),{statusCode:409});
-    const grade = gradeSubmission(selected.snapshot, {
-      candidate: {
-        name: selected.name,
-        class: selected.class_name,
-        number: selected.number ? String(selected.number) : '',
-      },
-      responses: value.responses,
-    });
-    let submissionId = scan.rows[0].submission_id;
-    if (submissionId) {
-      await client.query(
-        `UPDATE assessment_submissions SET assessment_version_id=$2,
+          values: [scanId, institutionId],
+        });
+        if (!scan.rowCount)
+          throw Object.assign(new Error('Cartão não encontrado.'), {
+            statusCode: 404,
+          });
+        if (value.clientMutationId && scan.rows[0].status !== 'review')
+          throw Object.assign(
+            new Error(
+              'O cartão não está mais pendente de revisão. Atualize a leitura antes de continuar.',
+            ),
+            { statusCode: 409 },
+          );
+        const selected = assignment.rows[0];
+        if (
+          scan.rows[0].expected_application_id &&
+          scan.rows[0].expected_application_id !== selected.application_id
+        )
+          throw Object.assign(
+            new Error(
+              'O aluno não pertence à aplicação selecionada para este cartão.',
+            ),
+            { statusCode: 409 },
+          );
+        const grade = gradeSubmission(selected.snapshot, {
+          candidate: {
+            name: selected.name,
+            class: selected.class_name,
+            number: selected.number ? String(selected.number) : '',
+          },
+          responses: value.responses,
+        });
+        let submissionId = scan.rows[0].submission_id;
+        if (submissionId) {
+          await client.query(
+            `UPDATE assessment_submissions SET assessment_version_id=$2,
            candidate=$3::jsonb,responses=$4::jsonb,result=$5::jsonb,
            score=$6,max_score=$7,requires_manual_review=$8,submitted_at=now(),revision=revision+1
          WHERE id=$1`,
-        [
-          submissionId,
-          selected.assessment_version_id,
-          JSON.stringify(grade.candidate),
-          JSON.stringify(grade.responses),
-          JSON.stringify(grade.result),
-          grade.score,
-          grade.maxScore,
-          grade.requiresManualReview,
-        ],
-      );
-    } else {
-      const submission = await client.query(
-        `INSERT INTO assessment_submissions
+            [
+              submissionId,
+              selected.assessment_version_id,
+              JSON.stringify(grade.candidate),
+              JSON.stringify(grade.responses),
+              JSON.stringify(grade.result),
+              grade.score,
+              grade.maxScore,
+              grade.requiresManualReview,
+            ],
+          );
+        } else {
+          const submission = await client.query(
+            `INSERT INTO assessment_submissions
            (assessment_version_id,candidate,responses,result,score,max_score,requires_manual_review)
          VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5,$6,$7) RETURNING id`,
-        [
-          selected.assessment_version_id,
-          JSON.stringify(grade.candidate),
-          JSON.stringify(grade.responses),
-          JSON.stringify(grade.result),
-          grade.score,
-          grade.maxScore,
-          grade.requiresManualReview,
-        ],
-      );
-      submissionId = submission.rows[0].id;
-    }
-    // A confirmação do professor gera uma versão provisória; publicar ao
-    // aluno é uma autorização separada.
-    const version = await recordResultVersion(client, {
-      applicationStudentId: selected.id, source: 'manual_review',
-      answers: confirmedAnswers(selected.snapshot, value.responses),
-      cardScanId: scanId, submissionId, userId,
-    });
-    await client.query(
-      `UPDATE card_scans SET status='completed',application_student_id=$2,
+            [
+              selected.assessment_version_id,
+              JSON.stringify(grade.candidate),
+              JSON.stringify(grade.responses),
+              JSON.stringify(grade.result),
+              grade.score,
+              grade.maxScore,
+              grade.requiresManualReview,
+            ],
+          );
+          submissionId = submission.rows[0].id;
+        }
+        // A confirmação do professor gera uma versão provisória; publicar ao
+        // aluno é uma autorização separada.
+        const version = await recordResultVersion(client, {
+          applicationStudentId: selected.id,
+          source: 'manual_review',
+          answers: confirmedAnswers(selected.snapshot, value.responses),
+          cardScanId: scanId,
+          submissionId,
+          userId,
+        });
+        await client.query(
+          `UPDATE card_scans SET status='completed',application_student_id=$2,
          submission_id=$3,result=$4::jsonb,error_message=NULL,completed_at=now()
        WHERE id=$1`,
-      [
-        scanId,
-        selected.id,
-        submissionId,
-        JSON.stringify({
-          answers: value.responses.map((response) => ({
-            ...response,
-            status: 'confirmed',
-          })),
-          requiresReview: false,
-          reviewedManually: true,
-          grade,
-          resultVersionId: version.versionId,
-        }),
-      ],
-    );
-    return {
-      id: scanId,
-      submissionId,
-      score: grade.score,
-      maxScore: grade.maxScore,
-      requiresManualReview: grade.requiresManualReview,
-      resultId: version.resultId,
-      resultVersion: version.versionNumber,
-      publicationStatus: version.publicationStatus,
-      publishable: version.summary.publishable,
-    };
-  }));
+          [
+            scanId,
+            selected.id,
+            submissionId,
+            JSON.stringify({
+              answers: value.responses.map((response) => ({
+                ...response,
+                status: 'confirmed',
+              })),
+              requiresReview: false,
+              reviewedManually: true,
+              grade,
+              resultVersionId: version.versionId,
+            }),
+          ],
+        );
+        return {
+          id: scanId,
+          submissionId,
+          score: grade.score,
+          maxScore: grade.maxScore,
+          requiresManualReview: grade.requiresManualReview,
+          resultId: version.resultId,
+          resultVersion: version.versionNumber,
+          publicationStatus: version.publicationStatus,
+          publishable: version.summary.publishable,
+        };
+      },
+    ),
+  );
 }

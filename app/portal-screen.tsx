@@ -2,16 +2,34 @@
 import { DisplayPreferences } from '@/components/display-preferences';
 import { BrandMark } from '@/components/brand-mark';
 
-import { SubmitEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import {
+  SubmitEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
 import { restoreQuestionClassification } from '@/lib/question-editor-classification.mjs';
 import { QuestionBankDrawer } from './question-bank-drawer';
 import { questionBankSummary } from '@/lib/question-bank-summary.mjs';
-import { QuestionBatchApproval, QuestionApprovalSelection, QuestionApprovalTableCell } from './question-batch-approval';
+import {
+  QuestionBatchApproval,
+  QuestionApprovalSelection,
+  QuestionApprovalTableCell,
+} from './question-batch-approval';
 import { WorkspaceHome } from './workspace-home';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { QuestionPasteExample } from './question-paste-example';
-import { QuestionDraftControls, type DraftPayload, type DraftActions } from './question-draft-controls';
-import { fundamentalRows, fundamentalYears } from '@/lib/fundamental-curriculum.mjs';
+import {
+  QuestionDraftControls,
+  type DraftPayload,
+  type DraftActions,
+} from './question-draft-controls';
+import {
+  fundamentalRows,
+  fundamentalYears,
+} from '@/lib/fundamental-curriculum.mjs';
 import {
   BarChart3,
   BookOpenCheck,
@@ -35,10 +53,18 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { AssessmentBuilder } from './assessment-builder';
 import { CurriculumManager, type CurriculumOption } from './curriculum-manager';
-import { RichContentEditor, type RichContentBlock } from './rich-content-editor';
+import {
+  RichContentEditor,
+  type RichContentBlock,
+} from './rich-content-editor';
 import { AcademicManager } from './academic-manager';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
@@ -76,29 +102,62 @@ type Question = {
   saebDescriptorCode?: string;
   saebDescriptorDescription?: string;
   difficulty: 'Fácil' | 'Média' | 'Difícil';
-  status: 'Aprovada' | 'Em revisão' | 'Precisa de ajustes' | 'Rascunho' | 'Arquivada';
-  createdBy?:string;
-  revision?:number;
+  status:
+    | 'Aprovada'
+    | 'Em revisão'
+    | 'Precisa de ajustes'
+    | 'Rascunho'
+    | 'Arquivada';
+  createdBy?: string;
+  revision?: number;
   alternatives: number;
   updatedAt: string;
 };
 type QuestionDraftInput = {
-  recommendSingleColumn?: boolean; type?: Question['type']; subject?: string; grade?: string;
-  sourceInstitution?: string; sourceYear?: number | string; knowledgeObjectId?: string;
-  competencyId?: string; saebDescriptorId?: string; pedagogicalDisciplineId?: string;
-  pedagogicalTopicId?: string; knowledgeTopic?: string; skill?: string; difficulty?: string;
-  metapostCode?: string; answerBlocks?: RichContentBlock[]; statementBlocks?: RichContentBlock[];
-  alternatives?: Array<{ isCorrect: boolean; stableKey: string; contentBlocks: RichContentBlock[] }>;
+  recommendSingleColumn?: boolean;
+  type?: Question['type'];
+  subject?: string;
+  grade?: string;
+  sourceInstitution?: string;
+  sourceYear?: number | string;
+  knowledgeObjectId?: string;
+  competencyId?: string;
+  saebDescriptorId?: string;
+  pedagogicalDisciplineId?: string;
+  pedagogicalTopicId?: string;
+  knowledgeTopic?: string;
+  skill?: string;
+  difficulty?: string;
+  metapostCode?: string;
+  answerBlocks?: RichContentBlock[];
+  statementBlocks?: RichContentBlock[];
+  alternatives?: Array<{
+    isCorrect: boolean;
+    stableKey: string;
+    contentBlocks: RichContentBlock[];
+  }>;
 };
 type QuestionDraftEditor = {
-  educationStage?: 'Ensino Fundamental' | 'Ensino Médio'; knowledgeAreaFilter?: string;
-  editingQuestionId?: string; importCandidateSource?: { importId: string; candidateId: string } | null;
-  pedagogicalGrade?: string; fundamentalGrade?: string; pedagogicalObjectId?: string;
-  pedagogicalSubtopicId?: string; pedagogicalDetailId?: string; selectedSaebMatrix?: string;
+  educationStage?: 'Ensino Fundamental' | 'Ensino Médio';
+  knowledgeAreaFilter?: string;
+  editingQuestionId?: string;
+  importCandidateSource?: { importId: string; candidateId: string } | null;
+  pedagogicalGrade?: string;
+  fundamentalGrade?: string;
+  pedagogicalObjectId?: string;
+  pedagogicalSubtopicId?: string;
+  pedagogicalDetailId?: string;
+  selectedSaebMatrix?: string;
 };
 type EditableQuestionData = Question & {
-  statement: RichContentBlock[]; explanation?: RichContentBlock[];
-  alternatives: Array<{ isCorrect: boolean; stableKey: string; content: string; contentBlocks: RichContentBlock[] }>;
+  statement: RichContentBlock[];
+  explanation?: RichContentBlock[];
+  alternatives: Array<{
+    isCorrect: boolean;
+    stableKey: string;
+    content: string;
+    contentBlocks: RichContentBlock[];
+  }>;
   saebDescriptors?: Array<{ matrixId: string; id: string }>;
 };
 
@@ -138,7 +197,9 @@ type PedagogicalTopic = {
   skills?: Array<{ id: string; code: string; description: string }>;
 };
 function normalizeGradeLabel(value: string | null | undefined) {
-  const text = String(value || '').trim().toLowerCase();
+  const text = String(value || '')
+    .trim()
+    .toLowerCase();
   const match = text.match(/([123])/);
   return match && /(?:ano|s[ée]rie)/i.test(text)
     ? `${match[1]}ª série`
@@ -267,14 +328,29 @@ const initialQuestions: Question[] = [
 ];
 
 const highSchoolSubjectAreas: Record<string, string[]> = {
-  'Linguagens e suas Tecnologias': ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
+  'Linguagens e suas Tecnologias': [
+    'Língua Portuguesa',
+    'Arte',
+    'Educação Física',
+    'Língua Inglesa',
+  ],
   'Matemática e suas Tecnologias': ['Matemática'],
   'Ciências da Natureza e suas Tecnologias': ['Biologia', 'Física', 'Química'],
-  'Ciências Humanas e Sociais Aplicadas': ['História', 'Geografia', 'Sociologia', 'Filosofia'],
+  'Ciências Humanas e Sociais Aplicadas': [
+    'História',
+    'Geografia',
+    'Sociologia',
+    'Filosofia',
+  ],
 };
 
 const elementarySubjectAreas: Record<string, string[]> = {
-  Linguagens: ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
+  Linguagens: [
+    'Língua Portuguesa',
+    'Arte',
+    'Educação Física',
+    'Língua Inglesa',
+  ],
   Matemática: ['Matemática'],
   'Ciências da Natureza': ['Ciências'],
   'Ciências Humanas': ['História', 'Geografia'],
@@ -318,8 +394,10 @@ export default function Home() {
     ],
   });
   const [open, setOpen] = useState(false);
-  const draftActions = useRef<DraftActions|null>(null);
-  const registerDraftActions = useCallback((actions: DraftActions | null) => { draftActions.current = actions; }, []);
+  const draftActions = useRef<DraftActions | null>(null);
+  const registerDraftActions = useCallback((actions: DraftActions | null) => {
+    draftActions.current = actions;
+  }, []);
   const [importedQuestion, setImportedQuestion] =
     useState<ParsedQuestion | null>(null);
   const [importRevision, setImportRevision] = useState(0);
@@ -331,7 +409,9 @@ export default function Home() {
   } | null>(null);
   const [editingQuestionId, setEditingQuestionId] = useState('');
   const [importedCorrect, setImportedCorrect] = useState<string[]>([]);
-  const [importedAnswerBlocks, setImportedAnswerBlocks] = useState<RichContentBlock[]>([]);
+  const [importedAnswerBlocks, setImportedAnswerBlocks] = useState<
+    RichContentBlock[]
+  >([]);
   const [importedDetails, setImportedDetails] = useState({
     grade: '',
     skill: '',
@@ -340,22 +420,32 @@ export default function Home() {
   });
   const [questionType, setQuestionType] =
     useState<Question['type']>('single_choice');
-  const judgmentContextBlocks = useMemo(() => importedQuestion?.statementBlocks?.slice(0, -1), [importedQuestion]);
-  const judgmentAssertionBlocks = useMemo(() => importedQuestion?.statementBlocks?.slice(-1), [importedQuestion]);
+  const judgmentContextBlocks = useMemo(
+    () => importedQuestion?.statementBlocks?.slice(0, -1),
+    [importedQuestion],
+  );
+  const judgmentAssertionBlocks = useMemo(
+    () => importedQuestion?.statementBlocks?.slice(-1),
+    [importedQuestion],
+  );
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [questionPreviewUrl, setQuestionPreviewUrl] = useState('');
   const [questionPreviewVerified, setQuestionPreviewVerified] = useState(false);
-  const [questionPreviewMode,setQuestionPreviewMode]=useState<'student'|'answer-key'>('student');
+  const [questionPreviewMode, setQuestionPreviewMode] = useState<
+    'student' | 'answer-key'
+  >('student');
   const [questionPreviewError, setQuestionPreviewError] = useState('');
   const [notice, setNotice] = useState('');
-  const [bankQuestionId,setBankQuestionId]=useState('');
-  const [statusFilter,setStatusFilter]=useState('');
-  const [bankQuestionTypeFilter,setBankQuestionTypeFilter]=useState('');
+  const [bankQuestionId, setBankQuestionId] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [bankQuestionTypeFilter, setBankQuestionTypeFilter] = useState('');
   const [active, setActive] = useState('Início');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
-    const requestedView = new URLSearchParams(window.location.search).get('view');
+    const requestedView = new URLSearchParams(window.location.search).get(
+      'view',
+    );
     const availableViews = new Set([
       'Início',
       'Preparar',
@@ -388,7 +478,9 @@ export default function Home() {
     PedagogicalTopic[]
   >([]);
   const [discipline, setDiscipline] = useState('Química');
-  const [knowledgeAreaFilter, setKnowledgeAreaFilter] = useState('Ciências da Natureza e suas Tecnologias');
+  const [knowledgeAreaFilter, setKnowledgeAreaFilter] = useState(
+    'Ciências da Natureza e suas Tecnologias',
+  );
   const [knowledgeObjectId, setKnowledgeObjectId] = useState(
     curriculumDemo[0].knowledge_object_id || '',
   );
@@ -408,7 +500,10 @@ export default function Home() {
   const [pedagogicalSubtopicId, setPedagogicalSubtopicId] = useState('');
   const [pedagogicalDetailId, setPedagogicalDetailId] = useState('');
   const pedagogicalDiscipline = pedagogicalDisciplines.find(
-    (item) => educationStage === 'Ensino Médio' && item.name === discipline && item.stage === educationStage,
+    (item) =>
+      educationStage === 'Ensino Médio' &&
+      item.name === discipline &&
+      item.stage === educationStage,
   );
   const filterPedagogicalDiscipline = pedagogicalDisciplines.find(
     (item) => item.name === subject && item.stage === educationStage,
@@ -427,26 +522,66 @@ export default function Home() {
   const selectedCompetencyInfo = availableCompetencies.find(
     (item) => item.competency_id === competencyId,
   );
-  const fundamentalOptions = fundamentalRows(curriculum, discipline, fundamentalGrade);
-  const fundamentalGrades = [...new Set(curriculum.filter(item => item.stage === 'Ensino Fundamental' && item.subject === discipline).flatMap(fundamentalYears))].sort((a,b)=>a-b).map(year=>`${year}º ano`);
-  const fundamentalCompetencies = curriculum.find(item=>item.stage === 'Ensino Fundamental' && item.subject === discipline && item.subject_metadata)?.subject_metadata?.competencies || [];
+  const fundamentalOptions = fundamentalRows(
+    curriculum,
+    discipline,
+    fundamentalGrade,
+  );
+  const fundamentalGrades = [
+    ...new Set(
+      curriculum
+        .filter(
+          (item) =>
+            item.stage === 'Ensino Fundamental' && item.subject === discipline,
+        )
+        .flatMap(fundamentalYears),
+    ),
+  ]
+    .sort((a, b) => a - b)
+    .map((year) => `${year}º ano`);
+  const fundamentalCompetencies =
+    curriculum.find(
+      (item) =>
+        item.stage === 'Ensino Fundamental' &&
+        item.subject === discipline &&
+        item.subject_metadata,
+    )?.subject_metadata?.competencies || [];
   const availableSkills = pedagogicalDiscipline
     ? [
         ...new Map(
           highSchoolCurriculum
-            .filter((item) =>
-              (educationStage === 'Ensino Médio' && ['Física', 'Biologia', 'Química'].includes(discipline) && item.area_source_key === 'em-area-cnt' && Boolean(item.skill_code)) || pedagogicalDiscipline.skills.some(
-                (skill) => skill.id === item.skill_id,
-              ),
+            .filter(
+              (item) =>
+                (educationStage === 'Ensino Médio' &&
+                  ['Física', 'Biologia', 'Química'].includes(discipline) &&
+                  item.area_source_key === 'em-area-cnt' &&
+                  Boolean(item.skill_code)) ||
+                pedagogicalDiscipline.skills.some(
+                  (skill) => skill.id === item.skill_id,
+                ),
             )
             .map((item) => [item.skill_code, item]),
         ).values(),
       ].sort((a, b) => a.skill_code.localeCompare(b.skill_code))
-    : [...new Map((educationStage === 'Ensino Fundamental' ? fundamentalOptions : curriculum).filter(
-        (item) => item.stage === educationStage && item.subject === discipline && item.knowledge_object_id === knowledgeObjectId && Boolean(item.skill_code),
-      ).map(item=>[item.skill_code,item])).values()];
-  const selectedSkillInfo =
-    availableSkills.find((item) => item.skill_code === selectedSkillCode);
+    : [
+        ...new Map(
+          (educationStage === 'Ensino Fundamental'
+            ? fundamentalOptions
+            : curriculum
+          )
+            .filter(
+              (item) =>
+                item.stage === educationStage &&
+                item.subject === discipline &&
+                item.knowledge_object_id === knowledgeObjectId &&
+                Boolean(item.skill_code),
+            )
+            .map((item) => [item.skill_code, item]),
+        ).values(),
+      ];
+  const selectedSkillInfo = availableSkills.find(
+    (item) => item.skill_code === selectedSkillCode,
+  );
   const compatibleSaebMatrices = saebMatrices.filter(
     (item) => item.stage === educationStage && item.subject === discipline,
   );
@@ -457,13 +592,18 @@ export default function Home() {
     (item) =>
       item.discipline_id === pedagogicalDiscipline?.id &&
       !item.parent_id &&
-      (!item.grade_range || normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
+      (!item.grade_range ||
+        normalizeGradeLabel(item.grade_range) === pedagogicalGrade),
   );
   const pedagogicalSubtopicOptions = pedagogicalTopics.filter(
-    (item) => item.parent_id === pedagogicalObjectId && item.discipline_id === pedagogicalDiscipline?.id,
+    (item) =>
+      item.parent_id === pedagogicalObjectId &&
+      item.discipline_id === pedagogicalDiscipline?.id,
   );
   const pedagogicalDetailOptions = pedagogicalTopics.filter(
-    (item) => item.parent_id === pedagogicalSubtopicId && item.discipline_id === pedagogicalDiscipline?.id,
+    (item) =>
+      item.parent_id === pedagogicalSubtopicId &&
+      item.discipline_id === pedagogicalDiscipline?.id,
   );
   const selectedPedagogicalTopicId =
     pedagogicalDetailId || pedagogicalSubtopicId || pedagogicalObjectId;
@@ -517,9 +657,10 @@ export default function Home() {
   );
 
   useEffect(() => {
-    const fallback = process.env.NODE_ENV === 'production'
-      ? window.location.origin
-      : `${window.location.protocol}//${window.location.hostname}:8788`;
+    const fallback =
+      process.env.NODE_ENV === 'production'
+        ? window.location.origin
+        : `${window.location.protocol}//${window.location.hostname}:8788`;
     try {
       const target = new URL(configuredApiUrl || fallback);
       // Usa o mesmo host aberto pelo usuário. Assim o cookie funciona tanto em
@@ -536,25 +677,33 @@ export default function Home() {
     const result = params.get('google_link');
     const error = params.get('google_link_error');
     if (!result && !error) return;
-    const notice = result === 'success'
-      ? 'Conta Google vinculada. Você já pode usar esse Google para entrar no portal.'
-      : error === 'existing_account'
-      ? 'Este Google já está vinculado a outra conta do portal.'
-      : error === 'google_failed'
-        ? 'Não foi possível validar a conta Google. Tente novamente.'
-        : 'Não foi possível vincular. Confirme que entrou na conta do portal correta e use o Google com o mesmo e-mail.';
+    const notice =
+      result === 'success'
+        ? 'Conta Google vinculada. Você já pode usar esse Google para entrar no portal.'
+        : error === 'existing_account'
+          ? 'Este Google já está vinculado a outra conta do portal.'
+          : error === 'google_failed'
+            ? 'Não foi possível validar a conta Google. Tente novamente.'
+            : 'Não foi possível vincular. Confirme que entrou na conta do portal correta e use o Google com o mesmo e-mail.';
     queueMicrotask(() => setNotice(notice));
     params.delete('google_link');
     params.delete('google_link_error');
     const query = params.toString();
-    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
+    );
   }, []);
 
   useEffect(() => {
     if (!apiUrl) return;
     const authParams = new URLSearchParams(window.location.hash.slice(1));
     if (authParams.has('reset_token') || authParams.has('verify_token')) {
-      queueMicrotask(() => { setIdentity(null); setAuthReady(true); });
+      queueMicrotask(() => {
+        setIdentity(null);
+        setAuthReady(true);
+      });
       return;
     }
     async function loadIdentity() {
@@ -563,25 +712,41 @@ export default function Home() {
       if (sessionCode) {
         try {
           const response = await apiFetch(`${apiUrl}/api/auth/google/claim`, {
-            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: sessionCode }),
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ code: sessionCode }),
           });
-          if (!response.ok) throw new Error('A sessão Google não pôde ser confirmada.');
+          if (!response.ok)
+            throw new Error('A sessão Google não pôde ser confirmada.');
           params.delete('google_session');
           const query = params.toString();
-          window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+          window.history.replaceState(
+            null,
+            '',
+            `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
+          );
         } catch {
           params.delete('google_session');
           params.set('auth_error', 'google_failed');
-          window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+          window.history.replaceState(
+            null,
+            '',
+            `${window.location.pathname}?${params.toString()}${window.location.hash}`,
+          );
           setIdentity(null);
           return;
         }
       }
       const response = await apiFetch(`${apiUrl}/api/auth/me`);
-      if (!response.ok) { setIdentity(null); return; }
+      if (!response.ok) {
+        setIdentity(null);
+        return;
+      }
       setIdentity(((await response.json()) as { data: AuthIdentity }).data);
     }
-    loadIdentity().catch(() => setIdentity(null)).finally(() => setAuthReady(true));
+    loadIdentity()
+      .catch(() => setIdentity(null))
+      .finally(() => setAuthReady(true));
   }, [apiUrl]);
 
   useEffect(() => {
@@ -618,9 +783,18 @@ export default function Home() {
       (item) => item.id === selectedSaebMatrix,
     );
     if (!matrix) {
-      queueMicrotask(() => { setSelectedSaebMatrix(compatibleSaebMatrices[0]?.id || ''); setSelectedSaebDescriptor(''); });
+      queueMicrotask(() => {
+        setSelectedSaebMatrix(compatibleSaebMatrices[0]?.id || '');
+        setSelectedSaebDescriptor('');
+      });
     }
-  }, [educationStage, discipline, saebMatrices, compatibleSaebMatrices, selectedSaebMatrix]);
+  }, [
+    educationStage,
+    discipline,
+    saebMatrices,
+    compatibleSaebMatrices,
+    selectedSaebMatrix,
+  ]);
 
   useEffect(() => {
     if (!apiUrl || !selectedSaebMatrix) {
@@ -642,18 +816,30 @@ export default function Home() {
     let catalogActive = true;
     queueMicrotask(() => setCatalogError(''));
     const requireCatalogResponse = async (response: Response) => {
-      if (!response.ok) throw new Error('Não foi possível carregar o catálogo curricular. Atualize a página e confira sua sessão.');
+      if (!response.ok)
+        throw new Error(
+          'Não foi possível carregar o catálogo curricular. Atualize a página e confira sua sessão.',
+        );
       return response.json();
     };
     Promise.all([
       apiFetch(`${apiUrl}/api/curriculum/high-school`).then(
-        (response) => requireCatalogResponse(response) as Promise<{ data: HighSchoolCurriculumItem[] }>,
+        (response) =>
+          requireCatalogResponse(response) as Promise<{
+            data: HighSchoolCurriculumItem[];
+          }>,
       ),
       apiFetch(`${apiUrl}/api/curriculum/pedagogical-disciplines`).then(
-        (response) => requireCatalogResponse(response) as Promise<{ data: PedagogicalDiscipline[] }>,
+        (response) =>
+          requireCatalogResponse(response) as Promise<{
+            data: PedagogicalDiscipline[];
+          }>,
       ),
       apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics`).then(
-        (response) => requireCatalogResponse(response) as Promise<{ data: PedagogicalTopic[] }>,
+        (response) =>
+          requireCatalogResponse(response) as Promise<{
+            data: PedagogicalTopic[];
+          }>,
       ),
     ])
       .then(([official, pedagogical, topics]) => {
@@ -667,8 +853,17 @@ export default function Home() {
         );
         setPedagogicalTopics(topics.data || []);
       })
-      .catch((error: unknown) => { if (catalogActive) setCatalogError(error instanceof Error ? error.message : 'Falha ao carregar catálogo.'); });
-    return () => { catalogActive = false; };
+      .catch((error: unknown) => {
+        if (catalogActive)
+          setCatalogError(
+            error instanceof Error
+              ? error.message
+              : 'Falha ao carregar catálogo.',
+          );
+      });
+    return () => {
+      catalogActive = false;
+    };
   }, [apiUrl, identity, active]);
 
   useEffect(() => {
@@ -701,23 +896,78 @@ export default function Home() {
     setOpen(false);
   }
   function captureQuestionDraft(form: HTMLFormElement): DraftPayload {
-    return {input:questionInputFromForm(new FormData(form)),editor:{educationStage,knowledgeAreaFilter,editingQuestionId,importCandidateSource,pedagogicalGrade,fundamentalGrade,pedagogicalObjectId,pedagogicalSubtopicId,pedagogicalDetailId,selectedSaebMatrix}};
+    return {
+      input: questionInputFromForm(new FormData(form)),
+      editor: {
+        educationStage,
+        knowledgeAreaFilter,
+        editingQuestionId,
+        importCandidateSource,
+        pedagogicalGrade,
+        fundamentalGrade,
+        pedagogicalObjectId,
+        pedagogicalSubtopicId,
+        pedagogicalDetailId,
+        selectedSaebMatrix,
+      },
+    };
   }
   function restoreQuestionDraft(payload: DraftPayload) {
-    const v=payload.input as QuestionDraftInput,e=payload.editor as QuestionDraftEditor;
-    setEducationStage(e.educationStage || 'Ensino Médio');setKnowledgeAreaFilter(e.knowledgeAreaFilter || 'Ciências da Natureza e suas Tecnologias');
-    setEditingQuestionId(e.editingQuestionId || '');setImportCandidateSource(e.importCandidateSource || null);
+    const v = payload.input as QuestionDraftInput,
+      e = payload.editor as QuestionDraftEditor;
+    setEducationStage(e.educationStage || 'Ensino Médio');
+    setKnowledgeAreaFilter(
+      e.knowledgeAreaFilter || 'Ciências da Natureza e suas Tecnologias',
+    );
+    setEditingQuestionId(e.editingQuestionId || '');
+    setImportCandidateSource(e.importCandidateSource || null);
     setRecommendSingleColumn(Boolean(v.recommendSingleColumn));
-    setQuestionType(v.type || 'single_choice');setDiscipline(v.subject || 'Química');
-    setFundamentalGrade(e.fundamentalGrade || '6º ano');setPedagogicalGrade(e.pedagogicalGrade || '1ª série');
-    setKnowledgeObjectId(v.knowledgeObjectId || '');setCompetencyId(v.competencyId || '');setSelectedSkillCode(v.skill || '');
-    setPedagogicalObjectId(e.pedagogicalObjectId || '');setPedagogicalSubtopicId(e.pedagogicalSubtopicId || '');setPedagogicalDetailId(e.pedagogicalDetailId || '');
-    setSelectedSaebMatrix(e.selectedSaebMatrix || '');setSelectedSaebDescriptor(v.saebDescriptorId || '');
-    setImportedDetails({grade:v.grade || '',skill:v.skill || '',knowledgeTopic:v.knowledgeTopic || '',difficulty:v.difficulty || 'Média'});
-    setImportedAnswerBlocks(v.answerBlocks || []);setDraftMetapostCode(v.metapostCode || '');
-    setImportedCorrect((v.alternatives || []).filter((a)=>a.isCorrect).map((a)=>a.stableKey.slice(-1).toUpperCase()));
-    setImportedQuestion({sourceInstitution:v.sourceInstitution || '',sourceYear:String(v.sourceYear || ''),statementBlocks:(v.statementBlocks || []).filter((b)=>b.type!=='adoteNote'),adoteNote:(v.statementBlocks || []).find((b)=>b.type==='adoteNote' && 'text' in b)?.text || '',alternatives:Object.fromEntries((v.alternatives || []).map((a)=>[a.stableKey.slice(-1).toUpperCase(),a.contentBlocks || []])),warnings:[]});
-    setImportRevision(n=>n+1);setQuestionPreviewVerified(false);setQuestionPreviewUrl('');
+    setQuestionType(v.type || 'single_choice');
+    setDiscipline(v.subject || 'Química');
+    setFundamentalGrade(e.fundamentalGrade || '6º ano');
+    setPedagogicalGrade(e.pedagogicalGrade || '1ª série');
+    setKnowledgeObjectId(v.knowledgeObjectId || '');
+    setCompetencyId(v.competencyId || '');
+    setSelectedSkillCode(v.skill || '');
+    setPedagogicalObjectId(e.pedagogicalObjectId || '');
+    setPedagogicalSubtopicId(e.pedagogicalSubtopicId || '');
+    setPedagogicalDetailId(e.pedagogicalDetailId || '');
+    setSelectedSaebMatrix(e.selectedSaebMatrix || '');
+    setSelectedSaebDescriptor(v.saebDescriptorId || '');
+    setImportedDetails({
+      grade: v.grade || '',
+      skill: v.skill || '',
+      knowledgeTopic: v.knowledgeTopic || '',
+      difficulty: v.difficulty || 'Média',
+    });
+    setImportedAnswerBlocks(v.answerBlocks || []);
+    setDraftMetapostCode(v.metapostCode || '');
+    setImportedCorrect(
+      (v.alternatives || [])
+        .filter((a) => a.isCorrect)
+        .map((a) => a.stableKey.slice(-1).toUpperCase()),
+    );
+    setImportedQuestion({
+      sourceInstitution: v.sourceInstitution || '',
+      sourceYear: String(v.sourceYear || ''),
+      statementBlocks: (v.statementBlocks || []).filter(
+        (b) => b.type !== 'adoteNote',
+      ),
+      adoteNote:
+        (v.statementBlocks || []).find(
+          (b) => b.type === 'adoteNote' && 'text' in b,
+        )?.text || '',
+      alternatives: Object.fromEntries(
+        (v.alternatives || []).map((a) => [
+          a.stableKey.slice(-1).toUpperCase(),
+          a.contentBlocks || [],
+        ]),
+      ),
+      warnings: [],
+    });
+    setImportRevision((n) => n + 1);
+    setQuestionPreviewVerified(false);
+    setQuestionPreviewUrl('');
   }
   async function createQuestion(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -782,7 +1032,7 @@ export default function Home() {
             details || body.error || 'Não foi possível salvar a questão.',
           );
         }
-        await draftActions.current?.complete().catch(()=>undefined);
+        await draftActions.current?.complete().catch(() => undefined);
         const refreshed = await apiFetch(`${apiUrl}/api/questions`);
         if (refreshed.ok)
           setQuestions(((await refreshed.json()) as { data: Question[] }).data);
@@ -792,7 +1042,12 @@ export default function Home() {
             {
               method: 'PATCH',
               headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ status: 'completed', selected:false, registeredQuestionId:body.data.id, registeredQuestionCode:body.data.code }),
+              body: JSON.stringify({
+                status: 'completed',
+                selected: false,
+                registeredQuestionId: body.data.id,
+                registeredQuestionCode: body.data.code,
+              }),
             },
           );
           if (!candidateResponse.ok)
@@ -825,13 +1080,15 @@ export default function Home() {
       return typeof value === 'string' ? value : '';
     };
     const correct = new Set(
-      (questionType === 'true_false'
-        ? [data.get('correct')].filter((value): value is string => typeof value === 'string')
-        : data.getAll('correct').map(String)),
+      questionType === 'true_false'
+        ? [data.get('correct')].filter(
+            (value): value is string => typeof value === 'string',
+          )
+        : data.getAll('correct').map(String),
     );
     const parseBlocks = (name: string) => {
       const blocks = (
-      JSON.parse(formString(name) || '[]') as Array<{
+        JSON.parse(formString(name) || '[]') as Array<{
           type: string;
           text?: string;
           items?: string[];
@@ -855,11 +1112,19 @@ export default function Home() {
           (block) => block.type !== 'romanList' || Boolean(block.items?.length),
         )
         .filter(
-          (block) => block.type !== 'contextRaw' || Boolean('code' in block && typeof block.code === 'string' && block.code.trim()),
+          (block) =>
+            block.type !== 'contextRaw' ||
+            Boolean(
+              'code' in block &&
+              typeof block.code === 'string' &&
+              block.code.trim(),
+            ),
         );
     };
     const statementBlocks = [
-      ...(questionType === 'true_false' ? parseBlocks('judgmentContextBlocks') : []),
+      ...(questionType === 'true_false'
+        ? parseBlocks('judgmentContextBlocks')
+        : []),
       ...parseBlocks('statementBlocks'),
     ];
     const adote = formString('adoteNote').trim();
@@ -904,25 +1169,31 @@ export default function Home() {
                 isCorrect: correct.has(index === 0 ? 'A' : 'B'),
                 position: index + 1,
               }))
-          : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
-              const contentBlocks = parseBlocks(`alternative_${letter}`);
-              return {
-                stableKey: `alt-${letter.toLowerCase()}`,
-                content: plainText(
+            : ['A', 'B', 'C', 'D', 'E'].map((letter, index) => {
+                const contentBlocks = parseBlocks(`alternative_${letter}`);
+                return {
+                  stableKey: `alt-${letter.toLowerCase()}`,
+                  content: plainText(
+                    contentBlocks,
+                    'Alternativa com conteúdo científico.',
+                  ),
                   contentBlocks,
-                  'Alternativa com conteúdo científico.',
-                ),
-                contentBlocks,
-                isCorrect: correct.has(letter),
-                position: index + 1,
-              };
-            }),
+                  isCorrect: correct.has(letter),
+                  position: index + 1,
+                };
+              }),
     };
   }
 
-  async function previewQuestion(form: HTMLFormElement, previewMode:'student'|'answer-key'='student') {
+  async function previewQuestion(
+    form: HTMLFormElement,
+    previewMode: 'student' | 'answer-key' = 'student',
+  ) {
     setPreviewing(true);
-    setQuestionPreviewUrl(current=>{if(current)URL.revokeObjectURL(current);return '';});
+    setQuestionPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return '';
+    });
     setNotice('');
     setQuestionPreviewError('');
     try {
@@ -930,14 +1201,18 @@ export default function Home() {
       if (
         previewMode === 'answer-key' &&
         questionInput.type === 'true_false' &&
-        questionInput.alternatives.filter((alternative) => alternative.isCorrect).length !== 1
+        questionInput.alternatives.filter(
+          (alternative) => alternative.isCorrect,
+        ).length !== 1
       ) {
-        throw new Error('Selecione Certo ou Errado como gabarito antes de gerar a prévia da resolução.');
+        throw new Error(
+          'Selecione Certo ou Errado como gabarito antes de gerar a prévia da resolução.',
+        );
       }
       const response = await apiFetch(`${apiUrl}/api/questions/preview`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({...questionInput,previewMode}),
+        body: JSON.stringify({ ...questionInput, previewMode }),
       });
       if (!response.ok) {
         const raw = await response.text();
@@ -949,8 +1224,9 @@ export default function Home() {
           };
           message = [
             body.error,
-            ...(body.issues || []).map((issue) =>
-              `${issue.message}${issue.path?.length ? ` (${issue.path.join(' → ')})` : ''}`,
+            ...(body.issues || []).map(
+              (issue) =>
+                `${issue.message}${issue.path?.length ? ` (${issue.path.join(' → ')})` : ''}`,
             ),
           ]
             .filter(Boolean)
@@ -966,17 +1242,17 @@ export default function Home() {
         return nextUrl;
       });
       setQuestionPreviewMode(previewMode);
-      if(previewMode==='student')setQuestionPreviewVerified(true);
+      if (previewMode === 'student') setQuestionPreviewVerified(true);
       setNotice(
-        previewMode==='answer-key'?'Prévia da resolução gerada. Confira o gabarito comentado.':'Prévia gerada. Confira o PDF; se estiver correto, o cadastro da questão está liberado.',
+        previewMode === 'answer-key'
+          ? 'Prévia da resolução gerada. Confira o gabarito comentado.'
+          : 'Prévia gerada. Confira o PDF; se estiver correto, o cadastro da questão está liberado.',
       );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Erro ao gerar a prévia.';
       setQuestionPreviewError(message);
-      setNotice(
-        'A prévia não foi gerada. Consulte o log de erro abaixo.',
-      );
+      setNotice('A prévia não foi gerada. Consulte o log de erro abaixo.');
     } finally {
       setPreviewing(false);
     }
@@ -986,12 +1262,20 @@ export default function Home() {
     setNotice('Carregando questão...');
     try {
       const response = await apiFetch(`${apiUrl}/api/questions/${questionId}`);
-      const body = (await response.json()) as { data?: EditableQuestionData; error?: string };
+      const body = (await response.json()) as {
+        data?: EditableQuestionData;
+        error?: string;
+      };
       if (!response.ok || !body.data)
         throw new Error(body.error || 'Questão não encontrada.');
       const question = body.data;
       setRecommendSingleColumn(Boolean(question.recommendSingleColumn));
-      const restored = restoreQuestionClassification(question,{disciplines:pedagogicalDisciplines,topics:pedagogicalTopics,highSchoolAreas:highSchoolSubjectAreas,elementaryAreas:elementarySubjectAreas});
+      const restored = restoreQuestionClassification(question, {
+        disciplines: pedagogicalDisciplines,
+        topics: pedagogicalTopics,
+        highSchoolAreas: highSchoolSubjectAreas,
+        elementaryAreas: elementarySubjectAreas,
+      });
       const skillCode = restored.skill;
       setEducationStage(restored.stage);
       setKnowledgeAreaFilter(restored.area);
@@ -1006,7 +1290,8 @@ export default function Home() {
       setCompetencyId(competency?.competency_id || '');
       setCompetencyInfoOpen(false);
       setSelectedSkillCode(skillCode);
-      if (restored.stage === 'Ensino Fundamental') setFundamentalGrade(question.grade || '6º ano');
+      if (restored.stage === 'Ensino Fundamental')
+        setFundamentalGrade(question.grade || '6º ano');
       const saebDescriptor = question.saebDescriptors?.[0];
       setSelectedSaebMatrix(saebDescriptor?.matrixId || '');
       setSelectedSaebDescriptor(saebDescriptor?.id || '');
@@ -1040,12 +1325,12 @@ export default function Home() {
           (node) => node.type !== 'adoteNote',
         ),
         adoteNote:
-          question.statement.find((node) => node.type === 'adoteNote')
-            ?.text || '',
+          question.statement.find((node) => node.type === 'adoteNote')?.text ||
+          '',
         alternatives: Object.fromEntries(
           question.alternatives.map((item) => [
             item.stableKey.slice(-1).toUpperCase(),
-          item.contentBlocks,
+            item.contentBlocks,
           ]),
         ),
         warnings: [],
@@ -1131,14 +1416,23 @@ export default function Home() {
       </main>
     );
   if (!identity) return <AuthScreen apiUrl={apiUrl} />;
-  if (identity.role === 'student') return <StudentPortal apiUrl={apiUrl} name={identity.user.displayName} />;
-  if (!identity.portalAdmin && !identity.user.cpfComplete) return <CompleteCpf apiUrl={apiUrl} />;
-  if (!identity.portalAdmin && !identity.user.profileComplete) return <main className="min-h-screen bg-[var(--canvas)] px-4 py-2"><EducatorProfile apiUrl={apiUrl} onboarding /></main>;
+  if (identity.role === 'student')
+    return <StudentPortal apiUrl={apiUrl} name={identity.user.displayName} />;
+  if (!identity.portalAdmin && !identity.user.cpfComplete)
+    return <CompleteCpf apiUrl={apiUrl} />;
+  if (!identity.portalAdmin && !identity.user.profileComplete)
+    return (
+      <main className="min-h-screen bg-[var(--canvas)] px-4 py-2">
+        <EducatorProfile apiUrl={apiUrl} onboarding />
+      </main>
+    );
   const canEditCatalog = Boolean(identity.portalAdmin || identity.portalEditor);
 
   return (
     <main className="min-h-screen bg-[var(--canvas)] text-slate-950">
-      <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
+      <a href="#conteudo" className="skip-link">
+        Pular para o conteúdo
+      </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
         <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6">
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]">
@@ -1153,12 +1447,28 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-6">
-          <WorkspaceNavigation active={active} canEditCatalog={canEditCatalog} portalAdmin={Boolean(identity.portalAdmin)} questionCount={questions.length} onNavigate={view=>{setInitialApplicationId('');setActive(view);window.scrollTo({top:0});}} />
+        <nav
+          aria-label="Navegação principal"
+          className="flex-1 overflow-y-auto px-3 py-6"
+        >
+          <WorkspaceNavigation
+            active={active}
+            canEditCatalog={canEditCatalog}
+            portalAdmin={Boolean(identity.portalAdmin)}
+            questionCount={questions.length}
+            onNavigate={(view) => {
+              setInitialApplicationId('');
+              setActive(view);
+              window.scrollTo({ top: 0 });
+            }}
+          />
         </nav>
         <div className="border-t border-white/10 p-3">
           {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
-          <a href="/configuracoes/perfil" className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7 hover:text-white">
+          <a
+            href="/configuracoes/perfil"
+            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7 hover:text-white"
+          >
             <Settings className="size-[18px]" />
             Configurações
           </a>
@@ -1176,7 +1486,11 @@ export default function Home() {
                 {identity.user.displayName}
               </p>
               <p className="truncate text-xs text-slate-300">
-                {identity.portalAdmin ? 'Administrador do portal' : identity.portalEditor ? 'Editor' : 'Professor'}
+                {identity.portalAdmin
+                  ? 'Administrador do portal'
+                  : identity.portalEditor
+                    ? 'Editor'
+                    : 'Professor'}
               </p>
             </div>
             <button
@@ -1205,7 +1519,11 @@ export default function Home() {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            {identity.portalAdmin && <span className="hidden text-sm font-semibold xl:inline">Administração geral · painel único</span>}
+            {identity.portalAdmin && (
+              <span className="hidden text-sm font-semibold xl:inline">
+                Administração geral · painel único
+              </span>
+            )}
             <DisplayPreferences className="sm:mr-1" />
             <button
               type="button"
@@ -1236,662 +1554,998 @@ export default function Home() {
           aria-label="Navegação principal móvel"
           className={`${mobileMenuOpen ? 'block' : 'hidden'} sticky top-[76px] z-20 max-h-[calc(100dvh-160px)] overflow-y-auto border-b border-slate-200 bg-white px-4 py-4 lg:hidden`}
         >
-          <WorkspaceNavigation mobile active={active} canEditCatalog={canEditCatalog} portalAdmin={Boolean(identity.portalAdmin)} questionCount={questions.length} onNavigate={view=>{setInitialApplicationId('');setActive(view);setMobileMenuOpen(false);window.scrollTo({top:0});}} />
+          <WorkspaceNavigation
+            mobile
+            active={active}
+            canEditCatalog={canEditCatalog}
+            portalAdmin={Boolean(identity.portalAdmin)}
+            questionCount={questions.length}
+            onNavigate={(view) => {
+              setInitialApplicationId('');
+              setActive(view);
+              setMobileMenuOpen(false);
+              window.scrollTo({ top: 0 });
+            }}
+          />
         </nav>
         <div id="conteudo" tabIndex={-1} className="outline-none">
-        {active === 'Início' || active === 'Preparar' || active === 'Recuperar' ? (
-          <WorkspaceHome key={active} apiUrl={apiUrl} name={identity.user.displayName} view={active} canEditCatalog={canEditCatalog}
-            onNavigate={(view) => { setInitialApplicationId(''); setActive(view); }}
-            onNewQuestion={openNewQuestion}
-            onEditQuestion={(id) => { setActive('Questões'); void editQuestion(id); }}
-            onOpenApplication={(id) => { setInitialApplicationId(id); setActive('Diagnosticar'); }} />
-        ) : (active === 'Receitas' || active === 'Assinantes') && identity.portalAdmin ? (
-          <AdminDashboard key={active} apiUrl={apiUrl} view={active === 'Receitas' ? 'revenue' : 'subscribers'} />
-        ) : active === 'Minhas escolas' ? (
-          <div className="mx-auto max-w-5xl p-6"><EducatorProfile apiUrl={apiUrl} onContinueToClasses={() => setActive('Turmas e alunos')} /></div>
-        ) : active === 'Avaliações' ? (
-          <AssessmentBuilder
-            questions={questions.filter(
-              (question) => question.status === 'Aprovada',
-            )}
-            apiUrl={apiUrl}
-          />
-        ) : active === 'Turmas e alunos' || active === 'Resultados' || active === 'Corrigir' || active === 'Diagnosticar' ? (
-          <AcademicManager key={active} apiUrl={apiUrl} initialSection={active === 'Corrigir' ? 'correction' : active === 'Diagnosticar' || active === 'Resultados' ? 'reports' : undefined} initialApplicationId={initialApplicationId} onOpenCorrection={() => { setInitialApplicationId(''); setActive('Corrigir'); window.scrollTo({ top: 0 }); }} />
-        ) : active === 'Importar provas' ? (
-          <ExamImportManager
-            apiUrl={apiUrl}
-            role={canEditCatalog ? 'admin' : 'teacher'}
-            onNewQuestion={openNewQuestion}
-            onRegisterQuestion={(candidate) => {
-              const parsed = parsePastedQuestion(candidate.rawText);
-              setImportedQuestion({
-                ...parsed,
-                sourceInstitution: candidate.sourceInstitution,
-                sourceYear: String(candidate.sourceYear),
-                adoteNote: candidate.adoteNote || parsed.adoteNote,
-                statementBlocks: candidate.imageDataUrl
-                  ? [
-                      ...parsed.statementBlocks,
-                      {
-                        type: 'image',
-                        dataUrl: candidate.imageDataUrl,
-                        alt:
-                          candidate.imageAlt ||
-                          'Figura extraída da prova original',
-                        caption: '',
-                      },
-                    ]
-                  : parsed.statementBlocks,
-              });
-              setEditingQuestionId('');
-              setImportCandidateSource({
-                importId: candidate.importId,
-                candidateId: candidate.candidateId,
-              });
-              setQuestionType(candidate.questionType);
-              if (candidate.subject) {
-                setDiscipline(candidate.subject);
-                setEducationStage('Ensino Médio');
-                setKnowledgeObjectId('');
-                setCompetencyId('');
-                const area = Object.entries(highSchoolSubjectAreas).find(([,subjects]) => subjects.includes(candidate.subject!));
-                if (area) setKnowledgeAreaFilter(area[0]);
-              }
-              setImportedCorrect(candidate.correctAnswers || []);
-              setImportedAnswerBlocks(candidate.resolution ? [{type:'paragraph',text:candidate.resolution}] : []);
-              const importedTopic = pedagogicalTopics.find(
-                (topic) => topic.id === candidate.pedagogicalTopicId,
-              );
-              const importedDetail =
-                importedTopic?.depth === 2 ? importedTopic : undefined;
-              const importedSubtopic =
-                importedTopic?.depth === 1
-                  ? importedTopic
-                  : importedDetail
-                    ? pedagogicalTopics.find(
-                        (topic) => topic.id === importedDetail.parent_id,
-                      )
-                    : undefined;
-              const importedObject =
-                importedTopic?.depth === 0
-                  ? importedTopic
-                  : pedagogicalTopics.find(
-                      (topic) =>
-                        topic.id ===
-                        (importedSubtopic?.parent_id ||
-                          importedTopic?.parent_id),
-                    );
-              setPedagogicalGrade(candidate.grade || '1ª série');
-              setPedagogicalObjectId(importedObject?.id || '');
-              setPedagogicalSubtopicId(importedSubtopic?.id || '');
-              setPedagogicalDetailId(importedDetail?.id || '');
-              setSelectedSkillCode(candidate.skill || '');
-              setImportedDetails({
-                grade: candidate.grade || '',
-                skill: candidate.skill || '',
-                knowledgeTopic: '',
-                difficulty: candidate.difficulty || 'Média',
-              });
-              setQuestionPreviewUrl((current) => {
-                if (current) URL.revokeObjectURL(current);
-                return '';
-              });
-              setQuestionPreviewVerified(false);
-              setImportRevision((value) => value + 1);
-              setActive('Questões');
-              setOpen(true);
-              setNotice(
-                'Questão importada para revisão. Confira conteúdo, classificação e gabarito antes de salvar.',
-              );
-            }}
-            onOpenQuestion={(questionId) => {
-              setActive('Questões');
-              void editQuestion(questionId);
-            }}
-          />
-        ) : active === 'Planejamento' ? (
-          <CurriculumManager
-            items={curriculum}
-            apiUrl={apiUrl}
-            role={canEditCatalog ? 'admin' : 'teacher'}
-            onChange={setCurriculum}
-          />
-        ) : (
-          <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
-            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-              <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">
-                  Banco institucional
-                </p>
-                <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
-                  Banco de questões
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                  Cadastre unidades reutilizáveis, relacione habilidades da BNCC
-                  e prepare questões para qualquer formato de avaliação.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="lg" onClick={() => setActive('Importar provas')}><FileInput/> Importar questões</Button>
-              <Button
-                onClick={openNewQuestion}
-                disabled={!canEditCatalog}
-                size="lg"
-                className="h-11 bg-[var(--blue)] px-4 text-white shadow-sm hover:bg-blue-700"
-              >
-                <Plus />
-                Nova questão
-              </Button>
-              </div>
+          {active === 'Início' ||
+          active === 'Preparar' ||
+          active === 'Recuperar' ? (
+            <WorkspaceHome
+              key={active}
+              apiUrl={apiUrl}
+              name={identity.user.displayName}
+              view={active}
+              canEditCatalog={canEditCatalog}
+              onNavigate={(view) => {
+                setInitialApplicationId('');
+                setActive(view);
+              }}
+              onNewQuestion={openNewQuestion}
+              onEditQuestion={(id) => {
+                setActive('Questões');
+                void editQuestion(id);
+              }}
+              onOpenApplication={(id) => {
+                setInitialApplicationId(id);
+                setActive('Diagnosticar');
+              }}
+            />
+          ) : (active === 'Receitas' || active === 'Assinantes') &&
+            identity.portalAdmin ? (
+            <AdminDashboard
+              key={active}
+              apiUrl={apiUrl}
+              view={active === 'Receitas' ? 'revenue' : 'subscribers'}
+            />
+          ) : active === 'Minhas escolas' ? (
+            <div className="mx-auto max-w-5xl p-6">
+              <EducatorProfile
+                apiUrl={apiUrl}
+                onContinueToClasses={() => setActive('Turmas e alunos')}
+              />
             </div>
-            {notice && (
-              <div
-                aria-live="polite"
-                className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900"
-              >
-                {notice}
-              </div>
-            )}
-            <section aria-label="Da questão à prova" className="mt-6 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white p-5 shadow-sm sm:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[.14em] text-blue-700">Fluxo de preparação</p>
-                  <h2 className="mt-1 font-display text-xl font-bold text-[var(--navy)]">Da questão à prova, passo a passo</h2>
-                </div>
-                <Button type="button" variant="outline" onClick={() => setActive('Avaliações')}>
-                  <BookOpenCheck className="size-4" /> Montar prova
-                </Button>
-              </div>
-              <ol className="mt-5 grid gap-3 md:grid-cols-3">
-                {[
-                  ['1', 'Cadastre', 'Escreva o enunciado, as alternativas e a resolução.'],
-                  ['2', 'Revise', 'Confira a classificação, o gabarito e a prévia da questão.'],
-                  ['3', 'Monte a prova', 'Escolha as questões aprovadas e organize as seções.'],
-                ].map(([number, heading, detail]) => (
-                  <li key={number} className="flex gap-3 rounded-xl border border-blue-100 bg-white p-4">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-blue-600 text-xs font-bold text-white">{number}</span>
-                    <div><h3 className="text-sm font-bold text-slate-900">{heading}</h3><p className="mt-1 text-xs leading-5 text-slate-600">{detail}</p></div>
-                  </li>
-                ))}
-              </ol>
-            </section>
-            <div className="mt-6 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-              {(['Ensino Fundamental', 'Ensino Médio'] as const).map(
-                (stage) => (
-                  <Button
-                    key={stage}
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setEducationStage(stage);
-                      setSubject('Todas');
-                      setKnowledgeObjectFilter('');
-                      setCompetencyFilter('');
-                      setTopicGroupFilter('');
-                      setSubtopicFilter('');
-                      setTopicDetailFilter('');
-                      setGradeFilter('');
-                    }}
-                    className={
-                      educationStage === stage
-                        ? 'bg-[var(--navy)] text-white hover:bg-[var(--navy)] hover:text-white'
-                        : 'text-slate-600'
-                    }
-                  >
-                    {stage}
-                  </Button>
-                ),
+          ) : active === 'Avaliações' ? (
+            <AssessmentBuilder
+              questions={questions.filter(
+                (question) => question.status === 'Aprovada',
               )}
-            </div>
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {[
-                [String(questions.length), 'questões no acervo', 'Dados atuais do banco'],
-                [String(questions.filter((question) => question.status === 'Aprovada').length), 'aprovadas', questions.length ? `${Math.round((questions.filter((question) => question.status === 'Aprovada').length / questions.length) * 100)}% do acervo` : 'Nenhuma questão cadastrada'],
-                [String(new Set(questions.map((question) => question.skill).filter(Boolean)).size), 'habilidades cobertas', `${new Set(questions.map((question) => question.subject).filter(Boolean)).size} componentes`],
-              ].map(([value, label, note], index) => (
-                <article
-                  key={label}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)]"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-display text-3xl font-bold tracking-tight text-[var(--navy)]">
-                        {value}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-slate-600">
-                        {label}
-                      </p>
-                    </div>
-                    <span
-                      className={`grid size-9 place-items-center rounded-xl ${index === 1 ? 'bg-emerald-50 text-emerald-600' : index === 2 ? 'bg-violet-50 text-violet-600' : 'bg-blue-50 text-blue-600'}`}
-                    >
-                      {index === 0 ? (
-                        <LibraryBig className="size-4" />
-                      ) : index === 1 ? (
-                        <BookOpenCheck className="size-4" />
-                      ) : (
-                        <Sparkles className="size-4" />
-                      )}
-                    </span>
-                  </div>
-                  <p className="mt-4 text-xs text-slate-500">{note}</p>
-                </article>
-              ))}
-            </div>
-            <section className="relative mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
-              <div className="flex flex-col gap-3 border-b border-slate-200 p-4 2xl:flex-row 2xl:items-center">
-                <div className="relative min-w-0 flex-1 2xl:min-w-80">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
-                  <Input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="h-10 border-slate-200 bg-slate-50 pl-9"
-                    placeholder="Buscar por enunciado, código ou habilidade..."
-                  />
+              apiUrl={apiUrl}
+            />
+          ) : active === 'Turmas e alunos' ||
+            active === 'Resultados' ||
+            active === 'Corrigir' ||
+            active === 'Diagnosticar' ? (
+            <AcademicManager
+              key={active}
+              apiUrl={apiUrl}
+              initialSection={
+                active === 'Corrigir'
+                  ? 'correction'
+                  : active === 'Diagnosticar' || active === 'Resultados'
+                    ? 'reports'
+                    : undefined
+              }
+              initialApplicationId={initialApplicationId}
+              onOpenCorrection={() => {
+                setInitialApplicationId('');
+                setActive('Corrigir');
+                window.scrollTo({ top: 0 });
+              }}
+            />
+          ) : active === 'Importar provas' ? (
+            <ExamImportManager
+              apiUrl={apiUrl}
+              role={canEditCatalog ? 'admin' : 'teacher'}
+              onNewQuestion={openNewQuestion}
+              onRegisterQuestion={(candidate) => {
+                const parsed = parsePastedQuestion(candidate.rawText);
+                setImportedQuestion({
+                  ...parsed,
+                  sourceInstitution: candidate.sourceInstitution,
+                  sourceYear: String(candidate.sourceYear),
+                  adoteNote: candidate.adoteNote || parsed.adoteNote,
+                  statementBlocks: candidate.imageDataUrl
+                    ? [
+                        ...parsed.statementBlocks,
+                        {
+                          type: 'image',
+                          dataUrl: candidate.imageDataUrl,
+                          alt:
+                            candidate.imageAlt ||
+                            'Figura extraída da prova original',
+                          caption: '',
+                        },
+                      ]
+                    : parsed.statementBlocks,
+                });
+                setEditingQuestionId('');
+                setImportCandidateSource({
+                  importId: candidate.importId,
+                  candidateId: candidate.candidateId,
+                });
+                setQuestionType(candidate.questionType);
+                if (candidate.subject) {
+                  setDiscipline(candidate.subject);
+                  setEducationStage('Ensino Médio');
+                  setKnowledgeObjectId('');
+                  setCompetencyId('');
+                  const area = Object.entries(highSchoolSubjectAreas).find(
+                    ([, subjects]) => subjects.includes(candidate.subject!),
+                  );
+                  if (area) setKnowledgeAreaFilter(area[0]);
+                }
+                setImportedCorrect(candidate.correctAnswers || []);
+                setImportedAnswerBlocks(
+                  candidate.resolution
+                    ? [{ type: 'paragraph', text: candidate.resolution }]
+                    : [],
+                );
+                const importedTopic = pedagogicalTopics.find(
+                  (topic) => topic.id === candidate.pedagogicalTopicId,
+                );
+                const importedDetail =
+                  importedTopic?.depth === 2 ? importedTopic : undefined;
+                const importedSubtopic =
+                  importedTopic?.depth === 1
+                    ? importedTopic
+                    : importedDetail
+                      ? pedagogicalTopics.find(
+                          (topic) => topic.id === importedDetail.parent_id,
+                        )
+                      : undefined;
+                const importedObject =
+                  importedTopic?.depth === 0
+                    ? importedTopic
+                    : pedagogicalTopics.find(
+                        (topic) =>
+                          topic.id ===
+                          (importedSubtopic?.parent_id ||
+                            importedTopic?.parent_id),
+                      );
+                setPedagogicalGrade(candidate.grade || '1ª série');
+                setPedagogicalObjectId(importedObject?.id || '');
+                setPedagogicalSubtopicId(importedSubtopic?.id || '');
+                setPedagogicalDetailId(importedDetail?.id || '');
+                setSelectedSkillCode(candidate.skill || '');
+                setImportedDetails({
+                  grade: candidate.grade || '',
+                  skill: candidate.skill || '',
+                  knowledgeTopic: '',
+                  difficulty: candidate.difficulty || 'Média',
+                });
+                setQuestionPreviewUrl((current) => {
+                  if (current) URL.revokeObjectURL(current);
+                  return '';
+                });
+                setQuestionPreviewVerified(false);
+                setImportRevision((value) => value + 1);
+                setActive('Questões');
+                setOpen(true);
+                setNotice(
+                  'Questão importada para revisão. Confira conteúdo, classificação e gabarito antes de salvar.',
+                );
+              }}
+              onOpenQuestion={(questionId) => {
+                setActive('Questões');
+                void editQuestion(questionId);
+              }}
+            />
+          ) : active === 'Planejamento' ? (
+            <CurriculumManager
+              items={curriculum}
+              apiUrl={apiUrl}
+              role={canEditCatalog ? 'admin' : 'teacher'}
+              onChange={setCurriculum}
+            />
+          ) : (
+            <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
+              <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">
+                    Banco institucional
+                  </p>
+                  <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
+                    Banco de questões
+                  </h1>
+                  <p className="mt-2 max-w-2xl text-sm text-slate-500">
+                    Cadastre unidades reutilizáveis, relacione habilidades da
+                    BNCC e prepare questões para qualquer formato de avaliação.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <label className="sr-only" htmlFor="subject">
-                    Componente
-                  </label>
-                  <select
-                    id="subject"
-                    value={subject}
-                    onChange={(e) => {
-                      setSubject(e.target.value);
-                      setKnowledgeObjectFilter('');
-                      setCompetencyFilter('');
-                      setTopicGroupFilter('');
-                      setSubtopicFilter('');
-                      setTopicDetailFilter('');
-                    }}
-                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-200"
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setActive('Importar provas')}
                   >
-                    <option value="Todas">Todas as disciplinas</option>
-                    {Array.from(
-                      new Set([
-                        ...curriculum
-                          .filter((item) => item.stage === educationStage)
-                          .map((item) => item.subject),
-                        ...questions
-                          .filter((item) => item.stage === educationStage)
-                          .map((item) => item.subject),
-                      ].filter(Boolean)),
-                    ).sort((a, b) => a.localeCompare(b, 'pt-BR')).map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                  <select aria-label="Série ou ano" value={gradeFilter} onChange={event => {setGradeFilter(event.target.value);setTopicGroupFilter('');setSubtopicFilter('');setTopicDetailFilter('');}} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as séries</option>{[...new Set(questions.filter(q=>q.stage===educationStage).map(q=>q.grade))].sort().map(grade=><option key={grade}>{grade}</option>)}</select>
-                  <select aria-label="Tipo de questão" value={bankQuestionTypeFilter} onChange={event=>setBankQuestionTypeFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todos os tipos</option><option value="single_choice">Múltipla escolha · resposta única</option><option value="multiple_choice">Múltipla escolha · várias respostas</option><option value="true_false">Certo ou errado</option><option value="essay">Dissertativa</option></select>
-                  <select aria-label="Situação das questões" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Todas as situações</option>{['Rascunho','Em revisão','Precisa de ajustes','Aprovada','Arquivada'].map(status=><option key={status}>{status}</option>)}</select>
-                  <details className="relative"><summary className="flex h-10 cursor-pointer items-center rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700">Mais filtros ▾</summary><div className="absolute right-0 z-20 mt-2 grid max-h-[70vh] w-[min(85vw,28rem)] gap-3 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-                  {filterPedagogicalDiscipline && educationStage === 'Ensino Médio' ? (
-                    <>
-                      <select
-                        aria-label="Competência específica"
-                        value={competencyFilter}
-                        onChange={(event) =>
-                          setCompetencyFilter(event.target.value)
-                        }
-                        className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                    <FileInput /> Importar questões
+                  </Button>
+                  <Button
+                    onClick={openNewQuestion}
+                    disabled={!canEditCatalog}
+                    size="lg"
+                    className="h-11 bg-[var(--blue)] px-4 text-white shadow-sm hover:bg-blue-700"
+                  >
+                    <Plus />
+                    Nova questão
+                  </Button>
+                </div>
+              </div>
+              {notice && (
+                <div
+                  aria-live="polite"
+                  className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+                >
+                  {notice}
+                </div>
+              )}
+              <section
+                aria-label="Da questão à prova"
+                className="mt-6 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white p-5 shadow-sm sm:p-6"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[.14em] text-blue-700">
+                      Fluxo de preparação
+                    </p>
+                    <h2 className="mt-1 font-display text-xl font-bold text-[var(--navy)]">
+                      Da questão à prova, passo a passo
+                    </h2>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setActive('Avaliações')}
+                  >
+                    <BookOpenCheck className="size-4" /> Montar prova
+                  </Button>
+                </div>
+                <ol className="mt-5 grid gap-3 md:grid-cols-3">
+                  {[
+                    [
+                      '1',
+                      'Cadastre',
+                      'Escreva o enunciado, as alternativas e a resolução.',
+                    ],
+                    [
+                      '2',
+                      'Revise',
+                      'Confira a classificação, o gabarito e a prévia da questão.',
+                    ],
+                    [
+                      '3',
+                      'Monte a prova',
+                      'Escolha as questões aprovadas e organize as seções.',
+                    ],
+                  ].map(([number, heading, detail]) => (
+                    <li
+                      key={number}
+                      className="flex gap-3 rounded-xl border border-blue-100 bg-white p-4"
+                    >
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                        {number}
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          {heading}
+                        </h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                          {detail}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+              <div className="mt-6 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                {(['Ensino Fundamental', 'Ensino Médio'] as const).map(
+                  (stage) => (
+                    <Button
+                      key={stage}
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setEducationStage(stage);
+                        setSubject('Todas');
+                        setKnowledgeObjectFilter('');
+                        setCompetencyFilter('');
+                        setTopicGroupFilter('');
+                        setSubtopicFilter('');
+                        setTopicDetailFilter('');
+                        setGradeFilter('');
+                      }}
+                      className={
+                        educationStage === stage
+                          ? 'bg-[var(--navy)] text-white hover:bg-[var(--navy)] hover:text-white'
+                          : 'text-slate-600'
+                      }
+                    >
+                      {stage}
+                    </Button>
+                  ),
+                )}
+              </div>
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                {[
+                  [
+                    String(questions.length),
+                    'questões no acervo',
+                    'Dados atuais do banco',
+                  ],
+                  [
+                    String(
+                      questions.filter(
+                        (question) => question.status === 'Aprovada',
+                      ).length,
+                    ),
+                    'aprovadas',
+                    questions.length
+                      ? `${Math.round((questions.filter((question) => question.status === 'Aprovada').length / questions.length) * 100)}% do acervo`
+                      : 'Nenhuma questão cadastrada',
+                  ],
+                  [
+                    String(
+                      new Set(
+                        questions
+                          .map((question) => question.skill)
+                          .filter(Boolean),
+                      ).size,
+                    ),
+                    'habilidades cobertas',
+                    `${new Set(questions.map((question) => question.subject).filter(Boolean)).size} componentes`,
+                  ],
+                ].map(([value, label, note], index) => (
+                  <article
+                    key={label}
+                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)]"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-display text-3xl font-bold tracking-tight text-[var(--navy)]">
+                          {value}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-slate-600">
+                          {label}
+                        </p>
+                      </div>
+                      <span
+                        className={`grid size-9 place-items-center rounded-xl ${index === 1 ? 'bg-emerald-50 text-emerald-600' : index === 2 ? 'bg-violet-50 text-violet-600' : 'bg-blue-50 text-blue-600'}`}
                       >
-                        <option value="">Todas as competências</option>
-                        {Array.from(
-                          new Map(
-                            highSchoolCurriculum.map((item) => [
-                              item.competency_id,
-                              item,
-                            ]),
-                          ).values(),
-                        ).map((item) => (
-                          <option
-                            key={item.competency_id}
-                            value={item.competency_id}
-                          >
-                            Competência {item.competency_number}
+                        {index === 0 ? (
+                          <LibraryBig className="size-4" />
+                        ) : index === 1 ? (
+                          <BookOpenCheck className="size-4" />
+                        ) : (
+                          <Sparkles className="size-4" />
+                        )}
+                      </span>
+                    </div>
+                    <p className="mt-4 text-xs text-slate-500">{note}</p>
+                  </article>
+                ))}
+              </div>
+              <section className="relative mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
+                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 2xl:flex-row 2xl:items-center">
+                  <div className="relative min-w-0 flex-1 2xl:min-w-80">
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+                    <Input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="h-10 border-slate-200 bg-slate-50 pl-9"
+                      placeholder="Buscar por enunciado, código ou habilidade..."
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="sr-only" htmlFor="subject">
+                      Componente
+                    </label>
+                    <select
+                      id="subject"
+                      value={subject}
+                      onChange={(e) => {
+                        setSubject(e.target.value);
+                        setKnowledgeObjectFilter('');
+                        setCompetencyFilter('');
+                        setTopicGroupFilter('');
+                        setSubtopicFilter('');
+                        setTopicDetailFilter('');
+                      }}
+                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="Todas">Todas as disciplinas</option>
+                      {Array.from(
+                        new Set(
+                          [
+                            ...curriculum
+                              .filter((item) => item.stage === educationStage)
+                              .map((item) => item.subject),
+                            ...questions
+                              .filter((item) => item.stage === educationStage)
+                              .map((item) => item.subject),
+                          ].filter(Boolean),
+                        ),
+                      )
+                        .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+                        .map((item) => (
+                          <option key={item} value={item}>
+                            {item}
                           </option>
                         ))}
-                      </select>
-                      <select
-                        aria-label={`Objeto de conhecimento de ${subject}`}
-                        value={topicGroupFilter}
-                        onChange={(event) => {
-                          setTopicGroupFilter(event.target.value);
-                          setSubtopicFilter('');
-                          setTopicDetailFilter('');
-                        }}
-                        className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                      >
-                        <option value="">Todos os objetos</option>
-                        {pedagogicalTopics
-                          .filter(
-                            (topic) =>
-                              topic.discipline_id ===
-                                filterPedagogicalDiscipline?.id &&
-                              !topic.parent_id &&
-                              (!gradeFilter ||
-                                normalizeGradeLabel(topic.grade_range) === gradeFilter),
-                          )
-                          .map((topic) => (
-                            <option key={topic.id} value={topic.name}>
-                              {topic.name}
-                            </option>
-                          ))}
-                      </select>
-                      <select
-                        aria-label={`Subtópico de ${subject}`}
-                        value={subtopicFilter}
-                        disabled={!topicGroupFilter}
-                        onChange={(event) => {
-                          setSubtopicFilter(event.target.value);
-                          setTopicDetailFilter('');
-                        }}
-                        className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
-                      >
-                        <option value="">Todos os subtópicos</option>
-                        {pedagogicalTopics
-                          .filter(
-                            (topic) =>
-                              topic.parent_id ===
-                              pedagogicalTopics.find(
-                                (root) =>
-                                  !root.parent_id &&
-                                  root.discipline_id ===
-                                    filterPedagogicalDiscipline?.id &&
-                                  root.name === topicGroupFilter && (!gradeFilter || normalizeGradeLabel(root.grade_range) === gradeFilter),
-                              )?.id,
-                          )
-                          .map((topic) => (
-                            <option key={topic.id} value={topic.name}>
-                              {topic.name}
-                            </option>
-                          ))}
-                      </select>
-                      {pedagogicalTopics.some(
-                        (topic) =>
-                          topic.parent_id ===
-                          pedagogicalTopics.find(
-                            (parent) =>
-                              parent.discipline_id === filterPedagogicalDiscipline?.id &&
-                              (!gradeFilter || normalizeGradeLabel(parent.grade_range) === gradeFilter) &&
-                              parent.name === subtopicFilter &&
-                              parent.parent_name === topicGroupFilter,
-                          )?.id,
-                      ) && (
-                        <select
-                          aria-label={`Detalhamento de ${subject}`}
-                          value={topicDetailFilter}
-                          onChange={(event) =>
-                            setTopicDetailFilter(event.target.value)
-                          }
-                          className="h-10 max-w-64 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                        >
-                          <option value="">Todos os detalhamentos</option>
-                          {pedagogicalTopics
-                            .filter(
+                    </select>
+                    <select
+                      aria-label="Série ou ano"
+                      value={gradeFilter}
+                      onChange={(event) => {
+                        setGradeFilter(event.target.value);
+                        setTopicGroupFilter('');
+                        setSubtopicFilter('');
+                        setTopicDetailFilter('');
+                      }}
+                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option value="">Todas as séries</option>
+                      {[
+                        ...new Set(
+                          questions
+                            .filter((q) => q.stage === educationStage)
+                            .map((q) => q.grade),
+                        ),
+                      ]
+                        .sort()
+                        .map((grade) => (
+                          <option key={grade}>{grade}</option>
+                        ))}
+                    </select>
+                    <select
+                      aria-label="Tipo de questão"
+                      value={bankQuestionTypeFilter}
+                      onChange={(event) =>
+                        setBankQuestionTypeFilter(event.target.value)
+                      }
+                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option value="">Todos os tipos</option>
+                      <option value="single_choice">
+                        Múltipla escolha · resposta única
+                      </option>
+                      <option value="multiple_choice">
+                        Múltipla escolha · várias respostas
+                      </option>
+                      <option value="true_false">Certo ou errado</option>
+                      <option value="essay">Dissertativa</option>
+                    </select>
+                    <select
+                      aria-label="Situação das questões"
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value)}
+                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option value="">Todas as situações</option>
+                      {[
+                        'Rascunho',
+                        'Em revisão',
+                        'Precisa de ajustes',
+                        'Aprovada',
+                        'Arquivada',
+                      ].map((status) => (
+                        <option key={status}>{status}</option>
+                      ))}
+                    </select>
+                    <details className="relative">
+                      <summary className="flex h-10 cursor-pointer items-center rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700">
+                        Mais filtros ▾
+                      </summary>
+                      <div className="absolute right-0 z-20 mt-2 grid max-h-[70vh] w-[min(85vw,28rem)] gap-3 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+                        {filterPedagogicalDiscipline &&
+                        educationStage === 'Ensino Médio' ? (
+                          <>
+                            <select
+                              aria-label="Competência específica"
+                              value={competencyFilter}
+                              onChange={(event) =>
+                                setCompetencyFilter(event.target.value)
+                              }
+                              className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                            >
+                              <option value="">Todas as competências</option>
+                              {Array.from(
+                                new Map(
+                                  highSchoolCurriculum.map((item) => [
+                                    item.competency_id,
+                                    item,
+                                  ]),
+                                ).values(),
+                              ).map((item) => (
+                                <option
+                                  key={item.competency_id}
+                                  value={item.competency_id}
+                                >
+                                  Competência {item.competency_number}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              aria-label={`Objeto de conhecimento de ${subject}`}
+                              value={topicGroupFilter}
+                              onChange={(event) => {
+                                setTopicGroupFilter(event.target.value);
+                                setSubtopicFilter('');
+                                setTopicDetailFilter('');
+                              }}
+                              className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                            >
+                              <option value="">Todos os objetos</option>
+                              {pedagogicalTopics
+                                .filter(
+                                  (topic) =>
+                                    topic.discipline_id ===
+                                      filterPedagogicalDiscipline?.id &&
+                                    !topic.parent_id &&
+                                    (!gradeFilter ||
+                                      normalizeGradeLabel(topic.grade_range) ===
+                                        gradeFilter),
+                                )
+                                .map((topic) => (
+                                  <option key={topic.id} value={topic.name}>
+                                    {topic.name}
+                                  </option>
+                                ))}
+                            </select>
+                            <select
+                              aria-label={`Subtópico de ${subject}`}
+                              value={subtopicFilter}
+                              disabled={!topicGroupFilter}
+                              onChange={(event) => {
+                                setSubtopicFilter(event.target.value);
+                                setTopicDetailFilter('');
+                              }}
+                              className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
+                            >
+                              <option value="">Todos os subtópicos</option>
+                              {pedagogicalTopics
+                                .filter(
+                                  (topic) =>
+                                    topic.parent_id ===
+                                    pedagogicalTopics.find(
+                                      (root) =>
+                                        !root.parent_id &&
+                                        root.discipline_id ===
+                                          filterPedagogicalDiscipline?.id &&
+                                        root.name === topicGroupFilter &&
+                                        (!gradeFilter ||
+                                          normalizeGradeLabel(
+                                            root.grade_range,
+                                          ) === gradeFilter),
+                                    )?.id,
+                                )
+                                .map((topic) => (
+                                  <option key={topic.id} value={topic.name}>
+                                    {topic.name}
+                                  </option>
+                                ))}
+                            </select>
+                            {pedagogicalTopics.some(
                               (topic) =>
                                 topic.parent_id ===
                                 pedagogicalTopics.find(
                                   (parent) =>
-                                    parent.discipline_id === filterPedagogicalDiscipline?.id &&
-                                    (!gradeFilter || normalizeGradeLabel(parent.grade_range) === gradeFilter) &&
+                                    parent.discipline_id ===
+                                      filterPedagogicalDiscipline?.id &&
+                                    (!gradeFilter ||
+                                      normalizeGradeLabel(
+                                        parent.grade_range,
+                                      ) === gradeFilter) &&
                                     parent.name === subtopicFilter &&
                                     parent.parent_name === topicGroupFilter,
                                 )?.id,
-                            )
-                            .map((topic) => (
-                              <option key={topic.id} value={topic.name}>
-                                {topic.name}
+                            ) && (
+                              <select
+                                aria-label={`Detalhamento de ${subject}`}
+                                value={topicDetailFilter}
+                                onChange={(event) =>
+                                  setTopicDetailFilter(event.target.value)
+                                }
+                                className="h-10 max-w-64 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                              >
+                                <option value="">Todos os detalhamentos</option>
+                                {pedagogicalTopics
+                                  .filter(
+                                    (topic) =>
+                                      topic.parent_id ===
+                                      pedagogicalTopics.find(
+                                        (parent) =>
+                                          parent.discipline_id ===
+                                            filterPedagogicalDiscipline?.id &&
+                                          (!gradeFilter ||
+                                            normalizeGradeLabel(
+                                              parent.grade_range,
+                                            ) === gradeFilter) &&
+                                          parent.name === subtopicFilter &&
+                                          parent.parent_name ===
+                                            topicGroupFilter,
+                                      )?.id,
+                                  )
+                                  .map((topic) => (
+                                    <option key={topic.id} value={topic.name}>
+                                      {topic.name}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
+                          </>
+                        ) : (
+                          <select
+                            aria-label="Objeto de conhecimento"
+                            value={knowledgeObjectFilter}
+                            onChange={(event) =>
+                              setKnowledgeObjectFilter(event.target.value)
+                            }
+                            disabled={subject === 'Todas'}
+                            className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
+                          >
+                            <option value="">Todos os objetos</option>
+                            {Array.from(
+                              new Map(
+                                curriculum
+                                  .filter(
+                                    (item) =>
+                                      item.subject === subject &&
+                                      item.knowledge_object_id,
+                                  )
+                                  .map((item) => [
+                                    item.knowledge_object_id,
+                                    item,
+                                  ]),
+                              ).values(),
+                            ).map((item) => (
+                              <option
+                                key={item.knowledge_object_id}
+                                value={item.knowledge_object_id || ''}
+                              >
+                                {item.knowledge_object}
                               </option>
                             ))}
-                        </select>
-                      )}
-                    </>
-                  ) : (
-                    <select
-                      aria-label="Objeto de conhecimento"
-                      value={knowledgeObjectFilter}
-                      onChange={(event) =>
-                        setKnowledgeObjectFilter(event.target.value)
-                      }
-                      disabled={subject === 'Todas'}
-                      className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
-                    >
-                      <option value="">Todos os objetos</option>
-                      {Array.from(
-                        new Map(
-                          curriculum
-                            .filter(
-                              (item) =>
-                                item.subject === subject &&
-                                item.knowledge_object_id,
-                            )
-                            .map((item) => [item.knowledge_object_id, item]),
-                        ).values(),
-                      ).map((item) => (
-                        <option
-                          key={item.knowledge_object_id}
-                          value={item.knowledge_object_id || ''}
+                          </select>
+                        )}
+                        <select
+                          aria-label="Instituição ou banca de origem"
+                          value={sourceInstitutionFilter}
+                          onChange={(event) =>
+                            setSourceInstitutionFilter(event.target.value)
+                          }
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
                         >
-                          {item.knowledge_object}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <select
-                    aria-label="Instituição ou banca de origem"
-                    value={sourceInstitutionFilter}
-                    onChange={(event) =>
-                      setSourceInstitutionFilter(event.target.value)
-                    }
-                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                  >
-                    <option value="">Todas as instituições</option>
-                    {(filterOptions.sourceInstitutions.length
-                      ? filterOptions.sourceInstitutions
-                      : Array.from(
-                          new Set(
-                            questions.map(
-                              (question) => question.sourceInstitution,
-                            ),
-                          ),
-                        )
-                    ).map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Ano da prova"
-                    value={sourceYearFilter}
-                    onChange={(event) =>
-                      setSourceYearFilter(event.target.value)
-                    }
-                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                  >
-                    <option value="">Todos os anos</option>
-                    {(filterOptions.sourceYears.length
-                      ? filterOptions.sourceYears
-                      : Array.from(
-                          new Set(
-                            questions.map((question) => question.sourceYear),
-                          ),
-                        ).sort((a, b) => b - a)
-                    ).map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Nível de dificuldade"
-                    value={difficultyFilter}
-                    onChange={(event) =>
-                      setDifficultyFilter(event.target.value)
-                    }
-                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                  >
-                    <option value="">Todos os níveis</option>
-                    {filterOptions.difficulties.map((item) => (
-                      <option key={item.id} value={item.label}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                  </div></details>
-                  {(query || statusFilter || bankQuestionTypeFilter || gradeFilter || competencyFilter || topicDetailFilter || subject !== 'Todas' ||
-                    knowledgeObjectFilter ||
-                    topicGroupFilter ||
-                    subtopicFilter ||
-                    sourceInstitutionFilter ||
-                    sourceYearFilter ||
-                    difficultyFilter) && (
-                    <Button
-                      variant="outline"
-                      className="h-10 px-3"
-                      onClick={() => {
-                        setQuery('');setStatusFilter('');setBankQuestionTypeFilter('');setGradeFilter('');setCompetencyFilter('');
-                        setSubject('Todas');
-                        setKnowledgeObjectFilter('');
-                        setTopicGroupFilter('');
-                        setSubtopicFilter('');
-                        setTopicDetailFilter('');
-                        setSourceInstitutionFilter('');
-                        setSourceYearFilter('');
-                        setDifficultyFilter('');
-                      }}
-                    >
-                      <X />
-                      Limpar
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <QuestionBatchApproval apiUrl={apiUrl} questions={visible} enabled={Boolean(identity.portalAdmin)} onChanged={async()=>{
-                const response=await apiFetch(`${apiUrl}/api/questions`,{cache:'no-store'});if(!response.ok)throw new Error('Falha ao atualizar a lista.');setQuestions(((await response.json()) as {data:Question[]}).data);
-              }}>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[920px] border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold uppercase tracking-[.08em] text-slate-500">
-                      {identity.portalAdmin && <th className="w-12 px-3 py-3"><QuestionApprovalSelection /></th>}
-                      <th className="w-[47%] px-5 py-3">Questão</th>
-                      <th className="px-4 py-3">Classificação</th>
-                      <th className="px-4 py-3">Dificuldade</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Atualização</th>
-                      <th className="w-12 px-3 py-3">
-                        <span className="sr-only">Ações</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visible.map((q) => (
-                      <tr
-                        key={q.id}
-                        className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30"
+                          <option value="">Todas as instituições</option>
+                          {(filterOptions.sourceInstitutions.length
+                            ? filterOptions.sourceInstitutions
+                            : Array.from(
+                                new Set(
+                                  questions.map(
+                                    (question) => question.sourceInstitution,
+                                  ),
+                                ),
+                              )
+                          ).map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          aria-label="Ano da prova"
+                          value={sourceYearFilter}
+                          onChange={(event) =>
+                            setSourceYearFilter(event.target.value)
+                          }
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                        >
+                          <option value="">Todos os anos</option>
+                          {(filterOptions.sourceYears.length
+                            ? filterOptions.sourceYears
+                            : Array.from(
+                                new Set(
+                                  questions.map(
+                                    (question) => question.sourceYear,
+                                  ),
+                                ),
+                              ).sort((a, b) => b - a)
+                          ).map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          aria-label="Nível de dificuldade"
+                          value={difficultyFilter}
+                          onChange={(event) =>
+                            setDifficultyFilter(event.target.value)
+                          }
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                        >
+                          <option value="">Todos os níveis</option>
+                          {filterOptions.difficulties.map((item) => (
+                            <option key={item.id} value={item.label}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </details>
+                    {(query ||
+                      statusFilter ||
+                      bankQuestionTypeFilter ||
+                      gradeFilter ||
+                      competencyFilter ||
+                      topicDetailFilter ||
+                      subject !== 'Todas' ||
+                      knowledgeObjectFilter ||
+                      topicGroupFilter ||
+                      subtopicFilter ||
+                      sourceInstitutionFilter ||
+                      sourceYearFilter ||
+                      difficultyFilter) && (
+                      <Button
+                        variant="outline"
+                        className="h-10 px-3"
+                        onClick={() => {
+                          setQuery('');
+                          setStatusFilter('');
+                          setBankQuestionTypeFilter('');
+                          setGradeFilter('');
+                          setCompetencyFilter('');
+                          setSubject('Todas');
+                          setKnowledgeObjectFilter('');
+                          setTopicGroupFilter('');
+                          setSubtopicFilter('');
+                          setTopicDetailFilter('');
+                          setSourceInstitutionFilter('');
+                          setSourceYearFilter('');
+                          setDifficultyFilter('');
+                        }}
                       >
-                        {identity.portalAdmin && <QuestionApprovalTableCell question={q} />}
-                        <td aria-label={`Questão ${q.code}`} className="px-5 py-4">
-                          <div className="flex gap-3">
-                            <span
-                              className="mt-0.5 grid min-h-10 w-[4.5rem] shrink-0 place-items-center rounded-lg bg-slate-100 px-1 py-1 text-center text-xs font-semibold leading-tight text-slate-600"
-                              title={q.type === 'essay' ? 'Questão discursiva' : q.type === 'true_false' ? 'Certo ou errado' : `Múltipla escolha com ${q.alternatives} alternativas`}
-                            >
-                              {q.type === 'essay'
-                                ? 'Discursiva'
-                                : q.type === 'true_false' ? 'C ou E'
-                                : `${q.alternatives} opções`}
-                            </span>
-                            <div>
-                              <div className="mb-1 flex items-center gap-2">
-                                <span className="font-mono text-xs font-semibold text-[var(--blue)]">
-                                  {q.code}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                  {q.subject} · {q.grade} ·{' '}
-                                  {q.sourceInstitution} {q.sourceYear}
-                                </span>
-                              </div>
-                              <button type="button" onClick={() => setBankQuestionId(q.id)} className="block max-w-xl text-left text-sm font-medium leading-5 text-slate-800 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`Abrir detalhes de ${q.code}`}><span className="line-clamp-2">{questionBankSummary(q.statement)}</span></button>
-                              {/\\startMPcode|\\externalfigure/.test(q.statement) && <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><Eye className="size-3"/> Com ilustração</span>}
-                              {q.hasResolution && <span className="ml-2 mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><BookOpenCheck className="size-3"/> Com resolução</span>}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <Badge
-                            variant="outline"
-                            className="border-violet-200 bg-violet-50 font-mono text-violet-700"
-                          >
-                            {q.skill || 'Não vinculada'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4">
-                          <Badge
-                            variant="outline"
-                            className={difficultyClass(q.difficulty)}
-                          >
-                            {q.difficulty}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${q.status==='Aprovada'?'bg-emerald-50 text-emerald-700':q.status==='Precisa de ajustes'?'bg-rose-50 text-rose-700':q.status==='Em revisão'?'bg-blue-50 text-blue-700':'bg-slate-100 text-slate-600'}`}>{q.status}</span>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">
-                          {q.updatedAt}
-                        </td>
-                        <td className="px-3 py-4">
-                          <div className="flex">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Visualizar ${q.code}`}
-                              onClick={() => setBankQuestionId(q.id)}
-                            >
-                              <Eye />
-                            </Button>
-                            <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Mais ações para ${q.code}`}/>}>⋯</DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-40">
-                              <DropdownMenuItem disabled={!canEditCatalog} onClick={()=>void editQuestion(q.id)}><Pencil/> Editar questão</DropdownMenuItem>
-                              <DropdownMenuItem disabled={!canEditCatalog} variant="destructive" onClick={()=>void removeQuestion(q)}><Trash2/> Excluir questão</DropdownMenuItem>
-                            </DropdownMenuContent></DropdownMenu>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!visible.length && (
-                  <div className="grid place-items-center px-6 py-16 text-center">
-                    <Search className="mb-3 size-7 text-slate-300" />
-                    <p className="font-semibold text-slate-700">
-                      Nenhuma questão encontrada
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Tente remover um filtro ou pesquisar outro termo.
-                    </p>
+                        <X />
+                        Limpar
+                      </Button>
+                    )}
                   </div>
-                )}
-              </div>
-              </QuestionBatchApproval>
-              <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-xs text-slate-500">
-                <span>
-                  Exibindo {visible.length} de {questions.length} questões do acervo
-                </span>
-
-              </footer>
-            </section>
-          </div>
-        )}
+                </div>
+                <QuestionBatchApproval
+                  apiUrl={apiUrl}
+                  questions={visible}
+                  enabled={Boolean(identity.portalAdmin)}
+                  onChanged={async () => {
+                    const response = await apiFetch(`${apiUrl}/api/questions`, {
+                      cache: 'no-store',
+                    });
+                    if (!response.ok)
+                      throw new Error('Falha ao atualizar a lista.');
+                    setQuestions(
+                      ((await response.json()) as { data: Question[] }).data,
+                    );
+                  }}
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[920px] border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold uppercase tracking-[.08em] text-slate-500">
+                          {identity.portalAdmin && (
+                            <th className="w-12 px-3 py-3">
+                              <QuestionApprovalSelection />
+                            </th>
+                          )}
+                          <th className="w-[47%] px-5 py-3">Questão</th>
+                          <th className="px-4 py-3">Classificação</th>
+                          <th className="px-4 py-3">Dificuldade</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">Atualização</th>
+                          <th className="w-12 px-3 py-3">
+                            <span className="sr-only">Ações</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visible.map((q) => (
+                          <tr
+                            key={q.id}
+                            className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30"
+                          >
+                            {identity.portalAdmin && (
+                              <QuestionApprovalTableCell question={q} />
+                            )}
+                            <td
+                              aria-label={`Questão ${q.code}`}
+                              className="px-5 py-4"
+                            >
+                              <div className="flex gap-3">
+                                <span
+                                  className="mt-0.5 grid min-h-10 w-[4.5rem] shrink-0 place-items-center rounded-lg bg-slate-100 px-1 py-1 text-center text-xs font-semibold leading-tight text-slate-600"
+                                  title={
+                                    q.type === 'essay'
+                                      ? 'Questão discursiva'
+                                      : q.type === 'true_false'
+                                        ? 'Certo ou errado'
+                                        : `Múltipla escolha com ${q.alternatives} alternativas`
+                                  }
+                                >
+                                  {q.type === 'essay'
+                                    ? 'Discursiva'
+                                    : q.type === 'true_false'
+                                      ? 'C ou E'
+                                      : `${q.alternatives} opções`}
+                                </span>
+                                <div>
+                                  <div className="mb-1 flex items-center gap-2">
+                                    <span className="font-mono text-xs font-semibold text-[var(--blue)]">
+                                      {q.code}
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                      {q.subject} · {q.grade} ·{' '}
+                                      {q.sourceInstitution} {q.sourceYear}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setBankQuestionId(q.id)}
+                                    className="block max-w-xl text-left text-sm font-medium leading-5 text-slate-800 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"
+                                    aria-label={`Abrir detalhes de ${q.code}`}
+                                  >
+                                    <span className="line-clamp-2">
+                                      {questionBankSummary(q.statement)}
+                                    </span>
+                                  </button>
+                                  {/\\startMPcode|\\externalfigure/.test(
+                                    q.statement,
+                                  ) && (
+                                    <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
+                                      <Eye className="size-3" /> Com ilustração
+                                    </span>
+                                  )}
+                                  {q.hasResolution && (
+                                    <span className="ml-2 mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
+                                      <BookOpenCheck className="size-3" /> Com
+                                      resolução
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Badge
+                                variant="outline"
+                                className="border-violet-200 bg-violet-50 font-mono text-violet-700"
+                              >
+                                {q.skill || 'Não vinculada'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Badge
+                                variant="outline"
+                                className={difficultyClass(q.difficulty)}
+                              >
+                                {q.difficulty}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span
+                                className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${q.status === 'Aprovada' ? 'bg-emerald-50 text-emerald-700' : q.status === 'Precisa de ajustes' ? 'bg-rose-50 text-rose-700' : q.status === 'Em revisão' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}
+                              >
+                                {q.status}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">
+                              {q.updatedAt}
+                            </td>
+                            <td className="px-3 py-4">
+                              <div className="flex">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Visualizar ${q.code}`}
+                                  onClick={() => setBankQuestionId(q.id)}
+                                >
+                                  <Eye />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    render={
+                                      <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label={`Mais ações para ${q.code}`}
+                                      />
+                                    }
+                                  >
+                                    ⋯
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="min-w-40"
+                                  >
+                                    <DropdownMenuItem
+                                      disabled={!canEditCatalog}
+                                      onClick={() => void editQuestion(q.id)}
+                                    >
+                                      <Pencil /> Editar questão
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={!canEditCatalog}
+                                      variant="destructive"
+                                      onClick={() => void removeQuestion(q)}
+                                    >
+                                      <Trash2 /> Excluir questão
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {!visible.length && (
+                      <div className="grid place-items-center px-6 py-16 text-center">
+                        <Search className="mb-3 size-7 text-slate-300" />
+                        <p className="font-semibold text-slate-700">
+                          Nenhuma questão encontrada
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Tente remover um filtro ou pesquisar outro termo.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </QuestionBatchApproval>
+                <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-xs text-slate-500">
+                  <span>
+                    Exibindo {visible.length} de {questions.length} questões do
+                    acervo
+                  </span>
+                </footer>
+              </section>
+            </div>
+          )}
         </div>
       </section>
 
-      <nav aria-label="Atalhos no celular" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white px-1 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-sm lg:hidden">
-        {([['Início', LayoutDashboard], ['Preparar', BookOpenCheck], ['Corrigir', ScanLine], ['Diagnosticar', BarChart3], ['Menu', Menu]] as const).map(([label, Icon]) => <button key={label} type="button" aria-current={active === label ? 'page' : undefined} aria-expanded={label === 'Menu' ? mobileMenuOpen : undefined} onClick={() => { if (label === 'Menu') { setMobileMenuOpen(value => !value); window.scrollTo({ top: 0 }); } else { setInitialApplicationId(''); setActive(label); setMobileMenuOpen(false); window.scrollTo({ top: 0 }); } }} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs font-semibold ${active === label || label === 'Menu' && mobileMenuOpen ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}><Icon className="size-5" aria-hidden="true" />{label === 'Diagnosticar' ? 'Diagnóstico' : label}</button>)}
+      <nav
+        aria-label="Atalhos no celular"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white px-1 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-sm lg:hidden"
+      >
+        {(
+          [
+            ['Início', LayoutDashboard],
+            ['Preparar', BookOpenCheck],
+            ['Corrigir', ScanLine],
+            ['Diagnosticar', BarChart3],
+            ['Menu', Menu],
+          ] as const
+        ).map(([label, Icon]) => (
+          <button
+            key={label}
+            type="button"
+            aria-current={active === label ? 'page' : undefined}
+            aria-expanded={label === 'Menu' ? mobileMenuOpen : undefined}
+            onClick={() => {
+              if (label === 'Menu') {
+                setMobileMenuOpen((value) => !value);
+                window.scrollTo({ top: 0 });
+              } else {
+                setInitialApplicationId('');
+                setActive(label);
+                setMobileMenuOpen(false);
+                window.scrollTo({ top: 0 });
+              }
+            }}
+            className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs font-semibold ${active === label || (label === 'Menu' && mobileMenuOpen) ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}
+          >
+            <Icon className="size-5" aria-hidden="true" />
+            {label === 'Diagnosticar' ? 'Diagnóstico' : label}
+          </button>
+        ))}
       </nav>
 
       {open && (
@@ -1927,7 +2581,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={()=>void closeQuestionEditor()}
+                onClick={() => void closeQuestionEditor()}
                 aria-label="Fechar"
               >
                 <X />
@@ -1935,9 +2589,11 @@ export default function Home() {
             </header>
             <form
               onSubmit={createQuestion}
-              onInvalid={(event)=>{
-                const field=event.target as HTMLInputElement;
-                setNotice(`Não foi possível cadastrar: ${field.validationMessage || 'confira o campo'}${field.name ? ` (${field.name})` : ''}. Você pode salvar como rascunho sem preencher tudo.`);
+              onInvalid={(event) => {
+                const field = event.target as HTMLInputElement;
+                setNotice(
+                  `Não foi possível cadastrar: ${field.validationMessage || 'confira o campo'}${field.name ? ` (${field.name})` : ''}. Você pode salvar como rascunho sem preencher tudo.`,
+                );
               }}
               onInput={() => {
                 if (!questionPreviewVerified) return;
@@ -1957,14 +2613,23 @@ export default function Home() {
                   <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">
                     Etapas do cadastro
                   </p>
-                  <nav className="mt-4 space-y-1" aria-label="Etapas do cadastro da questão">
+                  <nav
+                    className="mt-4 space-y-1"
+                    aria-label="Etapas do cadastro da questão"
+                  >
                     {[
                       ['question-type', '1', 'Tipo de questão'],
                       ['question-curriculum', '2', 'Classificação'],
                       ['question-source', '3', 'Origem'],
                       ['question-content', '4', 'Enunciado'],
-                      ...(questionType === 'essay' ? [] : [['question-alternatives', '5', 'Alternativas']]),
-                      ['question-resolution', questionType === 'essay' ? '5' : '6', 'Resolução'],
+                      ...(questionType === 'essay'
+                        ? []
+                        : [['question-alternatives', '5', 'Alternativas']]),
+                      [
+                        'question-resolution',
+                        questionType === 'essay' ? '5' : '6',
+                        'Resolução',
+                      ],
                     ].map(([target, step, label]) => (
                       <a
                         key={target}
@@ -1981,878 +2646,1195 @@ export default function Home() {
                   <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
                     <strong>Fluxo recomendado</strong>
                     <p className="mt-1">
-                      Classifique, escreva, marque o gabarito e confira a prévia em PDF antes de salvar.
+                      Classifique, escreva, marque o gabarito e confira a prévia
+                      em PDF antes de salvar.
                     </p>
                   </div>
                 </aside>
                 <div className="min-w-0 space-y-6 p-4 sm:p-7 lg:p-9">
-              <nav aria-label="Etapas do cadastro da questão" className="flex gap-2 overflow-x-auto rounded-xl border border-blue-100 bg-blue-50/70 p-2 lg:hidden">
-                {[
-                  ['question-type', '1. Tipo'],
-                  ['question-curriculum', '2. Classificação'],
-                  ['question-source', '3. Origem'],
-                  ['question-content', '4. Enunciado'],
-                  ...(questionType === 'essay' ? [] : [['question-alternatives', '5. Alternativas']]),
-                  ['question-resolution', questionType === 'essay' ? '5. Resolução' : '6. Resolução'],
-                ].map(([target, label]) => (
-                  <a key={target} href={`#${target}`} className="shrink-0 rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-blue-900 shadow-sm">{label}</a>
-                ))}
-              </nav>
-              {importCandidateSource && (
-                <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-950">
-                  <strong>Revisão final da questão importada.</strong> Edite o
-                  conteúdo abaixo e gere a prévia real em PDF. O botão de
-                  cadastro será liberado somente depois dessa conferência; a
-                  questão original continuará vinculada à importação.
-                </div>
-              )}
-              <details className="group rounded-2xl border border-dashed border-blue-200 bg-blue-50/40">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-blue-900 marker:content-none">
-                  <span className="flex items-center gap-2">
-                    <FileInput className="size-4" />
-                    Colar e analisar uma questão pronta
-                    <QuestionPasteExample />
-                    <span className="font-normal text-blue-600">(opcional)</span>
-                  </span>
-                  <span className="text-xs text-blue-600 group-open:hidden">Abrir importador</span>
-                  <span className="hidden text-xs text-blue-600 group-open:inline">Recolher</span>
-                </summary>
-                <div className="border-t border-blue-100 p-4">
-                  <QuestionPasteImporter
-                    onConfirm={(parsed) => {
-                      setImportedQuestion(parsed);
-                      setImportedCorrect(parsed.correctAnswers || []);
-                      setImportedAnswerBlocks(parsed.answerBlocks || []);
-                      if (parsed.skill) {
-                        setSelectedSkillCode(parsed.skill);
-                        setImportedDetails(current => ({...current, skill: parsed.skill || ''}));
-                        const skill = availableSkills.find(item => item.skill_code === parsed.skill);
-                        if (skill && 'competency_id' in skill) setCompetencyId(skill.competency_id || '');
-                      }
-                      if (parsed.correctAnswers?.length) setQuestionType(parsed.correctAnswers.length > 1 ? 'multiple_choice' : 'single_choice');
-                      setImportRevision((value) => value + 1);
-                      setNotice(
-                        'Análise aplicada. Confira o gabarito, a resolução e a classificação curricular antes de salvar.',
-                      );
-                    }}
-                  />
-                </div>
-              </details>
-              <section id="question-type" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                    Etapa 1
-                  </p>
-                  <p className="mt-1 text-base font-semibold">
-                    Tipo de questão
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    O tipo define as alternativas e a forma de correção; o
-                    t-basicexam cuida apenas da apresentação.
-                  </p>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  {[
-                    ['single_choice', 'Resposta única'],
-                    ['multiple_choice', 'Múltiplas'],
-                    ['true_false', 'Certo ou errado'],
-                    ['essay', 'Discursiva'],
-                  ].map(([value, label]) => (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant={questionType === value ? 'default' : 'outline'}
-                      onClick={() => setQuestionType(value as Question['type'])}
-                      className={
-                        questionType === value
-                          ? 'bg-[var(--blue)] text-white'
-                          : ''
-                      }
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </section>
-              <section id="question-curriculum" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                    Etapa 2
-                  </p>
-                  <p className="mt-1 text-base font-semibold">
-                    Classificação curricular
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {pedagogicalDiscipline
-                      ? 'Disciplina pedagógica → Competência específica → Habilidade BNCC'
-                      : 'Disciplina → Objeto de conhecimento → Habilidade BNCC'}
-                  </p>
-                </div>
-                <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-                  {(['Ensino Fundamental', 'Ensino Médio'] as const).map((stage) => (
-                    <button key={stage} type="button" onClick={() => { setEducationStage(stage); setKnowledgeAreaFilter(stage === 'Ensino Médio' ? 'Ciências da Natureza e suas Tecnologias' : 'Ciências da Natureza'); setDiscipline(stage === 'Ensino Médio' ? 'Química' : 'Ciências'); setKnowledgeObjectId(''); setPedagogicalObjectId(''); setPedagogicalSubtopicId(''); setPedagogicalDetailId(''); }} className={`rounded-md px-3 py-2 text-xs font-semibold ${educationStage === stage ? 'bg-[var(--navy)] text-white' : 'text-slate-600'}`}>{stage}</button>
-                  ))}
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {educationStage === 'Ensino Médio' && (
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-semibold">Área de conhecimento</span>
-                      <select value={knowledgeAreaFilter} onChange={(event) => { const area = event.target.value; setKnowledgeAreaFilter(area); setDiscipline(highSchoolSubjectAreas[area][0]); setPedagogicalObjectId(''); setPedagogicalSubtopicId(''); setPedagogicalDetailId(''); }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
-                        {Object.keys(highSchoolSubjectAreas).map((area) => <option key={area}>{area}</option>)}
-                      </select>
-                    </label>
-                  )}
-                  {educationStage === 'Ensino Fundamental' && (
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-semibold">Área de conhecimento</span>
-                      <select
-                        value={knowledgeAreaFilter in elementarySubjectAreas ? knowledgeAreaFilter : 'Linguagens'}
-                        onChange={(event) => {
-                          const area = event.target.value;
-                          setKnowledgeAreaFilter(area);
-                          setDiscipline(elementarySubjectAreas[area][0]);
-                          setKnowledgeObjectId('');
-                        }}
-                        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  <nav
+                    aria-label="Etapas do cadastro da questão"
+                    className="flex gap-2 overflow-x-auto rounded-xl border border-blue-100 bg-blue-50/70 p-2 lg:hidden"
+                  >
+                    {[
+                      ['question-type', '1. Tipo'],
+                      ['question-curriculum', '2. Classificação'],
+                      ['question-source', '3. Origem'],
+                      ['question-content', '4. Enunciado'],
+                      ...(questionType === 'essay'
+                        ? []
+                        : [['question-alternatives', '5. Alternativas']]),
+                      [
+                        'question-resolution',
+                        questionType === 'essay'
+                          ? '5. Resolução'
+                          : '6. Resolução',
+                      ],
+                    ].map(([target, label]) => (
+                      <a
+                        key={target}
+                        href={`#${target}`}
+                        className="shrink-0 rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-blue-900 shadow-sm"
                       >
-                        {Object.keys(elementarySubjectAreas).map((area) => <option key={area}>{area}</option>)}
-                      </select>
-                    </label>
-                  )}
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold">
-                      Disciplina
-                    </span>
-                    <select
-                      required
-                      name="subject"
-                      value={discipline}
-                      onChange={(event) => {
-                        const next = event.target.value;
-                        setDiscipline(next);
-                        const pedagogical = pedagogicalDisciplines.find(
-                          (item) =>
-                            educationStage === 'Ensino Médio' && item.name === next && item.stage === educationStage,
-                        );
-                        setKnowledgeObjectId(
-                          pedagogical
-                            ? ''
-                            : curriculum.find((item) => item.subject === next)
-                                ?.knowledge_object_id || '',
-                        );
-                        setCompetencyId(
-                          pedagogical
-                            ? highSchoolCurriculum.find((item) => item.area_source_key === pedagogical.area_source_key)?.competency_id || ''
-                            : '',
-                        );
-                        setCompetencyInfoOpen(false);
-                        setSelectedSkillCode('');
-                        setSelectedSaebDescriptor('');
-                        setSaebInfoOpen(false);
-                        if (pedagogical) {
-                          const firstGrade = pedagogicalTopics
-                            .filter(
-                              (topic) =>
-                                topic.discipline_id === pedagogical.id &&
-                                topic.grade_range,
-                            )
-                            .map((topic) => topic.grade_range)[0];
-                          setPedagogicalGrade(
-                            firstGrade ||
-                              (educationStage === 'Ensino Médio'
-                                ? '1ª série'
-                                : '6º ano'),
-                          );
-                          setPedagogicalObjectId('');
-                          setPedagogicalSubtopicId('');
-                          setPedagogicalDetailId('');
-                        }
-                      }}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                    >
-                      {[
-                        ...new Set([
-                          discipline,
-                          ...(educationStage === 'Ensino Médio'
-                            ? highSchoolSubjectAreas[knowledgeAreaFilter] || []
-                            : elementarySubjectAreas[knowledgeAreaFilter] || curriculum.filter((item) => item.stage === educationStage).map((item) => item.subject)),
-                          ...pedagogicalDisciplines.filter((item) => item.stage === educationStage && (educationStage !== 'Ensino Médio' || (highSchoolSubjectAreas[knowledgeAreaFilter] || []).includes(item.name))).map((item) => item.name),
-                        ]),
-                      ].map((item) => (
-                        <option key={item}>{item}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {compatibleSaebMatrices.length > 0 && (
-                    <div className="space-y-3 rounded-xl border border-cyan-200 bg-cyan-50/40 p-4 sm:col-span-2">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          Descritor SAEB{' '}
-                          <span className="font-normal text-slate-500">
-                            (opcional)
-                          </span>
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Vincule um descritor oficial sem substituir a
-                          habilidade BNCC.
-                        </p>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label htmlFor="saeb-matrix" className="block">
-                          <span className="mb-2 block text-xs font-semibold text-slate-600">
-                            Matriz
-                          </span>
-                          <select
-                            id="saeb-matrix"
-                            value={selectedSaebMatrix}
-                            onChange={(event) => {
-                              setSelectedSaebMatrix(event.target.value);
-                              setSelectedSaebDescriptor('');
-                              setSaebInfoOpen(false);
-                            }}
-                            className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
-                          >
-                            {compatibleSaebMatrices.map((matrix) => (
-                              <option key={matrix.id} value={matrix.id}>
-                                {matrix.subject} · {matrix.grade_range}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label htmlFor="saeb-descriptor" className="block">
-                          <span className="mb-2 block text-xs font-semibold text-slate-600">
-                            Indicador/descritor
-                          </span>
-                          <select
-                            id="saeb-descriptor"
-                            name="saebDescriptorId"
-                            value={selectedSaebDescriptor}
-                            onChange={(event) => {
-                              setSelectedSaebDescriptor(event.target.value);
-                              setSaebInfoOpen(false);
-                            }}
-                            className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
-                          >
-                            <option value="">Não vincular descritor</option>
-                            {saebDescriptors.map((descriptor) => (
-                              <option key={descriptor.id} value={descriptor.id}>
-                                {descriptor.code} · {descriptor.topic}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      {selectedSaebInfo && (
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => setSaebInfoOpen((open) => !open)}
-                            aria-expanded={saebInfoOpen}
-                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-100"
-                          >
-                            <Info className="size-3.5" /> Informação do
-                            descritor
-                          </button>
-                          {saebInfoOpen && (
-                            <div
-                              role="note"
-                              className="mt-1 rounded-lg border border-cyan-200 bg-white p-3 text-xs leading-5 text-slate-700"
-                            >
-                              <strong className="font-mono text-cyan-900">
-                                {selectedSaebInfo.code}
-                              </strong>
-                              <p className="mt-1 font-semibold">
-                                {selectedSaebInfo.topic}
-                              </p>
-                              <p className="mt-1">
-                                {selectedSaebInfo.description}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        {label}
+                      </a>
+                    ))}
+                  </nav>
+                  {importCandidateSource && (
+                    <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-950">
+                      <strong>Revisão final da questão importada.</strong> Edite
+                      o conteúdo abaixo e gere a prévia real em PDF. O botão de
+                      cadastro será liberado somente depois dessa conferência; a
+                      questão original continuará vinculada à importação.
                     </div>
                   )}
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold">
-                      Ano/Série
-                    </span>
-                    <select
-                      name="grade"
-                      value={
-                        educationStage === 'Ensino Médio'
-                          ? pedagogicalGrade
-                          : fundamentalGrade
-                      }
-                      onChange={
-                        educationStage === 'Ensino Médio'
-                          ? (event) => {
-                              setPedagogicalGrade(event.target.value);
+                  <details className="group rounded-2xl border border-dashed border-blue-200 bg-blue-50/40">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-blue-900 marker:content-none">
+                      <span className="flex items-center gap-2">
+                        <FileInput className="size-4" />
+                        Colar e analisar uma questão pronta
+                        <QuestionPasteExample />
+                        <span className="font-normal text-blue-600">
+                          (opcional)
+                        </span>
+                      </span>
+                      <span className="text-xs text-blue-600 group-open:hidden">
+                        Abrir importador
+                      </span>
+                      <span className="hidden text-xs text-blue-600 group-open:inline">
+                        Recolher
+                      </span>
+                    </summary>
+                    <div className="border-t border-blue-100 p-4">
+                      <QuestionPasteImporter
+                        onConfirm={(parsed) => {
+                          setImportedQuestion(parsed);
+                          setImportedCorrect(parsed.correctAnswers || []);
+                          setImportedAnswerBlocks(parsed.answerBlocks || []);
+                          if (parsed.skill) {
+                            setSelectedSkillCode(parsed.skill);
+                            setImportedDetails((current) => ({
+                              ...current,
+                              skill: parsed.skill || '',
+                            }));
+                            const skill = availableSkills.find(
+                              (item) => item.skill_code === parsed.skill,
+                            );
+                            if (skill && 'competency_id' in skill)
+                              setCompetencyId(skill.competency_id || '');
+                          }
+                          if (parsed.correctAnswers?.length)
+                            setQuestionType(
+                              parsed.correctAnswers.length > 1
+                                ? 'multiple_choice'
+                                : 'single_choice',
+                            );
+                          setImportRevision((value) => value + 1);
+                          setNotice(
+                            'Análise aplicada. Confira o gabarito, a resolução e a classificação curricular antes de salvar.',
+                          );
+                        }}
+                      />
+                    </div>
+                  </details>
+                  <section
+                    id="question-type"
+                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  >
+                    <div className="mb-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                        Etapa 1
+                      </p>
+                      <p className="mt-1 text-base font-semibold">
+                        Tipo de questão
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        O tipo define as alternativas e a forma de correção; o
+                        t-basicexam cuida apenas da apresentação.
+                      </p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        ['single_choice', 'Resposta única'],
+                        ['multiple_choice', 'Múltiplas'],
+                        ['true_false', 'Certo ou errado'],
+                        ['essay', 'Discursiva'],
+                      ].map(([value, label]) => (
+                        <Button
+                          key={value}
+                          type="button"
+                          variant={
+                            questionType === value ? 'default' : 'outline'
+                          }
+                          onClick={() =>
+                            setQuestionType(value as Question['type'])
+                          }
+                          className={
+                            questionType === value
+                              ? 'bg-[var(--blue)] text-white'
+                              : ''
+                          }
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                  </section>
+                  <section
+                    id="question-curriculum"
+                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  >
+                    <div className="mb-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                        Etapa 2
+                      </p>
+                      <p className="mt-1 text-base font-semibold">
+                        Classificação curricular
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {pedagogicalDiscipline
+                          ? 'Disciplina pedagógica → Competência específica → Habilidade BNCC'
+                          : 'Disciplina → Objeto de conhecimento → Habilidade BNCC'}
+                      </p>
+                    </div>
+                    <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                      {(['Ensino Fundamental', 'Ensino Médio'] as const).map(
+                        (stage) => (
+                          <button
+                            key={stage}
+                            type="button"
+                            onClick={() => {
+                              setEducationStage(stage);
+                              setKnowledgeAreaFilter(
+                                stage === 'Ensino Médio'
+                                  ? 'Ciências da Natureza e suas Tecnologias'
+                                  : 'Ciências da Natureza',
+                              );
+                              setDiscipline(
+                                stage === 'Ensino Médio'
+                                  ? 'Química'
+                                  : 'Ciências',
+                              );
+                              setKnowledgeObjectId('');
+                              setPedagogicalObjectId('');
+                              setPedagogicalSubtopicId('');
+                              setPedagogicalDetailId('');
+                            }}
+                            className={`rounded-md px-3 py-2 text-xs font-semibold ${educationStage === stage ? 'bg-[var(--navy)] text-white' : 'text-slate-600'}`}
+                          >
+                            {stage}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {educationStage === 'Ensino Médio' && (
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-semibold">
+                            Área de conhecimento
+                          </span>
+                          <select
+                            value={knowledgeAreaFilter}
+                            onChange={(event) => {
+                              const area = event.target.value;
+                              setKnowledgeAreaFilter(area);
+                              setDiscipline(highSchoolSubjectAreas[area][0]);
+                              setPedagogicalObjectId('');
+                              setPedagogicalSubtopicId('');
+                              setPedagogicalDetailId('');
+                            }}
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                          >
+                            {Object.keys(highSchoolSubjectAreas).map((area) => (
+                              <option key={area}>{area}</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      {educationStage === 'Ensino Fundamental' && (
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-semibold">
+                            Área de conhecimento
+                          </span>
+                          <select
+                            value={
+                              knowledgeAreaFilter in elementarySubjectAreas
+                                ? knowledgeAreaFilter
+                                : 'Linguagens'
+                            }
+                            onChange={(event) => {
+                              const area = event.target.value;
+                              setKnowledgeAreaFilter(area);
+                              setDiscipline(elementarySubjectAreas[area][0]);
+                              setKnowledgeObjectId('');
+                            }}
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                          >
+                            {Object.keys(elementarySubjectAreas).map((area) => (
+                              <option key={area}>{area}</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold">
+                          Disciplina
+                        </span>
+                        <select
+                          required
+                          name="subject"
+                          value={discipline}
+                          onChange={(event) => {
+                            const next = event.target.value;
+                            setDiscipline(next);
+                            const pedagogical = pedagogicalDisciplines.find(
+                              (item) =>
+                                educationStage === 'Ensino Médio' &&
+                                item.name === next &&
+                                item.stage === educationStage,
+                            );
+                            setKnowledgeObjectId(
+                              pedagogical
+                                ? ''
+                                : curriculum.find(
+                                    (item) => item.subject === next,
+                                  )?.knowledge_object_id || '',
+                            );
+                            setCompetencyId(
+                              pedagogical
+                                ? highSchoolCurriculum.find(
+                                    (item) =>
+                                      item.area_source_key ===
+                                      pedagogical.area_source_key,
+                                  )?.competency_id || ''
+                                : '',
+                            );
+                            setCompetencyInfoOpen(false);
+                            setSelectedSkillCode('');
+                            setSelectedSaebDescriptor('');
+                            setSaebInfoOpen(false);
+                            if (pedagogical) {
+                              const firstGrade = pedagogicalTopics
+                                .filter(
+                                  (topic) =>
+                                    topic.discipline_id === pedagogical.id &&
+                                    topic.grade_range,
+                                )
+                                .map((topic) => topic.grade_range)[0];
+                              setPedagogicalGrade(
+                                firstGrade ||
+                                  (educationStage === 'Ensino Médio'
+                                    ? '1ª série'
+                                    : '6º ano'),
+                              );
                               setPedagogicalObjectId('');
                               setPedagogicalSubtopicId('');
                               setPedagogicalDetailId('');
                             }
-                          : (event) => { setFundamentalGrade(event.target.value); setKnowledgeObjectId(''); setSelectedSkillCode(''); }
-                      }
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                    >
-                      {(educationStage === 'Ensino Médio'
-                        ? ['1ª série', '2ª série', '3ª série']
-                        : fundamentalGrades
-                      ).map((item) => (
-                        <option key={item}>{item}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {catalogError && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{catalogError}</p>}
-                  {educationStage === 'Ensino Médio' && !pedagogicalDiscipline && !catalogError && (
-                    <p aria-live="polite" className="text-sm text-amber-800 sm:col-span-2">O catálogo de {discipline} ainda não está disponível. Solicite o cadastro da disciplina e dos tópicos em Planejamento.</p>
-                  )}
-                  {pedagogicalDiscipline && pedagogicalTopicOptions.length === 0 && (
-                    <p aria-live="polite" className="text-sm text-amber-800 sm:col-span-2">Não há tópicos cadastrados para {discipline} na {pedagogicalGrade}. Você pode informar um tema abaixo ou cadastrar tópicos em Planejamento.</p>
-                  )}
-                  {pedagogicalDiscipline ? (
-                    <div className="space-y-4 sm:col-span-2">
+                          }}
+                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        >
+                          {[
+                            ...new Set([
+                              discipline,
+                              ...(educationStage === 'Ensino Médio'
+                                ? highSchoolSubjectAreas[knowledgeAreaFilter] ||
+                                  []
+                                : elementarySubjectAreas[knowledgeAreaFilter] ||
+                                  curriculum
+                                    .filter(
+                                      (item) => item.stage === educationStage,
+                                    )
+                                    .map((item) => item.subject)),
+                              ...pedagogicalDisciplines
+                                .filter(
+                                  (item) =>
+                                    item.stage === educationStage &&
+                                    (educationStage !== 'Ensino Médio' ||
+                                      (
+                                        highSchoolSubjectAreas[
+                                          knowledgeAreaFilter
+                                        ] || []
+                                      ).includes(item.name)),
+                                )
+                                .map((item) => item.name),
+                            ]),
+                          ].map((item) => (
+                            <option key={item}>{item}</option>
+                          ))}
+                        </select>
+                      </label>
+                      {compatibleSaebMatrices.length > 0 && (
+                        <div className="space-y-3 rounded-xl border border-cyan-200 bg-cyan-50/40 p-4 sm:col-span-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              Descritor SAEB{' '}
+                              <span className="font-normal text-slate-500">
+                                (opcional)
+                              </span>
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Vincule um descritor oficial sem substituir a
+                              habilidade BNCC.
+                            </p>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label htmlFor="saeb-matrix" className="block">
+                              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                                Matriz
+                              </span>
+                              <select
+                                id="saeb-matrix"
+                                value={selectedSaebMatrix}
+                                onChange={(event) => {
+                                  setSelectedSaebMatrix(event.target.value);
+                                  setSelectedSaebDescriptor('');
+                                  setSaebInfoOpen(false);
+                                }}
+                                className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                              >
+                                {compatibleSaebMatrices.map((matrix) => (
+                                  <option key={matrix.id} value={matrix.id}>
+                                    {matrix.subject} · {matrix.grade_range}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label htmlFor="saeb-descriptor" className="block">
+                              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                                Indicador/descritor
+                              </span>
+                              <select
+                                id="saeb-descriptor"
+                                name="saebDescriptorId"
+                                value={selectedSaebDescriptor}
+                                onChange={(event) => {
+                                  setSelectedSaebDescriptor(event.target.value);
+                                  setSaebInfoOpen(false);
+                                }}
+                                className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                              >
+                                <option value="">Não vincular descritor</option>
+                                {saebDescriptors.map((descriptor) => (
+                                  <option
+                                    key={descriptor.id}
+                                    value={descriptor.id}
+                                  >
+                                    {descriptor.code} · {descriptor.topic}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                          {selectedSaebInfo && (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setSaebInfoOpen((open) => !open)}
+                                aria-expanded={saebInfoOpen}
+                                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-100"
+                              >
+                                <Info className="size-3.5" /> Informação do
+                                descritor
+                              </button>
+                              {saebInfoOpen && (
+                                <div
+                                  role="note"
+                                  className="mt-1 rounded-lg border border-cyan-200 bg-white p-3 text-xs leading-5 text-slate-700"
+                                >
+                                  <strong className="font-mono text-cyan-900">
+                                    {selectedSaebInfo.code}
+                                  </strong>
+                                  <p className="mt-1 font-semibold">
+                                    {selectedSaebInfo.topic}
+                                  </p>
+                                  <p className="mt-1">
+                                    {selectedSaebInfo.description}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold">
-                          Competência específica da área
+                          Ano/Série
                         </span>
-                        <input
-                          type="hidden"
-                          name="pedagogicalDisciplineId"
-                          value={pedagogicalDiscipline.id}
-                        />
                         <select
-                          required={!editingQuestionId && availableCompetencies.length > 0}
-                          name="competencyId"
-                          value={competencyId}
+                          name="grade"
+                          value={
+                            educationStage === 'Ensino Médio'
+                              ? pedagogicalGrade
+                              : fundamentalGrade
+                          }
+                          onChange={
+                            educationStage === 'Ensino Médio'
+                              ? (event) => {
+                                  setPedagogicalGrade(event.target.value);
+                                  setPedagogicalObjectId('');
+                                  setPedagogicalSubtopicId('');
+                                  setPedagogicalDetailId('');
+                                }
+                              : (event) => {
+                                  setFundamentalGrade(event.target.value);
+                                  setKnowledgeObjectId('');
+                                  setSelectedSkillCode('');
+                                }
+                          }
+                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        >
+                          {(educationStage === 'Ensino Médio'
+                            ? ['1ª série', '2ª série', '3ª série']
+                            : fundamentalGrades
+                          ).map((item) => (
+                            <option key={item}>{item}</option>
+                          ))}
+                        </select>
+                      </label>
+                      {catalogError && (
+                        <p
+                          role="alert"
+                          className="text-sm text-red-700 sm:col-span-2"
+                        >
+                          {catalogError}
+                        </p>
+                      )}
+                      {educationStage === 'Ensino Médio' &&
+                        !pedagogicalDiscipline &&
+                        !catalogError && (
+                          <p
+                            aria-live="polite"
+                            className="text-sm text-amber-800 sm:col-span-2"
+                          >
+                            O catálogo de {discipline} ainda não está
+                            disponível. Solicite o cadastro da disciplina e dos
+                            tópicos em Planejamento.
+                          </p>
+                        )}
+                      {pedagogicalDiscipline &&
+                        pedagogicalTopicOptions.length === 0 && (
+                          <p
+                            aria-live="polite"
+                            className="text-sm text-amber-800 sm:col-span-2"
+                          >
+                            Não há tópicos cadastrados para {discipline} na{' '}
+                            {pedagogicalGrade}. Você pode informar um tema
+                            abaixo ou cadastrar tópicos em Planejamento.
+                          </p>
+                        )}
+                      {pedagogicalDiscipline ? (
+                        <div className="space-y-4 sm:col-span-2">
+                          <label className="block">
+                            <span className="mb-2 block text-sm font-semibold">
+                              Competência específica da área
+                            </span>
+                            <input
+                              type="hidden"
+                              name="pedagogicalDisciplineId"
+                              value={pedagogicalDiscipline.id}
+                            />
+                            <select
+                              required={
+                                !editingQuestionId &&
+                                availableCompetencies.length > 0
+                              }
+                              name="competencyId"
+                              value={competencyId}
+                              onChange={(event) => {
+                                const nextCompetency = event.target.value;
+                                setCompetencyId(nextCompetency);
+                                setSelectedSkillCode(
+                                  availableSkills.find(
+                                    (item) =>
+                                      'competency_id' in item &&
+                                      item.competency_id === nextCompetency,
+                                  )?.skill_code || '',
+                                );
+                                setSkillInfoOpen(false);
+                                setCompetencyInfoOpen(false);
+                              }}
+                              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                            >
+                              <option value="">Não vinculada</option>
+                              {availableCompetencies.map((item) => (
+                                <option
+                                  key={item.competency_id}
+                                  value={item.competency_id}
+                                >
+                                  Competência {item.competency_number}
+                                </option>
+                              ))}
+                            </select>
+                            {selectedCompetencyInfo && (
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setCompetencyInfoOpen((open) => !open)
+                                  }
+                                  aria-expanded={competencyInfoOpen}
+                                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Info className="size-3.5" /> Informação da
+                                  competência
+                                </button>
+                                {competencyInfoOpen && (
+                                  <div
+                                    role="note"
+                                    className="mt-1 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-950"
+                                  >
+                                    <strong>
+                                      Competência{' '}
+                                      {selectedCompetencyInfo.competency_number}
+                                    </strong>
+                                    <p className="mt-1">
+                                      {
+                                        selectedCompetencyInfo.competency_description
+                                      }
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </label>
+                          {pedagogicalDiscipline ? (
+                            <div className="grid gap-3 sm:grid-cols-3">
+                              <label className="block">
+                                <span className="mb-2 block text-sm font-semibold">
+                                  Tópico
+                                </span>
+                                <select
+                                  required={!editingQuestionId}
+                                  value={pedagogicalObjectId}
+                                  onChange={(event) => {
+                                    setPedagogicalObjectId(event.target.value);
+                                    setPedagogicalSubtopicId('');
+                                    setPedagogicalDetailId('');
+                                  }}
+                                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                                >
+                                  <option value="">Selecione o tópico</option>
+                                  {pedagogicalObjectId &&
+                                    !pedagogicalTopicOptions.some(
+                                      (topic) =>
+                                        topic.id === pedagogicalObjectId,
+                                    ) && (
+                                      <option value={pedagogicalObjectId}>
+                                        Vínculo atual da questão
+                                      </option>
+                                    )}
+                                  {pedagogicalTopicOptions.map((topic) => (
+                                    <option key={topic.id} value={topic.id}>
+                                      {topic.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="block">
+                                <span className="mb-2 block text-sm font-semibold">
+                                  Subtópico
+                                </span>
+                                <select
+                                  value={pedagogicalSubtopicId}
+                                  onChange={(event) => {
+                                    setPedagogicalSubtopicId(
+                                      event.target.value,
+                                    );
+                                    setPedagogicalDetailId('');
+                                  }}
+                                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                                >
+                                  <option value="">Todos/nenhum</option>
+                                  {pedagogicalSubtopicOptions.map((topic) => (
+                                    <option key={topic.id} value={topic.id}>
+                                      {topic.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              {pedagogicalDetailOptions.length > 0 && (
+                                <label className="block">
+                                  <span className="mb-2 block text-sm font-semibold">
+                                    Detalhamento
+                                  </span>
+                                  <select
+                                    value={pedagogicalDetailId}
+                                    onChange={(event) =>
+                                      setPedagogicalDetailId(event.target.value)
+                                    }
+                                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                                  >
+                                    <option value="">Selecione</option>
+                                    {pedagogicalDetailOptions.map((topic) => (
+                                      <option key={topic.id} value={topic.id}>
+                                        {topic.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                              <input
+                                type="hidden"
+                                name="pedagogicalTopicId"
+                                value={selectedPedagogicalTopicId}
+                              />
+                              <span className="text-xs text-slate-500 sm:col-span-3">
+                                Classificação pedagógica: tópico → subtópico →
+                                detalhamento, quando disponível.
+                              </span>
+                            </div>
+                          ) : (
+                            <label htmlFor="knowledge-topic" className="block">
+                              <span className="mb-2 block text-sm font-semibold">
+                                Tema ou objeto pedagógico
+                              </span>
+                              <Input
+                                id="knowledge-topic"
+                                required
+                                name="knowledgeTopic"
+                                key={`topic-${importRevision}`}
+                                defaultValue={importedDetails.knowledgeTopic}
+                                placeholder="Ex.: Mecânica"
+                              />
+                            </label>
+                          )}
+                        </div>
+                      ) : (
+                        <label className="block sm:col-span-2">
+                          <span className="mb-2 block text-sm font-semibold">
+                            Objeto de conhecimento
+                          </span>
+                          <select
+                            required
+                            name="knowledgeObjectId"
+                            value={knowledgeObjectId}
+                            onChange={(event) =>
+                              setKnowledgeObjectId(event.target.value)
+                            }
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                          >
+                            <option value="">
+                              Selecione um objeto cadastrado
+                            </option>
+                            {knowledgeObjectId &&
+                              !(
+                                educationStage === 'Ensino Fundamental'
+                                  ? fundamentalOptions
+                                  : curriculum
+                              ).some(
+                                (item) =>
+                                  item.knowledge_object_id ===
+                                  knowledgeObjectId,
+                              ) && (
+                                <option value={knowledgeObjectId}>
+                                  Objeto vinculado à questão
+                                </option>
+                              )}
+                            {(educationStage === 'Ensino Fundamental'
+                              ? fundamentalOptions
+                              : curriculum
+                            )
+                              .filter(
+                                (item, index, list) =>
+                                  item.subject === discipline &&
+                                  Boolean(item.knowledge_object_id) &&
+                                  list.findIndex(
+                                    (candidate) =>
+                                      candidate.knowledge_object_id ===
+                                      item.knowledge_object_id,
+                                  ) === index,
+                              )
+                              .map((item) => (
+                                <option
+                                  key={item.knowledge_object_id || item.subject}
+                                  value={item.knowledge_object_id || ''}
+                                >
+                                  {item.knowledge_object || 'Objeto sem nome'}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                      )}
+                      {educationStage === 'Ensino Fundamental' &&
+                        fundamentalCompetencies.length > 0 && (
+                          <details className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
+                            <summary className="cursor-pointer text-sm font-semibold">
+                              Competências de referência do componente e da área
+                            </summary>
+                            <p className="mt-2 text-xs text-slate-500">
+                              A BNCC do Fundamental não estabelece um vínculo
+                              individual entre cada habilidade e estas
+                              competências.
+                            </p>
+                            {fundamentalCompetencies.map((item) => (
+                              <p key={item.id} className="mt-3 text-sm">
+                                <strong>
+                                  {item.tipo === 'especifica_de_componente'
+                                    ? 'Componente'
+                                    : 'Área'}{' '}
+                                  · Competência {item.numero}:
+                                </strong>{' '}
+                                {item.texto}
+                              </p>
+                            ))}
+                          </details>
+                        )}
+                      <label
+                        htmlFor="institution-owner"
+                        className="block sm:col-span-2"
+                      >
+                        <span className="mb-2 block text-sm font-semibold">
+                          Habilidade BNCC
+                        </span>
+                        <select
+                          name="skill"
+                          value={selectedSkillCode}
                           onChange={(event) => {
-                            const nextCompetency = event.target.value;
-                            setCompetencyId(nextCompetency);
-                            setSelectedSkillCode(
-                              availableSkills.find(
-                                (item) => 'competency_id' in item && item.competency_id === nextCompetency,
-                              )?.skill_code || '',
+                            const skillCode = event.target.value;
+                            setSelectedSkillCode(skillCode);
+                            const skill = availableSkills.find(
+                              (item) => item.skill_code === skillCode,
                             );
+                            if (
+                              skill &&
+                              'competency_id' in skill &&
+                              skill.competency_id
+                            )
+                              setCompetencyId(skill.competency_id);
                             setSkillInfoOpen(false);
-                            setCompetencyInfoOpen(false);
                           }}
                           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                         >
                           <option value="">Não vinculada</option>
-                          {availableCompetencies.map((item) => (
+                          {selectedSkillCode &&
+                            !availableSkills.some(
+                              (item) => item.skill_code === selectedSkillCode,
+                            ) && (
+                              <option value={selectedSkillCode}>
+                                {selectedSkillCode} · vínculo atual
+                              </option>
+                            )}
+                          {availableSkills.map((item) => (
                             <option
-                              key={item.competency_id}
-                              value={item.competency_id}
+                              key={item.skill_code || 'skill'}
+                              value={item.skill_code || ''}
                             >
-                              Competência {item.competency_number}
+                              {item.skill_code}
+                              {'competency_number' in item &&
+                              item.competency_number != null
+                                ? ` · Competência ${item.competency_number}`
+                                : ''}
                             </option>
                           ))}
                         </select>
-                        {selectedCompetencyInfo && (
+                        {discipline === 'Química' && (
+                          <span className="mt-1.5 block text-xs text-slate-500">
+                            {availableSkills.length} habilidades de Química
+                            disponíveis: EM13CNT101, EM13CNT104 e EM13CNT307.
+                          </span>
+                        )}
+                        {selectedSkillInfo && (
                           <div className="mt-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                setCompetencyInfoOpen((open) => !open)
-                              }
-                              aria-expanded={competencyInfoOpen}
+                              onClick={() => setSkillInfoOpen((open) => !open)}
+                              aria-expanded={skillInfoOpen}
                               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
                             >
                               <Info className="size-3.5" /> Informação da
-                              competência
+                              habilidade
                             </button>
-                            {competencyInfoOpen && (
+                            {skillInfoOpen && (
                               <div
                                 role="note"
                                 className="mt-1 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-950"
                               >
-                                <strong>
-                                  Competência{' '}
-                                  {selectedCompetencyInfo.competency_number}
+                                <strong className="font-mono">
+                                  {selectedSkillInfo.skill_code}
                                 </strong>
                                 <p className="mt-1">
-                                  {
-                                    selectedCompetencyInfo.competency_description
-                                  }
+                                  {selectedSkillInfo.skill_description}
                                 </p>
                               </div>
                             )}
                           </div>
                         )}
                       </label>
-                      {pedagogicalDiscipline ? (
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          <label className="block">
-                            <span className="mb-2 block text-sm font-semibold">
-                              Tópico
-                            </span>
-                            <select
-                              required={!editingQuestionId}
-                              value={pedagogicalObjectId}
-                              onChange={(event) => {
-                                setPedagogicalObjectId(event.target.value);
-                                setPedagogicalSubtopicId('');
-                                setPedagogicalDetailId('');
-                              }}
-                              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                            >
-                              <option value="">Selecione o tópico</option>
-                              {pedagogicalObjectId && !pedagogicalTopicOptions.some(topic => topic.id === pedagogicalObjectId) && <option value={pedagogicalObjectId}>Vínculo atual da questão</option>}
-                              {pedagogicalTopicOptions.map((topic) => (
-                                <option key={topic.id} value={topic.id}>
-                                  {topic.name}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="block">
-                            <span className="mb-2 block text-sm font-semibold">
-                              Subtópico
-                            </span>
-                            <select
-                              value={pedagogicalSubtopicId}
-                              onChange={(event) => {
-                                setPedagogicalSubtopicId(event.target.value);
-                                setPedagogicalDetailId('');
-                              }}
-                              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                            >
-                              <option value="">Todos/nenhum</option>
-                              {pedagogicalSubtopicOptions.map((topic) => (
-                                <option key={topic.id} value={topic.id}>
-                                  {topic.name}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          {pedagogicalDetailOptions.length > 0 && (
-                            <label className="block">
-                              <span className="mb-2 block text-sm font-semibold">
-                                Detalhamento
-                              </span>
-                              <select
-                                value={pedagogicalDetailId}
-                                onChange={(event) =>
-                                  setPedagogicalDetailId(event.target.value)
-                                }
-                                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                              >
-                                <option value="">Selecione</option>
-                                {pedagogicalDetailOptions.map((topic) => (
-                                  <option key={topic.id} value={topic.id}>
-                                    {topic.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          )}
-                          <input
-                            type="hidden"
-                            name="pedagogicalTopicId"
-                            value={selectedPedagogicalTopicId}
-                          />
-                          <span className="text-xs text-slate-500 sm:col-span-3">
-                            Classificação pedagógica: tópico → subtópico →
-                            detalhamento, quando disponível.
-                          </span>
-                        </div>
-                      ) : (
-                        <label htmlFor="knowledge-topic" className="block">
-                          <span className="mb-2 block text-sm font-semibold">
-                            Tema ou objeto pedagógico
-                          </span>
-                          <Input
-                            id="knowledge-topic"
-                            required
-                            name="knowledgeTopic"
-                            key={`topic-${importRevision}`}
-                            defaultValue={importedDetails.knowledgeTopic}
-                            placeholder="Ex.: Mecânica"
-                          />
-                        </label>
-                      )}
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold">
+                          Dificuldade
+                        </span>
+                        <select
+                          name="difficulty"
+                          key={`difficulty-${importRevision}`}
+                          defaultValue={importedDetails.difficulty}
+                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        >
+                          <option>Fácil</option>
+                          <option>Média</option>
+                          <option>Difícil</option>
+                        </select>
+                      </label>
                     </div>
-                  ) : (
-                    <label className="block sm:col-span-2">
-                      <span className="mb-2 block text-sm font-semibold">
-                        Objeto de conhecimento
-                      </span>
-                      <select
-                        required
-                        name="knowledgeObjectId"
-                        value={knowledgeObjectId}
-                        onChange={(event) =>
-                          setKnowledgeObjectId(event.target.value)
-                        }
-                        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                      >
-                        <option value="">Selecione um objeto cadastrado</option>
-                        {knowledgeObjectId && !(educationStage === 'Ensino Fundamental' ? fundamentalOptions : curriculum).some(item => item.knowledge_object_id === knowledgeObjectId) && <option value={knowledgeObjectId}>Objeto vinculado à questão</option>}
-                        {(educationStage === 'Ensino Fundamental' ? fundamentalOptions : curriculum)
-                          .filter(
-                            (item, index, list) =>
-                              item.subject === discipline &&
-                              Boolean(item.knowledge_object_id) &&
-                              list.findIndex(
-                                (candidate) =>
-                                  candidate.knowledge_object_id ===
-                                  item.knowledge_object_id,
-                              ) === index,
-                          )
-                          .map((item) => (
-                            <option
-                              key={item.knowledge_object_id || item.subject}
-                              value={item.knowledge_object_id || ''}
-                            >
-                              {item.knowledge_object || 'Objeto sem nome'}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                  )}
-                  {educationStage === 'Ensino Fundamental' && fundamentalCompetencies.length > 0 && (
-                    <details className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
-                      <summary className="cursor-pointer text-sm font-semibold">Competências de referência do componente e da área</summary>
-                      <p className="mt-2 text-xs text-slate-500">A BNCC do Fundamental não estabelece um vínculo individual entre cada habilidade e estas competências.</p>
-                      {fundamentalCompetencies.map(item=><p key={item.id} className="mt-3 text-sm"><strong>{item.tipo === 'especifica_de_componente' ? 'Componente' : 'Área'} · Competência {item.numero}:</strong> {item.texto}</p>)}
-                    </details>
-                  )}
-                  <label htmlFor="institution-owner" className="block sm:col-span-2">
-                    <span className="mb-2 block text-sm font-semibold">
-                      Habilidade BNCC
-                    </span>
-                    <select
-                      name="skill"
-                      value={selectedSkillCode}
-                      onChange={(event) => {
-                        const skillCode = event.target.value;
-                        setSelectedSkillCode(skillCode);
-                        const skill = availableSkills.find(
-                          (item) => item.skill_code === skillCode,
-                        );
-                        if (skill && 'competency_id' in skill && skill.competency_id)
-                          setCompetencyId(skill.competency_id);
-                        setSkillInfoOpen(false);
-                      }}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                    >
-                      <option value="">Não vinculada</option>
-                      {selectedSkillCode && !availableSkills.some(item => item.skill_code === selectedSkillCode) && <option value={selectedSkillCode}>{selectedSkillCode} · vínculo atual</option>}
-                      {availableSkills.map((item) => (
-                        <option
-                          key={item.skill_code || 'skill'}
-                          value={item.skill_code || ''}
-                        >
-                          {item.skill_code}
-                          {'competency_number' in item && item.competency_number != null
-                            ? ` · Competência ${item.competency_number}`
-                            : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {discipline === 'Química' && (
-                      <span className="mt-1.5 block text-xs text-slate-500">
-                        {availableSkills.length} habilidades de Química
-                        disponíveis: EM13CNT101, EM13CNT104 e EM13CNT307.
-                      </span>
-                    )}
-                    {selectedSkillInfo && (
-                      <div className="mt-2">
-                        <button
-                          type="button"
-                          onClick={() => setSkillInfoOpen((open) => !open)}
-                          aria-expanded={skillInfoOpen}
-                          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
-                        >
-                          <Info className="size-3.5" /> Informação da habilidade
-                        </button>
-                        {skillInfoOpen && (
-                          <div
-                            role="note"
-                            className="mt-1 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-950"
-                          >
-                            <strong className="font-mono">
-                              {selectedSkillInfo.skill_code}
-                            </strong>
-                            <p className="mt-1">
-                              {selectedSkillInfo.skill_description}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold">
-                      Dificuldade
-                    </span>
-                    <select
-                      name="difficulty"
-                      key={`difficulty-${importRevision}`}
-                      defaultValue={importedDetails.difficulty}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                    >
-                      <option>Fácil</option>
-                      <option>Média</option>
-                      <option>Difícil</option>
-                    </select>
-                  </label>
-                </div>
-              </section>
-              <section id="question-source" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                    Etapa 3
-                  </p>
-                  <p className="mt-1 text-base font-semibold">
-                    Origem da questão
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Identificação da instituição proprietária e da prova
-                    anterior
-                  </p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label htmlFor="institution-owner" className="block sm:col-span-2">
-                    <span className="mb-2 block text-sm font-semibold">
-                      Instituição proprietária
-                    </span>
-                    <Input
-                      id="institution-owner"
-                      readOnly
-                      value="UFA Prova"
-                      className="bg-slate-50 text-slate-600"
-                    />
-                    <span className="mt-1.5 block text-xs text-slate-500">
-                      Definida pela conta autenticada e aplicada
-                      automaticamente.
-                    </span>
-                  </label>
-                  <label htmlFor="source-institution" className="block">
-                    <span className="mb-2 block text-sm font-semibold">
-                      Instituição/Banca de origem
-                    </span>
-                    <Input
-                      id="source-institution"
-                      required
-                      name="sourceInstitution"
-                      key={`source-${importRevision}`}
-                      defaultValue={importedQuestion?.sourceInstitution || ''}
-                      list="source-institutions"
-                      placeholder="Ex.: ENEM"
-                    />
-                    <datalist id="source-institutions">
-                      <option value="ENEM">ENEM</option>
-                      <option value="FUVEST">FUVEST</option>
-                      <option value="UEMS">UEMS</option>
-                      <option value="UFMS">UFMS</option>
-                    </datalist>
-                  </label>
-                  <label htmlFor="source-year" className="block">
-                    <span className="mb-2 block text-sm font-semibold">
-                      Ano da prova
-                    </span>
-                    <Input
-                      id="source-year"
-                      required
-                      name="sourceYear"
-                      type="number"
-                      min="1900"
-                      max="2100"
-                      key={`year-${importRevision}`}
-                      defaultValue={importedQuestion?.sourceYear || '2024'}
-                    />
-                  </label>
-                </div>
-              </section>
-              <section id="question-content" className="scroll-mt-28 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                    Etapa 4
-                  </p>
-                  <p className="mt-1 text-base font-semibold">
-                    {questionType === 'true_false' ? 'Contexto e afirmação' : 'Enunciado e recursos visuais'}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {questionType === 'true_false'
-                      ? 'Apresente o contexto e escreva uma única afirmação para o aluno julgar como certa ou errada.'
-                      : 'Escreva o conteúdo principal e acrescente fórmulas, imagens ou ilustrações somente quando necessário.'}
-                  </p>
-                </div>
-                {questionType === 'true_false' && (
-                  <RichContentEditor
-                    apiUrl={apiUrl}
-                    name="judgmentContextBlocks"
-                    label="Texto de contextualização (opcional)"
-                    allowRawContext
-                    rawOnly
-                    initialBlocks={judgmentContextBlocks}
-                    resetKey={importRevision}
-                  />
-                )}
-                <RichContentEditor
-                  apiUrl={apiUrl}
-                  name="statementBlocks"
-                  label={questionType === 'true_false' ? 'Afirmação a ser julgada' : 'Enunciado'}
-                  required
-                  allowRawContext
-                  rawOnly
-                  initialBlocks={questionType === 'true_false' ? judgmentAssertionBlocks : importedQuestion?.statementBlocks}
-                  resetKey={importRevision}
-                />
-                <label htmlFor="adote-note" className="block">
-                  <span className="mb-2 block text-sm font-semibold">Note e adote (opcional)</span>
-                  <textarea
-                    id="adote-note"
-                    name="adoteNote"
-                    rows={5}
-                    maxLength={5000}
-                    defaultValue={importedQuestion?.adoteNote || ''}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6"
-                    placeholder={'Código ConTeXt: Considere o CO\\low{2} como gás ideal. Volume inicial: V\\low{vin}.'}
-                  />
-                </label>
-                <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-slate-700">
-                  <input aria-label="Usar sempre uma coluna para esta questão" type="checkbox" name="recommendSingleColumn" checked={recommendSingleColumn} onChange={(event) => setRecommendSingleColumn(event.target.checked)} className="mt-1 accent-blue-600" />
-                  <span><strong>Usar sempre uma coluna</strong><span className="mt-1 block text-xs text-slate-500">Indicado para figuras grandes, tabelas e fórmulas longas. Em todos os modelos de prova, a questão sai em largura total, mesmo nas seções de duas colunas, para não desconfigurar.</span></span>
-                </label>
-                <input type="hidden" name="metapostCode" value={draftMetapostCode} />
-              </section>
-              {questionType !== 'essay' && (
-                <section id="question-alternatives" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
+                  </section>
+                  <section
+                    id="question-source"
+                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  >
+                    <div className="mb-3">
                       <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                        Etapa 5
+                        Etapa 3
                       </p>
                       <p className="mt-1 text-base font-semibold">
-                        Alternativas e gabarito
+                        Origem da questão
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Identificação da instituição proprietária e da prova
+                        anterior
                       </p>
                     </div>
-                    <Badge variant="secondary">
-                      {questionType === 'true_false'
-                        ? 'Certo ou errado · uma correta'
-                        : questionType === 'single_choice'
-                        ? 'Alternativas A–E · uma correta'
-                        : 'Duas ou mais corretas'}
-                    </Badge>
-                  </div>
-                  {questionType === 'true_false' && <p className="mb-4 text-sm text-slate-600">Selecione o gabarito da afirmação: Certo ou Errado.</p>}
-                  {(questionType === 'true_false' ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E']).map((letter) => (
-                    <div
-                      key={letter}
-                      className="mb-3 rounded-xl border border-slate-200 p-3"
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="grid size-8 place-items-center rounded-lg bg-slate-100 text-sm font-bold">
-                          {questionType === 'true_false' ? (letter === 'A' ? 'C' : 'E') : letter}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label
+                        htmlFor="institution-owner"
+                        className="block sm:col-span-2"
+                      >
+                        <span className="mb-2 block text-sm font-semibold">
+                          Instituição proprietária
                         </span>
-                        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600">
-                          <input
-                            required={
-                              questionType !== 'multiple_choice' && letter === 'A'
-                            }
-                            type={
-                              questionType !== 'multiple_choice'
-                                ? 'radio'
-                                : 'checkbox'
-                            }
-                            name="correct"
-                            value={letter}
-                            key={`correct-${questionType}-${letter}-${importRevision}`}
-                            defaultChecked={importedCorrect.includes(letter)}
-                            className="size-4 accent-blue-600"
-                          />
-                          Marcar como correta
-                        </label>
-                      </div>
-                      <div>
-                        {questionType === 'true_false' ? <p className="font-medium">{letter === 'A' ? 'Certo' : 'Errado'}</p> : <RichContentEditor
-                          apiUrl={apiUrl}
-                          name={`alternative_${letter}`}
-                          compact
-                          allowRawContext
-                          rawOnly
+                        <Input
+                          id="institution-owner"
+                          readOnly
+                          value="UFA Prova"
+                          className="bg-slate-50 text-slate-600"
+                        />
+                        <span className="mt-1.5 block text-xs text-slate-500">
+                          Definida pela conta autenticada e aplicada
+                          automaticamente.
+                        </span>
+                      </label>
+                      <label htmlFor="source-institution" className="block">
+                        <span className="mb-2 block text-sm font-semibold">
+                          Instituição/Banca de origem
+                        </span>
+                        <Input
+                          id="source-institution"
                           required
-                          initialBlocks={importedQuestion?.alternatives[letter]}
-                          resetKey={importRevision}
-                        />}
-                      </div>
+                          name="sourceInstitution"
+                          key={`source-${importRevision}`}
+                          defaultValue={
+                            importedQuestion?.sourceInstitution || ''
+                          }
+                          list="source-institutions"
+                          placeholder="Ex.: ENEM"
+                        />
+                        <datalist id="source-institutions">
+                          <option value="ENEM">ENEM</option>
+                          <option value="FUVEST">FUVEST</option>
+                          <option value="UEMS">UEMS</option>
+                          <option value="UFMS">UFMS</option>
+                        </datalist>
+                      </label>
+                      <label htmlFor="source-year" className="block">
+                        <span className="mb-2 block text-sm font-semibold">
+                          Ano da prova
+                        </span>
+                        <Input
+                          id="source-year"
+                          required
+                          name="sourceYear"
+                          type="number"
+                          min="1900"
+                          max="2100"
+                          key={`year-${importRevision}`}
+                          defaultValue={importedQuestion?.sourceYear || '2024'}
+                        />
+                      </label>
                     </div>
-                  ))}
-                </section>
-              )}
-              <section id="question-resolution" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-600">
-                  {questionType === 'essay' ? 'Etapa 5' : 'Etapa 6'}
-                </p>
-                <RichContentEditor
-                  apiUrl={apiUrl}
-                  name="answerBlocks"
-                  allowRawContext
-                  rawOnly
-                  label={
-                    questionType === 'essay'
-                      ? 'Resposta esperada e critérios de correção'
-                      : 'Resolução comentada (opcional)'
-                  }
-                  required={questionType === 'essay'}
-                  initialBlocks={importedAnswerBlocks}
-                  resetKey={importRevision}
-                />
-              </section>
+                  </section>
+                  <section
+                    id="question-content"
+                    className="scroll-mt-28 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  >
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                        Etapa 4
+                      </p>
+                      <p className="mt-1 text-base font-semibold">
+                        {questionType === 'true_false'
+                          ? 'Contexto e afirmação'
+                          : 'Enunciado e recursos visuais'}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {questionType === 'true_false'
+                          ? 'Apresente o contexto e escreva uma única afirmação para o aluno julgar como certa ou errada.'
+                          : 'Escreva o conteúdo principal e acrescente fórmulas, imagens ou ilustrações somente quando necessário.'}
+                      </p>
+                    </div>
+                    {questionType === 'true_false' && (
+                      <RichContentEditor
+                        apiUrl={apiUrl}
+                        name="judgmentContextBlocks"
+                        label="Texto de contextualização (opcional)"
+                        allowRawContext
+                        rawOnly
+                        initialBlocks={judgmentContextBlocks}
+                        resetKey={importRevision}
+                      />
+                    )}
+                    <RichContentEditor
+                      apiUrl={apiUrl}
+                      name="statementBlocks"
+                      label={
+                        questionType === 'true_false'
+                          ? 'Afirmação a ser julgada'
+                          : 'Enunciado'
+                      }
+                      required
+                      allowRawContext
+                      rawOnly
+                      initialBlocks={
+                        questionType === 'true_false'
+                          ? judgmentAssertionBlocks
+                          : importedQuestion?.statementBlocks
+                      }
+                      resetKey={importRevision}
+                    />
+                    <label htmlFor="adote-note" className="block">
+                      <span className="mb-2 block text-sm font-semibold">
+                        Note e adote (opcional)
+                      </span>
+                      <textarea
+                        id="adote-note"
+                        name="adoteNote"
+                        rows={5}
+                        maxLength={5000}
+                        defaultValue={importedQuestion?.adoteNote || ''}
+                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6"
+                        placeholder={
+                          'Código ConTeXt: Considere o CO\\low{2} como gás ideal. Volume inicial: V\\low{vin}.'
+                        }
+                      />
+                    </label>
+                    <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-slate-700">
+                      <input
+                        aria-label="Usar sempre uma coluna para esta questão"
+                        type="checkbox"
+                        name="recommendSingleColumn"
+                        checked={recommendSingleColumn}
+                        onChange={(event) =>
+                          setRecommendSingleColumn(event.target.checked)
+                        }
+                        className="mt-1 accent-blue-600"
+                      />
+                      <span>
+                        <strong>Usar sempre uma coluna</strong>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          Indicado para figuras grandes, tabelas e fórmulas
+                          longas. Em todos os modelos de prova, a questão sai em
+                          largura total, mesmo nas seções de duas colunas, para
+                          não desconfigurar.
+                        </span>
+                      </span>
+                    </label>
+                    <input
+                      type="hidden"
+                      name="metapostCode"
+                      value={draftMetapostCode}
+                    />
+                  </section>
+                  {questionType !== 'essay' && (
+                    <section
+                      id="question-alternatives"
+                      className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    >
+                      <div className="mb-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                            Etapa 5
+                          </p>
+                          <p className="mt-1 text-base font-semibold">
+                            Alternativas e gabarito
+                          </p>
+                        </div>
+                        <Badge variant="secondary">
+                          {questionType === 'true_false'
+                            ? 'Certo ou errado · uma correta'
+                            : questionType === 'single_choice'
+                              ? 'Alternativas A–E · uma correta'
+                              : 'Duas ou mais corretas'}
+                        </Badge>
+                      </div>
+                      {questionType === 'true_false' && (
+                        <p className="mb-4 text-sm text-slate-600">
+                          Selecione o gabarito da afirmação: Certo ou Errado.
+                        </p>
+                      )}
+                      {(questionType === 'true_false'
+                        ? ['A', 'B']
+                        : ['A', 'B', 'C', 'D', 'E']
+                      ).map((letter) => (
+                        <div
+                          key={letter}
+                          className="mb-3 rounded-xl border border-slate-200 p-3"
+                        >
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="grid size-8 place-items-center rounded-lg bg-slate-100 text-sm font-bold">
+                              {questionType === 'true_false'
+                                ? letter === 'A'
+                                  ? 'C'
+                                  : 'E'
+                                : letter}
+                            </span>
+                            <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600">
+                              <input
+                                required={
+                                  questionType !== 'multiple_choice' &&
+                                  letter === 'A'
+                                }
+                                type={
+                                  questionType !== 'multiple_choice'
+                                    ? 'radio'
+                                    : 'checkbox'
+                                }
+                                name="correct"
+                                value={letter}
+                                key={`correct-${questionType}-${letter}-${importRevision}`}
+                                defaultChecked={importedCorrect.includes(
+                                  letter,
+                                )}
+                                className="size-4 accent-blue-600"
+                              />
+                              Marcar como correta
+                            </label>
+                          </div>
+                          <div>
+                            {questionType === 'true_false' ? (
+                              <p className="font-medium">
+                                {letter === 'A' ? 'Certo' : 'Errado'}
+                              </p>
+                            ) : (
+                              <RichContentEditor
+                                apiUrl={apiUrl}
+                                name={`alternative_${letter}`}
+                                compact
+                                allowRawContext
+                                rawOnly
+                                required
+                                initialBlocks={
+                                  importedQuestion?.alternatives[letter]
+                                }
+                                resetKey={importRevision}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                  <section
+                    id="question-resolution"
+                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  >
+                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-600">
+                      {questionType === 'essay' ? 'Etapa 5' : 'Etapa 6'}
+                    </p>
+                    <RichContentEditor
+                      apiUrl={apiUrl}
+                      name="answerBlocks"
+                      allowRawContext
+                      rawOnly
+                      label={
+                        questionType === 'essay'
+                          ? 'Resposta esperada e critérios de correção'
+                          : 'Resolução comentada (opcional)'
+                      }
+                      required={questionType === 'essay'}
+                      initialBlocks={importedAnswerBlocks}
+                      resetKey={importRevision}
+                    />
+                  </section>
                 </div>
               </div>
               <footer className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white/95 px-4 py-4 shadow-[0_-8px_24px_rgb(15_23_42/5%)] backdrop-blur sm:px-6">
                 <span className="hidden text-xs text-slate-500 sm:block">
                   Confira a prévia para validar fórmulas, imagens e paginação.
                 </span>
-                {notice && <p aria-live="polite" className="w-full text-sm text-slate-700">{notice}</p>}
-                <QuestionDraftControls apiUrl={apiUrl} capture={captureQuestionDraft} restore={restoreQuestionDraft} paused={saving} onActionsChange={registerDraftActions}/>
+                {notice && (
+                  <p
+                    aria-live="polite"
+                    className="w-full text-sm text-slate-700"
+                  >
+                    {notice}
+                  </p>
+                )}
+                <QuestionDraftControls
+                  apiUrl={apiUrl}
+                  capture={captureQuestionDraft}
+                  restore={restoreQuestionDraft}
+                  paused={saving}
+                  onActionsChange={registerDraftActions}
+                />
                 <div className="flex flex-1 flex-wrap justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={()=>void closeQuestionEditor()}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={previewing || !apiUrl}
-                  onClick={(event) =>
-                    previewQuestion(event.currentTarget.form!)
-                  }
-                >
-                  <Eye className="size-4" />
-                  {previewing ? 'Compilando...' : 'Prévia real em PDF'}
-                </Button>
-                <Button type="button" variant="outline" disabled={previewing||!apiUrl} onClick={event=>void previewQuestion(event.currentTarget.form!,'answer-key')}><Eye className="size-4"/>Prévia da resolução</Button>
-                <Button
-                  disabled={
-                    saving ||
-                    Boolean(importCandidateSource && !questionPreviewVerified)
-                  }
-                  type="submit"
-                  className="bg-[var(--blue)] text-white hover:bg-blue-700"
-                >
-                  {saving
-                    ? 'Salvando...'
-                    : importCandidateSource && !questionPreviewVerified
-                      ? 'Gere a prévia para cadastrar'
-                      : importCandidateSource
-                        ? 'Cadastrar questão revisada'
-                        : editingQuestionId ? 'Salvar alterações' : 'Cadastrar questão'}
-                </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void closeQuestionEditor()}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={previewing || !apiUrl}
+                    onClick={(event) =>
+                      previewQuestion(event.currentTarget.form!)
+                    }
+                  >
+                    <Eye className="size-4" />
+                    {previewing ? 'Compilando...' : 'Prévia real em PDF'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={previewing || !apiUrl}
+                    onClick={(event) =>
+                      void previewQuestion(
+                        event.currentTarget.form!,
+                        'answer-key',
+                      )
+                    }
+                  >
+                    <Eye className="size-4" />
+                    Prévia da resolução
+                  </Button>
+                  <Button
+                    disabled={
+                      saving ||
+                      Boolean(importCandidateSource && !questionPreviewVerified)
+                    }
+                    type="submit"
+                    className="bg-[var(--blue)] text-white hover:bg-blue-700"
+                  >
+                    {saving
+                      ? 'Salvando...'
+                      : importCandidateSource && !questionPreviewVerified
+                        ? 'Gere a prévia para cadastrar'
+                        : importCandidateSource
+                          ? 'Cadastrar questão revisada'
+                          : editingQuestionId
+                            ? 'Salvar alterações'
+                            : 'Cadastrar questão'}
+                  </Button>
                 </div>
               </footer>
               {questionPreviewUrl && (
                 <section className="m-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:m-6">
                   <div className="flex items-center justify-between">
                     <strong className="text-sm">
-                      {questionPreviewMode==='answer-key'?'Resolução — PDF compilado pelo ConTeXt':'Questão — PDF compilado pelo ConTeXt'}
+                      {questionPreviewMode === 'answer-key'
+                        ? 'Resolução — PDF compilado pelo ConTeXt'
+                        : 'Questão — PDF compilado pelo ConTeXt'}
                     </strong>
                     <a
                       href={questionPreviewUrl}
@@ -2864,7 +3846,11 @@ export default function Home() {
                     </a>
                   </div>
                   <iframe
-                    title={questionPreviewMode==='answer-key'?'Prévia real da resolução em PDF':'Prévia real da questão em PDF'}
+                    title={
+                      questionPreviewMode === 'answer-key'
+                        ? 'Prévia real da resolução em PDF'
+                        : 'Prévia real da questão em PDF'
+                    }
                     src={questionPreviewUrl}
                     className="h-[620px] w-full rounded-lg border bg-white"
                   />
@@ -2896,11 +3882,37 @@ export default function Home() {
           </dialog>
         </div>
       )}
-      {bankQuestionId && questions.some(q=>q.id===bankQuestionId) && (() => {
-        const selected = questions.find(q=>q.id===bankQuestionId)!;
-        return <QuestionBankDrawer key={selected.id} question={selected} apiUrl={apiUrl} reviewer={Boolean(identity.portalAdmin)} canManage={Boolean(canEditCatalog && (identity.portalAdmin || selected.createdBy===identity.user.id))} canEdit={canEditCatalog} onClose={()=>setBankQuestionId('')} onEdit={()=>{setBankQuestionId('');void editQuestion(selected.id);}} onChanged={async()=>{const r=await apiFetch(`${apiUrl}/api/questions`,{cache:'no-store'});if(!r.ok)throw new Error('Falha ao atualizar as questões.');setQuestions(((await r.json()) as {data:Question[]}).data);}}/>;
-      })()}
-
+      {bankQuestionId &&
+        questions.some((q) => q.id === bankQuestionId) &&
+        (() => {
+          const selected = questions.find((q) => q.id === bankQuestionId)!;
+          return (
+            <QuestionBankDrawer
+              key={selected.id}
+              question={selected}
+              apiUrl={apiUrl}
+              reviewer={Boolean(identity.portalAdmin)}
+              canManage={Boolean(
+                canEditCatalog &&
+                (identity.portalAdmin ||
+                  selected.createdBy === identity.user.id),
+              )}
+              canEdit={canEditCatalog}
+              onClose={() => setBankQuestionId('')}
+              onEdit={() => {
+                setBankQuestionId('');
+                void editQuestion(selected.id);
+              }}
+              onChanged={async () => {
+                const r = await apiFetch(`${apiUrl}/api/questions`, {
+                  cache: 'no-store',
+                });
+                if (!r.ok) throw new Error('Falha ao atualizar as questões.');
+                setQuestions(((await r.json()) as { data: Question[] }).data);
+              }}
+            />
+          );
+        })()}
     </main>
   );
 }
