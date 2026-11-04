@@ -1,6 +1,4 @@
-import {
-  renderAnswerCardHeader,
-} from './answer-card-header.mjs';
+import { renderAnswerCardHeader } from './answer-card-header.mjs';
 import { fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
 import { renderInstitutionalHeader } from './institutional-header.mjs';
 
@@ -28,6 +26,7 @@ export const simulatedExamV1 = Object.freeze({
       candidate,
       candidateName,
       candidateNumber,
+      candidatePhoto = null,
       content,
       subjects,
       transcriptionPhrase,
@@ -60,6 +59,7 @@ export const simulatedExamV1 = Object.freeze({
       className,
       candidateName,
       candidateNumber,
+      candidatePhoto,
       qr,
     });
     const details = [

@@ -7,12 +7,15 @@
 function photoBox(candidatePhoto) {
   if (!candidatePhoto) return '';
   const content = candidatePhoto.fileName
-    ? `\\externalfigure[${candidatePhoto.fileName}][width=18mm,height=24mm,factor=fit]`
+    ? `\\externalfigure[${candidatePhoto.fileName}][width=14mm,height=18.5mm,factor=fit]`
     : '{\\switchtobodyfont[6pt]\\color[darkgray]{sem foto}}';
-  return `\\framed[width=20mm,height=26mm,offset=1mm,align={middle,lohi},rulethickness=.4pt]{${content}}\\hskip 4mm`;
+  return `\\framed[width=15mm,height=19.5mm,offset=.5mm,align={middle,lohi},rulethickness=.4pt]{${content}}\\hskip 4mm`;
 }
 
-export function renderAnswerCardStudent({ candidateName, candidatePhoto = null }) {
+export function renderAnswerCardStudent({
+  candidateName,
+  candidatePhoto = null,
+}) {
   // Exemplo:   [foto]  FABIO DE SOUZA
   //                    Assinatura: ______________________________
   const photo = candidateName ? photoBox(candidatePhoto) : '';
@@ -20,14 +23,14 @@ export function renderAnswerCardStudent({ candidateName, candidatePhoto = null }
     ? `{\\tfa\\bold{\\WORD{${candidateName}}}}`
     : `{\\tfx\\color[darkgray]{Cartão sem aluno vinculado. Os cartões com o nome de cada aluno são gerados na aplicação da turma.}}`;
   const lines = `\\dontleavehmode\\hbox to \\hsize{${student}\\hss}\\par
-\\blank[4mm]
+\\blank[3mm]
 \\dontleavehmode\\hbox to \\hsize{{\\tfx\\bold{Assinatura:}}\\hskip 2mm\\leaders\\hrule height .4pt\\hfill}`;
   if (!photo)
     return `\\framed[width=\\textwidth,frame=on,rulethickness=.6pt,offset=2.5mm,align=normal]{%
 ${lines}}`;
   // Com foto: foto à esquerda; nome e assinatura ao lado, centralizados na altura.
   return `\\framed[width=\\textwidth,frame=on,rulethickness=.6pt,offset=2.5mm,align=normal]{%
-\\dontleavehmode\\hbox to \\hsize{${photo}\\vbox to 26mm{\\hsize=\\dimexpr\\textwidth-34mm\\relax\\vfil
+\\dontleavehmode\\hbox to \\hsize{${photo}\\vbox to 19.5mm{\\hsize=\\dimexpr\\textwidth-29mm\\relax\\vfil
 ${lines}
 \\vfil}\\hss}}`;
 }
