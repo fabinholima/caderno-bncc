@@ -116,15 +116,18 @@ test('aceita MetaPost ConTeXt puro dentro de uma alternativa', () => {
     ...baseQuestion,
     alternatives: baseQuestion.alternatives.map((item, index) => ({
       ...item,
-      contentBlocks: index === 0
-        ? [{
-            type: 'contextRaw',
-            code: String.raw`\startMPcode
+      contentBlocks:
+        index === 0
+          ? [
+              {
+                type: 'contextRaw',
+                code: String.raw`\startMPcode
 draw (0,0)--(2cm,0);
 label.urt(textext("V \unit{meter per second}"), origin);
 \stopMPcode`,
-          }]
-        : [{ type: 'paragraph', text: item.content }],
+              },
+            ]
+          : [{ type: 'paragraph', text: item.content }],
     })),
   });
   assert.equal(parsed.alternatives[0].contentBlocks[0].type, 'contextRaw');
@@ -260,8 +263,17 @@ test('aceita questão discursiva com orientação de correção', () => {
 
 test('aceita rótulos MetaPost com btex e etex e bloqueia escapes TeX codificados', () => {
   const code = 'label.ulft(btex $B$ etex, origin);';
-  assert.equal(createQuestionSchema.parse({ ...baseQuestion, metapostCode: code }).metapostCode, code);
-  assert.throws(() => createQuestionSchema.parse({ ...baseQuestion, metapostCode: 'label(btex ^^5cinput arquivo etex, origin);' }));
+  assert.equal(
+    createQuestionSchema.parse({ ...baseQuestion, metapostCode: code })
+      .metapostCode,
+    code,
+  );
+  assert.throws(() =>
+    createQuestionSchema.parse({
+      ...baseQuestion,
+      metapostCode: 'label(btex ^^5cinput arquivo etex, origin);',
+    }),
+  );
 });
 test('bloqueia comandos MetaPost que acessam execução externa', () => {
   assert.throws(() =>
@@ -294,11 +306,21 @@ test('valida filtros combináveis do banco de questões', () => {
   );
 });
 
-test('preserva a referência da imagem no cadastro e rejeita nomes que pareçam caminhos',()=>{
- const image={type:'image',referenceId:'imagem1',dataUrl:'data:image/png;base64,iVBORw0KGgo=',alt:'Figura',caption:''};
- const parsed=createQuestionSchema.shape.statementBlocks.parse([image]);
- assert.equal(parsed[0].referenceId,'imagem1');
- assert.throws(()=>createQuestionSchema.shape.statementBlocks.parse([{...image,referenceId:'../arquivo'}]));
+test('preserva a referência da imagem no cadastro e rejeita nomes que pareçam caminhos', () => {
+  const image = {
+    type: 'image',
+    referenceId: 'imagem1',
+    dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+    alt: 'Figura',
+    caption: '',
+  };
+  const parsed = createQuestionSchema.shape.statementBlocks.parse([image]);
+  assert.equal(parsed[0].referenceId, 'imagem1');
+  assert.throws(() =>
+    createQuestionSchema.shape.statementBlocks.parse([
+      { ...image, referenceId: '../arquivo' },
+    ]),
+  );
 });
 
 const trueFalseQuestion = {
@@ -313,8 +335,12 @@ const trueFalseQuestion = {
 
 test('aceita certo ou errado com uma única resposta correta', () => {
   for (const correctIndex of [0, 1]) {
-    const parsed = createQuestionSchema.parse({ ...trueFalseQuestion,
-      alternatives: trueFalseQuestion.alternatives.map((option, index) => ({ ...option, isCorrect: index === correctIndex })),
+    const parsed = createQuestionSchema.parse({
+      ...trueFalseQuestion,
+      alternatives: trueFalseQuestion.alternatives.map((option, index) => ({
+        ...option,
+        isCorrect: index === correctIndex,
+      })),
     });
     assert.equal(parsed.alternatives[correctIndex].isCorrect, true);
   }
@@ -323,12 +349,19 @@ test('aceita certo ou errado com uma única resposta correta', () => {
 test('rejeita gabarito ausente ou duplo e opções alteradas em certo ou errado', () => {
   const options = trueFalseQuestion.alternatives;
   for (const alternatives of [
-    options.map(option => ({ ...option, isCorrect: false })),
-    options.map(option => ({ ...option, isCorrect: true })),
+    options.map((option) => ({ ...option, isCorrect: false })),
+    options.map((option) => ({ ...option, isCorrect: true })),
     options.slice(0, 1),
-    options.map(option => ({ ...option, content: 'Outra resposta' })),
-    options.map(option => ({ ...option, contentBlocks: [{ type: 'paragraph', text: 'Outra resposta' }] })),
+    options.map((option) => ({ ...option, content: 'Outra resposta' })),
+    options.map((option) => ({
+      ...option,
+      contentBlocks: [{ type: 'paragraph', text: 'Outra resposta' }],
+    })),
   ]) {
-    assert.equal(createQuestionSchema.safeParse({ ...trueFalseQuestion, alternatives }).success, false);
+    assert.equal(
+      createQuestionSchema.safeParse({ ...trueFalseQuestion, alternatives })
+        .success,
+      false,
+    );
   }
 });
