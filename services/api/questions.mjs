@@ -835,7 +835,13 @@ export async function getQuestion({
     sourceYear: row.source_year,
     knowledgeTopic: row.knowledge_topic,
     pedagogicalTopicId: row.pedagogical_topic_id,
-    alternatives: [...row.alternatives].sort((a, b) => a.position - b.position),
+    // The editor reads contentBlocks; the bank drawer still reads content.
+    alternatives: [...row.alternatives]
+      .sort((a, b) => a.position - b.position)
+      .map((alternative) => ({
+        ...alternative,
+        contentBlocks: alternative.content,
+      })),
     skills: row.skills,
     saebDescriptors: row.saeb_descriptors,
     updatedAt: row.updated_at,

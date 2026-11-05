@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createQuestionSchema,
+  getQuestion,
   normalizeQuestionContent,
   questionContentFingerprint,
   questionDuplicateSchema,
   questionFiltersSchema,
   questionStatusSchema,
 } from './questions.mjs';
+import { pool } from './db.mjs';
 
 test('valida a marcação explícita de uma questão duplicada', () => {
   const parsed = questionDuplicateSchema.parse({
@@ -363,5 +365,52 @@ test('rejeita gabarito ausente ou duplo e opções alteradas em certo ou errado'
         .success,
       false,
     );
+  }
+});
+
+test('reabrir a questão devolve as alternativas gravadas para o editor', async () => {
+  const blocks = (letter) => [
+    { type: 'contextRaw', code: `Texto da alternativa ${letter}` },
+  ];
+  const original = pool.query;
+  pool.query = async () => ({
+    rowCount: 1,
+    rows: [
+      {
+        id: 'question',
+        // jsonb_agg(DISTINCT ...) does not keep the alternatives in position order.
+        alternatives: [
+          {
+            stableKey: 'alt-b',
+            content: blocks('B'),
+            isCorrect: false,
+            position: 2,
+          },
+          {
+            stableKey: 'alt-a',
+            content: blocks('A'),
+            isCorrect: true,
+            position: 1,
+          },
+        ],
+      },
+    ],
+  });
+  try {
+    const question = await getQuestion({
+      institutionId: 'school',
+      questionId: 'question',
+    });
+    assert.deepEqual(
+      question.alternatives.map((item) => item.stableKey),
+      ['alt-a', 'alt-b'],
+    );
+    assert.deepEqual(question.alternatives[0].contentBlocks, blocks('A'));
+    assert.deepEqual(question.alternatives[1].contentBlocks, blocks('B'));
+    // The bank drawer still reads the blocks from content.
+    assert.deepEqual(question.alternatives[0].content, blocks('A'));
+    assert.equal(question.alternatives[0].isCorrect, true);
+  } finally {
+    pool.query = original;
   }
 });
