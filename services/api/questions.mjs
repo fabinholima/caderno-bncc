@@ -1,22 +1,40 @@
-import {changeQuestionStatus,workflowSchema} from './question-workflow.mjs';
+import { changeQuestionStatus, workflowSchema } from './question-workflow.mjs';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { pool, transaction } from './db.mjs';
 
 export function questionCodePrefix(subject) {
-  const normalized = String(subject || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const normalized = String(subject || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
   const prefixes = new Map([
-    ['matematica', 'MAT'], ['quimica', 'QUI'], ['fisica', 'FIS'],
-    ['biologia', 'BIO'], ['ciencias', 'CIE'], ['historia', 'HIS'],
-    ['geografia', 'GEO'], ['filosofia', 'FIL'], ['sociologia', 'SOC'],
-    ['lingua portuguesa', 'LP'], ['portugues', 'LP'], ['literatura', 'LIT'],
-    ['lingua inglesa', 'ING'], ['ingles', 'ING'], ['arte', 'ART'],
+    ['matematica', 'MAT'],
+    ['quimica', 'QUI'],
+    ['fisica', 'FIS'],
+    ['biologia', 'BIO'],
+    ['ciencias', 'CIE'],
+    ['historia', 'HIS'],
+    ['geografia', 'GEO'],
+    ['filosofia', 'FIL'],
+    ['sociologia', 'SOC'],
+    ['lingua portuguesa', 'LP'],
+    ['portugues', 'LP'],
+    ['literatura', 'LIT'],
+    ['lingua inglesa', 'ING'],
+    ['ingles', 'ING'],
+    ['arte', 'ART'],
     ['educacao fisica', 'EDF'],
   ]);
   return prefixes.get(normalized) || 'QST';
 }
 import { prepareChemicalStructureBlocks } from './chemical-structures.mjs';
-import { withoutEmbeddedMetaPost, validMetaPost, normalizeMetaPost } from '../../lib/embedded-metapost.mjs';
+import {
+  withoutEmbeddedMetaPost,
+  validMetaPost,
+  normalizeMetaPost,
+} from '../../lib/embedded-metapost.mjs';
 
 const forbiddenContextFormula =
   /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;
@@ -188,10 +206,18 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('adoteNote'),
-    text: z.string().trim().min(1).max(5_000).refine((code) => {
-      try { return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code)); }
-      catch { return false; }
-    }, 'O campo Note e adote contém comando ConTeXt não permitido.'),
+    text: z
+      .string()
+      .trim()
+      .min(1)
+      .max(5_000)
+      .refine((code) => {
+        try {
+          return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code));
+        } catch {
+          return false;
+        }
+      }, 'O campo Note e adote contém comando ConTeXt não permitido.'),
   }),
   z.object({
     type: z.literal('romanList'),
@@ -276,17 +302,25 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('metapost'),
-    code: metapostCodeSchema.refine((code) => Boolean(code.trim()), 'Informe o código da figura MetaPost.'),
+    code: metapostCodeSchema.refine(
+      (code) => Boolean(code.trim()),
+      'Informe o código da figura MetaPost.',
+    ),
   }),
   z.object({
     type: z.literal('contextRaw'),
-    code: z.string().trim().min(1).max(20_000).refine(
-      (code) => {
-        try { return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code)); }
-        catch { return false; }
-      },
-      'O código ConTeXt contém comando não permitido.',
-    ),
+    code: z
+      .string()
+      .trim()
+      .min(1)
+      .max(20_000)
+      .refine((code) => {
+        try {
+          return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code));
+        } catch {
+          return false;
+        }
+      }, 'O código ConTeXt contém comando não permitido.'),
   }),
   z.object({
     type: z.literal('chemical'),
@@ -330,7 +364,10 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
     }),
   z.object({
     type: z.literal('image'),
-    referenceId: z.string().regex(/^imagem(?:[1-9][0-9]*|-[a-f0-9-]{36})$/).optional(),
+    referenceId: z
+      .string()
+      .regex(/^imagem(?:[1-9][0-9]*|-[a-f0-9-]{36})$/)
+      .optional(),
     dataUrl: z
       .string()
       .max(550_000)
@@ -466,19 +503,29 @@ export const createQuestionSchema = z
     }
     if (value.type === 'true_false') {
       const expected = ['Certo', 'Errado'];
-      const valid = value.alternatives.length === 2 && correct === 1 &&
+      const valid =
+        value.alternatives.length === 2 &&
+        correct === 1 &&
         expected.every((text, index) => {
-          const option = value.alternatives.find(item => item.position === index + 1);
-          return option?.stableKey === `alt-${index === 0 ? 'a' : 'b'}` &&
+          const option = value.alternatives.find(
+            (item) => item.position === index + 1,
+          );
+          return (
+            option?.stableKey === `alt-${index === 0 ? 'a' : 'b'}` &&
             option.content === text &&
-            (!option.contentBlocks || (option.contentBlocks.length === 1 &&
-              option.contentBlocks[0].type === 'paragraph' && option.contentBlocks[0].text === text));
+            (!option.contentBlocks ||
+              (option.contentBlocks.length === 1 &&
+                option.contentBlocks[0].type === 'paragraph' &&
+                option.contentBlocks[0].text === text))
+          );
         });
-      if (!valid) ctx.addIssue({
-        code: 'custom',
-        message: 'Questões de certo ou errado precisam das opções fixas Certo e Errado, nessa ordem, e exatamente uma correta.',
-        path: ['alternatives'],
-      });
+      if (!valid)
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'Questões de certo ou errado precisam das opções fixas Certo e Errado, nessa ordem, e exatamente uma correta.',
+          path: ['alternatives'],
+        });
     }
     if (
       value.type === 'multiple_choice' &&
@@ -710,7 +757,11 @@ export async function getQuestionFilterOptions({ institutionId }) {
   };
 }
 
-export async function getQuestion({ institutionId, role = 'teacher', questionId }) {
+export async function getQuestion({
+  institutionId,
+  role = 'teacher',
+  questionId,
+}) {
   const result = await pool.query({
     text: `SELECT q.id, q.public_code, q.current_revision, q.status, q.updated_at,
                   q.duplicate_of_question_id, q.duplicate_detected_at,
@@ -1103,11 +1154,29 @@ export async function createQuestionRevision({
     await client.query(
       `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata)
        VALUES($1,$2,'question.revised','question',$3,$4::jsonb)`,
-      [question.rows[0].institution_id, userId, questionId, JSON.stringify({ revision })],
+      [
+        question.rows[0].institution_id,
+        userId,
+        questionId,
+        JSON.stringify({ revision }),
+      ],
     );
-    if(question.rows[0].status!=='draft')await client.query(
-      "INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,'question.status_changed','question',$3,$4::jsonb)",
-      [question.rows[0].institution_id,userId,questionId,JSON.stringify({from:question.rows[0].status,status:'draft',reason:'Conteúdo editado; voltou para rascunho e precisa de nova revisão.',revision})]);
+    if (question.rows[0].status !== 'draft')
+      await client.query(
+        "INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,'question.status_changed','question',$3,$4::jsonb)",
+        [
+          question.rows[0].institution_id,
+          userId,
+          questionId,
+          JSON.stringify({
+            from: question.rows[0].status,
+            status: 'draft',
+            reason:
+              'Conteúdo editado; voltou para rascunho e precisa de nova revisão.',
+            revision,
+          }),
+        ],
+      );
     return {
       id: questionId,
       code: question.rows[0].public_code,
