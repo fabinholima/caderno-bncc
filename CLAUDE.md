@@ -1,5 +1,9 @@
 # Instruções para o Claude
 
+## Idioma
+
+- Responda ao usuário sempre em português, inclusive resumos, instruções e comandos explicados.
+
 ## Git
 
 - Envie todas as mudanças diretamente para o branch `main` (`git push origin HEAD:main`), sem abrir pull request e sem pedir confirmação.
