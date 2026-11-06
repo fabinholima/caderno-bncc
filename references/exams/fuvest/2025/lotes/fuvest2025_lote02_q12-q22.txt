@@ -1,0 +1,419 @@
+QUESTÃO 12
+\bold{Texto 1}
+
+“Em \italic{Big Tech: a ascensão dos dados e a morte da política}, Morozov estabelece ‘um paralelo com os setores extrativistas de recursos naturais, como o petróleo’, colocando ‘no centro da discussão o modo de produção dessa economia, que ele chama de ‘extrativismo de dados’. Apesar de a frase ‘os dados são o novo petróleo’ ser um chavão fraco em termos conceituais, Morozov acha o modismo útil para debatermos a matriz extrativista desse modo de produção, em especial a forma como as grandes empresas de tecnologia ‘continuam escavando a nossa psique tal como as empresas de petróleo escavam o solo’.”
+
+\startalignment[flushright]
+{\tfx ZANATTA, Rafael. “Extrativismo Digital”. \italic{Quatro Cinco Um}, 01/04/2019. Disponível em: https://quatrocincoum.com.br/resenhas/ (Adaptado).}
+\stopalignment
+
+\bold{Texto 2}
+
+“Colonialismo de dados é um modo de configurar o mundo inteiro, de tal forma que um recurso novo possa ser extraído – e esse recurso é a vida humana a partir da qual se pode extrair um valor econômico. Sustentamos que os modos nos quais este novo colonialismo opera, as escalas nas quais opera diferem do colonialismo histórico que tão bem entendemos. Mas a função, a finalidade subjacente, o núcleo deste novo colonialismo é exatamente o mesmo do colonialismo histórico. É o de despossuir, apropriar-se dos recursos do mundo para o bem de uns poucos, de uma parte do mundo.”
+
+\startalignment[flushright]
+{\tfx COULDRY, Nick. Colonialismo de Dados e Esvaziamento da Vida Social Antes e Pós Pandemia de Covid-19. In: \italic{Homo Digitalis}. A Escalada da Algoritmização da Vida em Tempos de Pandemia. Anais do XIX Simpósio Internacional Instituto Humanitas Unisinos (Adaptado).}
+\stopalignment
+
+Considerando os excertos apresentados, é correto afirmar que \italic{extrativismo de dados} e \italic{colonialismo de dados} são conceitos desenvolvidos por Morozov e Couldry para nomear e descrever fenômenos
+(A) baseados em mecanismos inéditos de acumulação de dados na história, de amplo alcance, complementares e centrais para diferenciar a atual fase do modo de produção capitalista.
+(B) essencialmente diferentes, pois, enquanto o extrativismo trata de uma relação das empresas de tecnologia com a psique, o colonialismo trata de uma relação dessas empresas com a vida humana.
+(C) cuja lógica de apropriação é diferente daquela verificada em relação ao petróleo, o que explica os limites da comparação entre os dados produzidos por usuários da internet e o petróleo.
+(D) correspondentes a duas formas análogas de apreender transformações do capitalismo contemporâneo, referindo-se a práticas que surgiram no passado, colonização e extrativismo, e com os quais compartilham finalidades.
+(E) que abrem possibilidades para que alguns países desprovidos de recursos naturais valiosos se apropriem de dados produzidos por usuários, sem autorização prévia destes, para extrair lucros.
+GABARITO: D
+DISCIPLINA: Sociologia
+SÉRIE: 3ª série
+TÓPICO: Tecnologia, Produção E Sociedade
+SUBTÓPICO: Tecnologias de Informação e Comunicação (TIC`s) e as novas formas de relações sociais
+HABILIDADE: EM13CHS202
+RESOLUÇÃO:
+Os dois autores recorrem a práticas antigas para explicar o capitalismo digital. Morozov compara a coleta de dados à extração de petróleo (\italic{extrativismo}); Couldry afirma que o \italic{colonialismo de dados} opera em escalas e modos novos, mas tem \quotation{exatamente o mesmo} núcleo do colonialismo histórico: despossuir e apropriar-se de recursos em benefício de poucos.
+
+São, portanto, analogias: nomeiam transformações atuais a partir de práticas do passado (extrativismo e colonização), com as quais compartilham a finalidade de apropriação.
+
+(A) Incorreta: os textos destacam a semelhança com práticas antigas, não o ineditismo.
+(B) Incorreta: os conceitos são análogos, não essencialmente diferentes.
+(C) Incorreta: Morozov considera a comparação com o petróleo útil justamente pela lógica extrativista comum.
+(E) Incorreta: os textos não tratam de países sem recursos naturais.
+
+Resposta: \bold{D}.
+FIM DA QUESTÃO
+
+QUESTÃO 13
+As formas de colonização ibérica e inglesa na América foram, durante muito tempo, consideradas processos isolados, estruturados em dois modelos opostos: as colônias de exploração e as de povoamento, respectivamente. No entanto, elas constituíram um emaranhado de experiências compartilhadas pelos impérios atlânticos. Os aspectos comuns a essas formas de colonização foram a
+(A) partida dos colonizadores da metrópole, da qual saíram por fatores religiosos, e a adoção do trabalho livre como base da produção.
+(B) dominação e a exploração dos povos originários e o emprego sistemático do trabalho forçado dessas populações.
+(C) introdução de colonos sem interesse na ocupação demográfica e o objetivo exclusivo da extração de riquezas minerais.
+(D) produção local organizada em pequenas propriedades e a utilização primordial da força de trabalho familiar.
+(E) falta de interesse metropolitano pela exploração comercial e a inexistência de benefícios financeiros para a metrópole.
+GABARITO: B
+DISCIPLINA: História
+SÉRIE: 2ª série
+TÓPICO: Colonização e formação do Brasil
+SUBTÓPICO: Colonização da América
+HABILIDADE: EM13CHS204
+RESOLUÇÃO:
+A historiografia recente relativiza a oposição rígida entre \quotation{colônias de exploração} e \quotation{colônias de povoamento}. Tanto na América ibérica quanto na inglesa houve conquista territorial, dominação dos povos originários e uso sistemático de trabalho compulsório: indígenas escravizados ou submetidos a formas de servidão (encomienda, mita, aldeamentos) e, depois, africanos escravizados, inclusive nas colônias inglesas do sul e do Caribe.
+
+(A) Incorreta: a motivação religiosa e o trabalho livre não caracterizam a colonização ibérica.
+(C) Incorreta: houve ocupação demográfica e a riqueza não era só mineral.
+(D) Incorreta: a pequena propriedade familiar não foi a base da colonização ibérica.
+(E) Incorreta: as metrópoles exploraram comercialmente as colônias (exclusivo metropolitano).
+
+Resposta: \bold{B}.
+FIM DA QUESTÃO
+
+QUESTÃO 14
+“Brasileiros! (...) está conhecida nossa ilusão ou engano em adotarmos um sistema de governo defeituoso em sua origem, e mais defeituoso em suas partes componentes. As constituições, as leis e todas as instituições humanas são feitas para os povos e não os povos para elas. Eia, pois, brasileiros, tratemos de constituirmos de um modo análogo às luzes do século em que vivemos; o sistema americano deve ser idêntico; desprezemos instituições oligárquicas, só cabidas na encanecida Europa.”
+
+\startalignment[flushright]
+{\tfx ANDRADE, Manoel de Carvalho Paes de. Manifesto de proclamação da Confederação do Equador. Apud TORRES, João Camillo de Oliveira. \italic{A democracia coroada}: Teoria política do Império do Brasil. Petrópolis: Vozes, 1964. p.522 (Adaptado).}
+\stopalignment
+
+O excerto apresenta trecho do manifesto divulgado pelos rebeldes da Confederação do Equador (1824) e reage explicitamente
+(A) à dissolução da Assembleia Constituinte e à outorga de uma constituição elaborada pelo Conselho de Estado.
+(B) ao distanciamento do governo brasileiro em relação à Coroa Portuguesa e à política europeia do período.
+(C) ao caráter descentralizador do regime monárquico e ao aumento da autonomia das províncias.
+(D) ao poder exercido pelos produtores nordestinos de algodão e pelos cafeicultores paulistas.
+(E) à adoção de regime republicano pela Constituição e ao fechamento do parlamento nacional.
+GABARITO: A
+DISCIPLINA: História
+SÉRIE: 2ª série
+TÓPICO: Colonização e formação do Brasil
+HABILIDADE: EM13CHS603
+RESOLUÇÃO:
+Em 1823, D. Pedro I dissolveu a Assembleia Constituinte e, em 1824, outorgou uma Constituição redigida pelo Conselho de Estado, centralizadora e com o Poder Moderador. Em Pernambuco, os rebeldes reagiram proclamando a Confederação do Equador: o manifesto critica o \quotation{sistema de governo defeituoso em sua origem} (imposto, e não elaborado pelos representantes) e propõe o modelo republicano e federativo norte-americano (\quotation{o sistema americano}), rejeitando as \quotation{instituições oligárquicas} europeias.
+
+(B) Incorreta: os rebeldes criticavam justamente a proximidade com o modelo europeu.
+(C) Incorreta: o regime era centralizador, e os rebeldes defendiam autonomia provincial.
+(D) Incorreta: o texto não trata de grupos de produtores.
+(E) Incorreta: a Constituição de 1824 era monárquica.
+
+Resposta: \bold{A}.
+FIM DA QUESTÃO
+
+QUESTÃO 15
+“\bold{justice}, each getting what he or she is due. Formal justice is the impartial and consistent application of principles, whether or not the principles themselves are just. Substantive justice is closely associated with rights, i.e., with what individuals can legitimately demand of one another or what they can legitimately demand of their government (e.g., with respect to the protection of liberty or the promotion of equality). Retributive justice concerns when and why punishment is justified. Debate continues over whether punishment is justified as retribution for past wrongdoing or because it deters future wrongdoing. Those who stress retribution as the justification for punishment usually believe human beings have libertarian free will, while those who stress deterrence usually accept determinism.
+
+At least since Aristotle, justice has commonly been identified both with obeying law and with treating everyone with fairness. But if law is, and justice is not, entirely a matter of convention, then justice cannot be identified with obeying law.”
+
+\startalignment[flushright]
+{\tfx \bold{The Cambridge Dictionary of Philosophy}. General Editor Robert Audi, Cambridge, U.K.: C.U.P., 1999. p.456.}
+\stopalignment
+
+Conforme o verbete, a justiça substantiva pode ser definida como a
+(A) aplicação imparcial e consistente de princípios éticos e morais.
+(B) promoção de punições rigorosas para qualquer tipo de crime.
+(C) distribuição de recursos econômicos de maneira equitativa, com ênfase no coletivo.
+(D) garantia de que todos recebam o que lhes é devido, contemplando direitos individuais.
+(E) proteção exclusiva dos direitos das minorias, aumentando sua visibilidade social.
+GABARITO: D
+DISCIPLINA: Língua Inglesa
+SÉRIE: 1ª série
+TÓPICO: Linguistic Aspects
+SUBTÓPICO: Reading Strategies
+HABILIDADE: EM13LGG403
+RESOLUÇÃO:
+O verbete define justiça em geral como \quotation{each getting what he or she is due} (cada um recebe o que lhe é devido) e afirma que a \italic{substantive justice} \quotation{is closely associated with rights}, isto é, com o que os indivíduos podem legitimamente exigir uns dos outros ou do governo. Logo, a justiça substantiva garante que todos recebam o que lhes é devido, contemplando direitos individuais.
+
+(A) Incorreta: essa é a definição de \italic{formal justice}.
+(B) Incorreta: a punição é tema da \italic{retributive justice}, e o texto não fala em punições rigorosas.
+(C) e (E) Incorretas: o texto não menciona distribuição de recursos nem proteção exclusiva de minorias.
+
+Resposta: \bold{D}.
+FIM DA QUESTÃO
+
+QUESTÃO 16
+A construção de uma rampa que seja acessível a usuários de cadeira de rodas deve seguir a norma ABNT NBR 9050. Esse documento regulamenta a inclinação que a rampa deve ter a depender do desnível máximo de cada segmento de rampa, conforme o seguinte quadro:
+
+\startalignment[middle]
+\bold{Inclinação e desnível máximo de cada segmento de rampa}
+\stopalignment
+
+\startalignment[middle]
+\bTABLE[align=middle,width=.45\hsize,offset=1mm]
+\bTR \bTD Desnível $h$ (em m) \eTD \bTD Inclinação $i$ admissível (em \%) \eTD \eTR
+\bTR \bTD $1 < h \leq 1{,}5$ \eTD \bTD $5$ \eTD \eTR
+\bTR \bTD $0{,}8 < h \leq 1$ \eTD \bTD $5 < i \leq 6{,}25$ \eTD \eTR
+\bTR \bTD $0 < h \leq 0{,}8$ \eTD \bTD $6{,}25 < i \leq 8{,}33$ \eTD \eTR
+\eTABLE
+\stopalignment
+
+\startalignment[flushright]
+{\tfx Acessibilidade a edificações, mobiliário, espaços e equipamentos urbanos. Disponível em https://www.prefeitura.sp.gov.br/cidade/ (Adaptado).}
+\stopalignment
+
+A inclinação $i$ da rampa em porcentagem (\%) é calculada dividindo a altura $h$ do desnível do segmento da rampa, em metros, pelo comprimento da projeção horizontal $c$, em metros, e multiplicando o resultado por 100. A figura a seguir mostra uma rampa de dois segmentos.
+
+\startalignment[middle]
+\externalfigure[imagem1][width=.6\hsize]
+\stopalignment
+
+Determinada rampa de dois segmentos foi construída da seguinte maneira:
+
+- o primeiro segmento possui projeção horizontal de 10 m e inclinação de 6\%;
+
+- o segundo segmento possui projeção horizontal de 7 m e desnível de 0,5 m.
+
+Com base no que foi apresentado sobre a normativa, o que é correto afirmar sobre a adequação dessa rampa à norma de acessibilidade?
+(A) A rampa não está adequada, pois os dois segmentos não estão de acordo com a norma.
+(B) A rampa está adequada, pois os dois segmentos estão de acordo com a norma.
+(C) A rampa não está adequada, pois o primeiro segmento não está de acordo com a norma.
+(D) A rampa não está adequada, pois o segundo segmento não está de acordo com a norma.
+(E) A rampa está adequada, pois, apesar de o segundo segmento não estar de acordo com a norma, o primeiro está.
+GABARITO: C
+DISCIPLINA: Matemática
+SÉRIE: 1ª série
+TÓPICO: Números e Álgebra
+SUBTÓPICO: Razão, proporção e porcentagem
+HABILIDADE: EM13MAT314
+RESOLUÇÃO:
+Pela definição, $i = \frac{h}{c} \cdot 100$.
+
+\bold{Primeiro segmento} ($c = 10$ m, $i = 6\%$):
+\startformula
+h = \frac{6 \cdot 10}{100} = 0{,}6 \text{ m}
+\stopformula
+Como $0 < 0{,}6 \leq 0{,}8$, a norma exige $6{,}25 < i \leq 8{,}33$. A inclinação de 6\% está fora desse intervalo: o segmento \bold{não} está de acordo com a norma.
+
+\bold{Segundo segmento} ($c = 7$ m, $h = 0{,}5$ m):
+\startformula
+i = \frac{0{,}5}{7} \cdot 100 \approx 7{,}14\%
+\stopformula
+Como $0 < 0{,}5 \leq 0{,}8$, exige-se $6{,}25 < i \leq 8{,}33$, e $7{,}14\%$ está nesse intervalo: o segmento está de acordo com a norma.
+
+Portanto, a rampa não está adequada, pois o primeiro segmento não atende à norma.
+
+Resposta: \bold{C}.
+FIM DA QUESTÃO
+
+QUESTÃO 17
+A imagem a seguir mostra um cruzamento da Rua da Consolação, na região central da cidade de São Paulo, em que há faixas de pedestre em diferentes direções. Essas faixas agilizam a travessia das ruas. Uma pessoa parte do ponto O e deseja chegar ao ponto C. Para tanto, percorre o trajeto pela faixa que liga O a B e, em seguida, utiliza a faixa que liga B a C. Considere que as coordenadas dos pontos indicados na figura, em metros, são: O(0,0), B(13,-15) e C(29,-8).
+
+\startalignment[middle]
+\externalfigure[imagem1][width=.8\hsize]
+\stopalignment
+
+Seja $d$ a distância, em metros, que essa pessoa deixaria de percorrer se tivesse optado por fazer a travessia pela faixa de pedestre que liga O a C. Nesse contexto, é correto afirmar:
+(A) $d < 2$
+(B) $2 \leq d < 5$
+(C) $5 \leq d \leq 8$
+(D) $8 < d \leq 11$
+(E) $11 < d$
+GABARITO: C
+DISCIPLINA: Matemática
+SÉRIE: 3ª série
+TÓPICO: Geometria Analítica
+SUBTÓPICO: Ponto e reta
+HABILIDADE: EM13MAT308
+RESOLUÇÃO:
+Pela fórmula da distância entre dois pontos:
+\startformula
+OB = \sqrt{13^2 + (-15)^2} = \sqrt{169 + 225} = \sqrt{394} \approx 19{,}85
+\stopformula
+\startformula
+BC = \sqrt{(29-13)^2 + (-8+15)^2} = \sqrt{256 + 49} = \sqrt{305} \approx 17{,}46
+\stopformula
+\startformula
+OC = \sqrt{29^2 + (-8)^2} = \sqrt{841 + 64} = \sqrt{905} \approx 30{,}08
+\stopformula
+Assim,
+\startformula
+d = OB + BC - OC \approx 19{,}85 + 17{,}46 - 30{,}08 \approx 7{,}23 \text{ m}
+\stopformula
+Logo, $5 \leq d \leq 8$.
+
+Resposta: \bold{C}.
+FIM DA QUESTÃO
+
+QUESTÃO 18
+No dia 26 de março de 2024, à 1h29min, aproximadamente, o navio cargueiro MV Dali colidiu com a ponte Francis Scott Key em Baltimore, EUA. O impacto causou o colapso da ponte, tornando-se um dos maiores acidentes marítimos da história norte-americana.
+
+A figura a seguir mostra os dados da velocidade do navio em função da hora local. A colisão ocorreu no intervalo de 38 segundos, marcado por linhas pontilhadas no gráfico.
+
+\startalignment[middle]
+\externalfigure[imagem1][width=.8\hsize]
+\stopalignment
+
+\startalignment[flushright]
+{\tfx Disponível em https://www.nytimes.com/ (Adaptado).}
+\stopalignment
+
+Assumindo que a massa do navio no momento do impacto seja de 100 mil toneladas e, tendo por base os dados do gráfico, a magnitude da força média atuando sobre o navio durante a colisão é de, aproximadamente,
+(A) $7 \times 10^{-2}$ N.
+(B) $7 \times 10^{0}$ N.
+(C) $7 \times 10^{2}$ N.
+(D) $7 \times 10^{4}$ N.
+(E) $7 \times 10^{6}$ N.
+NOTE E ADOTE:
+Considere que a força atuando sobre o navio durante a colisão seja constante e igual à força média.
+
+Utilize 1 m.p.h. = 0,5 m/s.
+GABARITO: E
+DISCIPLINA: Física
+SÉRIE: 1ª série
+TÓPICO: Dinâmica
+SUBTÓPICO: Impulso, quantidade de movimento e colisões
+HABILIDADE: EM13CNT204
+RESOLUÇÃO:
+Do gráfico, no intervalo de 38 s a velocidade cai de 7,82 m.p.h. para 2,5 m.p.h.:
+\startformula
+\Delta v = (7{,}82 - 2{,}5) \text{ m.p.h.} = 5{,}32 \text{ m.p.h.} \approx 5{,}32 \cdot 0{,}5 \text{ m/s} \approx 2{,}66 \text{ m/s}
+\stopformula
+A massa é $m = 100\,000 \text{ t} = 1 \times 10^{8}$ kg. Pelo teorema do impulso, $F \cdot \Delta t = m \cdot \Delta v$:
+\startformula
+F = \frac{m \cdot \Delta v}{\Delta t} = \frac{1 \times 10^{8} \cdot 2{,}66}{38} \approx 7 \times 10^{6} \text{ N}
+\stopformula
+
+Resposta: \bold{E}.
+FIM DA QUESTÃO
+
+QUESTÃO 19
+O efeito Compton, descoberto na década de 1920, é hoje amplamente utilizado durante tratamentos radioterápicos. O efeito relaciona-se à mudança no comprimento de onda de fótons de raios X quando interagem com partículas como elétrons ou prótons, conforme ilustrado na figura a seguir.
+
+\startalignment[middle]
+\externalfigure[imagem1][width=.8\hsize]
+\stopalignment
+
+Quando um fóton com comprimento de onda $\lambda_0$ incide sobre uma partícula, ele emerge dessa interação formando um ângulo $\theta$ com sua direção inicial de movimento, e seu novo comprimento de onda $\lambda'$ é dado pela relação
+\startformula
+\lambda' = \lambda_0 + \frac{\alpha}{m}(1 - \cos\theta),
+\stopformula
+em que $\alpha$ é uma constante positiva e $m$ é a massa da partícula.
+
+Com base nessas informações e em seus conhecimentos sobre a propagação das ondas eletromagnéticas, assinale a alternativa correta.
+(A) A maior variação no comprimento de onda do fóton ocorre quando o ângulo $\theta$ é igual a $90^{\circ}$.
+(B) Se o ângulo $\theta$ é igual a $30^{\circ}$, o fóton emergente tem frequência menor do que a frequência inicial.
+(C) Quando $\theta = 0$, a velocidade do fóton emergente é menor do que a do fóton incidente, devido à conservação da quantidade de movimento.
+(D) Se o ângulo $\theta$ é igual a $60^{\circ}$, a variação no comprimento de onda do fóton é menor se a partícula for um elétron do que se a partícula for um próton.
+(E) Um fóton que emergiu perpendicularmente à sua direção inicial não sofreu mudança em sua frequência.
+GABARITO: B
+DISCIPLINA: Física
+SÉRIE: 3ª série
+TÓPICO: Física Moderna
+SUBTÓPICO: Física quântica e efeito fotoelétrico
+HABILIDADE: EM13CNT103
+RESOLUÇÃO:
+A variação do comprimento de onda é
+\startformula
+\Delta\lambda = \lambda' - \lambda_0 = \frac{\alpha}{m}(1 - \cos\theta) \geq 0.
+\stopformula
+
+(A) Incorreta: $1 - \cos\theta$ é máximo para $\theta = 180^{\circ}$ (vale 2), e não para $90^{\circ}$ (vale 1).
+
+(B) Correta: para $\theta = 30^{\circ}$, $1 - \cos 30^{\circ} \approx 0{,}13 > 0$, logo $\lambda' > \lambda_0$. Como a velocidade da luz é a mesma ($c = \lambda f$), a frequência emergente é menor: $f' = \frac{c}{\lambda'} < f_0$.
+
+(C) Incorreta: no vácuo, todo fóton se propaga com a mesma velocidade $c$; além disso, para $\theta = 0$, $\Delta\lambda = 0$.
+
+(D) Incorreta: $\Delta\lambda$ é inversamente proporcional a $m$; como o elétron tem massa menor que a do próton, a variação é \bold{maior} para o elétron.
+
+(E) Incorreta: para $\theta = 90^{\circ}$, $\Delta\lambda = \frac{\alpha}{m} > 0$, logo a frequência diminui.
+
+Resposta: \bold{B}.
+FIM DA QUESTÃO
+
+QUESTÃO 20
+A figura a seguir apresenta a evolução dos modelos atômicos, desde o primeiro, proposto por Dalton em 1803, até o de Bohr, proposto em 1913.
+
+\startalignment[middle]
+\externalfigure[imagem1][width=.7\hsize]
+\stopalignment
+
+Sobre os quatro modelos atômicos apresentados, é correto afirmar:
+(A) Todos os modelos previram a presença de cargas positivas no núcleo atômico.
+(B) O modelo proposto por Thomson, por prever a existência de nêutrons, não poderia explicar a radiação alfa ($\alpha$).
+(C) Diferentemente do modelo de Dalton, o modelo de Rutherford não explica a estrutura de cátions e ânions.
+(D) Apenas o modelo de Bohr, com o advento de balanças de precisão, considerou a diferença de massa entre os elementos.
+(E) Elementos radioativos não poderiam ser explicados pelo modelo proposto por Dalton.
+GABARITO: E
+DISCIPLINA: Química
+SÉRIE: 1ª série
+TÓPICO: Estrutura Atômica
+SUBTÓPICO: Modelos atômicos
+HABILIDADE: EM13CNT201
+RESOLUÇÃO:
+No modelo de Dalton, o átomo é uma esfera maciça, indivisível e indestrutível. A radioatividade envolve a emissão de partículas e energia a partir do núcleo, com transformação de um elemento em outro, o que pressupõe um átomo divisível, com estrutura interna. Portanto, elementos radioativos não poderiam ser explicados pelo modelo de Dalton.
+
+(A) Incorreta: os modelos de Dalton e de Thomson não têm núcleo.
+(B) Incorreta: o modelo de Thomson não previa nêutrons (descobertos em 1932).
+(C) Incorreta: é o modelo de Dalton, sem cargas elétricas, que não explica íons; o de Rutherford explica cátions e ânions pela perda ou ganho de elétrons.
+(D) Incorreta: já Dalton atribuía massas diferentes aos átomos de elementos diferentes.
+
+Resposta: \bold{E}.
+FIM DA QUESTÃO
+
+QUESTÃO 21
+Baterias íon-lítio (íon-Li) armazenam energia por meio de um processo de intercalação iônica, no qual íons Li\high{+} penetram e se acomodam entre camadas de grafite no ânodo da bateria. A quantidade de energia armazenada é diretamente proporcional ao número de íons Li\high{+} intercalados no ânodo, que, entre outros aspectos, é limitado pelo espaço disponível para a sua alocação. Uma recente inovação tecnológica em baterias é a substituição de Li por Na, formando baterias íon-sódio (íon-Na). O mecanismo de funcionamento se baseia no processo de intercalação, com a vantagem de que o Na é mais abundante do que o Li no planeta.
+
+Considerando que a única diferença entre baterias de mesma massa e volume seja o íon utilizado (Na\high{+} ou Li\high{+}) e que a densidade de energia é a quantidade de energia armazenada na bateria por unidade de massa e volume, é correto afirmar que a densidade de energia de uma bateria íon-Na é
+(A) maior do que de uma bateria íon-Li, pois o Na\high{+} tem maior massa e menor raio iônico do que o Li\high{+}.
+(B) menor do que de uma bateria íon-Li, pois o Na\high{+} tem maior massa e maior raio iônico do que o Li\high{+}.
+(C) maior do que de uma bateria íon-Li, pois o Na\high{+} tem menor massa e maior raio iônico do que o Li\high{+}.
+(D) menor do que de uma bateria íon-Li, pois o Na\high{+} tem menor massa e menor raio iônico do que o Li\high{+}.
+(E) igual à de uma bateria íon-Li, pois ambos os íons são monovalentes.
+NOTE E ADOTE:
+Distribuição eletrônica: Li = 1s\high{2}, 2s\high{1}; Na = 1s\high{2}, 2s\high{2}, 2p\high{6}, 3s\high{1}.
+
+Massa atômica (u): Li = 7; Na = 23.
+GABARITO: B
+DISCIPLINA: Química
+SÉRIE: 1ª série
+TÓPICO: Tabela Periódica
+SUBTÓPICO: Propriedades periódicas
+HABILIDADE: EM13CNT307
+RESOLUÇÃO:
+Pela distribuição eletrônica, o Na\high{+} (1s\high{2} 2s\high{2} 2p\high{6}) tem duas camadas eletrônicas, enquanto o Li\high{+} (1s\high{2}) tem apenas uma. Logo, o raio iônico do Na\high{+} é \bold{maior}. Pela massa atômica, o Na (23 u) também é mais \bold{pesado} que o Li (7 u).
+
+Com íons maiores, cabem menos íons no espaço disponível entre as camadas de grafite do ânodo, e a energia armazenada, proporcional ao número de íons intercalados, diminui. Além disso, cada íon tem massa maior. Assim, a densidade de energia (energia por unidade de massa e volume) da bateria íon-Na é \bold{menor} que a da íon-Li.
+
+(E) Incorreta: a carga igual não compensa as diferenças de tamanho e massa.
+
+Resposta: \bold{B}.
+FIM DA QUESTÃO
+
+QUESTÃO 22
+\startalignment[middle]
+\externalfigure[imagem1][width=.8\hsize]
+\stopalignment
+
+\startalignment[middle]
+\externalfigure[imagem2][width=.35\hsize]
+\stopalignment
+
+Uma das possíveis tecnologias para a produção de telas sensíveis ao toque aproveita a reflexão interna total da luz. Esse tipo de reflexão ocorre quando um raio luminoso viaja do interior de um meio 1, com índice de refração $n_1$, em direção a um meio 2, com índice de refração $n_2$, formando com a direção perpendicular à interface entre os meios um ângulo $\theta$ maior do que um certo valor limite $\theta_L$, tal que $\sin\theta_L = n_2/n_1$. Quando um objeto (como um dedo) se aproxima da interface entre os meios, a reflexão total não ocorre, o que é captado por sensores, revelando a posição do objeto. Suponha que se deseje projetar uma tela sensível ao toque que, conforme mostra a figura, funcione com uma fonte luminosa $F$ fixa na borda. A tabela a seguir indica os índices de refração de alguns materiais candidatos à utilização no meio 1.
+
+\startalignment[middle]
+\bTABLE[align=middle,width=.4\hsize,offset=.6mm]
+\bTR \bTD Material \eTD \bTD Índice de refração $n_1$ \eTD \eTR
+\bTR \bTD A \eTD \bTD $1{,}0002$ \eTD \eTR
+\bTR \bTD B \eTD \bTD $1{,}0003$ \eTD \eTR
+\bTR \bTD C \eTD \bTD $1{,}1503$ \eTD \eTR
+\bTR \bTD D \eTD \bTD $1{,}3204$ \eTD \eTR
+\bTR \bTD E \eTD \bTD $1{,}4889$ \eTD \eTR
+\eTABLE
+\stopalignment
+
+Tratando o meio 2 sempre como tendo índice de refração $n_2 = 1{,}0003$, o material que permite o maior intervalo de ângulos de incidência que produzem reflexão total é:
+(A) Material A.
+(B) Material B.
+(C) Material C.
+(D) Material D.
+(E) Material E.
+GABARITO: E
+DISCIPLINA: Física
+SÉRIE: 2ª série
+TÓPICO: Óptica
+SUBTÓPICO: Refração e lentes
+HABILIDADE: EM13CNT307
+RESOLUÇÃO:
+Há reflexão total para ângulos de incidência $\theta$ entre $\theta_L$ e $90^{\circ}$, com $\sin\theta_L = \frac{n_2}{n_1}$. Esse intervalo é tanto maior quanto menor for $\theta_L$, isto é, quanto menor for a razão $\frac{n_2}{n_1}$, ou seja, quanto maior for $n_1$.
+
+Os materiais A ($n_1 < n_2$) e B ($n_1 = n_2$) não produzem reflexão total. Entre C, D e E, o maior índice é o do material E:
+\startformula
+\sin\theta_L = \frac{1{,}0003}{1{,}4889} \approx 0{,}67 \quad\Rightarrow\quad \theta_L \approx 42^{\circ}
+\stopformula
+o que dá reflexão total para $42^{\circ} < \theta < 90^{\circ}$, o maior intervalo entre os candidatos.
+
+Resposta: \bold{E}.
+FIM DA QUESTÃO
