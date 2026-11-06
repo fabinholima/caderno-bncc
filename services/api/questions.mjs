@@ -673,8 +673,7 @@ export async function listQuestions({
             THEN 'Ensino Médio' ELSE 'Ensino Fundamental' END) = $10)
       GROUP BY q.id, qr.question_id, qr.revision, cs.code, cs.stage, ko.id, ko.name,
                cc.id, cc.number, sd.id, sd.code, sd.description
-      ORDER BY q.updated_at DESC
-      LIMIT 100`,
+      ORDER BY q.updated_at DESC`,
     values: [
       allInstitutions ? null : institutionId,
       filters.subject === 'Todas' ? '' : filters.subject,
