@@ -84,10 +84,10 @@ docker compose exec -T postgres pg_restore -U caderno -d caderno \
 No seu provedor de DNS (Registro.br ou onde o domínio está), crie registros
 **A** apontando para o IP do VPS:
 
-| Nome | Tipo | Valor |
-|---|---|---|
-| `novo` | A | IP do VPS |
-| `api-novo` | A | IP do VPS |
+| Nome       | Tipo | Valor     |
+| ---------- | ---- | --------- |
+| `novo`     | A    | IP do VPS |
+| `api-novo` | A    | IP do VPS |
 
 ```sh
 cd /opt/ufaprova/deploy/vps
@@ -98,6 +98,10 @@ docker compose logs -f api       # Ctrl+C para sair
 
 Abra `https://novo.ufaprova.com.br`, faça login, confira questões, turmas e
 gere um PDF de teste.
+
+> Não cadastre nada de verdade no servidor novo durante o teste: o passo 5
+> apaga o banco do VPS e copia o do Render de novo. Cadastros reais continuam
+> no portal do Render até a troca.
 
 ## 5. Trocar para o endereço definitivo
 
@@ -120,6 +124,8 @@ gere um PDF de teste.
      `https://api.ufaprova.com.br/api/auth/google/callback`
    - **Mercado Pago** → webhook: `https://api.ufaprova.com.br/api/billing/webhook`
 8. Teste login, geração de PDF, importação e correção.
+
+Se depois faltar algum cadastro, veja `docs/recuperar-questoes.md`.
 
 Mantenha o Render **suspenso por 1–2 semanas**. Se algo der errado, basta voltar
 o DNS e reativar os serviços de lá.
