@@ -2,9 +2,9 @@
 
 O importador existente extrai texto e recorta figuras do PDF. O worker analisa pequenos lotes de questões selecionadas com Gemini e devolve sugestões de ConTeXt editável. PDFs digitalizados continuam usando o OCR existente. Quando a extração local não reconhece questões ou identifica páginas sem texto, o worker envia o PDF diretamente ao Gemini, se o provedor e a chave estiverem configurados. As questões retornam em revisão, sem gabarito inventado e com referência à página original. Esta entrega não reconstrói figuras em MetaPost. Confira fórmulas e figuras no original antes de cadastrar.
 
-## Ativar no Render
+## Ativar em produção (VPS)
 
-Aplicar as migrações pelo comando de predeploy atual da API, incluindo `081_exam_ai_daily_quota.sql`. No serviço **ufaprova-imports**, configurar:
+A API aplica as migrações ao iniciar, incluindo `081_exam_ai_daily_quota.sql`. No `deploy/vps/.env` (usado pelo serviço **imports**), configurar:
 
 ```dotenv
 EXAM_AI_PROVIDER=gemini

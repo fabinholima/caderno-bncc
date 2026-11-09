@@ -94,6 +94,8 @@ services:
       MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET}
       MP_BACK_URL: ${MP_BACK_URL:-}
       PREVIEW_CONCURRENCY: "1"
+      # Commit publicado, exibido em /health (definido pelo script de atualização).
+      APP_RELEASE: ${APP_RELEASE:-}
       # Alerta por e-mail (Resend) quando há erros 5xx repetidos.
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
     volumes:

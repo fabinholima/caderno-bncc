@@ -4,6 +4,10 @@ Guia para colocar o UfaProva num único servidor (2 vCPU, 8 GB, 100 GB) e migrar
 os dados do Render **copiando** o banco — o Render não é alterado e fica como
 plano de volta até você decidir desligá-lo.
 
+**O VPS é o único caminho oficial de produção.** O `render.yaml` saiu do
+repositório: os serviços que ainda existirem no painel do Render não recebem
+mais atualizações automáticas e devem ser desligados lá depois da migração.
+
 Arquivos usados: `deploy/vps/` (docker-compose, Caddyfile, .env.example,
 frontend.Dockerfile, backup-postgres.sh).
 
@@ -163,6 +167,14 @@ o DNS e reativar os serviços de lá.
   5 erros 5xx em 5 minutos (no máximo um a cada 30 minutos) e quando o serviço
   `monitor` vê a API ou o portal falharem 3 checagens seguidas (outro quando
   voltam). Sem `ALERT_EMAIL_TO`, os alertas ficam só no log.
+- **Imagens dos cartões fora do banco**: com `FILE_STORAGE_PROVIDER=s3`, os
+  cartões novos e as imagens de revisão vão para o S3, e o banco guarda só a
+  referência. Para mover as imagens antigas (uma vez; pode repetir):
+  ```sh
+  docker compose run --rm --no-deps api node move-scan-images.mjs
+  ```
+  O espaço só volta ao disco depois de um `VACUUM FULL card_scans` (bloqueia a
+  tabela; rode fora do horário de aula).
 - **Usuário dos containers**: API, workers e portal rodam como o usuário `node`
   (uid 1000), não como root. O serviço `volume-permissions` ajusta o dono dos
   volumes de dados antes de a API subir; o script de atualização também o executa.

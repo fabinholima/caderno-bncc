@@ -656,7 +656,7 @@ const server = createServer(async (request, response) => {
       const ready = readiness.rows[0]?.mobile_sync_ready === true;
       return json(response, ready ? 200 : 503, {
         status: ready ? 'ok' : 'migration_pending',
-        release: process.env.RENDER_GIT_COMMIT || null,
+        release: process.env.APP_RELEASE || null,
         mobileSyncSchemaVersion: ready ? 1 : 0,
       });
     }

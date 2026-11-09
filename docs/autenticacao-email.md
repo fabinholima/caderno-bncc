@@ -8,7 +8,7 @@ Novos cadastros por senha recebem um link de confirmação e não criam sessão 
 2. Configurar um domínio remetente verificado no Resend, seguindo https://resend.com/docs/dashboard/domains/introduction.
 3. Definir `RESEND_API_KEY`, `AUTH_EMAIL_FROM` (exemplo: `UfaProva <conta@seu-dominio.com>`) e `AUTH_FRONTEND_URL` (origem HTTPS do portal).
 4. Manter `AUTH_DEV_RESET_TOKENS=false`, `DEV_AUTH_BYPASS=false` e `NODE_ENV=production`.
-5. Reiniciar/publicar API e frontend. O `render.yaml` já declara as três variáveis para preenchimento privado.
+5. Reiniciar/publicar API e frontend. No VPS, as variáveis ficam no `deploy/vps/.env` (veja `deploy/vps/.env.example`).
 
 Sem configuração, cadastro por senha e solicitação de links retornam indisponibilidade; não informam falsamente que enviaram um e-mail. Login de contas já existentes continua funcionando. Segredos nunca vão em variáveis `NEXT_PUBLIC`.
 

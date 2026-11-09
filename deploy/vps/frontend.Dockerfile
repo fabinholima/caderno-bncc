@@ -1,4 +1,4 @@
-# Portal (vinext): build de produção servido pelo `vinext start`, como no Render.
+# Portal (vinext): build de produção servido pelo `vinext start`.
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate

@@ -37,6 +37,7 @@ jobs:
       CLASS_DELETE_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
       CLASS_INVITES_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
       INSTITUTIONS_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
+      MAIN_FLOW_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
       MOBILE_GOOGLE_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
       MOBILE_SYNC_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
       OWNERSHIP_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
@@ -44,6 +45,7 @@ jobs:
       QUESTION_DRAFT_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
       QUESTION_WORKFLOW_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
       RESULT_PUBLICATION_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
+      SCAN_IMAGES_TEST_DATABASE_URL: postgresql://caderno:caderno_test@localhost:5432/caderno_test
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -76,7 +78,7 @@ jobs:
       - name: Check migrations
         run: node scripts/check-migrations.mjs
 
-      # Aplica todas as migrações num banco vazio, como o preDeployCommand do Render.
+      # Aplica todas as migrações num banco vazio, como a API faz ao iniciar em produção.
       - name: Apply migrations
         run: node services/api/migrate.mjs
         env:

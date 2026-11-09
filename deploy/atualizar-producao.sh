@@ -124,6 +124,8 @@ else
   echo "Antes: $PREVIOUS_COMMIT"
   echo "Agora: $(git -C "$REPO_DIR" rev-parse HEAD)"
 fi
+# Versão exibida em /health (APP_RELEASE no docker-compose.yml).
+export APP_RELEASE="$(git -C "$REPO_DIR" rev-parse --short HEAD)"
 
 step "Migrações pendentes"
 known="$(cd "$REPO_DIR/database" && ls | grep -E '^[0-9]{3}_.*\.sql$' | sort)"
