@@ -219,6 +219,23 @@ import {
   verifyEmail,
 } from './auth.mjs';
 import { mailConfigured, developmentMail } from './auth-mail.mjs';
+import {
+  createEssayApplication,
+  createEssayPrompt,
+  duplicateEssayPrompt,
+  essayApplicationSheetsPdf,
+  essayPromptFilters,
+  essaySheetPdf,
+  getEssayApplication,
+  getEssayPrompt,
+  listEssayApplications,
+  listEssayPrompts,
+  myEssayApplications,
+  myEssayProposalPdf,
+  setEssayPromptStatus,
+  updateEssayApplication,
+  updateEssayPrompt,
+} from './essays.mjs';
 import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
@@ -277,6 +294,16 @@ function json(response, status, body) {
     'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
   });
   response.end(JSON.stringify(body));
+}
+
+function pdf(response, contents, filename, download = false) {
+  response.writeHead(200, {
+    'content-type': 'application/pdf',
+    'content-disposition': `${download ? 'attachment' : 'inline'}; filename="${filename}"`,
+    'cache-control': 'no-store',
+    ...corsHeaders(response),
+  });
+  return response.end(contents);
 }
 
 async function readJson(request, maxBytes = 8_500_000) {
@@ -839,6 +866,20 @@ const server = createServer(async (request, response) => {
         ),
       });
     }
+    // Propostas de redação liberadas pelo professor para a turma do aluno.
+    if (request.method === 'GET' && url.pathname === '/api/student/essays')
+      return json(response, 200, { data: await myEssayApplications(identity) });
+    const studentEssayPdfMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/student\/essays\/([0-9a-f-]{36})\/proposal\.pdf$/i,
+      );
+    if (studentEssayPdfMatch)
+      return pdf(
+        response,
+        await myEssayProposalPdf(identity, studentEssayPdfMatch[1]),
+        'proposta-de-redacao.pdf',
+      );
     if (
       identity.role === 'student' &&
       !['/api/auth/me', '/api/auth/logout'].includes(url.pathname)
@@ -1344,6 +1385,112 @@ const server = createServer(async (request, response) => {
           institutionId,
         },
       });
+    }
+    // Módulo de redação: temas, folhas em PDF e aplicação às turmas.
+    if (url.pathname === '/api/essay-prompts' && request.method === 'GET')
+      return json(response, 200, {
+        data: await listEssayPrompts(
+          identity,
+          Object.fromEntries(
+            [
+              'scope',
+              'q',
+              'keyword',
+              'category',
+              'institution',
+              'year',
+              'status',
+              'archived',
+            ].map((key) => [key, url.searchParams.get(key) || undefined]),
+          ),
+        ),
+      });
+    if (url.pathname === '/api/essay-prompts' && request.method === 'POST')
+      return json(response, 201, {
+        data: await createEssayPrompt(identity, await readJson(request)),
+      });
+    if (
+      url.pathname === '/api/essay-prompts/filters' &&
+      request.method === 'GET'
+    )
+      return json(response, 200, { data: await essayPromptFilters(identity) });
+    const essayPromptMatch = url.pathname.match(
+      /^\/api\/essay-prompts\/([0-9a-f-]{36})(?:\/(duplicate|status))?$/i,
+    );
+    if (essayPromptMatch) {
+      const [, promptId, action] = essayPromptMatch;
+      if (!action && request.method === 'GET')
+        return json(response, 200, {
+          data: await getEssayPrompt(identity, promptId),
+        });
+      if (!action && request.method === 'PUT')
+        return json(response, 200, {
+          data: await updateEssayPrompt(
+            identity,
+            promptId,
+            await readJson(request),
+          ),
+        });
+      if (action === 'duplicate' && request.method === 'POST')
+        return json(response, 201, {
+          data: await duplicateEssayPrompt(identity, promptId),
+        });
+      if (action === 'status' && request.method === 'POST')
+        return json(response, 200, {
+          data: await setEssayPromptStatus(
+            identity,
+            promptId,
+            await readJson(request, 4096),
+          ),
+        });
+    }
+    if (url.pathname === '/api/essay-sheets/pdf' && request.method === 'POST')
+      return pdf(
+        response,
+        await essaySheetPdf(identity, await readJson(request)),
+        'folha-de-redacao.pdf',
+        url.searchParams.get('download') === '1',
+      );
+    if (url.pathname === '/api/essay-applications' && request.method === 'GET')
+      return json(response, 200, {
+        data: await listEssayApplications(identity, {
+          classId: url.searchParams.get('classId') || undefined,
+          promptId: url.searchParams.get('promptId') || undefined,
+        }),
+      });
+    if (url.pathname === '/api/essay-applications' && request.method === 'POST')
+      return json(response, 201, {
+        data: await createEssayApplication(
+          identity,
+          await readJson(request, 16384),
+        ),
+      });
+    const essayApplicationMatch = url.pathname.match(
+      /^\/api\/essay-applications\/([0-9a-f-]{36})(\/sheets\.pdf)?$/i,
+    );
+    if (essayApplicationMatch) {
+      const [, applicationId, sheets] = essayApplicationMatch;
+      if (sheets && request.method === 'GET')
+        return pdf(
+          response,
+          await essayApplicationSheetsPdf(identity, applicationId, {
+            studentId: url.searchParams.get('studentId') || undefined,
+          }),
+          'folhas-de-redacao.pdf',
+          url.searchParams.get('download') === '1',
+        );
+      if (!sheets && request.method === 'GET')
+        return json(response, 200, {
+          data: await getEssayApplication(identity, applicationId),
+        });
+      if (!sheets && request.method === 'PATCH')
+        return json(response, 200, {
+          data: await updateEssayApplication(
+            identity,
+            applicationId,
+            await readJson(request, 4096),
+          ),
+        });
     }
     const classStudentsMatch =
       request.method === 'GET' &&

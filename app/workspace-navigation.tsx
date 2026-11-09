@@ -5,13 +5,19 @@ import {
   BarChart3,
   BookOpenCheck,
   ChevronDown,
+  Clock,
   FileInput,
+  FileText,
+  FolderOpen,
   FileOutput,
   LayoutDashboard,
   LibraryBig,
+  Library,
   ListTree,
+  PenLine,
   ScanLine,
   School,
+  Send,
   Settings,
   Sprout,
   Users,
@@ -23,6 +29,14 @@ const preparation: ReadonlyArray<readonly [string, LucideIcon]> = [
   ['Avaliações', FileOutput],
   ['Planejamento', ListTree],
   ['Importar provas', FileInput],
+];
+const essay: ReadonlyArray<readonly [string, LucideIcon]> = [
+  ['Banco de Temas', Library],
+  ['Cadastrar Tema', PenLine],
+  ['Gerar Folha', FileText],
+  ['Minhas Propostas', FolderOpen],
+  ['Aplicar Redação', Send],
+  ['Histórico', Clock],
 ];
 const workflow: ReadonlyArray<readonly [string, LucideIcon]> = [
   ['Corrigir', ScanLine],
@@ -153,6 +167,12 @@ export function WorkspaceNavigation({
       <div
         className={`mt-4 border-t pt-4 ${mobile ? 'border-slate-200' : 'border-white/10'}`}
       >
+        {heading('Redação')}
+        {essay.map(([label, Icon]) => item(label, Icon))}
+      </div>
+      <div
+        className={`mt-4 border-t pt-4 ${mobile ? 'border-slate-200' : 'border-white/10'}`}
+      >
         {heading('Gestão escolar')}
         {item('Turmas e alunos', Users)}
         {item('Minhas escolas', School)}
@@ -170,7 +190,10 @@ export function WorkspaceNavigation({
         <div className="mt-4 border-t border-slate-200 pt-4">
           {heading('Conta')}
           {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
-          <a href="/configuracoes/perfil" className={`mb-1 flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium ${muted} ${hover}`}>
+          <a
+            href="/configuracoes/perfil"
+            className={`mb-1 flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium ${muted} ${hover}`}
+          >
             <Settings className="size-[18px] shrink-0" aria-hidden="true" />
             <span>Configurações</span>
           </a>

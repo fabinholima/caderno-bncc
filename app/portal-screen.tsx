@@ -73,6 +73,7 @@ import { CompleteCpf } from './complete-cpf';
 import { EducatorProfile } from './educator-profile';
 import { AdminDashboard } from './admin-dashboard';
 import { ExamImportManager } from './exam-import-manager';
+import { EssayManager, essayViews, type EssayView } from './essay-manager';
 import {
   parsePastedQuestion,
   QuestionPasteImporter,
@@ -460,6 +461,7 @@ export default function Home() {
       'Minhas escolas',
       'Assinantes',
       'Receitas',
+      ...essayViews,
     ]);
     if (requestedView && availableViews.has(requestedView)) {
       // oxlint-disable-next-line react-compiler -- Restore the view requested by the portal sidebar after a full-page settings navigation.
@@ -1598,6 +1600,13 @@ export default function Home() {
               key={active}
               apiUrl={apiUrl}
               view={active === 'Receitas' ? 'revenue' : 'subscribers'}
+            />
+          ) : (essayViews as readonly string[]).includes(active) ? (
+            <EssayManager
+              apiUrl={apiUrl}
+              view={active as EssayView}
+              teacherName={identity.user.displayName}
+              onNavigate={setActive}
             />
           ) : active === 'Minhas escolas' ? (
             <div className="mx-auto max-w-5xl p-6">

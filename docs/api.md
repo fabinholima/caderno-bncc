@@ -147,6 +147,24 @@ Criar uma nova revisão usa o mesmo corpo de `POST /api/questions`. Avaliações
 
 Cada versão nova recebe um identificador assinado por `QR_SIGNING_SECRET`. O QR aparece na prova e no cartão-resposta A–E anexado ao PDF, sem expor o nome do aluno.
 
+## Redação
+
+Tabelas na migração `database/106_essay_prompts.sql`. Os PDFs são compilados pelo ConTeXt (texto e vetores, sem rasterizar a página), a partir de `services/renderer/essay-sheet.mjs`.
+
+- `GET /api/essay-prompts`: banco de temas. Filtros: `scope=bank|mine`, `q`, `keyword`, `category`, `institution`, `year`, `status`, `archived=1`.
+- `GET /api/essay-prompts/filters`: valores disponíveis para os filtros.
+- `POST /api/essay-prompts` e `GET|PUT /api/essay-prompts/:id`: cria, lê e edita um tema com os textos motivadores. O `PUT` exige a `revision` atual e responde 409 se outra pessoa salvou antes.
+- `POST /api/essay-prompts/:id/duplicate`: cria uma cópia em rascunho.
+- `POST /api/essay-prompts/:id/status`: publica, volta para rascunho ou arquiva.
+- `POST /api/essay-sheets/pdf`: gera proposta, folha (`enem-30-v1` ou `linhas-do-tema-v1`) e critérios ENEM opcionais, a partir de um `promptId` ou de um rascunho não salvo. Com `?download=1`, o PDF vem como anexo.
+- `GET|POST /api/essay-applications` e `GET|PATCH /api/essay-applications/:id`: aplica um tema a uma turma, congela uma cópia do tema e registra os alunos matriculados.
+- `GET /api/essay-applications/:id/sheets.pdf`: a proposta uma vez e uma folha nominal por aluno. Com `studentId`, gera a folha de um aluno só.
+- `GET /api/student/essays` e `GET /api/student/essays/:id/proposal.pdf`: propostas liberadas para as turmas do aluno.
+
+Só o autor, a coordenação e a administração alteram um tema. Rascunhos não aparecem para outros professores, e alunos não acessam as rotas de gestão. As colunas de envio, notas por competência e devolutiva em `essay_application_students` ficam reservadas para a correção.
+
+Em desenvolvimento, aponte `CONTEXT_MTXRUN_BIN` e `CONTEXT_SCRIPT` para o `mtxrun` e o `mtx-context.lua` instalados. O teste de integração roda com `ESSAY_TEST_DATABASE_URL`, e `ESSAY_TEST_CONTEXT=1` inclui a compilação dos PDFs.
+
 ## Avaliações e PDF
 
 - `GET /api/render-templates`: layouts ConTeXt permitidos.
