@@ -10,6 +10,7 @@ const validEnvironment = {
   FILE_STORAGE_PROVIDER: 'filesystem',
   RENDER_OUTPUT_DIR: '/srv/caderno/renders',
   QR_SIGNING_SECRET: '0123456789abcdef0123456789abcdef',
+  CPF_HASH_SECRET: 'fedcba9876543210fedcba9876543210',
   DEV_AUTH_BYPASS: 'false',
 };
 
@@ -34,6 +35,7 @@ test('rejects development authentication, unsafe origins and weak secrets', () =
     DEV_AUTH_BYPASS: 'true',
     CORS_ORIGIN: '*',
     QR_SIGNING_SECRET: 'short',
+    CPF_HASH_SECRET: 'short',
     EXAM_STORAGE_DIR: './outputs/exams',
   });
 
@@ -41,5 +43,6 @@ test('rejects development authentication, unsafe origins and weak secrets', () =
   assert.ok(errors.some((error) => error.includes('DEV_AUTH_BYPASS')));
   assert.ok(errors.some((error) => error.includes('CORS_ORIGIN')));
   assert.ok(errors.some((error) => error.includes('QR_SIGNING_SECRET')));
+  assert.ok(errors.some((error) => error.includes('CPF_HASH_SECRET')));
   assert.ok(errors.some((error) => error.includes('EXAM_STORAGE_DIR')));
 });

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import test from 'node:test';
-import { qrSigningSecret, qrSigningWarning, signQrId } from './qr-signing.mjs';
+import {
+  missingProductionSecrets,
+  qrSigningSecret,
+  signQrId,
+} from './qr-signing.mjs';
 
 test('mantém a assinatura compatível com o formato anterior', () => {
   const expected = crypto
@@ -12,18 +16,35 @@ test('mantém a assinatura compatível com o formato anterior', () => {
   assert.equal(signQrId('abc', { QR_SIGNING_SECRET: 'segredo' }), expected);
 });
 
-test('sem segredo, mantém a assinatura anterior e avisa em produção', () => {
+test('o segredo padrão só vale fora de produção', () => {
   assert.equal(qrSigningSecret({}), 'caderno-local-development');
-  assert.equal(
-    qrSigningSecret({ NODE_ENV: 'production' }),
-    'caderno-local-development',
-  );
-  assert.match(
-    qrSigningWarning({ NODE_ENV: 'production' }),
+  assert.throws(
+    () => qrSigningSecret({ NODE_ENV: 'production' }),
     /QR_SIGNING_SECRET/,
   );
-  assert.equal(
-    qrSigningWarning({ NODE_ENV: 'production', QR_SIGNING_SECRET: 'x' }),
-    '',
+});
+
+test('produção exige os segredos do QR e do CPF', () => {
+  const secret = 'x'.repeat(32);
+  assert.deepEqual(missingProductionSecrets({}), []);
+  assert.deepEqual(missingProductionSecrets({ NODE_ENV: 'production' }), [
+    'QR_SIGNING_SECRET',
+    'CPF_HASH_SECRET',
+  ]);
+  assert.deepEqual(
+    missingProductionSecrets({
+      NODE_ENV: 'production',
+      QR_SIGNING_SECRET: secret,
+      CPF_HASH_SECRET: 'curto',
+    }),
+    ['CPF_HASH_SECRET'],
+  );
+  assert.deepEqual(
+    missingProductionSecrets({
+      NODE_ENV: 'production',
+      QR_SIGNING_SECRET: secret,
+      CPF_HASH_SECRET: secret,
+    }),
+    [],
   );
 });

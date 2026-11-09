@@ -98,6 +98,11 @@ required=("$API_SERVICE")
 for service in "${required[@]}"; do
   grep -qx "$service" <<<"$services" || fail "serviço '$service' não existe no compose. Serviços: $(tr '\n' ' ' <<<"$services")"
 done
+# A API não inicia em produção sem estes segredos (services/api/qr-signing.mjs).
+for secret in QR_SIGNING_SECRET CPF_HASH_SECRET; do
+  value="$(compose config 2>/dev/null | sed -nE "s/^ +${secret}: *\"?([^\"]*)\"?$/\1/p" | head -1)"
+  (( ${#value} >= 32 )) || fail "$secret precisa ter pelo menos 32 caracteres no .env do compose; sem ele a API não inicia."
+done
 # Os demais serviços são opcionais: só entram os que existem no compose.
 others=()
 for service in $OTHER_SERVICES; do

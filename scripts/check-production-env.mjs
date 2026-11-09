@@ -3,6 +3,7 @@ const required = [
   'CORS_ORIGIN',
   'RENDER_OUTPUT_DIR',
   'QR_SIGNING_SECRET',
+  'CPF_HASH_SECRET',
 ];
 
 export function validateProductionEnvironment(environment = process.env) {
@@ -40,6 +41,12 @@ export function validateProductionEnvironment(environment = process.env) {
   )
     errors.push(
       'QR_SIGNING_SECRET precisa ter pelo menos 32 caracteres aleatórios.',
+    );
+
+  const cpfSecret = String(environment.CPF_HASH_SECRET ?? '');
+  if (cpfSecret && cpfSecret.length < 32)
+    errors.push(
+      'CPF_HASH_SECRET precisa ter pelo menos 32 caracteres aleatórios.',
     );
 
   for (const name of [

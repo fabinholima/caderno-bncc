@@ -39,7 +39,7 @@ import {
   jsonBodyAllowed,
   mutationOriginAllowed,
 } from './request-security.mjs';
-import { qrSigningWarning } from './qr-signing.mjs';
+import { missingProductionSecrets } from './qr-signing.mjs';
 import { myResultDetail, mySkillPerformance } from './student-results.mjs';
 import {
   listApplicationResults,
@@ -344,7 +344,13 @@ function oauthCookie(value, age) {
   return `caderno_oauth=${value}; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=${age}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
 
-if (qrSigningWarning()) console.warn(qrSigningWarning());
+const missingSecrets = missingProductionSecrets();
+if (missingSecrets.length) {
+  console.error(
+    `Configuração de produção incompleta: defina ${missingSecrets.join(' e ')} com pelo menos 32 caracteres aleatórios.`,
+  );
+  process.exit(1);
+}
 const securityHeaders = apiSecurityHeaders();
 
 const server = createServer(async (request, response) => {
