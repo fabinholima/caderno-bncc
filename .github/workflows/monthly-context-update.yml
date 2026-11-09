@@ -1,21 +1,33 @@
-name: Atualizar ConTeXt mensalmente
+name: Conferir instalador do ConTeXt
 
+# Os Dockerfiles da API e do renderer só aceitam o instalador do ConTeXt com a
+# soma SHA-256 fixada (ARG CONTEXT_INSTALLER_SHA256). Todo mês este job confere
+# se a Pragma publicou outro instalador e falha quando a soma mudou, para que a
+# atualização seja feita de propósito (docs/atualizacao-context.md).
 on:
   schedule:
     # Primeiro dia de cada mês, às 03:00 UTC.
     - cron: '0 3 1 * *'
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
-  redeploy-renderer:
+  check-context-installer:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Solicitar novo build do renderer
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_RENDERER_DEPLOY_HOOK_URL }}
+      - uses: actions/checkout@v4
+      - name: Comparar a soma publicada com a fixada
         run: |
-          test -n "$RENDER_DEPLOY_HOOK_URL"
-          curl "$RENDER_DEPLOY_HOOK_URL"
+          curl -fL --retry 4 --retry-delay 3 https://lmtx.pragma-ade.nl/install-lmtx/context-linux-64.zip -o context-linux-64.zip
+          published=$(sha256sum context-linux-64.zip | cut -d' ' -f1)
+          for file in services/api/Dockerfile services/renderer/Dockerfile; do
+            pinned=$(sed -n 's/^ARG CONTEXT_INSTALLER_SHA256=//p' "$file")
+            if [ "$pinned" != "$published" ]; then
+              echo "::error file=$file::Novo instalador do ConTeXt publicado (sha256 $published). Atualize CONTEXT_INSTALLER_SHA256 seguindo docs/atualizacao-context.md."
+              exit 1
+            fi
+          done
+          echo "Instalador do ConTeXt sem mudanças."
