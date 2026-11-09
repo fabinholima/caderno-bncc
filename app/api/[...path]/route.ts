@@ -1,13 +1,28 @@
 const defaultApiOrigin = 'https://api.ufaprova.com.br';
 const hopByHopHeaders = [
-  'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-  'te', 'trailer', 'transfer-encoding', 'upgrade', 'host', 'content-length', 'content-encoding',
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'host',
+  'content-length',
+  'content-encoding',
 ];
 
-async function proxy(request: Request, context: { params: Promise<{ path: string[] }> }) {
+async function proxy(
+  request: Request,
+  context: { params: Promise<{ path: string[] }> },
+) {
   const { path } = await context.params;
   const incoming = new URL(request.url);
-  const apiOrigin = (process.env.API_PROXY_TARGET || defaultApiOrigin).replace(/\/$/, '');
+  const apiOrigin = (process.env.API_PROXY_TARGET || defaultApiOrigin).replace(
+    /\/$/,
+    '',
+  );
   const target = `${apiOrigin}/api/${path.map(encodeURIComponent).join('/')}${incoming.search}`;
   const headers = new Headers(request.headers);
   for (const name of hopByHopHeaders) headers.delete(name);
@@ -25,8 +40,13 @@ async function proxy(request: Request, context: { params: Promise<{ path: string
   const cookies = upstream.headers.getSetCookie?.() || [];
   responseHeaders.delete('set-cookie');
   for (const cookie of cookies) responseHeaders.append('set-cookie', cookie);
-  if (!cookies.length && upstream.headers.get('set-cookie')) responseHeaders.set('set-cookie', upstream.headers.get('set-cookie')!);
-  return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
+  if (!cookies.length && upstream.headers.get('set-cookie'))
+    responseHeaders.set('set-cookie', upstream.headers.get('set-cookie')!);
+  return new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: responseHeaders,
+  });
 }
 
 export const GET = proxy;

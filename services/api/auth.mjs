@@ -3,7 +3,10 @@ import { promisify } from 'node:util';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { canManageInstitutionTeam } from './institution-permissions.mjs';
-import { educatorSchema, saveEducatorProfileWithClient } from './educator-profile.mjs';
+import {
+  educatorSchema,
+  saveEducatorProfileWithClient,
+} from './educator-profile.mjs';
 import { cpfFingerprint, normalizeCpf } from './cpf.mjs';
 import { resolveUnifiedContext } from './portal-access.mjs';
 import { sessionNetwork } from './admin-dashboard.mjs';
@@ -13,7 +16,9 @@ const scrypt = promisify(crypto.scrypt);
 const email = z.email().trim().toLowerCase().max(254);
 const password = z.string().min(10).max(200);
 export const registerSchema = z.object({
-  cpf: z.string().refine((value) => Boolean(normalizeCpf(value)), 'Informe um CPF válido.'),
+  cpf: z
+    .string()
+    .refine((value) => Boolean(normalizeCpf(value)), 'Informe um CPF válido.'),
   institutionName: z.string().trim().min(2).max(160),
   displayName: z.string().trim().min(2).max(160),
   email,
@@ -22,12 +27,17 @@ export const registerSchema = z.object({
 });
 export const loginSchema = z.object({ email, password: z.string().max(200) });
 export const forgotSchema = z.object({ email });
-export const resetSchema = z.object({ token: z.string().min(32).max(128), password });
+export const resetSchema = z.object({
+  token: z.string().min(32).max(128),
+  password,
+});
 export const invitationSchema = z.object({
   email,
   role: z.enum(['admin', 'coordinator', 'teacher']),
 });
-export const acceptInvitationSchema = z.object({ token: z.string().min(32).max(128) });
+export const acceptInvitationSchema = z.object({
+  token: z.string().min(32).max(128),
+});
 
 const tokenHash = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
@@ -76,9 +86,20 @@ export async function register(input) {
   const cpfHash = cpfFingerprint(value.cpf);
   requireMail();
   return transaction(async (client) => {
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [value.email]);
-    const existing = await client.query('SELECT id FROM users WHERE lower(email)=$1', [value.email]);
-    if (existing.rowCount) throw Object.assign(new Error('Não foi possível cadastrar este e-mail. Tente entrar na sua conta.'), { statusCode: 409 });
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      value.email,
+    ]);
+    const existing = await client.query(
+      'SELECT id FROM users WHERE lower(email)=$1',
+      [value.email],
+    );
+    if (existing.rowCount)
+      throw Object.assign(
+        new Error(
+          'Não foi possível cadastrar este e-mail. Tente entrar na sua conta.',
+        ),
+        { statusCode: 409 },
+      );
     const institution = await client.query(
       `INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id,name`,
       [value.institutionName, slugify(value.institutionName)],
@@ -86,7 +107,12 @@ export async function register(input) {
     const user = await client.query(
       `INSERT INTO users(email,display_name,password_hash,cpf_hash,email_verification_required)
        VALUES($1,$2,$3,$4,true) RETURNING id,email,display_name`,
-      [value.email, value.displayName, await hashPassword(value.password),cpfHash],
+      [
+        value.email,
+        value.displayName,
+        await hashPassword(value.password),
+        cpfHash,
+      ],
     );
     await client.query(
       `INSERT INTO memberships(institution_id,user_id,role) VALUES($1,$2,'admin')`,
@@ -97,56 +123,162 @@ export async function register(input) {
        VALUES($1,'trial',now(),now()+interval '7 days')`,
       [institution.rows[0].id],
     );
-    if (value.educatorProfile) await saveEducatorProfileWithClient(client,user.rows[0].id,value.educatorProfile);
-    const verificationToken = await issueVerification(client, user.rows[0].id, value.email);
+    if (value.educatorProfile)
+      await saveEducatorProfileWithClient(
+        client,
+        user.rows[0].id,
+        value.educatorProfile,
+      );
+    const verificationToken = await issueVerification(
+      client,
+      user.rows[0].id,
+      value.email,
+    );
     await client.query(
       `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id)
        VALUES($1::uuid,$2::uuid,'institution.registered','institution',($1::uuid)::text)`,
       [institution.rows[0].id, user.rows[0].id],
     );
-    return { verificationRequired: true, ...(developmentMail() ? { developmentToken: verificationToken } : {}) };
+    return {
+      verificationRequired: true,
+      ...(developmentMail() ? { developmentToken: verificationToken } : {}),
+    };
   });
 }
 
-export const studentRegisterSchema = z.object({displayName:z.string().trim().min(2).max(160),email,password}).strict();
+export const studentRegisterSchema = z
+  .object({ displayName: z.string().trim().min(2).max(160), email, password })
+  .strict();
 export async function registerStudent(input) {
-  const value=studentRegisterSchema.parse(input);
+  const value = studentRegisterSchema.parse(input);
   requireMail();
-  return transaction(async client=>{
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[value.email]);
-    if((await client.query('SELECT id FROM users WHERE lower(email)=$1',[value.email])).rowCount)
-      throw Object.assign(new Error('Este e-mail já possui uma conta. Entre ou recupere sua senha.'),{statusCode:409});
-    const user=await client.query("INSERT INTO users(email,display_name,password_hash,account_type,email_verification_required) VALUES($1,$2,$3,'student',true) RETURNING id",[value.email,value.displayName,await hashPassword(value.password)]);
-    const verificationToken=await issueVerification(client,user.rows[0].id,value.email);
-    await client.query("INSERT INTO audit_log(user_id,action) VALUES($1,'student.registered')",[user.rows[0].id]);
-    return {verificationRequired:true,...(developmentMail()?{developmentToken:verificationToken}:{})};
+  return transaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      value.email,
+    ]);
+    if (
+      (
+        await client.query('SELECT id FROM users WHERE lower(email)=$1', [
+          value.email,
+        ])
+      ).rowCount
+    )
+      throw Object.assign(
+        new Error(
+          'Este e-mail já possui uma conta. Entre ou recupere sua senha.',
+        ),
+        { statusCode: 409 },
+      );
+    const user = await client.query(
+      "INSERT INTO users(email,display_name,password_hash,account_type,email_verification_required) VALUES($1,$2,$3,'student',true) RETURNING id",
+      [value.email, value.displayName, await hashPassword(value.password)],
+    );
+    const verificationToken = await issueVerification(
+      client,
+      user.rows[0].id,
+      value.email,
+    );
+    await client.query(
+      "INSERT INTO audit_log(user_id,action) VALUES($1,'student.registered')",
+      [user.rows[0].id],
+    );
+    return {
+      verificationRequired: true,
+      ...(developmentMail() ? { developmentToken: verificationToken } : {}),
+    };
   });
 }
 
-export async function loginWithGoogle(profile, cpfHash, accountType = 'educator') {
+export async function loginWithGoogle(
+  profile,
+  cpfHash,
+  accountType = 'educator',
+) {
   return transaction(async (client) => {
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [profile.email]);
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`google:${profile.sub}`]);
-    let user = (await client.query('SELECT id,active FROM users WHERE google_subject=$1', [profile.sub])).rows[0];
-    if (user && !user.active) throw Object.assign(new Error('Conta indisponível.'), { statusCode: 403 });
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      profile.email,
+    ]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `google:${profile.sub}`,
+    ]);
+    let user = (
+      await client.query(
+        'SELECT id,active FROM users WHERE google_subject=$1',
+        [profile.sub],
+      )
+    ).rows[0];
+    if (user && !user.active)
+      throw Object.assign(new Error('Conta indisponível.'), {
+        statusCode: 403,
+      });
     if (!user) {
-      if (accountType !== 'student' && !cpfHash) throw Object.assign(new Error('Complete o cadastro com CPF antes de criar sua conta Google.'), { statusCode: 428 });
-      const existing = await client.query('SELECT id FROM users WHERE lower(email)=$1', [profile.email]);
-      if (existing.rowCount) throw Object.assign(new Error('Entre com a senha da conta existente. A vinculação automática ao Google não é permitida.'), { statusCode: 409 });
-      if(accountType === 'student') {
-        user=(await client.query("INSERT INTO users(email,display_name,google_subject,account_type,email_verified_at) VALUES($1,$2,$3,'student',now()) RETURNING id,active",[profile.email,profile.name || 'Aluno',profile.sub])).rows[0];
+      if (accountType !== 'student' && !cpfHash)
+        throw Object.assign(
+          new Error(
+            'Complete o cadastro com CPF antes de criar sua conta Google.',
+          ),
+          { statusCode: 428 },
+        );
+      const existing = await client.query(
+        'SELECT id FROM users WHERE lower(email)=$1',
+        [profile.email],
+      );
+      if (existing.rowCount)
+        throw Object.assign(
+          new Error(
+            'Entre com a senha da conta existente. A vinculação automática ao Google não é permitida.',
+          ),
+          { statusCode: 409 },
+        );
+      if (accountType === 'student') {
+        user = (
+          await client.query(
+            "INSERT INTO users(email,display_name,google_subject,account_type,email_verified_at) VALUES($1,$2,$3,'student',now()) RETURNING id,active",
+            [profile.email, profile.name || 'Aluno', profile.sub],
+          )
+        ).rows[0];
       } else {
-      const institutionName = `Espaço de ${profile.name || 'Professor'}`;
-      const institution = await client.query('INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id', [institutionName,slugify(institutionName)]);
-      user = (await client.query('INSERT INTO users(email,display_name,google_subject,cpf_hash,email_verified_at) VALUES($1,$2,$3,$4,now()) RETURNING id,active', [profile.email,profile.name || 'Professor',profile.sub,cpfHash])).rows[0];
-      await client.query("INSERT INTO memberships(institution_id,user_id,role) VALUES($1,$2,'admin')", [institution.rows[0].id,user.id]);
-      await client.query("INSERT INTO institution_subscriptions(institution_id,plan_id,period_started_at,period_ends_at) VALUES($1,'trial',now(),now()+interval '7 days')", [institution.rows[0].id]);
+        const institutionName = `Espaço de ${profile.name || 'Professor'}`;
+        const institution = await client.query(
+          'INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id',
+          [institutionName, slugify(institutionName)],
+        );
+        user = (
+          await client.query(
+            'INSERT INTO users(email,display_name,google_subject,cpf_hash,email_verified_at) VALUES($1,$2,$3,$4,now()) RETURNING id,active',
+            [profile.email, profile.name || 'Professor', profile.sub, cpfHash],
+          )
+        ).rows[0];
+        await client.query(
+          "INSERT INTO memberships(institution_id,user_id,role) VALUES($1,$2,'admin')",
+          [institution.rows[0].id, user.id],
+        );
+        await client.query(
+          "INSERT INTO institution_subscriptions(institution_id,plan_id,period_started_at,period_ends_at) VALUES($1,'trial',now(),now()+interval '7 days')",
+          [institution.rows[0].id],
+        );
       }
     }
-    const membership = await client.query('SELECT institution_id FROM memberships WHERE user_id=$1 LIMIT 1', [user.id]);
-    if (!membership.rowCount && (await client.query('SELECT account_type FROM users WHERE id=$1',[user.id])).rows[0]?.account_type !== 'student') throw Object.assign(new Error('Conta sem instituição vinculada.'), {statusCode:403});
-    const session = await createSession(client,user.id);
-    await client.query("INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.google.login')", [membership.rows[0]?.institution_id || null,user.id]);
+    const membership = await client.query(
+      'SELECT institution_id FROM memberships WHERE user_id=$1 LIMIT 1',
+      [user.id],
+    );
+    if (
+      !membership.rowCount &&
+      (
+        await client.query('SELECT account_type FROM users WHERE id=$1', [
+          user.id,
+        ])
+      ).rows[0]?.account_type !== 'student'
+    )
+      throw Object.assign(new Error('Conta sem instituição vinculada.'), {
+        statusCode: 403,
+      });
+    const session = await createSession(client, user.id);
+    await client.query(
+      "INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.google.login')",
+      [membership.rows[0]?.institution_id || null, user.id],
+    );
     return { ...session, userId: user.id };
   });
 }
@@ -167,8 +299,15 @@ export async function login(input) {
       statusCode: 401,
     });
   if (row.email_verification_required && !row.email_verified_at)
-    throw Object.assign(new Error('Confirme seu e-mail antes de entrar. Você pode reenviar o link de confirmação.'), { statusCode: 403 });
-  const { token } = await transaction((client) => createSession(client, row.id));
+    throw Object.assign(
+      new Error(
+        'Confirme seu e-mail antes de entrar. Você pode reenviar o link de confirmação.',
+      ),
+      { statusCode: 403 },
+    );
+  const { token } = await transaction((client) =>
+    createSession(client, row.id),
+  );
   await pool.query(
     `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id)
      VALUES($1::uuid,$2::uuid,'auth.login','user',($2::uuid)::text)`,
@@ -177,7 +316,9 @@ export async function login(input) {
   return {
     token,
     user: { id: row.id, email: row.email, displayName: row.display_name },
-    institution: row.institution_id ? { id: row.institution_id, name: row.institution_name } : null,
+    institution: row.institution_id
+      ? { id: row.institution_id, name: row.institution_name }
+      : null,
     role: row.account_type === 'student' ? 'student' : row.role,
   };
 }
@@ -194,8 +335,15 @@ export async function recordSessionNetwork(token, request) {
 
 export async function completeCpf(identity, input) {
   const fingerprint = cpfFingerprint(input?.cpf);
-  const updated = await pool.query('UPDATE users SET cpf_hash=$2 WHERE id=$1 AND cpf_hash IS NULL RETURNING id', [identity.userId,fingerprint]);
-  if (!updated.rowCount) throw Object.assign(new Error('CPF já cadastrado nesta conta. Alterações exigem suporte.'), { statusCode: 409 });
+  const updated = await pool.query(
+    'UPDATE users SET cpf_hash=$2 WHERE id=$1 AND cpf_hash IS NULL RETURNING id',
+    [identity.userId, fingerprint],
+  );
+  if (!updated.rowCount)
+    throw Object.assign(
+      new Error('CPF já cadastrado nesta conta. Alterações exigem suporte.'),
+      { statusCode: 409 },
+    );
   return { completed: true };
 }
 
@@ -239,7 +387,9 @@ export async function authenticate(request) {
     }
   }
   const cookie = request.headers.cookie || '';
-  const bearer = /^Bearer\s+(.+)$/i.exec(request.headers.authorization || '')?.[1];
+  const bearer = /^Bearer\s+(.+)$/i.exec(
+    request.headers.authorization || '',
+  )?.[1];
   const token = bearer || /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
   if (!token) return null;
   const result = await pool.query(
@@ -255,22 +405,28 @@ export async function authenticate(request) {
   );
   if (!result.rowCount) return null;
   const row = result.rows[0];
-  const network=sessionNetwork(request);
-  await pool.query('UPDATE user_sessions SET last_seen_at=now(),last_ip=COALESCE($2::inet,last_ip),user_agent=COALESCE(NULLIF($3,\'\'),user_agent) WHERE id=$1', [row.session_id,network.ip,network.agent]);
-  return resolveUnifiedContext({
-    sessionId: row.session_id,
-    portalAdmin: Boolean(row.portal_admin),
-    portalEditor: Boolean(row.portal_editor),
-    cpfComplete: Boolean(row.cpf_hash),
-    googleLinked: Boolean(row.google_subject),
-    profileComplete: Boolean(row.profile_complete),
-    userId: row.user_id,
-    email: row.email,
-    displayName: row.display_name,
-    institutionId: row.institution_id,
-    institutionName: row.institution_name,
-    role: row.account_type === 'student' ? 'student' : row.role,
-  }, row.global_bank);
+  const network = sessionNetwork(request);
+  await pool.query(
+    "UPDATE user_sessions SET last_seen_at=now(),last_ip=COALESCE($2::inet,last_ip),user_agent=COALESCE(NULLIF($3,''),user_agent) WHERE id=$1",
+    [row.session_id, network.ip, network.agent],
+  );
+  return resolveUnifiedContext(
+    {
+      sessionId: row.session_id,
+      portalAdmin: Boolean(row.portal_admin),
+      portalEditor: Boolean(row.portal_editor),
+      cpfComplete: Boolean(row.cpf_hash),
+      googleLinked: Boolean(row.google_subject),
+      profileComplete: Boolean(row.profile_complete),
+      userId: row.user_id,
+      email: row.email,
+      displayName: row.display_name,
+      institutionId: row.institution_id,
+      institutionName: row.institution_name,
+      role: row.account_type === 'student' ? 'student' : row.role,
+    },
+    row.global_bank,
+  );
 }
 
 export async function logout(sessionId) {
@@ -280,9 +436,12 @@ export async function logout(sessionId) {
 
 async function issueVerification(client, userId, recipient) {
   const token = randomToken();
-  await client.query(`INSERT INTO email_verification_tokens(user_id,token_hash,expires_at)
-    VALUES($1,$2,now()+interval '24 hours')`, [userId,tokenHash(token)]);
-  await sendAuthMail('verify',recipient,token);
+  await client.query(
+    `INSERT INTO email_verification_tokens(user_id,token_hash,expires_at)
+    VALUES($1,$2,now()+interval '24 hours')`,
+    [userId, tokenHash(token)],
+  );
+  await sendAuthMail('verify', recipient, token);
   return token;
 }
 
@@ -290,12 +449,23 @@ export async function requestEmailVerification(input) {
   const value = forgotSchema.parse(input);
   requireMail();
   return transaction(async (client) => {
-    const user = (await client.query('SELECT id,email FROM users WHERE email=$1 AND active AND email_verification_required AND email_verified_at IS NULL FOR UPDATE', [value.email])).rows[0];
+    const user = (
+      await client.query(
+        'SELECT id,email FROM users WHERE email=$1 AND active AND email_verification_required AND email_verified_at IS NULL FOR UPDATE',
+        [value.email],
+      )
+    ).rows[0];
     if (!user) return { accepted: true };
-    const recent = await client.query("SELECT 1 FROM email_verification_tokens WHERE user_id=$1 AND created_at>now()-interval '1 minute' LIMIT 1", [user.id]);
+    const recent = await client.query(
+      "SELECT 1 FROM email_verification_tokens WHERE user_id=$1 AND created_at>now()-interval '1 minute' LIMIT 1",
+      [user.id],
+    );
     if (recent.rowCount) return { accepted: true };
-    const token = await issueVerification(client,user.id,user.email);
-    return { accepted: true, ...(developmentMail() ? { developmentToken: token } : {}) };
+    const token = await issueVerification(client, user.id, user.email);
+    return {
+      accepted: true,
+      ...(developmentMail() ? { developmentToken: token } : {}),
+    };
   });
 }
 
@@ -303,14 +473,34 @@ export async function verifyEmail(input) {
   const value = acceptInvitationSchema.parse(input);
   return transaction(async (client) => {
     // Lock the account before consuming tokens, serializing concurrent confirmations.
-    const user = (await client.query(`SELECT u.id FROM users u JOIN email_verification_tokens t ON t.user_id=u.id
-      WHERE t.token_hash=$1 AND u.active FOR UPDATE OF u`, [tokenHash(value.token)])).rows[0];
-    if (!user) throw Object.assign(new Error('Link inválido ou expirado.'), { statusCode: 422 });
-    const used = await client.query(`UPDATE email_verification_tokens SET used_at=now()
-      WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now() RETURNING user_id`, [tokenHash(value.token)]);
-    if (!used.rowCount) throw Object.assign(new Error('Link inválido ou expirado.'), { statusCode: 422 });
-    await client.query('UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1', [user.id]);
-    await client.query('UPDATE email_verification_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL', [user.id]);
+    const user = (
+      await client.query(
+        `SELECT u.id FROM users u JOIN email_verification_tokens t ON t.user_id=u.id
+      WHERE t.token_hash=$1 AND u.active FOR UPDATE OF u`,
+        [tokenHash(value.token)],
+      )
+    ).rows[0];
+    if (!user)
+      throw Object.assign(new Error('Link inválido ou expirado.'), {
+        statusCode: 422,
+      });
+    const used = await client.query(
+      `UPDATE email_verification_tokens SET used_at=now()
+      WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now() RETURNING user_id`,
+      [tokenHash(value.token)],
+    );
+    if (!used.rowCount)
+      throw Object.assign(new Error('Link inválido ou expirado.'), {
+        statusCode: 422,
+      });
+    await client.query(
+      'UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1',
+      [user.id],
+    );
+    await client.query(
+      'UPDATE email_verification_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL',
+      [user.id],
+    );
     return { verified: true };
   });
 }
@@ -319,23 +509,45 @@ export async function requestPasswordReset(input) {
   const value = forgotSchema.parse(input);
   requireMail();
   return transaction(async (client) => {
-    const user = (await client.query('SELECT id,email FROM users WHERE email=$1 AND active AND password_hash IS NOT NULL FOR UPDATE', [value.email])).rows[0];
+    const user = (
+      await client.query(
+        'SELECT id,email FROM users WHERE email=$1 AND active AND password_hash IS NOT NULL FOR UPDATE',
+        [value.email],
+      )
+    ).rows[0];
     if (!user) return { accepted: true };
-    const recent = await client.query("SELECT 1 FROM password_reset_tokens WHERE user_id=$1 AND created_at>now()-interval '1 minute' LIMIT 1", [user.id]);
+    const recent = await client.query(
+      "SELECT 1 FROM password_reset_tokens WHERE user_id=$1 AND created_at>now()-interval '1 minute' LIMIT 1",
+      [user.id],
+    );
     if (recent.rowCount) return { accepted: true };
     const token = randomToken();
-    await client.query(`INSERT INTO password_reset_tokens(user_id,token_hash,expires_at)
-      VALUES($1,$2,now()+interval '30 minutes')`, [user.id,tokenHash(token)]);
-    await sendAuthMail('reset',user.email,token);
-    return { accepted: true, ...(developmentMail() ? { developmentToken: token } : {}) };
+    await client.query(
+      `INSERT INTO password_reset_tokens(user_id,token_hash,expires_at)
+      VALUES($1,$2,now()+interval '30 minutes')`,
+      [user.id, tokenHash(token)],
+    );
+    await sendAuthMail('reset', user.email, token);
+    return {
+      accepted: true,
+      ...(developmentMail() ? { developmentToken: token } : {}),
+    };
   });
 }
 
 export async function resetPassword(input) {
   const value = resetSchema.parse(input);
   return transaction(async (client) => {
-    const user = (await client.query(`SELECT u.id FROM users u JOIN password_reset_tokens t ON t.user_id=u.id WHERE t.token_hash=$1 AND u.active FOR UPDATE OF u`, [tokenHash(value.token)])).rows[0];
-    if (!user) throw Object.assign(new Error('Token inválido ou expirado.'), { statusCode: 422 });
+    const user = (
+      await client.query(
+        `SELECT u.id FROM users u JOIN password_reset_tokens t ON t.user_id=u.id WHERE t.token_hash=$1 AND u.active FOR UPDATE OF u`,
+        [tokenHash(value.token)],
+      )
+    ).rows[0];
+    if (!user)
+      throw Object.assign(new Error('Token inválido ou expirado.'), {
+        statusCode: 422,
+      });
     const reset = await client.query(
       `UPDATE password_reset_tokens SET used_at=now()
        WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now()
@@ -346,15 +558,21 @@ export async function resetPassword(input) {
       throw Object.assign(new Error('Token inválido ou expirado.'), {
         statusCode: 422,
       });
-    await client.query('UPDATE users SET password_hash=$2,email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1', [
-      reset.rows[0].user_id,
-      await hashPassword(value.password),
-    ]);
+    await client.query(
+      'UPDATE users SET password_hash=$2,email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1',
+      [reset.rows[0].user_id, await hashPassword(value.password)],
+    );
     await client.query('DELETE FROM user_sessions WHERE user_id=$1', [
       reset.rows[0].user_id,
     ]);
-    await client.query('UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL', [user.id]);
-    await client.query('UPDATE email_verification_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL', [user.id]);
+    await client.query(
+      'UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL',
+      [user.id],
+    );
+    await client.query(
+      'UPDATE email_verification_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL',
+      [user.id],
+    );
     return { changed: true };
   });
 }
@@ -428,7 +646,14 @@ export async function getSubscription(identity) {
   return result.rows[0] || null;
 }
 
-export async function assertInstitutionLimit({ institutionId, kind, portalAdmin = false, developmentBypass = false, quantity = 1, db = pool }) {
+export async function assertInstitutionLimit({
+  institutionId,
+  kind,
+  portalAdmin = false,
+  developmentBypass = false,
+  quantity = 1,
+  db = pool,
+}) {
   // Administradores gerais precisam conseguir validar o portal e o compositor
   // independentemente do plano da instituição selecionada.
   if (portalAdmin || developmentBypass) return;

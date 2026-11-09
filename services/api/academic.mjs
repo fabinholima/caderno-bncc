@@ -11,18 +11,40 @@ export const classSchema = z.object({
   // Escola de "Minhas escolas" do professor; obrigatória em turmas novas.
   schoolId: z.uuid({ error: 'Selecione a escola da turma.' }),
 });
-export const studentStatusSchema = z.enum(['ativo', 'transferido', 'remanejado', 'atestado', 'regime_domiciliar']);
-export const studentUpdateSchema = z.object({
-  status: studentStatusSchema.optional(),
-  adaptedExam: z.boolean().optional(),
-}).strict().refine(value => value.status !== undefined || value.adaptedExam !== undefined, 'Informe a situação ou a condição de prova adaptada.');
+export const studentStatusSchema = z.enum([
+  'ativo',
+  'transferido',
+  'remanejado',
+  'atestado',
+  'regime_domiciliar',
+]);
+export const studentUpdateSchema = z
+  .object({
+    status: studentStatusSchema.optional(),
+    adaptedExam: z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    (value) => value.status !== undefined || value.adaptedExam !== undefined,
+    'Informe a situação ou a condição de prova adaptada.',
+  );
 export const studentSchema = z.object({
   status: studentStatusSchema.default('ativo'),
   adaptedExam: z.boolean().default(false),
   registration: z.string().trim().min(1).max(60),
   name: z.string().trim().min(2).max(160),
   // Foto do cadastro: o app e o portal reduzem para 320 px (cerca de 20 a 60 KB).
-  selfieDataUrl: z.string().max(140000).refine((v) => !v || (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.byteLength(v.split(',')[1], 'base64') <= 100000), 'Use foto PNG/JPEG de até 100 KB.').default(''),
+  selfieDataUrl: z
+    .string()
+    .max(140000)
+    .refine(
+      (v) =>
+        !v ||
+        (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) &&
+          Buffer.byteLength(v.split(',')[1], 'base64') <= 100000),
+      'Use foto PNG/JPEG de até 100 KB.',
+    )
+    .default(''),
 });
 export const enrollmentSchema = z.object({
   studentId: z.uuid(),
@@ -32,7 +54,12 @@ export const applicationSchema = z.object({
   assessmentId: z.uuid(),
   classId: z.uuid(),
   scheduledAt: z.iso.datetime().optional(),
-  studentIds: z.array(z.uuid()).min(1).max(1000).refine(ids=>new Set(ids).size===ids.length).optional(),
+  studentIds: z
+    .array(z.uuid())
+    .min(1)
+    .max(1000)
+    .refine((ids) => new Set(ids).size === ids.length)
+    .optional(),
 });
 export async function listClasses({ institutionId }) {
   const r = await pool.query({
@@ -61,14 +88,24 @@ export async function listClasses({ institutionId }) {
 export async function createClass({ institutionId, userId, input }) {
   const v = classSchema.parse(input);
   // A escola precisa ser uma das escolas cadastradas pelo próprio professor.
-  const school = await pool.query('SELECT id,name FROM educator_schools WHERE id=$1 AND user_id=$2', [v.schoolId, userId]);
+  const school = await pool.query(
+    'SELECT id,name FROM educator_schools WHERE id=$1 AND user_id=$2',
+    [v.schoolId, userId],
+  );
   if (!school.rowCount)
-    throw Object.assign(new Error('Escola não encontrada em Minhas escolas.'), { statusCode: 422 });
+    throw Object.assign(new Error('Escola não encontrada em Minhas escolas.'), {
+      statusCode: 422,
+    });
   const r = await pool.query({
     text: `INSERT INTO classes(institution_id,name,grade,school_year,school_id,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,name,grade,school_year`,
     values: [institutionId, v.name, v.grade, v.schoolYear, v.schoolId, userId],
   });
-  return { ...r.rows[0], schoolYear: r.rows[0].school_year, schoolId: school.rows[0].id, schoolName: school.rows[0].name };
+  return {
+    ...r.rows[0],
+    schoolYear: r.rows[0].school_year,
+    schoolId: school.rows[0].id,
+    schoolName: school.rows[0].name,
+  };
 }
 export async function deleteClass({ institutionId, classId }) {
   return transaction(async (client) => {
@@ -100,12 +137,31 @@ export async function deleteClass({ institutionId, classId }) {
     return { id: classId, deleted: true };
   });
 }
-export async function createStudent({ institutionId, userId, portalAdmin = false, developmentBypass = false, input }) {
-  await assertInstitutionLimit({ institutionId, kind: 'student', portalAdmin, developmentBypass });
+export async function createStudent({
+  institutionId,
+  userId,
+  portalAdmin = false,
+  developmentBypass = false,
+  input,
+}) {
+  await assertInstitutionLimit({
+    institutionId,
+    kind: 'student',
+    portalAdmin,
+    developmentBypass,
+  });
   const v = studentSchema.parse(input);
   const r = await pool.query({
     text: `INSERT INTO students(institution_id,registration,name,teacher_id,access_code,selfie_data_url,status,adapted_exam) VALUES($1,$2,$3,$4,'UFA-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)),$5,$6,$7) RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active,status,adapted_exam AS "adaptedExam"`,
-    values: [institutionId, v.registration, v.name, userId, v.selfieDataUrl, v.status, v.adaptedExam],
+    values: [
+      institutionId,
+      v.registration,
+      v.name,
+      userId,
+      v.selfieDataUrl,
+      v.status,
+      v.adaptedExam,
+    ],
   });
   return r.rows[0];
 }
@@ -126,10 +182,17 @@ export async function updateStudent({ institutionId, studentId, input }) {
       adapted_exam=COALESCE($4,adapted_exam)
       WHERE id=$1 AND institution_id=$2
       RETURNING id,registration,name,access_code,selfie_data_url AS "selfieDataUrl",active,status,adapted_exam AS "adaptedExam"`,
-    values: [studentId, institutionId, value.status ?? null, value.adaptedExam ?? null],
+    values: [
+      studentId,
+      institutionId,
+      value.status ?? null,
+      value.adaptedExam ?? null,
+    ],
   });
   if (!r.rowCount)
-    throw Object.assign(new Error('Aluno não encontrado.'), { statusCode: 404 });
+    throw Object.assign(new Error('Aluno não encontrado.'), {
+      statusCode: 404,
+    });
   return r.rows[0];
 }
 export async function enrollStudent({ institutionId, classId, input }) {
@@ -156,14 +219,21 @@ export async function createApplication({ institutionId, userId, input }) {
       [v.assessmentId, institutionId],
     );
     if (!versions.rowCount)
-      throw Object.assign(new Error('Avaliação não encontrada ou sem versões.'), {
-        statusCode: 404,
-      });
+      throw Object.assign(
+        new Error('Avaliação não encontrada ou sem versões.'),
+        {
+          statusCode: 404,
+        },
+      );
     const students = await client.query(
       `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
-      [v.classId,institutionId,v.studentIds||null],
+      [v.classId, institutionId, v.studentIds || null],
     );
-    if(v.studentIds && students.rowCount!==v.studentIds.length) throw Object.assign(new Error('Selecione somente alunos ativos matriculados nesta turma.'),{statusCode:422});
+    if (v.studentIds && students.rowCount !== v.studentIds.length)
+      throw Object.assign(
+        new Error('Selecione somente alunos ativos matriculados nesta turma.'),
+        { statusCode: 422 },
+      );
     if (!versions.rowCount)
       throw Object.assign(new Error('A avaliação não possui versões.'), {
         statusCode: 422,
@@ -182,7 +252,13 @@ export async function createApplication({ institutionId, userId, input }) {
              WHERE a.id=$2 AND a.institution_id=$1
              ON CONFLICT (assessment_id,class_id) DO NOTHING
              RETURNING id,assessment_id,class_id,scheduled_at,status`,
-      values: [institutionId,v.assessmentId,v.classId,v.scheduledAt || null,userId],
+      values: [
+        institutionId,
+        v.assessmentId,
+        v.classId,
+        v.scheduledAt || null,
+        userId,
+      ],
     });
 
     if (!created.rowCount) {
@@ -191,7 +267,7 @@ export async function createApplication({ institutionId, userId, input }) {
                FROM assessment_applications
                WHERE assessment_id=$1 AND class_id=$2 AND institution_id=$3
                FOR UPDATE`,
-        values: [v.assessmentId,v.classId,institutionId],
+        values: [v.assessmentId, v.classId, institutionId],
       });
       if (!existing.rowCount)
         throw Object.assign(new Error('Avaliação ou turma não encontrada.'), {
@@ -204,7 +280,7 @@ export async function createApplication({ institutionId, userId, input }) {
           `UPDATE assessment_applications
            SET status='scheduled',scheduled_at=COALESCE($2,scheduled_at)
            WHERE id=$1`,
-          [application.id,v.scheduledAt || null],
+          [application.id, v.scheduledAt || null],
         );
       }
       await client.query(
@@ -216,8 +292,17 @@ export async function createApplication({ institutionId, userId, input }) {
            AND rj.status='failed'`,
         [application.id],
       );
-      const assignments = await listApplicationAssignments(client, application.id);
-      return { ...application, status: application.status === 'cancelled' ? 'scheduled' : application.status, assignments, reused: true };
+      const assignments = await listApplicationAssignments(
+        client,
+        application.id,
+      );
+      return {
+        ...application,
+        status:
+          application.status === 'cancelled' ? 'scheduled' : application.status,
+        assignments,
+        reused: true,
+      };
     }
 
     const application = created.rows[0];
@@ -302,8 +387,19 @@ export async function listApplications({ institutionId }) {
     id: x.id,
     title: x.title,
     subject: x.subject,
-    versions: (keys.get(x.assessment_id) ?? []).map(({ code, questions, objective, missingAnswerKeys }) => ({ code, questions, objective, missingAnswerKeys })),
-    answerKeyReady: (keys.get(x.assessment_id) ?? []).length > 0 && (keys.get(x.assessment_id) ?? []).every((version) => !version.missingAnswerKeys.length),
+    versions: (keys.get(x.assessment_id) ?? []).map(
+      ({ code, questions, objective, missingAnswerKeys }) => ({
+        code,
+        questions,
+        objective,
+        missingAnswerKeys,
+      }),
+    ),
+    answerKeyReady:
+      (keys.get(x.assessment_id) ?? []).length > 0 &&
+      (keys.get(x.assessment_id) ?? []).every(
+        (version) => !version.missingAnswerKeys.length,
+      ),
     assessmentId: x.assessment_id,
     classId: x.class_id,
     className: x.class_name,
@@ -423,8 +519,12 @@ export async function cancelApplication({ institutionId, applicationId }) {
   });
 }
 
-export async function listClassStudents({institutionId,classId}) {
- const r=await pool.query(`SELECT s.id,s.name,s.registration FROM class_enrollments ce JOIN classes c ON c.id=ce.class_id JOIN students s ON s.id=ce.student_id WHERE c.id=$1 AND c.institution_id=$2 AND s.institution_id=$2 AND s.active ORDER BY ce.number NULLS LAST,s.name`,[classId,institutionId]);return r.rows;
+export async function listClassStudents({ institutionId, classId }) {
+  const r = await pool.query(
+    `SELECT s.id,s.name,s.registration FROM class_enrollments ce JOIN classes c ON c.id=ce.class_id JOIN students s ON s.id=ce.student_id WHERE c.id=$1 AND c.institution_id=$2 AND s.institution_id=$2 AND s.active ORDER BY ce.number NULLS LAST,s.name`,
+    [classId, institutionId],
+  );
+  return r.rows;
 }
 export async function getClassRoster({ institutionId, userId, classId }) {
   const schoolClass = await pool.query({
@@ -438,7 +538,9 @@ export async function getClassRoster({ institutionId, userId, classId }) {
     values: [classId, institutionId, userId],
   });
   if (!schoolClass.rowCount)
-    throw Object.assign(new Error('Turma não encontrada.'), { statusCode: 404 });
+    throw Object.assign(new Error('Turma não encontrada.'), {
+      statusCode: 404,
+    });
   const students = await pool.query({
     text: `SELECT s.id,s.name,s.registration,ce.number,s.status,s.active,
                   NULLIF(s.selfie_data_url,'') AS "selfieDataUrl"
@@ -450,7 +552,12 @@ export async function getClassRoster({ institutionId, userId, classId }) {
   });
   const row = schoolClass.rows[0];
   return {
-    class: { id: row.id, name: row.name, grade: row.grade, schoolYear: row.school_year },
+    class: {
+      id: row.id,
+      name: row.name,
+      grade: row.grade,
+      schoolYear: row.school_year,
+    },
     schoolName: row.school_name || row.institution_name,
     students: students.rows,
   };

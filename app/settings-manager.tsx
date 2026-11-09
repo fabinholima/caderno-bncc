@@ -23,9 +23,22 @@ type Subscription = {
   concurrent_renders: number;
   period_ends_at: string;
 };
-type CatalogSubtopic = { sourceKey: string; name: string; subtopics?: CatalogSubtopic[] };
-type CatalogTopic = { sourceKey: string; name: string; subtopics?: CatalogSubtopic[] };
-type CatalogSubject = { sourceKey: string; name: string; stage: string; topics?: CatalogTopic[] };
+type CatalogSubtopic = {
+  sourceKey: string;
+  name: string;
+  subtopics?: CatalogSubtopic[];
+};
+type CatalogTopic = {
+  sourceKey: string;
+  name: string;
+  subtopics?: CatalogSubtopic[];
+};
+type CatalogSubject = {
+  sourceKey: string;
+  name: string;
+  stage: string;
+  topics?: CatalogTopic[];
+};
 type CurriculumCatalog = { version: number; subjects: CatalogSubject[] };
 
 export function SettingsManager({
@@ -48,12 +61,18 @@ export function SettingsManager({
   const [catalog, setCatalog] = useState<CurriculumCatalog | null>(null);
   const [catalogName, setCatalogName] = useState('');
   const [importing, setImporting] = useState(false);
-  const [catalogStage, setCatalogStage] = useState<'Ensino Médio' | 'Ensino Fundamental'>('Ensino Médio');
+  const [catalogStage, setCatalogStage] = useState<
+    'Ensino Médio' | 'Ensino Fundamental'
+  >('Ensino Médio');
   useEffect(() => {
     apiFetch(`${apiUrl}/api/subscription`)
       .then(async (response) => {
-        const body = await response.json() as { data?: Subscription; error?: string };
-        if (!response.ok) throw new Error(body.error || 'Não foi possível consultar o plano.');
+        const body = (await response.json()) as {
+          data?: Subscription;
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(body.error || 'Não foi possível consultar o plano.');
         setSubscription(body.data || null);
       })
       .catch(() => setMessage('Não foi possível consultar o plano.'));
@@ -86,17 +105,28 @@ export function SettingsManager({
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const value = JSON.parse(typeof reader.result === 'string' ? reader.result : '') as CurriculumCatalog;
-        if (!value?.version || !Array.isArray(value.subjects)) throw new Error();
-        if (value.subjects.some((subject: { stage?: string }) => subject.stage !== catalogStage)) {
+        const value = JSON.parse(
+          typeof reader.result === 'string' ? reader.result : '',
+        ) as CurriculumCatalog;
+        if (!value?.version || !Array.isArray(value.subjects))
+          throw new Error();
+        if (
+          value.subjects.some(
+            (subject: { stage?: string }) => subject.stage !== catalogStage,
+          )
+        ) {
           throw new Error(`O arquivo não corresponde à aba ${catalogStage}.`);
         }
         setCatalog(value);
         setCatalogName(file.name);
-        setMessage('Prévia carregada. Confira a hierarquia e confirme a importação.');
+        setMessage(
+          'Prévia carregada. Confira a hierarquia e confirme a importação.',
+        );
       } catch {
         setCatalog(null);
-        setMessage(`Arquivo inválido para ${catalogStage}. Verifique version, subjects e stage.`);
+        setMessage(
+          `Arquivo inválido para ${catalogStage}. Verifique version, subjects e stage.`,
+        );
       }
     };
     reader.readAsText(file);
@@ -105,18 +135,31 @@ export function SettingsManager({
     if (!catalog) return;
     setImporting(true);
     try {
-      const response = await apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics/import`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(catalog),
-      });
-      const body = await response.json() as { data?: { subjects: unknown[] }; error?: string };
+      const response = await apiFetch(
+        `${apiUrl}/api/curriculum/pedagogical-topics/import`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(catalog),
+        },
+      );
+      const body = (await response.json()) as {
+        data?: { subjects: unknown[] };
+        error?: string;
+      };
       if (!response.ok || !body.data) {
         setMessage(body.error || 'Importação rejeitada.');
         return;
       }
-      setMessage(`Catálogo importado: ${body.data.subjects.length} disciplina(s).`);
+      setMessage(
+        `Catálogo importado: ${body.data.subjects.length} disciplina(s).`,
+      );
       setCatalog(null);
-    } catch { setMessage('Não foi possível conectar à API.'); }
-    finally { setImporting(false); }
+    } catch {
+      setMessage('Não foi possível conectar à API.');
+    } finally {
+      setImporting(false);
+    }
   }
   return (
     <main className="mx-auto max-w-[1100px] px-5 py-7 sm:px-8 sm:py-9">
@@ -128,28 +171,106 @@ export function SettingsManager({
       {portalAdmin && <PortalEditorManager apiUrl={apiUrl} />}
       {portalAdmin && <SubscriptionAdmin apiUrl={apiUrl} />}
       <BillingManager apiUrl={apiUrl} role={role} />
-      {role !== 'student' && <GoogleAccountLink apiUrl={apiUrl} email={email} linked={googleLinked} />}
+      {role !== 'student' && (
+        <GoogleAccountLink
+          apiUrl={apiUrl}
+          email={email}
+          linked={googleLinked}
+        />
+      )}
       <EducatorProfile apiUrl={apiUrl} />
       {message && (
-        <p aria-live="polite" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm">
+        <p
+          aria-live="polite"
+          className="mt-4 rounded-xl bg-blue-50 p-3 text-sm"
+        >
           {message}
         </p>
       )}
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        {canEditCatalog && <section className="rounded-2xl border bg-white p-5 lg:col-span-2">
-          <h2 className="font-display text-xl font-bold">Objetos e subtópicos BNCC</h2>
-          <p className="mt-1 text-sm text-slate-500">Importe um catálogo revisado, confira a prévia e confirme antes de gravar.</p>
-          <div className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-            {(['Ensino Médio', 'Ensino Fundamental'] as const).map((stage) => <button key={stage} type="button" onClick={() => { setCatalogStage(stage); setCatalog(null); setMessage(''); }} className={`rounded-md px-3 py-2 text-xs font-semibold ${catalogStage === stage ? 'bg-[var(--navy)] text-white' : 'text-slate-600'}`}>{stage}</button>)}
-          </div>
-          <p className="mt-3 text-xs text-slate-500">Importando catálogo de <b>{catalogStage}</b>. O arquivo precisa conter somente disciplinas dessa etapa.</p>
-          <input className="mt-3 block w-full rounded-lg border p-2 text-sm" type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && readCatalog(event.target.files[0])} />
-          {catalog && <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
-            <p className="font-semibold">Prévia: {catalogName} · {catalog.subjects.length} disciplina(s)</p>
-            <ul className="mt-3 space-y-2">{catalog.subjects.map((subject) => <li key={subject.sourceKey}><b>{subject.name}</b> · {subject.stage}<ul className="ml-5 list-disc">{(subject.topics || []).map((topic) => <li key={topic.sourceKey}><span className="font-medium">{topic.name}</span>{topic.subtopics?.length ? <ul className="ml-5 list-[circle] text-slate-600">{topic.subtopics.map((subtopic) => <li key={subtopic.sourceKey}>{subtopic.name}{subtopic.subtopics?.length ? ` · ${subtopic.subtopics.length} detalhamento(s)` : ''}</li>)}</ul> : null}</li>)}</ul></li>)}</ul>
-            <Button className="mt-4" type="button" disabled={importing} onClick={importCatalog}>{importing ? 'Importando…' : 'Confirmar importação'}</Button>
-          </div>}
-        </section>}
+        {canEditCatalog && (
+          <section className="rounded-2xl border bg-white p-5 lg:col-span-2">
+            <h2 className="font-display text-xl font-bold">
+              Objetos e subtópicos BNCC
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Importe um catálogo revisado, confira a prévia e confirme antes de
+              gravar.
+            </p>
+            <div className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              {(['Ensino Médio', 'Ensino Fundamental'] as const).map(
+                (stage) => (
+                  <button
+                    key={stage}
+                    type="button"
+                    onClick={() => {
+                      setCatalogStage(stage);
+                      setCatalog(null);
+                      setMessage('');
+                    }}
+                    className={`rounded-md px-3 py-2 text-xs font-semibold ${catalogStage === stage ? 'bg-[var(--navy)] text-white' : 'text-slate-600'}`}
+                  >
+                    {stage}
+                  </button>
+                ),
+              )}
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Importando catálogo de <b>{catalogStage}</b>. O arquivo precisa
+              conter somente disciplinas dessa etapa.
+            </p>
+            <input
+              className="mt-3 block w-full rounded-lg border p-2 text-sm"
+              type="file"
+              accept="application/json,.json"
+              onChange={(event) =>
+                event.target.files?.[0] && readCatalog(event.target.files[0])
+              }
+            />
+            {catalog && (
+              <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
+                <p className="font-semibold">
+                  Prévia: {catalogName} · {catalog.subjects.length}{' '}
+                  disciplina(s)
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {catalog.subjects.map((subject) => (
+                    <li key={subject.sourceKey}>
+                      <b>{subject.name}</b> · {subject.stage}
+                      <ul className="ml-5 list-disc">
+                        {(subject.topics || []).map((topic) => (
+                          <li key={topic.sourceKey}>
+                            <span className="font-medium">{topic.name}</span>
+                            {topic.subtopics?.length ? (
+                              <ul className="ml-5 list-[circle] text-slate-600">
+                                {topic.subtopics.map((subtopic) => (
+                                  <li key={subtopic.sourceKey}>
+                                    {subtopic.name}
+                                    {subtopic.subtopics?.length
+                                      ? ` · ${subtopic.subtopics.length} detalhamento(s)`
+                                      : ''}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="mt-4"
+                  type="button"
+                  disabled={importing}
+                  onClick={importCatalog}
+                >
+                  {importing ? 'Importando…' : 'Confirmar importação'}
+                </Button>
+              </div>
+            )}
+          </section>
+        )}
         <section className="rounded-2xl border bg-white p-5">
           <div className="flex items-center gap-2">
             <CreditCard className="text-blue-600" />
@@ -214,7 +335,8 @@ export function SettingsManager({
             </form>
           ) : (
             <p className="mt-4 text-sm text-slate-500">
-              Somente o administrador da instituição pode convidar membros da equipe.
+              Somente o administrador da instituição pode convidar membros da
+              equipe.
             </p>
           )}
         </section>

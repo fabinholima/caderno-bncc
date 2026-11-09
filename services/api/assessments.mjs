@@ -1,5 +1,5 @@
 import { isCompactTemplate } from '../../lib/compact-assessment.mjs';
-import {assertApprovedQuestionSelection} from './question-workflow.mjs';
+import { assertApprovedQuestionSelection } from './question-workflow.mjs';
 import { z } from 'zod';
 import crypto from 'node:crypto';
 import {
@@ -55,7 +55,9 @@ export const createAssessmentSchema = z
       )
       .min(1)
       .max(20),
-    questionPoints: z.record(z.uuid(), z.number().positive().max(1000)).default({}),
+    questionPoints: z
+      .record(z.uuid(), z.number().positive().max(1000))
+      .default({}),
     shuffleQuestions: z.boolean().default(true),
     versionCount: z.number().int().min(1).max(6),
     paper: z.enum(['A4', 'A5']).default('A4'),
@@ -72,7 +74,12 @@ export const createAssessmentSchema = z
       .default([]),
   })
   .superRefine((value, context) => {
-    if (isCompactTemplate(value.template) && value.paper !== 'A4') context.addIssue({code: 'custom', path: ['paper'], message: 'Os modelos compactos de 10 questões usam papel A4.'});
+    if (isCompactTemplate(value.template) && value.paper !== 'A4')
+      context.addIssue({
+        code: 'custom',
+        path: ['paper'],
+        message: 'Os modelos compactos de 10 questões usam papel A4.',
+      });
     const questionIds = value.sections.flatMap(
       (section) => section.questionIds,
     );
@@ -125,11 +132,26 @@ function seededShuffle(items, seed) {
 // no cadastro da questão ("Usar sempre uma coluna"), que vale sempre para não
 // deixar figuras e conteúdos largos numa coluna estreita.
 export function questionUsesFullWidth(question, fullWidthQuestionIds) {
-  return fullWidthQuestionIds.has(question.id) || question.recommend_single_column === true;
+  return (
+    fullWidthQuestionIds.has(question.id) ||
+    question.recommend_single_column === true
+  );
 }
 
-export async function createAssessment({ institutionId, questionBankId = institutionId, userId, portalAdmin = false, developmentBypass = false, input }) {
-  await assertInstitutionLimit({ institutionId, kind: 'assessment', portalAdmin, developmentBypass });
+export async function createAssessment({
+  institutionId,
+  questionBankId = institutionId,
+  userId,
+  portalAdmin = false,
+  developmentBypass = false,
+  input,
+}) {
+  await assertInstitutionLimit({
+    institutionId,
+    kind: 'assessment',
+    portalAdmin,
+    developmentBypass,
+  });
   const value = createAssessmentSchema.parse(input);
   const questionIds = value.sections.flatMap((section) => section.questionIds);
   const assessmentSubject =
@@ -137,12 +159,20 @@ export async function createAssessment({ institutionId, questionBankId = institu
       ? value.sections[0].subject
       : 'Multidisciplinar';
   return transaction(async (client) => {
-    if (value.schoolId) value.header = { ...value.header, ...await schoolHeader(client,userId,value.schoolId) };
+    if (value.schoolId)
+      value.header = {
+        ...value.header,
+        ...(await schoolHeader(client, userId, value.schoolId)),
+      };
     const institution = await client.query(
       'SELECT name FROM institutions WHERE id = $1',
       [institutionId],
     );
-    await assertApprovedQuestionSelection(client,[institutionId,questionBankId],questionIds);
+    await assertApprovedQuestionSelection(
+      client,
+      [institutionId, questionBankId],
+      questionIds,
+    );
     const questions = await client.query({
       text: `SELECT q.id, q.current_revision, qr.type, qr.statement, qr.explanation, qr.default_points,
                     qr.subject, qr.grade,
@@ -210,17 +240,17 @@ export async function createAssessment({ institutionId, questionBankId = institu
         const sectionQuestions = section.questionIds.map((id) =>
           questionById.get(id),
         );
-        const ordered = value.shuffleQuestions ? seededShuffle(
-          sectionQuestions,
-          seed + sectionIndex * 997,
-        ) : sectionQuestions;
+        const ordered = value.shuffleQuestions
+          ? seededShuffle(sectionQuestions, seed + sectionIndex * 997)
+          : sectionQuestions;
         const snapshotQuestions = ordered.map((question, position) => {
-          const alternatives = question.type === 'true_false'
-            ? question.alternatives
-            : seededShuffle(
-            question.alternatives,
-            seed + sectionIndex * 997 + position + 1,
-          );
+          const alternatives =
+            question.type === 'true_false'
+              ? question.alternatives
+              : seededShuffle(
+                  question.alternatives,
+                  seed + sectionIndex * 997 + position + 1,
+                );
           questionNumber += 1;
           return {
             id: crypto.randomUUID(),
@@ -237,7 +267,12 @@ export async function createAssessment({ institutionId, questionBankId = institu
             knowledgeTopic: question.knowledge_topic,
             alternatives: alternatives.map((answer, answerIndex) => ({
               stableKey: answer.stableKey,
-              label: question.type === 'true_false' ? (answer.stableKey === 'alt-a' ? 'C' : 'E') : String.fromCharCode(65 + answerIndex),
+              label:
+                question.type === 'true_false'
+                  ? answer.stableKey === 'alt-a'
+                    ? 'C'
+                    : 'E'
+                  : String.fromCharCode(65 + answerIndex),
               content: answer.content,
             })),
             answer: {
@@ -246,7 +281,9 @@ export async function createAssessment({ institutionId, questionBankId = institu
                 .map((answer) => answer.stableKey),
               explanation: question.explanation || [],
             },
-            points: value.questionPoints[question.id] ?? Number(question.default_points),
+            points:
+              value.questionPoints[question.id] ??
+              Number(question.default_points),
             fullWidth: questionUsesFullWidth(question, fullWidthQuestionIds),
             recommendSingleColumn: question.recommend_single_column === true,
             skills: question.skills,
@@ -481,24 +518,37 @@ export async function deleteAssessment({
       : { rowCount: 0 };
     if (submissions.rowCount)
       throw Object.assign(
-        new Error('Esta prova já tem respostas registradas e não pode ser excluída para preservar o histórico dos alunos.'),
+        new Error(
+          'Esta prova já tem respostas registradas e não pode ser excluída para preservar o histórico dos alunos.',
+        ),
         { statusCode: 409 },
       );
 
     if (applications.rowCount) {
       if (!unlinkUnsentApplications)
         throw Object.assign(
-          new Error('Esta prova está vinculada a uma ou mais aplicações. Marque “Desvincular aplicações não aplicadas” (ou use “Desvincular e excluir”) para excluir, se nenhum cartão foi enviado ou respondido.'),
+          new Error(
+            'Esta prova está vinculada a uma ou mais aplicações. Marque “Desvincular aplicações não aplicadas” (ou use “Desvincular e excluir”) para excluir, se nenhum cartão foi enviado ou respondido.',
+          ),
           { statusCode: 409 },
         );
 
-      if (applications.rows.some((application) => !['scheduled', 'cancelled'].includes(application.status)))
+      if (
+        applications.rows.some(
+          (application) =>
+            !['scheduled', 'cancelled'].includes(application.status),
+        )
+      )
         throw Object.assign(
-          new Error('Não é possível desvincular: existe uma aplicação aberta ou encerrada. O histórico dos alunos foi preservado.'),
+          new Error(
+            'Não é possível desvincular: existe uma aplicação aberta ou encerrada. O histórico dos alunos foi preservado.',
+          ),
           { statusCode: 409 },
         );
 
-      const applicationIds = applications.rows.map((application) => application.id);
+      const applicationIds = applications.rows.map(
+        (application) => application.id,
+      );
       const assignments = await client.query(
         `SELECT id FROM application_students
          WHERE application_id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
@@ -521,7 +571,9 @@ export async function deleteAssessment({
       );
       if (scans.rowCount)
         throw Object.assign(
-          new Error('Não é possível desvincular: já existe cartão enviado ou leitura vinculada a esta aplicação.'),
+          new Error(
+            'Não é possível desvincular: já existe cartão enviado ou leitura vinculada a esta aplicação.',
+          ),
           { statusCode: 409 },
         );
       // Cartões já gerados, mas nunca enviados nem lidos, não têm histórico de
@@ -529,7 +581,9 @@ export async function deleteAssessment({
       // não disputar o registro com o worker de renderização.
       if (jobs.rows.some((job) => job.status === 'running'))
         throw Object.assign(
-          new Error('Não é possível desvincular agora: há cartões sendo gerados. Aguarde a geração terminar e tente novamente.'),
+          new Error(
+            'Não é possível desvincular agora: há cartões sendo gerados. Aguarde a geração terminar e tente novamente.',
+          ),
           { statusCode: 409 },
         );
 
@@ -541,23 +595,46 @@ export async function deleteAssessment({
       );
     }
 
-    await client.query('DELETE FROM assessment_workspaces WHERE assessment_id = $1', [assessmentId]);
+    await client.query(
+      'DELETE FROM assessment_workspaces WHERE assessment_id = $1',
+      [assessmentId],
+    );
     await client.query('DELETE FROM assessments WHERE id = $1', [assessmentId]);
     return { id: assessmentId, deleted: true };
   });
 }
 
-export async function regenerateAssessment({institutionId,assessmentId}) {
- return transaction(async client=>{
- const a=await client.query('SELECT id FROM assessments WHERE id=$1 AND institution_id=$2 FOR UPDATE',[assessmentId,institutionId]);
- if(!a.rowCount)throw Object.assign(new Error('Avaliação não encontrada.'),{statusCode:404});
- const versions=await client.query('SELECT id,code,snapshot FROM assessment_versions WHERE assessment_id=$1 ORDER BY code',[assessmentId]);
- const result=[];
- for(const v of versions.rows){
-   let job=await client.query("SELECT id,status FROM render_jobs WHERE assessment_version_id=$1 AND application_student_id IS NULL AND status IN ('queued','running') ORDER BY created_at DESC LIMIT 1",[v.id]);
-   if(!job.rowCount)job=await client.query('INSERT INTO render_jobs(assessment_version_id,template_version) VALUES($1,$2) RETURNING id,status',[v.id,v.snapshot.render.template]);
-   result.push({code:v.code,renderJobId:job.rows[0].id,status:job.rows[0].status});
- }
- return result;
- });
+export async function regenerateAssessment({ institutionId, assessmentId }) {
+  return transaction(async (client) => {
+    const a = await client.query(
+      'SELECT id FROM assessments WHERE id=$1 AND institution_id=$2 FOR UPDATE',
+      [assessmentId, institutionId],
+    );
+    if (!a.rowCount)
+      throw Object.assign(new Error('Avaliação não encontrada.'), {
+        statusCode: 404,
+      });
+    const versions = await client.query(
+      'SELECT id,code,snapshot FROM assessment_versions WHERE assessment_id=$1 ORDER BY code',
+      [assessmentId],
+    );
+    const result = [];
+    for (const v of versions.rows) {
+      let job = await client.query(
+        "SELECT id,status FROM render_jobs WHERE assessment_version_id=$1 AND application_student_id IS NULL AND status IN ('queued','running') ORDER BY created_at DESC LIMIT 1",
+        [v.id],
+      );
+      if (!job.rowCount)
+        job = await client.query(
+          'INSERT INTO render_jobs(assessment_version_id,template_version) VALUES($1,$2) RETURNING id,status',
+          [v.id, v.snapshot.render.template],
+        );
+      result.push({
+        code: v.code,
+        renderJobId: job.rows[0].id,
+        status: job.rows[0].status,
+      });
+    }
+    return result;
+  });
 }
