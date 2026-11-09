@@ -3,10 +3,7 @@ import {
   isCompactTemplate,
   isJudgmentTemplate,
 } from '@/lib/compact-assessment.mjs';
-import {
-  assertAssessmentQuestionStyle,
-  renderTemplateCatalog,
-} from '@/lib/render-templates.mjs';
+import { assertAssessmentQuestionStyle } from '@/lib/render-templates.mjs';
 import type { EducatorData, School } from './educator-profile';
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
@@ -44,6 +41,16 @@ import {
 import { AssessmentApplicationStep } from './assessment-application-step';
 import { AssessmentPdfPreview } from './assessment-pdf-preview';
 import { apiFetch } from '@/lib/api-client';
+import {
+  fallbackTemplates,
+  fallbackFonts,
+  previewFontFamilies,
+  type AssessmentSection,
+  type GeneratedVersion,
+  type RenderTemplate,
+  type RenderFont,
+  type AssessmentPreset,
+} from './assessment-builder-model';
 
 export type BuilderQuestion = {
   type?: string;
@@ -64,78 +71,6 @@ export type BuilderQuestion = {
   sourceInstitution: string;
   sourceYear: number;
   difficulty: string;
-};
-
-type AssessmentSection = {
-  id: string;
-  subject: string;
-  columns: 1 | 2;
-  startOnNewPage: boolean;
-  selected: Set<string>;
-  fullWidth: Set<string>;
-};
-
-type GeneratedVersion = {
-  code: string;
-  renderJobId?: string;
-  status?: 'queued' | 'running' | 'completed' | 'failed';
-  error?: string | null;
-  downloads?: {
-    prova: string;
-    gabarito: string;
-    provaTex: string;
-    gabaritoTex: string;
-  } | null;
-};
-
-type RenderTemplate = {
-  id: string;
-  label: string;
-  description: string;
-  engine: string;
-  version: number;
-};
-
-type RenderFont = { id: string; label: string };
-
-type AssessmentPreset = {
-  id: string;
-  name: string;
-  configuration: {
-    header: {
-      institutionName: string;
-      teacherName: string;
-      className: string;
-      term: string;
-      date: string;
-      transcriptionPhrase?: string;
-      logoDataUrl?: string;
-    };
-    paper: 'A4' | 'A5';
-    template: string;
-    font: string;
-    fontSize: number;
-  };
-};
-
-const fallbackTemplates: RenderTemplate[] = renderTemplateCatalog.map(
-  (item) => ({ ...item }),
-);
-
-const fallbackFonts: RenderFont[] = [
-  { id: 'plex', label: 'IBM Plex' },
-  { id: 'heros', label: 'TeX Gyre Heros (Helvetica)' },
-  { id: 'bonum', label: 'TeX Gyre Bonum (Bookman)' },
-  { id: 'schola', label: 'TeX Gyre Schola (Schoolbook)' },
-  { id: 'libertinus', label: 'Libertinus' },
-];
-
-const previewFontFamilies: Record<string, string> = {
-  plex: '"IBM Plex Serif", Georgia, serif',
-  heros: 'Helvetica, Arial, sans-serif',
-  bonum: 'Bookman, "URW Bookman", Georgia, serif',
-  schola: '"Century Schoolbook", Georgia, serif',
-  libertinus: 'Libertinus Serif, "Times New Roman", serif',
 };
 
 export function AssessmentBuilder({
