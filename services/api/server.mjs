@@ -1,4 +1,3 @@
-import { myStudentProfiles, updateMyStudentPhoto } from './student-profile.mjs';
 import {
   importClassStudents,
   previewClassStudentImport,
@@ -40,7 +39,9 @@ import {
   mutationOriginAllowed,
 } from './request-security.mjs';
 import { missingProductionSecrets } from './qr-signing.mjs';
-import { myResultDetail, mySkillPerformance } from './student-results.mjs';
+import { findRoute } from './routes/router.mjs';
+import { studentAreaRoutes } from './routes/student-area-routes.mjs';
+import { gates } from './route-policy.mjs';
 import {
   listApplicationResults,
   getResultDetail,
@@ -174,18 +175,6 @@ import {
   retryApplicationRenders,
 } from './academic.mjs';
 import {
-  createInvite,
-  getInvite,
-  deactivateInvite,
-  inspectInvite,
-  requestJoin,
-  listRequests,
-  listCandidates,
-  decideRequest,
-  myJoinRequests,
-  myActivities,
-} from './class-invites.mjs';
-import {
   confirmScanReview,
   createScan,
   getScanImage,
@@ -238,8 +227,6 @@ import {
   getEssayPrompt,
   listEssayApplications,
   listEssayPrompts,
-  myEssayApplications,
-  myEssayProposalPdf,
   setEssayPromptStatus,
   updateEssayApplication,
   updateEssayPrompt,
@@ -249,8 +236,6 @@ import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
 import { allowAuthAttempt } from './auth-attempts.mjs';
 import {
-  inspectAccessCode,
-  claimAccessCode,
   unlinkStudentAccount,
   inspectFirstAccess,
   completeFirstAccess,
@@ -792,81 +777,6 @@ const server = createServer(async (request, response) => {
       )
         return json(response, 403, { error: 'Origem não autorizada.' });
     }
-    if (
-      request.method === 'POST' &&
-      url.pathname === '/api/class-invites/inspect'
-    ) {
-      if (!(await allowAuthAttempt(`invite:${identity.userId}`)))
-        return json(response, 429, {
-          error: 'Muitas tentativas de código. Aguarde 15 minutos.',
-        });
-      return json(response, 200, {
-        data: await inspectInvite(identity, await readJson(request, 4096)),
-      });
-    }
-    // Convites de turma ficam antes das exigências de perfil para permitir que
-    // contas de aluno entrem pelo aplicativo sem preencher dados de professor.
-    const classInviteMatch = url.pathname.match(
-      /^\/api\/classes\/([0-9a-f-]{36})\/invite$/i,
-    );
-    if (classInviteMatch && request.method === 'GET')
-      return json(response, 200, {
-        data: await getInvite(identity, classInviteMatch[1]),
-      });
-    if (classInviteMatch && request.method === 'POST')
-      return json(response, 201, {
-        data: await createInvite(
-          identity,
-          classInviteMatch[1],
-          await readJson(request, 4096),
-        ),
-      });
-    if (classInviteMatch && request.method === 'DELETE')
-      return json(response, 200, {
-        data: await deactivateInvite(identity, classInviteMatch[1]),
-      });
-    if (
-      request.method === 'POST' &&
-      url.pathname === '/api/class-invites/request'
-    ) {
-      if (!(await allowAuthAttempt(`invite:${identity.userId}`)))
-        return json(response, 429, {
-          error: 'Muitas tentativas. Aguarde 15 minutos.',
-        });
-      return json(response, 201, {
-        data: await requestJoin(identity, await readJson(request, 4096)),
-      });
-    }
-    if (
-      request.method === 'GET' &&
-      url.pathname === '/api/class-join-requests/me'
-    )
-      return json(response, 200, { data: await myJoinRequests(identity) });
-    const candidatesMatch = url.pathname.match(
-      /^\/api\/classes\/([0-9a-f-]{36})\/join-candidates$/i,
-    );
-    if (candidatesMatch && request.method === 'GET')
-      return json(response, 200, {
-        data: await listCandidates(identity, candidatesMatch[1]),
-      });
-    const classRequestsMatch = url.pathname.match(
-      /^\/api\/classes\/([0-9a-f-]{36})\/join-requests$/i,
-    );
-    if (classRequestsMatch && request.method === 'GET')
-      return json(response, 200, {
-        data: await listRequests(identity, classRequestsMatch[1]),
-      });
-    const requestDecisionMatch = url.pathname.match(
-      /^\/api\/class-join-requests\/([0-9a-f-]{36})$/i,
-    );
-    if (requestDecisionMatch && request.method === 'POST')
-      return json(response, 200, {
-        data: await decideRequest(
-          identity,
-          requestDecisionMatch[1],
-          await readJson(request, 8192),
-        ),
-      });
     // Notas e resultados são dados escolares privados: nem o navegador nem o
     // service worker do aplicativo devem guardá-los.
     if (
@@ -875,74 +785,37 @@ const server = createServer(async (request, response) => {
       )
     )
       response.setHeader('cache-control', 'no-store');
-    // Código individual do aluno: vínculo imediato, sem aprovação do professor.
-    if (
-      request.method === 'POST' &&
-      url.pathname === '/api/student/access-code/inspect'
-    )
-      return json(response, 200, {
-        data: await inspectAccessCode(identity, await readJson(request, 4096)),
-      });
-    if (
-      request.method === 'POST' &&
-      url.pathname === '/api/student/access-code/claim'
-    )
-      return json(response, 200, {
-        data: await claimAccessCode(identity, await readJson(request, 4096)),
-      });
-    if (request.method === 'GET' && url.pathname === '/api/student/activities')
-      return json(response, 200, { data: await myActivities(identity) });
-    if (
-      request.method === 'GET' &&
-      url.pathname === '/api/student/skill-performance'
-    )
-      return json(response, 200, { data: await mySkillPerformance(identity) });
-    const studentResultMatch =
-      request.method === 'GET' &&
-      url.pathname.match(/^\/api\/student\/results\/([0-9a-f-]{36})$/i);
-    if (studentResultMatch)
-      return json(response, 200, {
-        data: await myResultDetail(identity, studentResultMatch[1]),
-      });
-    if (url.pathname === '/api/student/profile' && request.method === 'GET')
-      return json(response, 200, { data: await myStudentProfiles(identity) });
-    if (url.pathname === '/api/student/profile' && request.method === 'POST') {
+    // Área do aluno e convites de turma (routes/student-area-routes.mjs).
+    const studentArea = findRoute(
+      studentAreaRoutes,
+      request.method,
+      url.pathname,
+    );
+    if (studentArea) {
+      const { route, params } = studentArea;
       if (
-        requestOrigin
+        route.originOrMobile &&
+        (requestOrigin
           ? !allowedOrigins.has(requestOrigin)
-          : request.headers['x-client'] !== 'mobile'
+          : request.headers['x-client'] !== 'mobile')
       )
         return json(response, 403, { error: 'Origem não autorizada.' });
-      return json(response, 200, {
-        data: await updateMyStudentPhoto(
-          identity,
-          await readJson(request, 150000),
-        ),
-      });
-    }
-    // Propostas de redação liberadas pelo professor para a turma do aluno.
-    if (request.method === 'GET' && url.pathname === '/api/student/essays')
-      return json(response, 200, { data: await myEssayApplications(identity) });
-    const studentEssayPdfMatch =
-      request.method === 'GET' &&
-      url.pathname.match(
-        /^\/api\/student\/essays\/([0-9a-f-]{36})\/proposal\.pdf$/i,
-      );
-    if (studentEssayPdfMatch)
-      return pdf(
-        response,
-        await myEssayProposalPdf(identity, studentEssayPdfMatch[1]),
-        'proposta-de-redacao.pdf',
-      );
-    if (
-      identity.role === 'student' &&
-      !['/api/auth/me', '/api/auth/logout', '/api/auth/logout-all'].includes(
-        url.pathname,
+      if (
+        route.rateLimit &&
+        !(await allowAuthAttempt(route.rateLimit(identity)))
       )
-    )
-      return json(response, 403, {
-        error: 'Este recurso é exclusivo de professores e gestores.',
-      });
+        return json(response, 429, { error: route.rateLimitError });
+      const body = ['POST', 'PUT', 'PATCH'].includes(request.method)
+        ? await readJson(request, route.maxBytes ?? 4096)
+        : undefined;
+      const result = await route.handler({ identity, params, body });
+      if (route.responseType === 'pdf')
+        return pdf(response, result.pdf, result.filename);
+      return json(response, route.status ?? 200, { data: result });
+    }
+    const studentGate = gates.studentArea(identity, url.pathname);
+    if (studentGate)
+      return json(response, studentGate.status, { error: studentGate.error });
     if (url.pathname === '/api/admin/maintenance') {
       if (request.method === 'GET') {
         requirePortalAdmin(identity);
@@ -1069,18 +942,9 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await completeCpf(identity, await readJson(request, 4096)),
       });
-    if (
-      identity.role !== 'student' &&
-      !identity.portalAdmin &&
-      !identity.cpfComplete &&
-      !identity.developmentBypass &&
-      !['/api/auth/me', '/api/auth/logout', '/api/auth/logout-all'].includes(
-        url.pathname,
-      )
-    )
-      return json(response, 428, {
-        error: 'Complete o cadastro com seu CPF para continuar.',
-      });
+    const cpfGate = gates.cpf(identity, url.pathname);
+    if (cpfGate)
+      return json(response, cpfGate.status, { error: cpfGate.error });
     if (
       identity.role === 'student' &&
       (url.pathname.startsWith('/api/educator-profile') ||
@@ -1159,22 +1023,9 @@ const server = createServer(async (request, response) => {
         data: await setHeaderSchool(userId, educatorSchoolMatch[1]),
       });
     }
-    if (
-      identity.role !== 'student' &&
-      !identity.portalAdmin &&
-      !identity.profileComplete &&
-      !identity.developmentBypass &&
-      ![
-        '/api/auth/me',
-        '/api/auth/logout',
-        '/api/auth/logout-all',
-        '/api/auth/institution',
-        '/api/invitations/accept',
-      ].includes(url.pathname)
-    )
-      return json(response, 428, {
-        error: 'Complete seu perfil e cadastre sua escola para continuar.',
-      });
+    const profileGate = gates.profile(identity, url.pathname);
+    if (profileGate)
+      return json(response, profileGate.status, { error: profileGate.error });
     if (request.method === 'GET' && url.pathname === '/api/billing')
       return json(response, 200, { data: await billingStatus(identity) });
     if (
