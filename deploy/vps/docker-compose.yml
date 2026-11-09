@@ -30,6 +30,9 @@ x-api-env: &api-env
   OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-}
   RENDER_OUTPUT_DIR: /var/data/renders
   TEXMFCACHE: /var/data/tex-cache
+  # Cópia externa do backup (backup-postgres.sh). Sem BACKUP_BUCKET, usa o bucket dos arquivos.
+  BACKUP_BUCKET: ${BACKUP_BUCKET:-}
+  BACKUP_PREFIX: ${BACKUP_PREFIX:-backups/postgres}
 
 services:
   postgres:

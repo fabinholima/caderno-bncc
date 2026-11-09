@@ -148,8 +148,9 @@ o DNS e reativar os serviços de lá.
   # acrescente a linha:
   30 3 * * * /opt/ufaprova/deploy/vps/backup-postgres.sh >> /var/log/ufaprova-backup.log 2>&1
   ```
-  Copie a pasta `deploy/vps/backups/` para fora do servidor de tempos em tempos.
-  O backup semanal da Hostinger é uma camada extra.
+  O script grava a cópia local e envia uma cópia criptografada (age) ao S3.
+  Configure `BACKUP_AGE_RECIPIENT` e o teste semanal de restauração conforme
+  `docs/backup-producao.md`. O backup semanal da Hostinger é uma camada extra.
 - **Espaço em disco**: `docker system prune -f` remove imagens antigas.
 - **Logs**: `docker compose logs --tail 100 NOME` (api, renderer, imports, omr,
   frontend, caddy, postgres).

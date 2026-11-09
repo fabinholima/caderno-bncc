@@ -77,7 +77,7 @@ Para revogar, apague a linha `deploy-github` de `~/.ssh/authorized_keys` no VPS.
 
 ## Backups
 
-Os arquivos ficam em `deploy/vps/backups/caderno-AAAAMMDD-HHMMSS-<commit>.dump`, a mesma pasta do backup diário (`backup-postgres.sh`), que o git ignora. O script não apaga backups: remova os antigos manualmente e mantenha cópia fora do VPS.
+Os arquivos ficam em `deploy/vps/backups/caderno-AAAAMMDD-HHMMSS-<commit>.dump`, a mesma pasta do backup diário (`backup-postgres.sh`), que o git ignora. O script não apaga backups: remova os antigos manualmente. A cópia externa criptografada é feita pelo backup diário (`docs/backup-producao.md`).
 
 Restaurar substitui os dados atuais. Use só depois de conferir o problema, dentro de `deploy/vps`:
 
