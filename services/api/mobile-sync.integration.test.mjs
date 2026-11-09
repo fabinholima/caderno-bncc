@@ -33,7 +33,7 @@ test('mobile upload, correction receipts, tenant isolation and optimistic concur
       CREATE TABLE usage_events(institution_id uuid,user_id uuid,kind text,quantity integer,metadata jsonb);
       CREATE TABLE audit_log(institution_id uuid,user_id uuid,action text,entity_type text,entity_id text,metadata jsonb);`;
     for(const statement of schemaSql.split(';').filter(s=>s.trim()))await client.query(statement);
-    for(const name of ['006_assessment_submissions.sql','013_card_scans.sql','014_pdf_card_scans.sql','015_scan_submissions.sql','016_multipage_card_scans.sql','018_card_scan_review.sql','066_mobile_sync_manual_review.sql','072_mobile_scan_application.sql','103_result_publication.sql']){
+    for(const name of ['006_assessment_submissions.sql','013_card_scans.sql','014_pdf_card_scans.sql','015_scan_submissions.sql','016_multipage_card_scans.sql','018_card_scan_review.sql','066_mobile_sync_manual_review.sql','072_mobile_scan_application.sql','103_result_publication.sql','109_card_scan_image_refs.sql']){
       const sql=await readFile(new URL(`../../database/${name}`,import.meta.url),'utf8');
       await client.query(sql);
     }
@@ -46,12 +46,12 @@ test('mobile upload, correction receipts, tenant isolation and optimistic concur
     await client.query("INSERT INTO assessment_applications(id,institution_id,assessment_id,class_id,status) VALUES($1,$2,$3,$4,'scheduled')",[applicationId,institutionId,assessmentId,classId]);await client.query('INSERT INTO application_students VALUES($1,$2,$3,$4)',[assignmentId,applicationId,studentId,versionId]);
     const {createScan,confirmScanReview,getScanReview}=await import('./scans.mjs');
     const {saveManualReview}=await import('./manual-review.mjs');const {getSubmission}=await import('./submissions.mjs');
-    const clientScanId=randomUUID(),input={clientScanId,imageDataUrl:'data:image/jpeg;base64,YQ=='};
+    const clientScanId=randomUUID(),input={clientScanId,imageDataUrl:'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=='};
     const [first,concurrentUpload]=await Promise.all([createScan({institutionId,userId,input}),createScan({institutionId,userId,input})]);assert.equal(concurrentUpload.id,first.id);
     await client.query("UPDATE card_scans SET status='review',image_data='\\x',review_image_data='\\x' WHERE id=$1",[first.id]);
     const replay=await createScan({institutionId,userId,input});assert.equal(replay.id,first.id);assert.equal(replay.status,'review');
     assert.equal((await client.query('SELECT count(*)::int n FROM card_scans')).rows[0].n,1);assert.equal((await client.query('SELECT count(*)::int n FROM usage_events')).rows[0].n,1);
-    await assert.rejects(createScan({institutionId,userId,input:{...input,imageDataUrl:'data:image/jpeg;base64,Yg=='}}),e=>e.statusCode===409);
+    await assert.rejects(createScan({institutionId,userId,input:{...input,imageDataUrl:'data:image/jpeg;base64,/9j/4AAQSkZJRgABAg=='}}),e=>e.statusCode===409);
     await assert.rejects(createScan({institutionId:randomUUID(),userId,input}),e=>e.statusCode===409);
     await assert.rejects(createScan({institutionId,userId,input:{...input,clientScanId:randomUUID(),expectedInstitutionId:randomUUID()}}),e=>e.statusCode===401);
     const confirmation={clientMutationId:randomUUID(),applicationStudentId:assignmentId,responses:[{questionNumber:1,selectedLabels:['A']}]};

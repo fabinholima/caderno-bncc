@@ -212,7 +212,7 @@ export async function getResultDetail({ institutionId, resultId }) {
         [resultId],
       ),
       pool.query(
-        `SELECT id,status,created_at,completed_at,(review_image_data IS NOT NULL) image_available,result->>'duplicateOfScanId' duplicate_of
+        `SELECT id,status,created_at,completed_at,(review_image_data IS NOT NULL OR review_image_ref IS NOT NULL) image_available,result->>'duplicateOfScanId' duplicate_of
        FROM card_scans WHERE application_student_id=$1 AND institution_id=$2 ORDER BY created_at DESC`,
         [row.application_student_id, institutionId],
       ),

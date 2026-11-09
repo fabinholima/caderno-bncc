@@ -5,6 +5,7 @@ import { ownsApplication, ownsClass, ownsStudent } from './ownership.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 import { signQrId } from './qr-signing.mjs';
 import { answerKeyStatus } from './assessment-results.mjs';
+import { dataUrlMatchesSignature } from './file-signature.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -42,6 +43,7 @@ export const studentSchema = z.object({
       (v) =>
         !v ||
         (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v) &&
+          dataUrlMatchesSignature(v) &&
           Buffer.byteLength(v.split(',')[1], 'base64') <= 100000),
       'Use foto PNG/JPEG de até 100 KB.',
     )

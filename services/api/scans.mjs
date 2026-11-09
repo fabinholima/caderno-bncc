@@ -4,11 +4,20 @@ import { mobileMutation, assertInstitutionScope } from './mobile-mutations.mjs';
 import { Readable } from 'node:stream';
 import { pool, transaction } from './db.mjs';
 import { ownsScan } from './ownership.mjs';
+import {
+  deleteScanImage,
+  readScanImage,
+  storeScanImage,
+} from './scan-image-storage.mjs';
 import { answerKeyStatus } from './assessment-results.mjs';
 import { gradeSubmission } from './submissions.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 import { recordResultVersion, confirmedAnswers } from './result-versions.mjs';
 import { friendlyScanError } from './scan-errors.mjs';
+import {
+  dataUrlMatchesSignature,
+  signatureMessage,
+} from './file-signature.mjs';
 export const scanSchema = z.object({
   clientScanId: z.uuid().optional(),
   expectedApplicationId: z.uuid().optional(),
@@ -18,7 +27,8 @@ export const scanSchema = z.object({
     .max(8_000_000)
     .regex(
       /^data:(image\/(?:png|jpeg)|application\/pdf);base64,[A-Za-z0-9+/]+={0,2}$/,
-    ),
+    )
+    .refine(dataUrlMatchesSignature, signatureMessage),
 });
 export const reviewSchema = z.object({
   clientMutationId: z.uuid().optional(),
@@ -55,6 +65,17 @@ export async function createScan({
       v.expectedApplicationId ? `:application:${v.expectedApplicationId}` : '',
     )
     .digest('hex');
+  const id = v.clientScanId || randomUUID();
+  // Com storage configurado, o arquivo vai para lá e o banco guarda só a referência.
+  // Quem enviou e o hash entram no nome: um reenvio com o mesmo ID por outra
+  // pessoa ou com outro conteúdo nunca sobrescreve nem apaga o arquivo original.
+  const imageRef = await storeScanImage({
+    institutionId,
+    scanId: id,
+    kind: `upload-${userId}-${hash.slice(0, 16)}`,
+    mimeType,
+    contents: bytes,
+  });
   return transaction(async (client) => {
     if (v.expectedApplicationId) {
       const application = await client.query(
@@ -83,16 +104,16 @@ export async function createScan({
           { statusCode: 422, code: 'answer_key_incomplete' },
         );
     }
-    const id = v.clientScanId || randomUUID();
     const r = await client.query({
-      text: `INSERT INTO card_scans(id,institution_id,uploaded_by,mime_type,image_data,upload_sha256,expected_application_id)
-             VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING RETURNING id,status,created_at`,
+      text: `INSERT INTO card_scans(id,institution_id,uploaded_by,mime_type,image_data,image_ref,upload_sha256,expected_application_id)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING RETURNING id,status,created_at`,
       values: [
         id,
         institutionId,
         userId,
         mimeType,
-        bytes,
+        imageRef ? Buffer.alloc(0) : bytes,
+        imageRef,
         hash,
         v.expectedApplicationId || null,
       ],
@@ -133,6 +154,10 @@ export async function createScan({
       ],
     );
     return r.rows[0];
+  }).catch(async (error) => {
+    // Envio recusado (assinatura, gabarito, conflito): não deixa arquivo órfão.
+    if (imageRef) await deleteScanImage(imageRef).catch(() => {});
+    throw error;
   });
 }
 async function requireActiveSubscription(options) {
@@ -155,7 +180,7 @@ export async function listScans({ institutionId, ownerId = null }) {
                   cs.submission_id,cs.source_page,cs.source_pages,
                   cs.parent_scan_id,s.name student_name,av.code version_code,
                   sub.score,sub.max_score,sub.requires_manual_review,
-                  (cs.review_image_data IS NOT NULL) image_available,
+                  (cs.review_image_data IS NOT NULL OR cs.review_image_ref IS NOT NULL) image_available,
                   ar.processing_status result_processing_status,ar.publication_status,
                   aa.id application_id,a.title assessment_title,c.name class_name
            FROM card_scans cs
@@ -205,7 +230,7 @@ export async function getScanReview({ institutionId, scanId }) {
   const scan = await pool.query({
     text: `SELECT cs.id,cs.status,cs.result,cs.error_message,
                   cs.application_student_id,cs.expected_application_id,cs.submission_id,sub.score,sub.max_score,sub.requires_manual_review,sub.revision,
-                  (cs.review_image_data IS NOT NULL) image_available,
+                  (cs.review_image_data IS NOT NULL OR cs.review_image_ref IS NOT NULL) image_available,
                   ar.id result_id,ar.processing_status result_processing_status,ar.publication_status,
                   (SELECT coalesce(json_agg(json_build_object('id',o.id,'status',o.status,'completedAt',o.completed_at) ORDER BY o.completed_at DESC),'[]')
                    FROM card_scans o WHERE o.application_student_id=cs.application_student_id AND o.id<>cs.id
@@ -275,13 +300,17 @@ export async function getScanReview({ institutionId, scanId }) {
 
 export async function getScanImage({ institutionId, scanId }) {
   const result = await pool.query({
-    text: `SELECT review_image_data FROM card_scans
+    text: `SELECT review_image_data,review_image_ref FROM card_scans
            WHERE id=$1 AND institution_id=$2`,
     values: [scanId, institutionId],
   });
-  if (!result.rowCount || !result.rows[0].review_image_data)
-    return { status: 404, error: 'Imagem de revisão não disponível.' };
-  const data = result.rows[0].review_image_data;
+  const data = result.rowCount
+    ? await readScanImage(
+        result.rows[0].review_image_ref,
+        result.rows[0].review_image_data,
+      )
+    : null;
+  if (!data) return { status: 404, error: 'Imagem de revisão não disponível.' };
   return {
     status: 200,
     size: data.length,
@@ -302,10 +331,12 @@ export async function retryScan({
   });
   const result = await pool.query({
     text: `UPDATE card_scans
-           SET status='queued',mime_type='image/png',image_data=review_image_data,
+           SET status='queued',mime_type='image/png',
+               image_data=COALESCE(review_image_data,'\\x'),image_ref=review_image_ref,
                result=NULL,error_message=NULL,completed_at=NULL
            WHERE id=$1 AND institution_id=$2
-             AND status IN ('review','failed') AND review_image_data IS NOT NULL
+             AND status IN ('review','failed')
+             AND (review_image_data IS NOT NULL OR review_image_ref IS NOT NULL)
            RETURNING id,status`,
     values: [scanId, institutionId],
   });

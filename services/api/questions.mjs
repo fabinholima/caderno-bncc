@@ -2,6 +2,10 @@ import { changeQuestionStatus, workflowSchema } from './question-workflow.mjs';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { pool, transaction } from './db.mjs';
+import {
+  dataUrlMatchesSignature,
+  signatureMessage,
+} from './file-signature.mjs';
 
 export function questionCodePrefix(subject) {
   const normalized = String(subject || '')
@@ -352,6 +356,7 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
         .string()
         .max(550_000)
         .regex(/^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/)
+        .refine(dataUrlMatchesSignature, signatureMessage)
         .optional(),
       svgDataUrl: z
         .string()
@@ -372,6 +377,7 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
       .string()
       .max(550_000)
       .regex(/^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/)
+      .refine(dataUrlMatchesSignature, signatureMessage)
       .refine((value) => {
         const encoded = value.slice(value.indexOf(',') + 1);
         return Buffer.byteLength(encoded, 'base64') <= 400_000;

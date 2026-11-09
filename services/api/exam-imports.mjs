@@ -11,6 +11,10 @@ import { readExamDocument, storeExamDocument } from './exam-import-storage.mjs';
 import { parsePastedExam } from '../../lib/pasted-exam.mjs';
 import { downloadPdfUrl } from './pdf-url.mjs';
 import { extractPdfInBatches } from './exam-pdf-batches.mjs';
+import {
+  dataUrlMatchesSignature,
+  signatureMessage,
+} from './file-signature.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -20,7 +24,8 @@ const pdfDocumentSchema = z.object({
   dataUrl: z
     .string()
     .max(20_500_000)
-    .regex(/^data:application\/pdf;base64,[A-Za-z0-9+/]+={0,2}$/),
+    .regex(/^data:application\/pdf;base64,[A-Za-z0-9+/]+={0,2}$/)
+    .refine(dataUrlMatchesSignature, 'O arquivo enviado não é um PDF válido.'),
 });
 
 export const examImportSchema = z
@@ -576,6 +581,7 @@ export const candidateUpdateSchema = z.object({
     .string()
     .max(550_000)
     .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/)
+    .refine(dataUrlMatchesSignature, signatureMessage)
     .optional(),
   imageAlt: z.string().trim().min(3).max(240).optional(),
   correctAnswers: z

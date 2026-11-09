@@ -8,7 +8,7 @@ test('photo is restricted to the authenticated student and approved linked recor
   const identity = { role: 'student', userId: 'account' };
   const input = {
     studentId: 'a21504f2-d004-48aa-aee0-e687ec500726',
-    selfieDataUrl: 'data:image/png;base64,aGVsbG8=',
+    selfieDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAA=',
   };
   let allowed = true,
     calls = 0;

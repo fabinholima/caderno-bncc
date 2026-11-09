@@ -14,12 +14,17 @@ import { signQrId } from './qr-signing.mjs';
 import { pool, transaction } from './db.mjs';
 import { ownsAssessment } from './ownership.mjs';
 import { schoolHeader } from './educator-profile.mjs';
+import { dataUrlMatchesSignature } from './file-signature.mjs';
 
 export const logoDataUrlSchema = z
   .string()
   .max(550_000)
   .regex(
     /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/,
+    'O logotipo deve ser uma imagem PNG ou JPEG válida.',
+  )
+  .refine(
+    dataUrlMatchesSignature,
     'O logotipo deve ser uma imagem PNG ou JPEG válida.',
   )
   .refine((value) => {

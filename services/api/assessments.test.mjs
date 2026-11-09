@@ -87,7 +87,7 @@ test('valida formato e tamanho do logotipo do cabeçalho', () => {
     ...base,
     header: {
       ...base.header,
-      logoDataUrl: `data:image/png;base64,${Buffer.from('logo').toString('base64')}`,
+      logoDataUrl: `data:image/png;base64,${Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.from('logo')]).toString('base64')}`,
     },
   });
   assert.match(valid.header.logoDataUrl, /^data:image\/png;base64,/);

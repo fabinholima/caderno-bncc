@@ -15,6 +15,11 @@ import {
   findDuplicateScan,
 } from '../api/result-versions.mjs';
 import { friendlyScanError } from '../api/scan-errors.mjs';
+import {
+  deleteScanImage,
+  readScanImage,
+  storeScanImage,
+} from '../api/scan-image-storage.mjs';
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const python =
   process.env.OMR_PYTHON ||
@@ -64,6 +69,19 @@ async function renderPdfCards(pdf, directory) {
   return files.map((file) => path.join(directory, file));
 }
 
+// Imagem de revisão: no storage quando configurado ([null, ref]); senão no banco ([bytes, null]).
+async function reviewImageColumns(scanId, institutionId, card, contents) {
+  if (!contents) return [null, null];
+  const ref = await storeScanImage({
+    institutionId,
+    scanId,
+    kind: 'review',
+    mimeType: card.endsWith('.png') ? 'image/png' : 'image/jpeg',
+    contents,
+  });
+  return ref ? [null, ref] : [contents, null];
+}
+
 async function processCard(
   scanId,
   card,
@@ -74,6 +92,12 @@ async function processCard(
 ) {
   try {
     const reviewImage = await readFile(card);
+    const reviewColumns = await reviewImageColumns(
+      scanId,
+      institutionId,
+      card,
+      reviewImage,
+    );
     const identity = await run(card, '--qr-only');
     const a = await pool.query(
       `SELECT aps.id, aps.application_id, aps.assessment_version_id, av.snapshot,
@@ -168,7 +192,7 @@ async function processCard(
          SET status=$2,application_student_id=$3,result=$4::jsonb,
              submission_id=$5,source_page=$6,source_pages=$7,
              completed_at=now(),image_data='\\x',review_image_data=$8,
-             error_message=NULL
+             review_image_ref=$9,error_message=NULL
          WHERE id=$1`,
         [
           scanId,
@@ -182,7 +206,7 @@ async function processCard(
           submissionId,
           sourcePage,
           sourcePages,
-          reviewImage,
+          ...reviewColumns,
         ],
       );
       await client.query('COMMIT');
@@ -193,7 +217,12 @@ async function processCard(
       client.release();
     }
   } catch (error) {
-    const reviewImage = await readFile(card).catch(() => null);
+    const [reviewData, reviewRef] = await reviewImageColumns(
+      scanId,
+      institutionId,
+      card,
+      await readFile(card).catch(() => null),
+    ).catch(() => [null, null]);
     const status = /QR Code não localizado|QR desconhecido/.test(error.message)
       ? 'review'
       : 'failed';
@@ -201,8 +230,8 @@ async function processCard(
     await pool.query(
       `UPDATE card_scans SET status=$2,error_message=$3,source_page=$4,
               source_pages=$5,completed_at=now(),image_data='\\x',
-              review_image_data=$6 WHERE id=$1`,
-      [scanId, status, message, sourcePage, sourcePages, reviewImage],
+              review_image_data=$6,review_image_ref=$7 WHERE id=$1`,
+      [scanId, status, message, sourcePage, sourcePages, reviewData, reviewRef],
     );
   }
 }
@@ -212,7 +241,7 @@ async function tick() {
   try {
     await c.query('BEGIN');
     const r = await c.query(
-      "SELECT id,institution_id,uploaded_by,mime_type,image_data,expected_application_id FROM card_scans WHERE status='queued' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
+      "SELECT id,institution_id,uploaded_by,mime_type,image_data,image_ref,expected_application_id FROM card_scans WHERE status='queued' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
     );
     if (!r.rowCount) {
       await c.query('COMMIT');
@@ -236,7 +265,9 @@ async function tick() {
           ? 'scan.png'
           : 'scan.jpg',
     );
-    await writeFile(uploaded, j.image_data);
+    const contents = await readScanImage(j.image_ref, j.image_data);
+    if (!contents) throw new Error('Arquivo do cartão não encontrado.');
+    await writeFile(uploaded, contents);
     const cards =
       j.mime_type === 'application/pdf'
         ? await renderPdfCards(uploaded, d)
@@ -269,6 +300,14 @@ async function tick() {
         j.institution_id,
         j.expected_application_id,
       );
+    }
+    // O arquivo enviado já foi lido; a imagem de revisão fica guardada à parte.
+    if (j.image_ref?.includes('/upload-')) {
+      await pool.query(
+        'UPDATE card_scans SET image_ref=NULL WHERE id=$1 AND image_ref=$2',
+        [j.id, j.image_ref],
+      );
+      await deleteScanImage(j.image_ref).catch(() => {});
     }
   } catch (e) {
     await pool.query(
