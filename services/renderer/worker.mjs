@@ -6,7 +6,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { renderAssessment } from './render-contract.mjs';
 import { renderClassReport, renderStudentReport } from './report-contract.mjs';
-import { storeRenderArtifact, storeRenderDependencies } from '../api/render-artifact-storage.mjs';
+import {
+  storeRenderArtifact,
+  storeRenderDependencies,
+} from '../api/render-artifact-storage.mjs';
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -22,7 +25,9 @@ const outputRoot = path.resolve(
 // caches persistentes recém-criados. Use sempre o mtxrun com o caminho
 // absoluto do script, mesmo se o serviço ainda tiver variáveis antigas.
 const contextViaMtxrun = true;
-const contextBin = process.env.CONTEXT_MTXRUN_BIN || '/opt/context/tex/texmf-linux-64/bin/mtxrun';
+const contextBin =
+  process.env.CONTEXT_MTXRUN_BIN ||
+  '/opt/context/tex/texmf-linux-64/bin/mtxrun';
 const contextScript =
   process.env.CONTEXT_SCRIPT ||
   '/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua';
@@ -226,7 +231,9 @@ async function writeImageDataUrl(dataUrl, directory, baseName, label) {
     contents.at(-2) === 0xff &&
     contents.at(-1) === 0xd9;
   if (!isPng && !isJpeg)
-    throw new Error(`O conteúdo de ${label.toLowerCase()} não corresponde a PNG ou JPEG.`);
+    throw new Error(
+      `O conteúdo de ${label.toLowerCase()} não corresponde a PNG ou JPEG.`,
+    );
   const fileName = `${baseName}.${isPng ? 'png' : 'jpg'}`;
   await writeFile(path.join(directory, fileName), contents);
   return fileName;
@@ -235,7 +242,12 @@ async function writeImageDataUrl(dataUrl, directory, baseName, label) {
 export async function materializeInstitutionLogo(snapshot, directory) {
   const dataUrl = snapshot.institution?.logoDataUrl;
   if (!dataUrl) return snapshot;
-  const fileName = await writeImageDataUrl(dataUrl, directory, 'institution-logo', 'Logotipo institucional');
+  const fileName = await writeImageDataUrl(
+    dataUrl,
+    directory,
+    'institution-logo',
+    'Logotipo institucional',
+  );
   return {
     ...snapshot,
     institution: {
@@ -253,9 +265,15 @@ export async function materializeCandidatePhoto(snapshot, directory) {
   const dataUrl = snapshot.candidate?.photoDataUrl;
   const { photoDataUrl: _photo, ...candidate } = snapshot.candidate ?? {};
   if (!snapshot.candidate) return snapshot;
-  if (!snapshot.render?.showStudentPhoto || !dataUrl) return { ...snapshot, candidate };
+  if (!snapshot.render?.showStudentPhoto || !dataUrl)
+    return { ...snapshot, candidate };
   try {
-    const photoFileName = await writeImageDataUrl(dataUrl, directory, 'student-photo', 'Foto do aluno');
+    const photoFileName = await writeImageDataUrl(
+      dataUrl,
+      directory,
+      'student-photo',
+      'Foto do aluno',
+    );
     return { ...snapshot, candidate: { ...candidate, photoFileName } };
   } catch {
     return { ...snapshot, candidate };
@@ -474,7 +492,10 @@ export async function render(job) {
   );
   await compileAndValidate(studentSource, directory, 'prova');
   await compileAndValidate(answerKeySource, directory, 'gabarito');
-  const dependencies=await storeRenderDependencies({directory,jobId:job.id});
+  const dependencies = await storeRenderDependencies({
+    directory,
+    jobId: job.id,
+  });
   const artifact = (name, contentType) =>
     storeRenderArtifact({
       key: `renders/${job.id}/${name}`,
@@ -497,7 +518,7 @@ export async function render(job) {
         studentPdf,
         answerKeyPdf,
         dependencies,
-        pdfCacheExpiresAt: new Date(Date.now()+30*86400000).toISOString(),
+        pdfCacheExpiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
         studentSource: storedStudentSource,
         answerKeySource: storedAnswerKeySource,
       }),

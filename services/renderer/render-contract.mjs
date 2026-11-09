@@ -1,6 +1,10 @@
 import { isCompactTemplate } from '../../lib/compact-assessment.mjs';
 import { getRenderTemplate } from './template-registry.mjs';
-import { withoutEmbeddedMetaPost, validMetaPost, normalizeMetaPost } from '../../lib/embedded-metapost.mjs';
+import {
+  withoutEmbeddedMetaPost,
+  validMetaPost,
+  normalizeMetaPost,
+} from '../../lib/embedded-metapost.mjs';
 import {
   DEFAULT_RENDER_FONT,
   assertAssessmentQuestionStyle,
@@ -289,137 +293,153 @@ function paragraphWithScientificInline(text) {
 }
 
 function richText(nodes = []) {
-  const rendered = nodes.filter((node) => node.type !== 'adoteNote' && !(node.type === 'image' && node.inlineReference)).map((node) => {
-    if (node.type === 'romanList') {
-      const items = Array.isArray(node.items) ? node.items : [];
-      if (!items.length || items.length > 30)
-        throw new Error('Lista romana inválida ou vazia.');
-      return {
-        content: `\\startitemize[I,packed]\n${items.map((item) => `  \\item ${paragraphWithScientificInline(item)}`).join('\n')}\n\\stopitemize`,
-        inline: false,
-      };
-    }
-    if (node.type === 'metapost') {
-      const code = normalizeMetaPost(node.code);
-      if (!code || code.length > 50_000 || !validMetaPost(code)) {
-        throw new Error('Bloco MetaPost inválido ou não permitido.');
+  const rendered = nodes
+    .filter(
+      (node) =>
+        node.type !== 'adoteNote' &&
+        !(node.type === 'image' && node.inlineReference),
+    )
+    .map((node) => {
+      if (node.type === 'romanList') {
+        const items = Array.isArray(node.items) ? node.items : [];
+        if (!items.length || items.length > 30)
+          throw new Error('Lista romana inválida ou vazia.');
+        return {
+          content: `\\startitemize[I,packed]\n${items.map((item) => `  \\item ${paragraphWithScientificInline(item)}`).join('\n')}\n\\stopitemize`,
+          inline: false,
+        };
       }
-      return { content: `\\startMPcode\n${code}\n\\stopMPcode`, inline: false };
-    }
-    if (node.type === 'math') {
-      const formula = safeMath(node.tex);
-      return {
-        content:
-          node.display === false
-            ? `\\allowbreak{}\\mathematics{${formula}}`
-            : `\\startformula\n${formula}\n\\stopformula`,
-        inline: node.display === false,
-      };
-    }
-    if (node.type === 'contextFormula') {
-      const code = String(node.code ?? '').trim();
-      const allowed = new Set([
-        ...allowedMathCommands,
-        'chemical',
-        'unit',
-        'Delta',
-        'ell',
-        'lqd',
-        'halfr',
-        'qquad',
-        'quad',
-        'frac',
-        'sqrt',
-        'cdot',
-        'times',
-        'pm',
-        'approx',
-        'mathrm',
-        'bold',
-        'm',
-        'rm',
-      ]);
-      if (
-        !code ||
-        code.length > 4_000 ||
-        forbiddenContextFormula.test(code) ||
-        ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
-          allowed.has(match[1]),
+      if (node.type === 'metapost') {
+        const code = normalizeMetaPost(node.code);
+        if (!code || code.length > 50_000 || !validMetaPost(code)) {
+          throw new Error('Bloco MetaPost inválido ou não permitido.');
+        }
+        return {
+          content: `\\startMPcode\n${code}\n\\stopMPcode`,
+          inline: false,
+        };
+      }
+      if (node.type === 'math') {
+        const formula = safeMath(node.tex);
+        return {
+          content:
+            node.display === false
+              ? `\\allowbreak{}\\mathematics{${formula}}`
+              : `\\startformula\n${formula}\n\\stopformula`,
+          inline: node.display === false,
+        };
+      }
+      if (node.type === 'contextFormula') {
+        const code = String(node.code ?? '').trim();
+        const allowed = new Set([
+          ...allowedMathCommands,
+          'chemical',
+          'unit',
+          'Delta',
+          'ell',
+          'lqd',
+          'halfr',
+          'qquad',
+          'quad',
+          'frac',
+          'sqrt',
+          'cdot',
+          'times',
+          'pm',
+          'approx',
+          'mathrm',
+          'bold',
+          'm',
+          'rm',
+        ]);
+        if (
+          !code ||
+          code.length > 4_000 ||
+          forbiddenContextFormula.test(code) ||
+          ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
+            allowed.has(match[1]),
+          )
         )
-      )
-        throw new Error('Fórmula ConTeXt inválida ou não permitida.');
+          throw new Error('Fórmula ConTeXt inválida ou não permitida.');
+        return {
+          content: `\\startformula\n${code}\n\\stopformula`,
+          inline: false,
+        };
+      }
+      if (node.type === 'contextInline') {
+        const code = String(node.code ?? '').trim();
+        const allowed = new Set([
+          'chemical',
+          'unit',
+          'Delta',
+          'ell',
+          'lqd',
+          'halfr',
+          'quad',
+          'frac',
+          'sqrt',
+          'cdot',
+          'times',
+          'pm',
+          'approx',
+          'mathrm',
+          'bold',
+          'm',
+          'rm',
+        ]);
+        if (
+          !code ||
+          code.length > 1_000 ||
+          forbiddenContextFormula.test(code) ||
+          ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
+            allowed.has(match[1]),
+          )
+        )
+          throw new Error('Trecho ConTeXt em linha inválido ou não permitido.');
+        return {
+          content: `\\allowbreak{}${code}`,
+          inline: true,
+        };
+      }
+      if (node.type === 'contextRaw') {
+        const code = String(node.code ?? '')
+          .replace(/^\s*\\starttext\s*/i, '')
+          .replace(/\\stoptext\s*$/i, '')
+          .trim();
+        if (
+          !code ||
+          code.length > 20_000 ||
+          forbiddenContextFormula.test(withoutEmbeddedMetaPost(code))
+        )
+          throw new Error('Código ConTeXt inválido ou não permitido.');
+        return { content: code, inline: false };
+      }
+      if (node.type === 'chemical')
+        return {
+          content: `${node.display === false ? '\\allowbreak{}' : ''}${chemicalFormula(node)}`,
+          inline: node.display === false,
+        };
+      if (node.type === 'thermochemicalEquation')
+        return { content: thermochemicalEquation(node), inline: false };
+      if (node.type === 'chemicalStructure')
+        return { content: chemicalStructure(node), inline: false };
+      if (node.type === 'image') {
+        const fileName = String(node.fileName ?? '');
+        if (!/^question-image-[0-9]+\.(?:png|jpg)$/.test(fileName))
+          throw new Error('Imagem da questão inválida ou não materializada.');
+        const caption = node.caption
+          ? `\n\\midaligned{${escapeContext(node.caption)}}`
+          : '';
+        return {
+          content: `\\startalignment[middle]\n\\externalfigure[${fileName}][maxwidth=.88\\hsize,maxheight=.32\\textheight]\n${caption}\n\\stopalignment`,
+          inline: false,
+        };
+      }
       return {
-        content: `\\startformula\n${code}\n\\stopformula`,
+        content: paragraphWithScientificInline(node.text),
         inline: false,
       };
-    }
-    if (node.type === 'contextInline') {
-      const code = String(node.code ?? '').trim();
-      const allowed = new Set([
-        'chemical',
-        'unit',
-        'Delta',
-        'ell',
-        'lqd',
-        'halfr',
-        'quad',
-        'frac',
-        'sqrt',
-        'cdot',
-        'times',
-        'pm',
-        'approx',
-        'mathrm',
-        'bold',
-        'm',
-        'rm',
-      ]);
-      if (
-        !code ||
-        code.length > 1_000 ||
-        forbiddenContextFormula.test(code) ||
-        ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
-          allowed.has(match[1]),
-        )
-      )
-        throw new Error('Trecho ConTeXt em linha inválido ou não permitido.');
-      return {
-        content: `\\allowbreak{}${code}`,
-        inline: true,
-      };
-    }
-    if (node.type === 'contextRaw') {
-      const code = String(node.code ?? '')
-        .replace(/^\s*\\starttext\s*/i, '')
-        .replace(/\\stoptext\s*$/i, '')
-        .trim();
-      if (!code || code.length > 20_000 || forbiddenContextFormula.test(withoutEmbeddedMetaPost(code)))
-        throw new Error('Código ConTeXt inválido ou não permitido.');
-      return { content: code, inline: false };
-    }
-    if (node.type === 'chemical')
-      return {
-        content: `${node.display === false ? '\\allowbreak{}' : ''}${chemicalFormula(node)}`,
-        inline: node.display === false,
-      };
-    if (node.type === 'thermochemicalEquation')
-      return { content: thermochemicalEquation(node), inline: false };
-    if (node.type === 'chemicalStructure')
-      return { content: chemicalStructure(node), inline: false };
-    if (node.type === 'image') {
-      const fileName = String(node.fileName ?? '');
-      if (!/^question-image-[0-9]+\.(?:png|jpg)$/.test(fileName))
-        throw new Error('Imagem da questão inválida ou não materializada.');
-      const caption = node.caption
-        ? `\n\\midaligned{${escapeContext(node.caption)}}`
-        : '';
-      return {
-        content: `\\startalignment[middle]\n\\externalfigure[${fileName}][maxwidth=.88\\hsize,maxheight=.32\\textheight]\n${caption}\n\\stopalignment`,
-        inline: false,
-      };
-    }
-    return { content: paragraphWithScientificInline(node.text), inline: false };
-  });
+    });
   return rendered.reduce(
     (output, item, index) =>
       `${output}${index ? (item.inline || rendered[index - 1].inline ? ' ' : '\n\n') : ''}${item.content}`,
@@ -431,7 +451,10 @@ function adoteNote(nodes = []) {
   const note = nodes.find((node) => node.type === 'adoteNote');
   if (!note?.text?.trim()) return '';
   const code = note.text.trim();
-  if (code.length > 5_000 || forbiddenContextFormula.test(withoutEmbeddedMetaPost(code)))
+  if (
+    code.length > 5_000 ||
+    forbiddenContextFormula.test(withoutEmbeddedMetaPost(code))
+  )
     throw new Error('Note e adote contém código ConTeXt não permitido.');
   return `\\startframedtext[frame=on,background=color,backgroundcolor=lightgray,width=\\hsize,align={normal,hyphenated,verytolerant,stretch},offset=3mm]\n{\\bf Note e adote:}\n\\blank[small]\n${code}\n\\stopframedtext`;
 }
@@ -440,8 +463,14 @@ export function renderAssessment(snapshot) {
   if (snapshot?.schemaVersion !== '1.0' || !Array.isArray(snapshot.questions)) {
     throw new Error('Snapshot de avaliação inválido ou incompatível.');
   }
-  assertAssessmentQuestionStyle(snapshot.questions, snapshot.render?.template || 'basicexam-v1');
-  if (isCompactTemplate(snapshot.render?.template) && snapshot.render?.paper === 'A5')
+  assertAssessmentQuestionStyle(
+    snapshot.questions,
+    snapshot.render?.template || 'basicexam-v1',
+  );
+  if (
+    isCompactTemplate(snapshot.render?.template) &&
+    snapshot.render?.paper === 'A5'
+  )
     throw new Error('Os modelos compactos de 10 questões usam papel A4.');
   const mode =
     snapshot.render?.mode === 'answer-key' ? 'answer-key' : 'student';
@@ -471,9 +500,10 @@ export function renderAssessment(snapshot) {
           `    \\startcitem${correct.has(answer.stableKey) ? '[*]' : ''} ${richText(answer.content)} \\stopcitem`,
       )
       .join('\n');
-    const judgmentChoices = question.type === 'true_false'
-      // Linha compacta: círculos de 4 mm e rótulos de 8 pt logo abaixo do item.
-      ? `\\blank[2pt]\n\\dontleavehmode\\hbox{\\startMPcode
+    const judgmentChoices =
+      question.type === 'true_false'
+        ? // Linha compacta: círculos de 4 mm e rótulos de 8 pt logo abaixo do item.
+          `\\blank[2pt]\n\\dontleavehmode\\hbox{\\startMPcode
 draw fullcircle scaled 4mm shifted (2mm,2.3mm) withpen pencircle scaled .6pt;
 draw fullcircle scaled 4mm shifted (22mm,2.3mm) withpen pencircle scaled .6pt;
 label(textext("{\\switchtobodyfont[6pt]\\bf C}"), (2mm,2.3mm));
@@ -482,21 +512,31 @@ label.rt(textext("{\\switchtobodyfont[8pt]${mode === 'answer-key' && correct.has
 label.rt(textext("{\\switchtobodyfont[8pt]${mode === 'answer-key' && correct.has('alt-b') ? '\\bf ' : ''}Errado}"), (24.8mm,2.3mm));
 setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
 \\stopMPcode}`
-      : '';
-    const choiceBlock = judgmentChoices || (choices
-      ? `  \\startchoice\n${choices}\n  \\stopchoice`
-      : mode === 'student'
-        ? '\\blank[4*big]'
-        : '');
+        : '';
+    const choiceBlock =
+      judgmentChoices ||
+      (choices
+        ? `  \\startchoice\n${choices}\n  \\stopchoice`
+        : mode === 'student'
+          ? '\\blank[4*big]'
+          : '');
     const questionGap = addGap
       ? mode === 'answer-key'
         ? '\\blank[small]'
         : '\\blank[small]'
       : '';
     const questionTex = `\\startquestion[point=${Number(question.points) || 0},showanswer=${mode === 'answer-key' ? 'true' : 'false'}]\n${skillLine}${descriptorLine}${sourceLine}${richText(question.statement)}\n${adoteNote(question.statement)}\n${choiceBlock}\n  \\startanswer\n${richText(question.answer?.explanation)}\n  \\stopanswer\n\\stopquestion${questionGap ? `\n${questionGap}` : ''}`;
-    const nodes = [...(question.statement ?? []), ...(question.alternatives ?? []).flatMap(answer => answer.content ?? [])];
-    const keepTogether = isCompactTemplate(snapshot.render?.template) && nodes.every(node => node.type === 'paragraph') &&
-      nodes.reduce((length, node) => length + (node.text?.length || 0), 0) < 900 * 10 / Number(snapshot.render?.fontSize || 11);
+    const nodes = [
+      ...(question.statement ?? []),
+      ...(question.alternatives ?? []).flatMap(
+        (answer) => answer.content ?? [],
+      ),
+    ];
+    const keepTogether =
+      isCompactTemplate(snapshot.render?.template) &&
+      nodes.every((node) => node.type === 'paragraph') &&
+      nodes.reduce((length, node) => length + (node.text?.length || 0), 0) <
+        (900 * 10) / Number(snapshot.render?.fontSize || 11);
     return keepTogether
       ? `\\startframedtext[frame=off,width=\\hsize,offset=0pt,before=,after=,split=no]\n${questionTex}\n\\stopframedtext`
       : questionTex;
@@ -558,9 +598,13 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
         const correct = new Set(question.answer?.correctStableKeys ?? []);
         const labels = (question.alternatives ?? [])
           .filter((answer) => correct.has(answer.stableKey))
-          .map((answer) => question.type === 'true_false'
-            ? answer.stableKey === 'alt-a' ? 'C' : 'E'
-            : answer.label)
+          .map((answer) =>
+            question.type === 'true_false'
+              ? answer.stableKey === 'alt-a'
+                ? 'C'
+                : 'E'
+              : answer.label,
+          )
           .join(', ');
         const answer = labels || 'Correção manual';
         return `\\NC ${question.number} \\NC ${escapeContext(section.subject)} \\NC ${escapeContext(answer)} \\NC\\NR`;
@@ -607,41 +651,52 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
   )
     throw new Error('Tamanho de fonte deve ser um inteiro entre 10 e 16 pt.');
   const template = getRenderTemplate(snapshot.render?.template);
-  return template.render({
-    mode,
-    paper: snapshot.render?.paper === 'A5' ? 'A5' : 'A4',
-    institution: escapeContext(snapshot.institution?.name),
-    logoFileName: snapshot.institution?.logoFileName || '',
-    teacherName: escapeContext(header.teacherName),
-    className: escapeContext(header.className),
-    term: escapeContext(header.term),
-    assessmentDate: escapeContext(header.date),
-    transcriptionPhrase: escapeContext(header.transcriptionPhrase),
-    instructions: (snapshot.assessment?.instructions ?? []).map((instruction) =>
-      escapeContext(instruction),
-    ),
-    font: requestedFont,
-    fontSize: requestedFontSize,
-    title: escapeContext(title),
-    grade: escapeContext(snapshot.assessment?.grade),
-    version: escapeContext(snapshot.version?.code),
-    qrPayload: String(snapshot.version?.qrPayload || ''),
-    qrFileName: String(snapshot.version?.qrFileName || ''),
-    questionCount: snapshot.questions.length,
-    points: `${total} ${total === 1 ? 'ponto' : 'pontos'}`,
-    candidate,
-    candidateName: escapeContext(candidateData?.name || ''),
-    // Foto só no cartão de um aluno da turma, quando a prova pediu a opção.
-    candidatePhoto: snapshot.render?.showStudentPhoto && candidateData?.name
-      ? { fileName: /^student-photo\.(png|jpg)$/.test(candidateData.photoFileName || '') ? candidateData.photoFileName : '' }
-      : null,
-    candidateNumber: escapeContext(candidateData?.number || ''),
-    subjects: escapeContext(
-      [
-        ...new Set(sections.map((section) => section.subject).filter(Boolean)),
-      ].join(', '),
-    ),
-    content,
-    previewOnly: Boolean(snapshot.render?.previewOnly),
-  }).replace(/\\alfa\b/g, '\\alpha');
+  return template
+    .render({
+      mode,
+      paper: snapshot.render?.paper === 'A5' ? 'A5' : 'A4',
+      institution: escapeContext(snapshot.institution?.name),
+      logoFileName: snapshot.institution?.logoFileName || '',
+      teacherName: escapeContext(header.teacherName),
+      className: escapeContext(header.className),
+      term: escapeContext(header.term),
+      assessmentDate: escapeContext(header.date),
+      transcriptionPhrase: escapeContext(header.transcriptionPhrase),
+      instructions: (snapshot.assessment?.instructions ?? []).map(
+        (instruction) => escapeContext(instruction),
+      ),
+      font: requestedFont,
+      fontSize: requestedFontSize,
+      title: escapeContext(title),
+      grade: escapeContext(snapshot.assessment?.grade),
+      version: escapeContext(snapshot.version?.code),
+      qrPayload: String(snapshot.version?.qrPayload || ''),
+      qrFileName: String(snapshot.version?.qrFileName || ''),
+      questionCount: snapshot.questions.length,
+      points: `${total} ${total === 1 ? 'ponto' : 'pontos'}`,
+      candidate,
+      candidateName: escapeContext(candidateData?.name || ''),
+      // Foto só no cartão de um aluno da turma, quando a prova pediu a opção.
+      candidatePhoto:
+        snapshot.render?.showStudentPhoto && candidateData?.name
+          ? {
+              fileName: /^student-photo\.(png|jpg)$/.test(
+                candidateData.photoFileName || '',
+              )
+                ? candidateData.photoFileName
+                : '',
+            }
+          : null,
+      candidateNumber: escapeContext(candidateData?.number || ''),
+      subjects: escapeContext(
+        [
+          ...new Set(
+            sections.map((section) => section.subject).filter(Boolean),
+          ),
+        ].join(', '),
+      ),
+      content,
+      previewOnly: Boolean(snapshot.render?.previewOnly),
+    })
+    .replace(/\\alfa\b/g, '\\alpha');
 }

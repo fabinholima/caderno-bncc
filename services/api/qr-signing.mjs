@@ -16,5 +16,9 @@ export function qrSigningWarning(environment = process.env) {
 }
 
 export function signQrId(id, environment = process.env) {
-  return crypto.createHmac('sha256', qrSigningSecret(environment)).update(id).digest('hex').slice(0, 20);
+  return crypto
+    .createHmac('sha256', qrSigningSecret(environment))
+    .update(id)
+    .digest('hex')
+    .slice(0, 20);
 }
