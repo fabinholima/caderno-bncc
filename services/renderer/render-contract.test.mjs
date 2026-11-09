@@ -278,7 +278,10 @@ test('preserva rótulos btex e etex e rejeita escapes TeX codificados', async ()
   );
   snapshot.questions[0].statement.at(-1).code =
     'label(btex ^^5cinput arquivo etex, origin);';
-  assert.throws(() => renderAssessment(snapshot), /MetaPost inválido/);
+  assert.throws(
+    () => renderAssessment(snapshot),
+    /MetaPost inválido|notação \^\^ do TeX/,
+  );
 });
 test('rejeita MetaPost com execução de script', async () => {
   const snapshot = JSON.parse(

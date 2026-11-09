@@ -2,6 +2,7 @@ import { pool, transaction } from './db.mjs';
 import { requestGeminiAnalysis } from './exam-import-gemini.mjs';
 import { z } from 'zod';
 import { withoutEmbeddedMetaPost } from '../../lib/embedded-metapost.mjs';
+import { unsafeContextCode } from '../../lib/context-safety.mjs';
 import {
   AI_CONTEXT_RULES,
   normalizeAiContext,
@@ -97,11 +98,7 @@ export function validateExamAnalysis(questions, candidates) {
       throw new Error('Resposta da IA com questão desconhecida ou duplicada.');
     ids.add(item.candidateId);
     const checked = withoutEmbeddedMetaPost(item.normalizedText);
-    if (
-      /\^\^|\\(?:input|include|read|write|openin|openout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startluacode|xmlprocess|processfile)\b/i.test(
-        checked,
-      )
-    )
+    if (unsafeContextCode(checked))
       throw new Error('Conversão da IA contém comando ConTeXt não permitido.');
     // Never let generated answers become a substitute for the source answer key.
     item.correctAnswers =

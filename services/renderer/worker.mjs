@@ -101,6 +101,21 @@ async function claimReportJob() {
   }
 }
 
+// O ConTeXt compila conteúdo de usuários: recebe só o que precisa para achar
+// binários, fontes e cache, nunca os segredos do processo (banco, S3, OAuth).
+const contextVariable =
+  /^(?:PATH|HOME|USER|LANG|LANGUAGE|LC_[A-Z]+|TZ|TMPDIR|SOURCE_DATE_EPOCH|OSFONTDIR|TEXMF[A-Z_]*|TEXINPUTS|SELFAUTO[A-Z_]*|MTX[A-Z_]*|CONTEXT[A-Z_]*)$/;
+
+export function contextEnvironment(environment = process.env) {
+  const allowed = Object.fromEntries(
+    Object.entries(environment).filter(([name]) => contextVariable.test(name)),
+  );
+  return {
+    ...allowed,
+    TEXMFCACHE: environment.TEXMFCACHE || path.join(outputRoot, '.tex-cache'),
+  };
+}
+
 export function compile(source, cwd, resultName) {
   return new Promise((resolve, reject) => {
     const contextArgs = [
@@ -117,11 +132,7 @@ export function compile(source, cwd, resultName) {
       {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          TEXMFCACHE:
-            process.env.TEXMFCACHE || path.join(outputRoot, '.tex-cache'),
-        },
+        env: contextEnvironment(),
       },
     );
     let output = '';

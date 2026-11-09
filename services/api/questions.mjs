@@ -30,16 +30,12 @@ export function questionCodePrefix(subject) {
   return prefixes.get(normalized) || 'QST';
 }
 import { prepareChemicalStructureBlocks } from './chemical-structures.mjs';
+import { unsafeContextCode } from '../../lib/context-safety.mjs';
 import {
   withoutEmbeddedMetaPost,
   validMetaPost,
   normalizeMetaPost,
 } from '../../lib/embedded-metapost.mjs';
-
-const forbiddenContextFormula =
-  /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;
-const forbiddenRawContext =
-  /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|startMPcode|startluacode|xmlprocess|processfile)\b/i;
 
 export const metapostCodeSchema = z
   .string()
@@ -213,7 +209,9 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
       .max(5_000)
       .refine((code) => {
         try {
-          return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code));
+          return !unsafeContextCode(withoutEmbeddedMetaPost(code), {
+            allowTextWrapper: true,
+          });
         } catch {
           return false;
         }
@@ -258,7 +256,7 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
           'rm',
         ]);
         return (
-          !forbiddenContextFormula.test(code) &&
+          !unsafeContextCode(code) &&
           [...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
             allowed.has(match[1]),
           )
@@ -293,7 +291,7 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
           'rm',
         ]);
         return (
-          !forbiddenContextFormula.test(code) &&
+          !unsafeContextCode(code) &&
           [...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
             allowed.has(match[1]),
           )
@@ -316,7 +314,9 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
       .max(20_000)
       .refine((code) => {
         try {
-          return !forbiddenRawContext.test(withoutEmbeddedMetaPost(code));
+          return !unsafeContextCode(withoutEmbeddedMetaPost(code), {
+            allowTextWrapper: true,
+          });
         } catch {
           return false;
         }

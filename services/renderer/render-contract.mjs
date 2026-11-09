@@ -6,6 +6,10 @@ import {
   normalizeMetaPost,
 } from '../../lib/embedded-metapost.mjs';
 import {
+  hasCaretEscape,
+  unsafeContextCode,
+} from '../../lib/context-safety.mjs';
+import {
   DEFAULT_RENDER_FONT,
   assertAssessmentQuestionStyle,
   isRenderFontId,
@@ -29,9 +33,6 @@ export function escapeContext(value = '') {
     contextEscapes.get(character),
   );
 }
-
-const forbiddenContextFormula =
-  /\\(?:input|include|read|write|openin|openout|closein|closeout|directlua|ctxlua|latelua|usemodule|environment|component|product|project|starttext|stoptext|startMPcode|startluacode|xmlprocess|processfile)\b/i;
 
 const allowedMathCommands = new Set([
   'alpha',
@@ -300,6 +301,11 @@ function richText(nodes = []) {
         !(node.type === 'image' && node.inlineReference),
     )
     .map((node) => {
+      // Fórmulas e \m{...} só conferem nomes de comando; ^^5c formaria qualquer um.
+      if (hasCaretEscape(node))
+        throw new Error(
+          'A notação ^^ do TeX não é permitida no conteúdo da questão.',
+        );
       if (node.type === 'romanList') {
         const items = Array.isArray(node.items) ? node.items : [];
         if (!items.length || items.length > 30)
@@ -355,7 +361,7 @@ function richText(nodes = []) {
         if (
           !code ||
           code.length > 4_000 ||
-          forbiddenContextFormula.test(code) ||
+          unsafeContextCode(code) ||
           ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
             allowed.has(match[1]),
           )
@@ -390,7 +396,7 @@ function richText(nodes = []) {
         if (
           !code ||
           code.length > 1_000 ||
-          forbiddenContextFormula.test(code) ||
+          unsafeContextCode(code) ||
           ![...code.matchAll(/\\([A-Za-z]+)/g)].every((match) =>
             allowed.has(match[1]),
           )
@@ -409,7 +415,7 @@ function richText(nodes = []) {
         if (
           !code ||
           code.length > 20_000 ||
-          forbiddenContextFormula.test(withoutEmbeddedMetaPost(code))
+          unsafeContextCode(withoutEmbeddedMetaPost(code))
         )
           throw new Error('Código ConTeXt inválido ou não permitido.');
         return { content: code, inline: false };
@@ -451,10 +457,7 @@ function adoteNote(nodes = []) {
   const note = nodes.find((node) => node.type === 'adoteNote');
   if (!note?.text?.trim()) return '';
   const code = note.text.trim();
-  if (
-    code.length > 5_000 ||
-    forbiddenContextFormula.test(withoutEmbeddedMetaPost(code))
-  )
+  if (code.length > 5_000 || unsafeContextCode(withoutEmbeddedMetaPost(code)))
     throw new Error('Note e adote contém código ConTeXt não permitido.');
   return `\\startframedtext[frame=on,background=color,backgroundcolor=lightgray,width=\\hsize,align={normal,hyphenated,verytolerant,stretch},offset=3mm]\n{\\bf Note e adote:}\n\\blank[small]\n${code}\n\\stopframedtext`;
 }
