@@ -1,7 +1,11 @@
 import { assertAssessmentQuestionStyle } from '../../lib/render-templates.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAssessmentSchema, questionUsesFullWidth, seededShuffle } from './assessments.mjs';
+import {
+  createAssessmentSchema,
+  questionUsesFullWidth,
+  seededShuffle,
+} from './assessments.mjs';
 
 test('valida a montagem de avaliação', () => {
   const input = createAssessmentSchema.parse({
@@ -143,17 +147,38 @@ test('embaralhamento é determinístico por semente', () => {
   );
 });
 
-
 test('prova de Certo/Errado exige seleção exclusiva e rejeita a mistura', () => {
-  assert.doesNotThrow(() => assertAssessmentQuestionStyle([{type: 'true_false'}], 'certo-errado-v1'));
-  assert.throws(() => assertAssessmentQuestionStyle([{type: 'true_false'}, {type: 'single_choice'}], 'certo-errado-v1'), /somente questões/);
-  assert.throws(() => assertAssessmentQuestionStyle([{type: 'true_false'}], 'basicexam-v1'), /não podem ser mescladas/);
+  assert.doesNotThrow(() =>
+    assertAssessmentQuestionStyle([{ type: 'true_false' }], 'certo-errado-v1'),
+  );
+  assert.throws(
+    () =>
+      assertAssessmentQuestionStyle(
+        [{ type: 'true_false' }, { type: 'single_choice' }],
+        'certo-errado-v1',
+      ),
+    /somente questões/,
+  );
+  assert.throws(
+    () =>
+      assertAssessmentQuestionStyle([{ type: 'true_false' }], 'basicexam-v1'),
+    /não podem ser mescladas/,
+  );
 });
 
 test('questão marcada para uma coluna no cadastro sempre usa largura total', () => {
   const chosen = new Set(['q1']);
-  assert.equal(questionUsesFullWidth({ id: 'q1', recommend_single_column: false }, chosen), true);
-  assert.equal(questionUsesFullWidth({ id: 'q2', recommend_single_column: true }, chosen), true);
-  assert.equal(questionUsesFullWidth({ id: 'q3', recommend_single_column: false }, chosen), false);
+  assert.equal(
+    questionUsesFullWidth({ id: 'q1', recommend_single_column: false }, chosen),
+    true,
+  );
+  assert.equal(
+    questionUsesFullWidth({ id: 'q2', recommend_single_column: true }, chosen),
+    true,
+  );
+  assert.equal(
+    questionUsesFullWidth({ id: 'q3', recommend_single_column: false }, chosen),
+    false,
+  );
   assert.equal(questionUsesFullWidth({ id: 'q4' }, new Set()), false);
 });
