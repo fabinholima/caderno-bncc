@@ -12,6 +12,7 @@ import {
 import { assertInstitutionLimit } from './auth.mjs';
 import { signQrId } from './qr-signing.mjs';
 import { pool, transaction } from './db.mjs';
+import { ownsAssessment } from './ownership.mjs';
 import { schoolHeader } from './educator-profile.mjs';
 
 export const logoDataUrlSchema = z
@@ -402,7 +403,7 @@ export async function createAssessment({
 
 export { seededShuffle };
 
-export async function listAssessments({ institutionId }) {
+export async function listAssessments({ institutionId, ownerId = null }) {
   const result = await pool.query({
     text: `SELECT a.id, a.title, a.subject, a.grade, a.status, a.created_at,
                   COUNT(DISTINCT av.id)::int AS version_count,
@@ -412,11 +413,11 @@ export async function listAssessments({ institutionId }) {
            LEFT JOIN assessment_versions av ON av.assessment_id = a.id
            LEFT JOIN render_jobs rj ON rj.assessment_version_id = av.id
            LEFT JOIN assessment_submissions s ON s.assessment_version_id = av.id
-           WHERE a.institution_id = $1
+           WHERE a.institution_id = $1 AND ${ownsAssessment('a', '$2')}
            GROUP BY a.id
            ORDER BY a.created_at DESC
            LIMIT 100`,
-    values: [institutionId],
+    values: [institutionId, ownerId],
   });
   return result.rows.map((row) => ({
     id: row.id,

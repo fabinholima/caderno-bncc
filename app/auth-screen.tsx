@@ -28,6 +28,7 @@ export type AuthIdentity = {
     googleLinked?: boolean;
   };
   institution: { id: string; name: string };
+  institutions?: { id: string; name: string; role: string }[];
   role: 'admin' | 'coordinator' | 'teacher' | 'student';
 };
 

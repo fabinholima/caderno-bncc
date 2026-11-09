@@ -81,6 +81,11 @@ import {
   claimGoogleSessionExchange,
 } from './google-session-exchange.mjs';
 import { canManageInstitutionTeam } from './institution-permissions.mjs';
+import {
+  assertOwnership,
+  assertRouteOwnership,
+  teacherScope,
+} from './ownership.mjs';
 import { mobileGoogleAuth } from './mobile-google-auth.mjs';
 import {
   billingStatus,
@@ -204,12 +209,15 @@ import {
 } from './report-exports.mjs';
 import {
   acceptInvitation,
+  listMyInstitutions,
+  switchInstitution,
   authenticate as authenticateSession,
   completeCpf,
   createInvitation,
   getSubscription,
   login,
   logout,
+  logoutAll,
   recordSessionNetwork,
   register,
   registerStudent,
@@ -445,7 +453,7 @@ const server = createServer(async (request, response) => {
           '/api/auth/verify-email',
         ].includes(url.pathname)
       ) {
-        if (!allowAuthAttempt(clientIp(request) || 'unknown'))
+        if (!(await allowAuthAttempt(clientIp(request) || 'unknown')))
           return json(response, 429, {
             error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.',
           });
@@ -473,7 +481,7 @@ const server = createServer(async (request, response) => {
       request.method === 'GET' &&
       url.pathname === '/api/auth/google/mobile/browser'
     ) {
-      if (!allowAuthAttempt(clientIp(request) || 'unknown'))
+      if (!(await allowAuthAttempt(clientIp(request) || 'unknown')))
         return json(response, 429, {
           error: 'Muitas tentativas. Aguarde e tente novamente.',
         });
@@ -659,7 +667,7 @@ const server = createServer(async (request, response) => {
       ].includes(url.pathname)
     ) {
       const input = await readJson(request, 4096);
-      if (!allowCodeAttempt(input))
+      if (!(await allowCodeAttempt(input)))
         return json(response, 429, {
           error:
             'Muitas tentativas com este código. Aguarde 15 minutos e tente novamente.',
@@ -683,12 +691,12 @@ const server = createServer(async (request, response) => {
       const credentials = await readJson(request, 16384);
       // Além do limite por IP, limita tentativas por conta contra ataques distribuídos.
       if (
-        !allowAuthAttempt(
+        !(await allowAuthAttempt(
           `login:${String(credentials?.email || '')
             .trim()
             .toLowerCase()}`,
           10,
-        )
+        ))
       )
         return json(response, 429, {
           error:
@@ -730,6 +738,21 @@ const server = createServer(async (request, response) => {
     if (!identity)
       return json(response, 401, { error: 'Faça login para continuar.' });
     const { userId } = identity;
+    // Professores só acessam turmas, alunos, aplicações e resultados próprios
+    // (services/api/ownership.mjs). Alunos usam apenas as rotas /api/student.
+    if (identity.role !== 'student')
+      await assertRouteOwnership(identity, url.pathname);
+    // IDs enviados no corpo (turma, aluno, aplicação...) passam pela mesma regra.
+    const ownedInput = async (input, fields) => {
+      for (const [field, kind] of Object.entries(fields)) {
+        const [type, ids] =
+          typeof kind === 'function'
+            ? kind(input?.[field])
+            : [kind, input?.[field]];
+        if (ids) await assertOwnership(identity, type, ids);
+      }
+      return input;
+    };
     response.setHeader('cache-control', 'no-store');
     if (
       /^\/api\/(?:class-invites|class-join-requests|student\/access-code|classes\/[^/]+\/(?:invite|join-requests|join-candidates))/.test(
@@ -748,7 +771,7 @@ const server = createServer(async (request, response) => {
       request.method === 'POST' &&
       url.pathname === '/api/class-invites/inspect'
     ) {
-      if (!allowAuthAttempt(`invite:${identity.userId}`))
+      if (!(await allowAuthAttempt(`invite:${identity.userId}`)))
         return json(response, 429, {
           error: 'Muitas tentativas de código. Aguarde 15 minutos.',
         });
@@ -781,7 +804,7 @@ const server = createServer(async (request, response) => {
       request.method === 'POST' &&
       url.pathname === '/api/class-invites/request'
     ) {
-      if (!allowAuthAttempt(`invite:${identity.userId}`))
+      if (!(await allowAuthAttempt(`invite:${identity.userId}`)))
         return json(response, 429, {
           error: 'Muitas tentativas. Aguarde 15 minutos.',
         });
@@ -888,7 +911,9 @@ const server = createServer(async (request, response) => {
       );
     if (
       identity.role === 'student' &&
-      !['/api/auth/me', '/api/auth/logout'].includes(url.pathname)
+      !['/api/auth/me', '/api/auth/logout', '/api/auth/logout-all'].includes(
+        url.pathname,
+      )
     )
       return json(response, 403, {
         error: 'Este recurso é exclusivo de professores e gestores.',
@@ -1024,7 +1049,9 @@ const server = createServer(async (request, response) => {
       !identity.portalAdmin &&
       !identity.cpfComplete &&
       !identity.developmentBypass &&
-      !['/api/auth/me', '/api/auth/logout'].includes(url.pathname)
+      !['/api/auth/me', '/api/auth/logout', '/api/auth/logout-all'].includes(
+        url.pathname,
+      )
     )
       return json(response, 428, {
         error: 'Complete o cadastro com seu CPF para continuar.',
@@ -1112,7 +1139,13 @@ const server = createServer(async (request, response) => {
       !identity.portalAdmin &&
       !identity.profileComplete &&
       !identity.developmentBypass &&
-      !['/api/auth/me', '/api/auth/logout'].includes(url.pathname)
+      ![
+        '/api/auth/me',
+        '/api/auth/logout',
+        '/api/auth/logout-all',
+        '/api/auth/institution',
+        '/api/invitations/accept',
+      ].includes(url.pathname)
     )
       return json(response, 428, {
         error: 'Complete seu perfil e cadastre sua escola para continuar.',
@@ -1153,6 +1186,31 @@ const server = createServer(async (request, response) => {
       clearSessionCookie(response);
       return json(response, 200, { data: { loggedOut: true } });
     }
+    if (request.method === 'POST' && url.pathname === '/api/auth/logout-all') {
+      if (
+        requestOrigin
+          ? !allowedOrigins.has(requestOrigin)
+          : request.headers['x-client'] !== 'mobile'
+      )
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      const data = await logoutAll(identity);
+      clearSessionCookie(response);
+      return json(response, 200, { data });
+    }
+    if (
+      request.method === 'POST' &&
+      ['/api/auth/institution', '/api/invitations/accept'].includes(
+        url.pathname,
+      ) &&
+      (requestOrigin
+        ? !allowedOrigins.has(requestOrigin)
+        : request.headers['x-client'] !== 'mobile')
+    )
+      return json(response, 403, { error: 'Origem não autorizada.' });
+    if (request.method === 'POST' && url.pathname === '/api/auth/institution')
+      return json(response, 200, {
+        data: await switchInstitution(identity, await readJson(request, 4096)),
+      });
     if (request.method === 'GET' && url.pathname === '/api/auth/me')
       return json(response, 200, {
         data: {
@@ -1168,6 +1226,7 @@ const server = createServer(async (request, response) => {
             id: identity.institutionId,
             name: identity.institutionName,
           },
+          institutions: await listMyInstitutions(identity),
           role: identity.role,
           portalAdmin: Boolean(identity.portalAdmin),
           portalEditor: Boolean(identity.portalEditor),
@@ -1468,7 +1527,9 @@ const server = createServer(async (request, response) => {
       return json(response, 201, {
         data: await createEssayApplication(
           identity,
-          await readJson(request, 16384),
+          await ownedInput(await readJson(request, 16384), {
+            classId: 'class',
+          }),
         ),
       });
     const essayApplicationMatch = url.pathname.match(
@@ -1521,7 +1582,10 @@ const server = createServer(async (request, response) => {
       });
     if (request.method === 'GET' && url.pathname === '/api/classes')
       return json(response, 200, {
-        data: await listClasses({ institutionId }),
+        data: await listClasses({
+          institutionId,
+          ownerId: teacherScope(identity),
+        }),
       });
     if (request.method === 'POST' && url.pathname === '/api/classes')
       return json(response, 201, {
@@ -1551,7 +1615,10 @@ const server = createServer(async (request, response) => {
       });
     if (request.method === 'GET' && url.pathname === '/api/students')
       return json(response, 200, {
-        data: await listStudents({ institutionId }),
+        data: await listStudents({
+          institutionId,
+          ownerId: teacherScope(identity),
+        }),
       });
     const studentActiveMatch =
       request.method === 'PATCH' &&
@@ -1615,7 +1682,9 @@ const server = createServer(async (request, response) => {
         data: await enrollStudent({
           institutionId,
           classId: enrollmentMatch[1],
-          input: await readJson(request),
+          input: await ownedInput(await readJson(request), {
+            studentId: 'student',
+          }),
         }),
       });
     if (
@@ -1626,7 +1695,10 @@ const server = createServer(async (request, response) => {
         data: await createApplication({
           institutionId,
           userId,
-          input: await readJson(request),
+          input: await ownedInput(await readJson(request), {
+            assessmentId: 'assessment',
+            classId: 'class',
+          }),
         }),
       });
     if (
@@ -1634,7 +1706,10 @@ const server = createServer(async (request, response) => {
       url.pathname === '/api/assessment-applications'
     )
       return json(response, 200, {
-        data: await listApplications({ institutionId }),
+        data: await listApplications({
+          institutionId,
+          ownerId: teacherScope(identity),
+        }),
       });
     const applicationDetailMatch =
       request.method === 'GET' &&
@@ -1855,11 +1930,18 @@ const server = createServer(async (request, response) => {
           userId,
           portalAdmin: identity.portalAdmin,
           developmentBypass: identity.developmentBypass,
-          input: await readJson(request),
+          input: await ownedInput(await readJson(request), {
+            expectedApplicationId: 'application',
+          }),
         }),
       });
     if (request.method === 'GET' && url.pathname === '/api/card-scans')
-      return json(response, 200, { data: await listScans({ institutionId }) });
+      return json(response, 200, {
+        data: await listScans({
+          institutionId,
+          ownerId: teacherScope(identity),
+        }),
+      });
     const scanReviewMatch =
       request.method === 'GET' &&
       url.pathname.match(/^\/api\/card-scans\/([0-9a-f-]{36})$/i);
@@ -1922,7 +2004,9 @@ const server = createServer(async (request, response) => {
           institutionId,
           userId,
           scanId: scanConfirmMatch[1],
-          input: await readJson(request),
+          input: await ownedInput(await readJson(request), {
+            applicationStudentId: 'applicationStudent',
+          }),
         }),
       });
     // Revisão e autorização de resultados (docs/resultados-publicacao.md).
@@ -1965,7 +2049,13 @@ const server = createServer(async (request, response) => {
         data: await authorizeResults({
           institutionId,
           userId,
-          input: await readJson(request, 65536),
+          input: await ownedInput(await readJson(request, 65536), {
+            applicationId: 'application',
+            items: (items) => [
+              'result',
+              items?.map?.((item) => item?.resultId),
+            ],
+          }),
         }),
       });
     const followupMatch = url.pathname.match(
@@ -2546,7 +2636,10 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'GET' && url.pathname === '/api/assessments')
       return json(response, 200, {
-        data: await listAssessments({ institutionId }),
+        data: await listAssessments({
+          institutionId,
+          ownerId: teacherScope(identity),
+        }),
       });
     const regenerateMatch =
       request.method === 'POST' &&

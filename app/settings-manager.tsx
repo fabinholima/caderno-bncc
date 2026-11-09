@@ -91,14 +91,16 @@ export function SettingsManager({
     });
     const body = (await response.json()) as {
       error?: string;
-      data?: { developmentToken?: string };
+      data?: { developmentToken?: string; emailSent?: boolean };
     };
     if (!response.ok) return setMessage(body.error || 'Convite não criado.');
     form.reset();
     setMessage(
-      body.data?.developmentToken
-        ? `Convite criado. Token local: ${body.data.developmentToken}`
-        : 'Convite enviado por e-mail.',
+      body.data?.emailSent
+        ? 'Convite enviado por e-mail. O link vale por 7 dias.'
+        : body.data?.developmentToken
+          ? `Convite criado (e-mail desativado neste ambiente). Link: ${window.location.origin}/portal#convite=${body.data.developmentToken}`
+          : 'Convite criado.',
     );
   }
   function readCatalog(file: File) {

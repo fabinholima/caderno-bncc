@@ -10,7 +10,12 @@ import {
 import { cpfFingerprint, normalizeCpf } from './cpf.mjs';
 import { resolveUnifiedContext } from './portal-access.mjs';
 import { sessionNetwork } from './admin-dashboard.mjs';
-import { requireMail, sendAuthMail, developmentMail } from './auth-mail.mjs';
+import {
+  requireMail,
+  sendAuthMail,
+  developmentMail,
+  mailConfigured,
+} from './auth-mail.mjs';
 
 const scrypt = promisify(crypto.scrypt);
 const email = z.email().trim().toLowerCase().max(254);
@@ -393,23 +398,27 @@ export async function authenticate(request) {
   const token = bearer || /(?:^|;\s*)caderno_session=([^;]+)/.exec(cookie)?.[1];
   if (!token) return null;
   const result = await pool.query(
-    `SELECT s.id session_id,s.global_bank,u.portal_admin,u.portal_editor,u.id user_id,u.email,u.display_name,u.cpf_hash,u.google_subject,
+    `SELECT s.id session_id,s.global_bank,s.last_seen_at,u.portal_admin,u.portal_editor,u.id user_id,u.email,u.display_name,u.cpf_hash,u.google_subject,
             (EXISTS(SELECT 1 FROM educator_profiles ep WHERE ep.user_id=u.id) AND EXISTS(SELECT 1 FROM educator_schools es WHERE es.user_id=u.id)) profile_complete,
             m.institution_id,m.role,i.name institution_name,u.account_type
      FROM user_sessions s JOIN users u ON u.id=s.user_id AND u.active
      LEFT JOIN memberships m ON m.user_id=u.id
      LEFT JOIN institutions i ON i.id=m.institution_id
-     WHERE s.token_hash=$1 AND s.expires_at>now() AND (u.account_type='student' OR m.institution_id IS NOT NULL) AND (NOT u.email_verification_required OR u.email_verified_at IS NOT NULL)
-     ORDER BY m.role='admin' DESC LIMIT 1`,
+     WHERE s.token_hash=$1 AND s.expires_at>now() AND s.last_seen_at>now()-interval '14 days' AND (u.account_type='student' OR m.institution_id IS NOT NULL) AND (NOT u.email_verification_required OR u.email_verified_at IS NOT NULL)
+     ORDER BY (m.institution_id=s.active_institution_id) IS TRUE DESC,m.role='admin' DESC,i.name,m.institution_id LIMIT 1`,
     [tokenHash(decodeURIComponent(token))],
   );
   if (!result.rowCount) return null;
   const row = result.rows[0];
-  const network = sessionNetwork(request);
-  await pool.query(
-    "UPDATE user_sessions SET last_seen_at=now(),last_ip=COALESCE($2::inet,last_ip),user_agent=COALESCE(NULLIF($3,''),user_agent) WHERE id=$1",
-    [row.session_id, network.ip, network.agent],
-  );
+  // Sessão vale 30 dias, mas expira após 14 dias sem uso. O "visto por último"
+  // só é gravado a cada 5 minutos, em vez de uma escrita por requisição.
+  if (Date.now() - new Date(row.last_seen_at).getTime() > 5 * 60_000) {
+    const network = sessionNetwork(request);
+    await pool.query(
+      "UPDATE user_sessions SET last_seen_at=now(),last_ip=COALESCE($2::inet,last_ip),user_agent=COALESCE(NULLIF($3,''),user_agent) WHERE id=$1",
+      [row.session_id, network.ip, network.agent],
+    );
+  }
   return resolveUnifiedContext(
     {
       sessionId: row.session_id,
@@ -432,6 +441,19 @@ export async function authenticate(request) {
 export async function logout(sessionId) {
   if (sessionId)
     await pool.query('DELETE FROM user_sessions WHERE id=$1', [sessionId]);
+}
+
+// Encerra todas as sessões da conta (celular, outros navegadores, app).
+export async function logoutAll(identity) {
+  const result = await pool.query(
+    'DELETE FROM user_sessions WHERE user_id=$1',
+    [identity.userId],
+  );
+  await pool.query(
+    "INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.logout_all')",
+    [identity.institutionId || null, identity.userId],
+  );
+  return { loggedOut: true, sessions: result.rowCount };
 }
 
 async function issueVerification(client, userId, recipient) {
@@ -596,6 +618,10 @@ export async function createInvitation(identity, input) {
       identity.userId,
     ],
   );
+  // Em produção o convite sempre segue por e-mail; localmente, sem Resend, o
+  // token volta na resposta (developmentToken) para testes manuais.
+  const emailSent = mailConfigured() || process.env.NODE_ENV === 'production';
+  if (emailSent) await sendAuthMail('invite', value.email, token);
   await audit(identity, 'invitation.created', 'invitation', value.email, {
     role: value.role,
   });
@@ -603,6 +629,7 @@ export async function createInvitation(identity, input) {
     email: value.email,
     role: value.role,
     expiresInDays: 7,
+    emailSent,
     ...(process.env.NODE_ENV === 'production'
       ? {}
       : { developmentToken: token }),
@@ -627,7 +654,58 @@ export async function acceptInvitation(identity, input) {
      ON CONFLICT(institution_id,user_id) DO UPDATE SET role=excluded.role`,
     [result.rows[0].institution_id, identity.userId, result.rows[0].role],
   );
-  return { accepted: true };
+  const institutionId = result.rows[0].institution_id;
+  // O convite aceito passa a ser a instituição ativa desta sessão.
+  if (identity.sessionId)
+    await pool.query(
+      'UPDATE user_sessions SET active_institution_id=$2 WHERE id=$1',
+      [identity.sessionId, institutionId],
+    );
+  await pool.query(
+    "INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id) VALUES($1,$2,'invitation.accepted','institution',$3)",
+    [institutionId, identity.userId, institutionId],
+  );
+  return { accepted: true, institutionId, role: result.rows[0].role };
+}
+
+/** Instituições da conta, para o seletor do portal. */
+export async function listMyInstitutions(identity) {
+  if (identity.role === 'student') return [];
+  const result = await pool.query(
+    `SELECT i.id,i.name,m.role FROM memberships m JOIN institutions i ON i.id=m.institution_id
+     WHERE m.user_id=$1 ORDER BY i.name,i.id`,
+    [identity.userId],
+  );
+  return result.rows;
+}
+
+export const switchInstitutionSchema = z.object({ institutionId: z.uuid() });
+
+/** Troca a instituição ativa da sessão; só vale para instituições em que a conta é membro. */
+export async function switchInstitution(identity, input) {
+  const value = switchInstitutionSchema.parse(input);
+  if (!identity.sessionId)
+    throw Object.assign(
+      new Error('Sessão sem suporte à troca de instituição.'),
+      { statusCode: 422 },
+    );
+  const membership = await pool.query(
+    'SELECT role FROM memberships WHERE user_id=$1 AND institution_id=$2',
+    [identity.userId, value.institutionId],
+  );
+  if (!membership.rowCount)
+    throw Object.assign(new Error('Instituição não encontrada.'), {
+      statusCode: 404,
+    });
+  await pool.query(
+    'UPDATE user_sessions SET active_institution_id=$2 WHERE id=$1 AND user_id=$3',
+    [identity.sessionId, value.institutionId, identity.userId],
+  );
+  await pool.query(
+    "INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.institution_switched')",
+    [value.institutionId, identity.userId],
+  );
+  return { institutionId: value.institutionId, role: membership.rows[0].role };
 }
 
 export async function getSubscription(identity) {

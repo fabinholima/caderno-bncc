@@ -23,9 +23,10 @@ test('mobile upload, correction receipts, tenant isolation and optimistic concur
       CREATE TABLE educator_schools(id uuid PRIMARY KEY);
       CREATE TABLE subscription_plans(id text PRIMARY KEY,monthly_assessments integer,max_students integer);
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text,period_started_at timestamptz,period_ends_at timestamptz);
-      CREATE TABLE classes(id uuid PRIMARY KEY,name text,institution_id uuid);
+      CREATE TABLE classes(id uuid PRIMARY KEY,name text,institution_id uuid,created_by uuid);
+      CREATE TABLE class_subjects(class_id uuid,teacher_id uuid,subject text);
       CREATE TABLE students(id uuid PRIMARY KEY,name text,registration text);
-      CREATE TABLE assessment_applications(id uuid PRIMARY KEY,institution_id uuid,assessment_id uuid,class_id uuid,status text,scheduled_at timestamptz,created_at timestamptz DEFAULT now());
+      CREATE TABLE assessment_applications(id uuid PRIMARY KEY,institution_id uuid,assessment_id uuid,class_id uuid,status text,scheduled_at timestamptz,created_at timestamptz DEFAULT now(),created_by uuid);
       CREATE TABLE application_students(id uuid PRIMARY KEY,application_id uuid,student_id uuid,assessment_version_id uuid);
       CREATE TABLE class_enrollments(class_id uuid,student_id uuid,number integer);
       CREATE TABLE render_jobs(id uuid PRIMARY KEY,application_student_id uuid,status text);

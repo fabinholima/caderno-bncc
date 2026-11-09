@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mobileMutation, assertInstitutionScope } from './mobile-mutations.mjs';
 import { Readable } from 'node:stream';
 import { pool, transaction } from './db.mjs';
+import { ownsScan } from './ownership.mjs';
 import { answerKeyStatus } from './assessment-results.mjs';
 import { gradeSubmission } from './submissions.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
@@ -148,7 +149,7 @@ async function requireActiveSubscription(options) {
   }
 }
 
-export async function listScans({ institutionId }) {
+export async function listScans({ institutionId, ownerId = null }) {
   const r = await pool.query({
     text: `SELECT cs.id,cs.status,cs.result,cs.error_message,cs.created_at,
                   cs.submission_id,cs.source_page,cs.source_pages,
@@ -167,12 +168,13 @@ export async function listScans({ institutionId }) {
            LEFT JOIN assessments a ON a.id=aa.assessment_id
            LEFT JOIN classes c ON c.id=aa.class_id
            -- Pendências nunca somem da fila; dos corrigidos, só os mais recentes.
-           WHERE cs.institution_id=$1 AND cs.status<>'discarded'
+           WHERE cs.institution_id=$1 AND cs.status<>'discarded' AND ${ownsScan('cs', '$2')}
              AND (cs.status<>'completed' OR cs.id IN (
-               SELECT id FROM card_scans WHERE institution_id=$1 AND status='completed'
-               ORDER BY created_at DESC LIMIT 50))
+               SELECT recent.id FROM card_scans recent WHERE recent.institution_id=$1 AND recent.status='completed'
+                 AND ${ownsScan('recent', '$2')}
+               ORDER BY recent.created_at DESC LIMIT 50))
            ORDER BY cs.created_at DESC LIMIT 500`,
-    values: [institutionId],
+    values: [institutionId, ownerId],
   });
   return r.rows.map((x) => ({
     id: x.id,

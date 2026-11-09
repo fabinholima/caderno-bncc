@@ -31,12 +31,14 @@ export function requireMail() {
     );
 }
 export function authMailLink(kind, token, env = process.env) {
-  if (!['verify', 'reset'].includes(kind))
-    throw new Error('Tipo de e-mail inválido.');
+  const param = {
+    verify: 'verify_token',
+    reset: 'reset_token',
+    invite: 'convite',
+  }[kind];
+  if (!param) throw new Error('Tipo de e-mail inválido.');
   const url = new URL('/portal', env.AUTH_FRONTEND_URL);
-  url.hash = new URLSearchParams({
-    [kind === 'verify' ? 'verify_token' : 'reset_token']: token,
-  }).toString();
+  url.hash = new URLSearchParams({ [param]: token }).toString();
   return url.href;
 }
 export async function sendAuthMail(
@@ -51,11 +53,25 @@ export async function sendAuthMail(
       statusCode: 503,
     });
   const link = authMailLink(kind, token, env);
-  const verify = kind === 'verify';
-  const subject = verify
-    ? 'Confirme seu e-mail — UfaProva'
-    : 'Redefina sua senha — UfaProva';
-  const text = `${verify ? 'Confirme seu endereço de e-mail para acessar o UfaProva.' : 'Você solicitou uma nova senha para o UfaProva.'}\n\n${link}\n\nEste link expira em ${verify ? '24 horas' : '30 minutos'} e só pode ser usado uma vez. Se você não fez esta solicitação, ignore este e-mail.`;
+  const { subject, intro, expires } = {
+    verify: {
+      subject: 'Confirme seu e-mail — UfaProva',
+      intro: 'Confirme seu endereço de e-mail para acessar o UfaProva.',
+      expires: '24 horas',
+    },
+    reset: {
+      subject: 'Redefina sua senha — UfaProva',
+      intro: 'Você solicitou uma nova senha para o UfaProva.',
+      expires: '30 minutos',
+    },
+    invite: {
+      subject: 'Convite para a equipe — UfaProva',
+      intro:
+        'Você foi convidado para a equipe de uma instituição no UfaProva. Entre ou crie sua conta com este e-mail e aceite o convite.',
+      expires: '7 dias',
+    },
+  }[kind];
+  const text = `${intro}\n\n${link}\n\nEste link expira em ${expires} e só pode ser usado uma vez. Se você não fez esta solicitação, ignore este e-mail.`;
   try {
     const response = await fetcher('https://api.resend.com/emails', {
       method: 'POST',

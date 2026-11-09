@@ -31,6 +31,7 @@ test(
           school_id uuid REFERENCES educator_schools(id), created_by uuid
         );
         CREATE TABLE class_enrollments(class_id uuid,student_id uuid);
+        CREATE TABLE class_subjects(class_id uuid,teacher_id uuid,subject text);
         CREATE TABLE class_invites(class_id uuid,school_id uuid,active boolean);
       `);
       const institutionId = randomUUID();

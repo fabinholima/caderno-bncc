@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { ownsEssayApplication, teacherScope } from './ownership.mjs';
 import {
   ESSAY_SHEET_TEMPLATE_IDS,
   ESSAY_SHEET_TEMPLATES,
@@ -774,8 +775,8 @@ function applicationFromRow(row, identity) {
 
 export async function listEssayApplications(identity, filters = {}) {
   requireStaff(identity);
-  const values = [identity.institutionId];
-  const where = ['a.institution_id=$1'];
+  const values = [identity.institutionId, teacherScope(identity)];
+  const where = ['a.institution_id=$1', ownsEssayApplication('a', '$2')];
   for (const [key, column] of [
     ['classId', 'a.class_id'],
     ['promptId', 'a.prompt_id'],

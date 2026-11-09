@@ -38,7 +38,25 @@ test('tokens stay in fragment; reset and verification links are distinct', () =>
       'private-token',
     );
   }
+  assert.equal(
+    new URLSearchParams(
+      new URL(authMailLink('invite', 'private-token', env)).hash.slice(1),
+    ).get('convite'),
+    'private-token',
+  );
   assert.throws(() => authMailLink('unknown', 'token', env));
+});
+test('invitation e-mail carries the link and the 7-day expiry', async () => {
+  await sendAuthMail('invite', 'recipient@example.com', 'private-token', {
+    env,
+    fetcher: async (_url, options) => {
+      const body = JSON.parse(options.body);
+      assert.match(body.subject, /Convite/);
+      assert.match(body.text, /#convite=private-token/);
+      assert.match(body.text, /7 dias/);
+      return { ok: true, json: async () => ({ id: 'email-id' }) };
+    },
+  });
 });
 test('provider receives private server auth and correct message', async () => {
   let calls = 0;

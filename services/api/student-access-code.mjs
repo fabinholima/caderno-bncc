@@ -15,8 +15,8 @@ const studentOnly = (identity) => {
   if (identity.role !== 'student')
     throw error('Esta opção está disponível apenas para contas de aluno.', 403);
 };
-const attempt = (identity) => {
-  if (!allowAuthAttempt(`invite:${identity.userId}`))
+const attempt = async (identity) => {
+  if (!(await allowAuthAttempt(`invite:${identity.userId}`)))
     throw error('Muitas tentativas de código. Aguarde 15 minutos.', 429);
 };
 const notFound = () => error('Código não encontrado ou cadastro inativo.', 404);
@@ -132,7 +132,7 @@ async function rotateAccessCode(db, studentId) {
 
 export async function inspectAccessCode(identity, input) {
   studentOnly(identity);
-  attempt(identity);
+  await attempt(identity);
   const { student, classes } = await resolve(pool, identity, input);
   return {
     studentName: student.name,
@@ -143,7 +143,7 @@ export async function inspectAccessCode(identity, input) {
 
 export async function claimAccessCode(identity, input) {
   studentOnly(identity);
-  attempt(identity);
+  await attempt(identity);
   return transaction(async (db) => {
     // Serializa vínculos simultâneos da mesma conta (códigos diferentes).
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
@@ -229,7 +229,7 @@ const codeLoginSchema = z
 const invalidLogin = () => error('Código ou senha inválidos.', 401);
 
 // Limite por código, além do limite por IP aplicado às rotas /api/auth.
-export function allowCodeAttempt(input) {
+export async function allowCodeAttempt(input) {
   let code;
   try {
     code = normalize(input);

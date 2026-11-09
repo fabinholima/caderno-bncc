@@ -33,7 +33,7 @@ test(
       await pool.query(`CREATE TABLE institutions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),name text,slug text UNIQUE);
  CREATE TABLE users(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),email text UNIQUE,display_name text,password_hash text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false);
  CREATE TABLE memberships(institution_id uuid REFERENCES institutions(id),user_id uuid REFERENCES users(id),role text CHECK(role IN('admin','coordinator','teacher')),PRIMARY KEY(institution_id,user_id));
- CREATE TABLE user_sessions(id uuid DEFAULT gen_random_uuid(),user_id uuid,token_hash text UNIQUE,expires_at timestamptz,last_seen_at timestamptz,global_bank boolean DEFAULT false,last_ip inet,user_agent text);
+ CREATE TABLE user_sessions(id uuid DEFAULT gen_random_uuid(),user_id uuid,token_hash text UNIQUE,expires_at timestamptz,last_seen_at timestamptz DEFAULT now(),global_bank boolean DEFAULT false,last_ip inet,user_agent text);
  CREATE TABLE audit_log(institution_id uuid,user_id uuid,action text,entity_type text,entity_id text);
  CREATE TABLE classes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,name text,school_id uuid);
  CREATE TABLE students(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,name text,registration text,active boolean DEFAULT true,teacher_id uuid,access_code text,UNIQUE(institution_id,registration));
@@ -60,6 +60,7 @@ test(
         '070_class_invites.sql',
         '071_student_accounts_class_links.sql',
         '102_student_access_code_links.sql',
+        '108_session_active_institution.sql',
       ])
         await pool.query(
           await readFile(

@@ -70,6 +70,11 @@ import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
 import { StudentPortal } from './student-portal';
 import { CompleteCpf } from './complete-cpf';
+import {
+  captureInvitationToken,
+  InstitutionSwitcher,
+  PendingInvitation,
+} from './institution-controls';
 import { EducatorProfile } from './educator-profile';
 import { AdminDashboard } from './admin-dashboard';
 import { ExamImportManager } from './exam-import-manager';
@@ -700,6 +705,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!apiUrl) return;
+    captureInvitationToken();
     const authParams = new URLSearchParams(window.location.hash.slice(1));
     if (authParams.has('reset_token') || authParams.has('verify_token')) {
       queueMicrotask(() => {
@@ -1545,13 +1551,16 @@ export default function Home() {
               <CircleHelp />
             </Button>
             <div className="ml-2 hidden border-l border-slate-200 pl-4 sm:block">
-              <p className="text-xs font-semibold">
-                {identity.institution.name}
-              </p>
+              <InstitutionSwitcher
+                apiUrl={apiUrl}
+                current={identity.institution}
+                institutions={identity.institutions}
+              />
               <p className="text-xs text-slate-500">Ano letivo 2026</p>
             </div>
           </div>
         </header>
+        <PendingInvitation apiUrl={apiUrl} />
         <nav
           aria-label="Navegação principal móvel"
           className={`${mobileMenuOpen ? 'block' : 'hidden'} sticky top-[76px] z-20 max-h-[calc(100dvh-160px)] overflow-y-auto border-b border-slate-200 bg-white px-4 py-4 lg:hidden`}

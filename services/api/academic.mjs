@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import crypto from 'node:crypto';
 import { pool, transaction } from './db.mjs';
+import { ownsApplication, ownsClass, ownsStudent } from './ownership.mjs';
 import { assertInstitutionLimit } from './auth.mjs';
 import { signQrId } from './qr-signing.mjs';
 import { answerKeyStatus } from './assessment-results.mjs';
@@ -61,7 +62,7 @@ export const applicationSchema = z.object({
     .refine((ids) => new Set(ids).size === ids.length)
     .optional(),
 });
-export async function listClasses({ institutionId }) {
+export async function listClasses({ institutionId, ownerId = null }) {
   const r = await pool.query({
     // Escola da própria turma; turmas antigas usam a escola do convite.
     text: `SELECT c.id,c.name,c.grade,c.school_year,es.id school_id,es.name school_name,
@@ -70,10 +71,10 @@ export async function listClasses({ institutionId }) {
            LEFT JOIN class_enrollments ce ON ce.class_id=c.id
            LEFT JOIN class_invites ci ON ci.class_id=c.id AND ci.active
            LEFT JOIN educator_schools es ON es.id=coalesce(c.school_id,ci.school_id)
-           WHERE c.institution_id=$1
+           WHERE c.institution_id=$1 AND ${ownsClass('c', '$2')}
            GROUP BY c.id,es.id,es.name
            ORDER BY c.school_year DESC,c.name`,
-    values: [institutionId],
+    values: [institutionId, ownerId],
   });
   return r.rows.map((x) => ({
     id: x.id,
@@ -165,13 +166,13 @@ export async function createStudent({
   });
   return r.rows[0];
 }
-export async function listStudents({ institutionId }) {
+export async function listStudents({ institutionId, ownerId = null }) {
   const result = await pool.query({
     text: `SELECT s.id,s.registration,s.name,s.access_code,s.selfie_data_url AS "selfieDataUrl",s.active,s.status,s.adapted_exam AS "adaptedExam",i.name AS school_name,u.display_name AS teacher_name,lu.display_name AS "linkedAccountName",lu.email AS "linkedAccountEmail",
       -- Turmas do aluno (com o número da chamada): a página Alunos agrupa por turma.
       coalesce((SELECT jsonb_agg(jsonb_build_object('classId',ce.class_id,'number',ce.number) ORDER BY ce.class_id) FROM class_enrollments ce WHERE ce.student_id=s.id),'[]') AS enrollments
-      FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id LEFT JOIN student_account_links l ON l.student_id=s.id AND l.institution_id=s.institution_id LEFT JOIN users lu ON lu.id=l.user_id WHERE s.institution_id=$1 ORDER BY s.name`,
-    values: [institutionId],
+      FROM students s JOIN institutions i ON i.id=s.institution_id LEFT JOIN users u ON u.id=s.teacher_id LEFT JOIN student_account_links l ON l.student_id=s.id AND l.institution_id=s.institution_id LEFT JOIN users lu ON lu.id=l.user_id WHERE s.institution_id=$1 AND ${ownsStudent('s', '$2')} ORDER BY s.name`,
+    values: [institutionId, ownerId],
   });
   return result.rows;
 }
@@ -367,10 +368,10 @@ async function listApplicationAssignments(client, applicationId) {
   }));
 }
 
-export async function listApplications({ institutionId }) {
+export async function listApplications({ institutionId, ownerId = null }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
-    values: [institutionId],
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
+    values: [institutionId, ownerId],
   });
   // Versões e gabarito de cada avaliação, para o professor conferir antes de corrigir.
   const versions = await pool.query(
