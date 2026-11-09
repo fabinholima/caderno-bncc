@@ -64,3 +64,7 @@ next-env.d.ts
 /deploy/vps/.env
 /deploy/vps/backups/
 
+# Dumps integrais do banco: dados pessoais, nunca versionar
+/database/backups/caderno-current.sql
+caderno-full-*.sql
+

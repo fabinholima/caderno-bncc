@@ -2,7 +2,7 @@
 
 `database/backups/caderno-schema-current.sql` contém a estrutura do PostgreSQL, sem dados, gerada em 09/11/2026 a partir de uma base vazia com todas as migrações até `109`. Para regenerar: rode `node services/api/migrate.mjs` numa base vazia e `pg_dump --schema-only --no-owner --no-privileges`.
 
-O backup integral mais recente está em `outputs/backups/caderno-full-20260930-092950.sql`, incluído explicitamente no repositório privado por solicitação do proprietário. Contém dados sensíveis: não publique o repositório nem compartilhe o arquivo publicamente. Os backups anteriores foram preservados. A cópia local tem permissão restrita ao proprietário; essa permissão deve ser reaplicada após clonar o repositório.
+Backups integrais do banco não ficam no Git: contêm usuários, sessões, tokens e dados de alunos. Os dumps que chegaram a ser versionados (`outputs/backups/caderno-full-*.sql` e `database/backups/caderno-current.sql`) foram removidos de todo o histórico em 09/11/2026, e o `.gitignore` impede que voltem. Guarde backups integrais fora do repositório, em local privado e com permissão restrita ao proprietário.
 
 Os arquivos SQL antigos em `database/backups` são históricos e não representam o banco atual. Não restaurá-los sobre a base em uso. Para recuperar o banco completo, use o backup privado em uma base vazia e valide antes de substituir qualquer serviço.
 
