@@ -6,7 +6,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
+import { createObjectStorage } from './object-storage.mjs';
 import { ownsEssayApplication, teacherScope } from './ownership.mjs';
+import { readScanImage } from './scan-image-storage.mjs';
 import {
   ESSAY_SHEET_TEMPLATE_IDS,
   ESSAY_SHEET_TEMPLATES,
@@ -248,7 +250,7 @@ function textFromRow(row) {
     source: row.source,
     bibliographicReference: row.bibliographic_reference,
     url: row.url,
-    imageDataUrl: row.image_data_url,
+    imageSha256: row.image_sha256,
     imageAlt: row.image_alt,
     imageCaption: row.image_caption,
     imageWidth: row.image_width,
@@ -352,7 +354,7 @@ async function loadPrompt(db, identity, promptId, { lock = false } = {}) {
 
 async function loadTexts(db, promptId) {
   const result = await db.query(
-    `SELECT id,title,content,author,source,bibliographic_reference,url,image_data_url,image_alt,image_caption,
+    `SELECT id,title,content,author,source,bibliographic_reference,url,image_sha256,image_alt,image_caption,
             image_width
        FROM essay_motivating_texts WHERE prompt_id=$1 ORDER BY position`,
     [promptId],
@@ -360,17 +362,142 @@ async function loadTexts(db, promptId) {
   return result.rows.map(textFromRow);
 }
 
+// ---------- Imagens dos temas ----------
+// Cada imagem fica uma vez só em essay_images, pelo sha256 do conteúdo (no
+// storage de objetos quando configurado). Textos motivadores, cópias de tema e
+// snapshots das aplicações guardam apenas o hash: {type:'image', image:<sha256>}
+// nos blocos e imageSha256 no texto. O editor continua recebendo data URLs.
+
+const imagePattern = /^data:image\/(png|jpeg);base64,(.+)$/;
+
+export async function storeEssayImage(db, institutionId, value, options = {}) {
+  const match = String(value).match(imagePattern);
+  if (!match || !imageBytes(value))
+    throw fail('Use imagens PNG ou JPEG de até 1,5 MB.');
+  const contents = Buffer.from(match[2], 'base64');
+  const sha256 = createHash('sha256').update(contents).digest('hex');
+  const existing = await db.query(
+    'SELECT 1 FROM essay_images WHERE institution_id=$1 AND sha256=$2',
+    [institutionId, sha256],
+  );
+  if (existing.rowCount) return sha256;
+  const mimeType = `image/${match[1]}`;
+  const storage =
+    'storage' in options ? options.storage : createObjectStorage();
+  const key = storage
+    ? await storage.put(
+        `essay-images/${institutionId}/${sha256}.${match[1] === 'png' ? 'png' : 'jpg'}`,
+        contents,
+        { contentType: mimeType },
+      )
+    : null;
+  await db.query(
+    `INSERT INTO essay_images (institution_id,sha256,mime_type,byte_size,data,storage_ref)
+     VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`,
+    [
+      institutionId,
+      sha256,
+      mimeType,
+      contents.length,
+      key ? null : contents,
+      key ? `${storage.provider}:${key}` : null,
+    ],
+  );
+  return sha256;
+}
+
+/** Hashes das imagens referenciadas pelos textos motivadores. */
+export function essayImageRefs(texts = []) {
+  const refs = new Set();
+  for (const item of texts) {
+    if (item.imageSha256) refs.add(item.imageSha256);
+    for (const block of item.content || [])
+      if (block.type === 'image' && block.image) refs.add(block.image);
+  }
+  return [...refs];
+}
+
+/** sha256 -> {mimeType, contents} das imagens pedidas. */
+async function loadEssayImages(db, institutionId, refs) {
+  const images = new Map();
+  if (!refs.length) return images;
+  const result = await db.query(
+    `SELECT sha256,mime_type,data,storage_ref FROM essay_images
+      WHERE institution_id=$1 AND sha256=ANY($2::text[])`,
+    [institutionId, refs],
+  );
+  for (const row of result.rows)
+    images.set(row.sha256, {
+      mimeType: row.mime_type,
+      contents: await readScanImage(row.storage_ref, row.data),
+    });
+  return images;
+}
+
+async function storeTextImages(db, institutionId, texts) {
+  const stored = [];
+  for (const { imageDataUrl, ...item } of texts) {
+    const content = [];
+    for (const block of item.content) {
+      if (block.type !== 'image') content.push(block);
+      else {
+        const { dataUrl, ...rest } = block;
+        content.push({
+          ...rest,
+          image: await storeEssayImage(db, institutionId, dataUrl),
+        });
+      }
+    }
+    stored.push({
+      ...item,
+      content,
+      imageSha256: imageDataUrl
+        ? await storeEssayImage(db, institutionId, imageDataUrl)
+        : null,
+    });
+  }
+  return stored;
+}
+
+// Devolve as imagens como data URLs, no formato que o editor envia.
+async function textsWithDataUrls(db, institutionId, texts) {
+  const images = await loadEssayImages(
+    db,
+    institutionId,
+    essayImageRefs(texts),
+  );
+  const dataUrl = (sha256) => {
+    const image = images.get(sha256);
+    return image
+      ? `data:${image.mimeType};base64,${image.contents.toString('base64')}`
+      : '';
+  };
+  return texts.map(({ imageSha256, ...item }) => ({
+    ...item,
+    content: (item.content || []).map(({ image, ...block }) =>
+      block.type === 'image' ? { ...block, dataUrl: dataUrl(image) } : block,
+    ),
+    imageDataUrl: imageSha256 ? dataUrl(imageSha256) : '',
+  }));
+}
+
 export async function getEssayPrompt(identity, promptId) {
   requireStaff(identity);
   const row = await loadPrompt(pool, identity, promptId);
-  return promptFromRow(row, identity, await loadTexts(pool, promptId));
+  const texts = await loadTexts(pool, promptId);
+  return promptFromRow(
+    row,
+    identity,
+    await textsWithDataUrls(pool, identity.institutionId, texts),
+  );
 }
 
-async function insertTexts(db, promptId, texts) {
-  for (const [index, item] of texts.entries()) {
+async function insertTexts(db, institutionId, promptId, texts) {
+  const stored = await storeTextImages(db, institutionId, texts);
+  for (const [index, item] of stored.entries()) {
     await db.query(
       `INSERT INTO essay_motivating_texts
-         (prompt_id,position,title,content,author,source,bibliographic_reference,url,image_data_url,image_alt,image_caption,image_width)
+         (prompt_id,position,title,content,author,source,bibliographic_reference,url,image_sha256,image_alt,image_caption,image_width)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         promptId,
@@ -381,7 +508,7 @@ async function insertTexts(db, promptId, texts) {
         item.source,
         item.bibliographicReference,
         item.url,
-        item.imageDataUrl,
+        item.imageSha256,
         item.imageAlt,
         item.imageCaption,
         item.imageWidth,
@@ -417,7 +544,12 @@ export async function createEssayPrompt(identity, input) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
       [...promptValues(value), identity.institutionId, identity.userId],
     );
-    await insertTexts(client, result.rows[0].id, value.motivatingTexts);
+    await insertTexts(
+      client,
+      identity.institutionId,
+      result.rows[0].id,
+      value.motivatingTexts,
+    );
     return result.rows[0].id;
   });
   return getEssayPrompt(identity, id);
@@ -452,7 +584,12 @@ export async function updateEssayPrompt(identity, promptId, input) {
       'DELETE FROM essay_motivating_texts WHERE prompt_id=$1',
       [promptId],
     );
-    await insertTexts(client, promptId, value.motivatingTexts);
+    await insertTexts(
+      client,
+      identity.institutionId,
+      promptId,
+      value.motivatingTexts,
+    );
   });
   return getEssayPrompt(identity, promptId);
 }
@@ -472,8 +609,8 @@ export async function duplicateEssayPrompt(identity, promptId) {
     );
     await client.query(
       `INSERT INTO essay_motivating_texts
-         (prompt_id,position,title,content,author,source,bibliographic_reference,url,image_data_url,image_alt,image_caption,image_width)
-       SELECT $2,position,title,content,author,source,bibliographic_reference,url,image_data_url,image_alt,image_caption,image_width
+         (prompt_id,position,title,content,author,source,bibliographic_reference,url,image_sha256,image_alt,image_caption,image_width)
+       SELECT $2,position,title,content,author,source,bibliographic_reference,url,image_sha256,image_alt,image_caption,image_width
          FROM essay_motivating_texts WHERE prompt_id=$1`,
       [row.id, copy.rows[0].id],
     );
@@ -543,29 +680,50 @@ async function writeImage(directory, name, value) {
   return fileName;
 }
 
-/** Grava as imagens do tema como arquivos e devolve o tema para o ConTeXt. */
-export async function materializeEssayImages(prompt, directory) {
+async function writeStoredImage(directory, name, image) {
+  if (!image) return '';
+  const fileName = `${name}.${image.mimeType === 'image/png' ? 'png' : 'jpg'}`;
+  await writeFile(path.join(directory, fileName), image.contents);
+  return fileName;
+}
+
+/**
+ * Grava as imagens do tema como arquivos e devolve o tema para o ConTeXt.
+ * Aceita data URLs (rascunho do editor) ou hashes, resolvidos em `images`.
+ */
+export async function materializeEssayImages(
+  prompt,
+  directory,
+  images = new Map(),
+) {
   const texts = [];
   for (const [index, item] of (prompt.motivatingTexts || []).entries()) {
     const content = [];
     for (const [blockIndex, block] of (item.content || []).entries()) {
       if (block.type !== 'image') content.push(block);
       else {
-        const file = await writeImage(
-          directory,
-          `texto-${index + 1}-imagem-${blockIndex + 1}`,
-          block.dataUrl,
-        );
-        if (file) content.push({ ...block, dataUrl: undefined, file });
+        const name = `texto-${index + 1}-imagem-${blockIndex + 1}`;
+        const file = block.dataUrl
+          ? await writeImage(directory, name, block.dataUrl)
+          : await writeStoredImage(directory, name, images.get(block.image));
+        if (file)
+          content.push({
+            ...block,
+            dataUrl: undefined,
+            image: undefined,
+            file,
+          });
       }
     }
+    const name = `texto-${index + 1}`;
     texts.push({
       ...item,
       content,
       imageDataUrl: undefined,
+      imageSha256: undefined,
       imageFile: item.imageDataUrl
-        ? await writeImage(directory, `texto-${index + 1}`, item.imageDataUrl)
-        : '',
+        ? await writeImage(directory, name, item.imageDataUrl)
+        : await writeStoredImage(directory, name, images.get(item.imageSha256)),
     });
   }
   return { ...prompt, motivatingTexts: texts };
@@ -573,6 +731,7 @@ export async function materializeEssayImages(prompt, directory) {
 
 export async function renderEssayPdf({
   userId,
+  institutionId,
   prompt,
   options,
   copies,
@@ -589,7 +748,15 @@ export async function renderEssayPdf({
     try {
       const document = renderEssayDocument({
         ...options,
-        prompt: await materializeEssayImages(prompt, directory),
+        prompt: await materializeEssayImages(
+          prompt,
+          directory,
+          await loadEssayImages(
+            pool,
+            institutionId,
+            essayImageRefs(prompt.motivatingTexts),
+          ),
+        ),
         logoFile: logoDataUrl
           ? await writeImage(directory, 'logotipo', logoDataUrl)
           : '',
@@ -636,14 +803,21 @@ export async function essaySheetPdf(identity, input) {
   requireStaff(identity);
   const request = sheetRequestSchema.parse(input);
   let prompt;
-  if (request.promptId)
-    prompt = await getEssayPrompt(identity, request.promptId);
-  else if (request.prompt)
+  // Tema salvo: as imagens seguem como hashes e são lidas uma vez no render.
+  if (request.promptId) {
+    const row = await loadPrompt(pool, identity, request.promptId);
+    prompt = promptFromRow(
+      row,
+      identity,
+      await loadTexts(pool, request.promptId),
+    );
+  } else if (request.prompt)
     prompt = essayPromptSchema.parse({ ...request.prompt, status: 'draft' });
   else throw fail('Selecione um tema.');
   const school = await headerSchool(identity.userId);
   return renderEssayPdf({
     userId: identity.userId,
+    institutionId: identity.institutionId,
     prompt: sheetPrompt(prompt),
     options: {
       template: request.template,
@@ -885,6 +1059,7 @@ export async function essayApplicationSheetsPdf(
   const options = row.sheet_options || {};
   return renderEssayPdf({
     userId: identity.userId,
+    institutionId: identity.institutionId,
     prompt: row.prompt_snapshot,
     options: {
       template: options.template,
@@ -910,7 +1085,7 @@ export async function essayApplicationSheetsPdf(
 const studentApplicationsQuery = `
   SELECT DISTINCT ON (a.id) a.id,a.applied_on::text AS applied_on,a.due_at,a.status,a.prompt_snapshot->>'title' AS title,
          a.prompt_snapshot->>'theme' AS theme,c.name AS class_name,c.grade AS class_grade,eas.status AS submission_status,
-         s.name AS student_name,eas.student_number,a.sheet_options,a.prompt_snapshot,a.created_by,a.class_id,
+         s.name AS student_name,eas.student_number,a.sheet_options,a.prompt_snapshot,a.created_by,a.class_id,a.institution_id,
          u.display_name AS teacher_name
     FROM student_account_links l
     JOIN students s ON s.id=l.student_id AND s.active
@@ -956,6 +1131,7 @@ export async function myEssayProposalPdf(identity, applicationId) {
   const options = row.sheet_options || {};
   return renderEssayPdf({
     userId: identity.userId,
+    institutionId: row.institution_id,
     prompt: row.prompt_snapshot,
     options: {
       template: options.template,

@@ -338,6 +338,33 @@ test(
         ['Bianca Souza', 'Davi Lima'],
       );
       assert.equal(application.className, 'A');
+
+      // A imagem repetida (2 usos, cópia e aplicação) é guardada uma vez só;
+      // textos e snapshot guardam o hash, não os bytes.
+      const stored = await pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM essay_images WHERE institution_id=$1) AS images,
+           (SELECT prompt_snapshot::text FROM essay_applications WHERE id=$2) AS snapshot,
+           (SELECT string_agg(content::text, '') FROM essay_motivating_texts
+             WHERE prompt_id=ANY($3::uuid[])) AS contents`,
+        [institutionId, application.id, [created.id, copy.id]],
+      );
+      assert.equal(stored.rows[0].images, 1);
+      assert.doesNotMatch(stored.rows[0].snapshot, /data:image/);
+      assert.match(stored.rows[0].snapshot, /"imageSha256": "[0-9a-f]{64}"/);
+      assert.doesNotMatch(stored.rows[0].contents, /data:image/);
+      // O editor continua recebendo as imagens como data URL.
+      const copyTexts = (await essays.getEssayPrompt(colleague, copy.id))
+        .motivatingTexts;
+      assert.equal(
+        copyTexts.find((item) => item.title === 'Charge').content[0].dataUrl,
+        png,
+      );
+      assert.equal(
+        copyTexts.find((item) => item.title !== 'Charge').imageDataUrl,
+        png,
+      );
+
       await essays.updateEssayPrompt(teacher, created.id, {
         ...(await essays.getEssayPrompt(teacher, created.id)),
         title: 'Título revisado',

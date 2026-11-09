@@ -75,9 +75,13 @@ A chave do GitHub só consegue rodar `deploy/deploy-remoto.sh`, que aceita apena
 
 Para revogar, apague a linha `deploy-github` de `~/.ssh/authorized_keys` no VPS.
 
+## Capacidade
+
+Antes do backup, o script mostra (também no `--dry-run`) o espaço livre do servidor, o uso do Docker, o tamanho dos backups locais, do banco e das maiores tabelas, e o uso do bucket por pasta (`services/api/storage-usage.mjs`, somente leitura). O provedor aparece só pelo domínio do endpoint, sem a conta.
+
 ## Backups
 
-Os arquivos ficam em `deploy/vps/backups/caderno-AAAAMMDD-HHMMSS-<commit>.dump`, a mesma pasta do backup diário (`backup-postgres.sh`), que o git ignora. O script não apaga backups: remova os antigos manualmente. A cópia externa criptografada é feita pelo backup diário (`docs/backup-producao.md`).
+Os arquivos ficam em `deploy/vps/backups/caderno-AAAAMMDD-HHMMSS-<commit>.dump`, a mesma pasta do backup diário (`backup-postgres.sh`), que o git ignora. O script mantém os 5 mais recentes desta pasta (`DEPLOY_BACKUPS_KEEP`) e apaga os mais antigos depois de gravar um backup novo e válido. A cópia externa criptografada é feita pelo backup diário (`docs/backup-producao.md`).
 
 Restaurar substitui os dados atuais. Use só depois de conferir o problema, dentro de `deploy/vps`:
 

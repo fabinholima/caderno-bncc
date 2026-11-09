@@ -167,6 +167,8 @@ o DNS e reativar os serviços de lá.
   5 erros 5xx em 5 minutos (no máximo um a cada 30 minutos) e quando o serviço
   `monitor` vê a API ou o portal falharem 3 checagens seguidas (outro quando
   voltam). Sem `ALERT_EMAIL_TO`, os alertas ficam só no log.
+- **Disco**: o serviço `monitor` também manda e-mail quando o disco passa de 80%
+  (`DISK_ALERT_PERCENT` no `.env`) e quando volta a ficar abaixo de 75%.
 - **Imagens dos cartões fora do banco**: com `FILE_STORAGE_PROVIDER=s3`, os
   cartões novos e as imagens de revisão vão para o S3, e o banco guarda só a
   referência. Para mover as imagens antigas (uma vez; pode repetir):

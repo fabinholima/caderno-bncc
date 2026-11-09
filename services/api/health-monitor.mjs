@@ -2,6 +2,9 @@
 // por e-mail depois de falhas seguidas; manda outro quando volta ao normal.
 // Roda como serviço próprio no compose, para alertar mesmo com a API fora do ar:
 //   HEALTH_TARGETS="api=http://api:8788/health,portal=http://frontend:3000/portal"
+// Também confere o espaço em disco (DISK_PATHS, alerta a partir de
+// DISK_ALERT_PERCENT, padrão 80%). Um volume Docker montado mostra o disco do host.
+import { statfs } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { errorFields, log, sendAlert } from './observability.mjs';
 
@@ -66,19 +69,78 @@ export async function checkTargets(
   return alerts;
 }
 
+/** Percentual usado do sistema de arquivos, como o df (blocos reservados contam como usados). */
+export async function diskUsage(path, reader = statfs) {
+  const stats = await reader(path);
+  const total = stats.blocks * stats.bsize;
+  const available = stats.bavail * stats.bsize;
+  return {
+    percent: total ? Math.round(((total - available) / total) * 100) : 0,
+    availableGb: available / 1024 ** 3,
+  };
+}
+
+/** Alerta ao passar do limite e avisa de novo só depois de cair 5 pontos abaixo dele. */
+export async function checkDisks(
+  paths,
+  state,
+  { thresholdPercent = 80, reader = statfs } = {},
+) {
+  const alerts = [];
+  for (const path of paths) {
+    const key = `disk:${path}`;
+    const alerted = state.get(key)?.alerted ?? false;
+    let usage;
+    try {
+      usage = await diskUsage(path, reader);
+    } catch (error) {
+      log('warn', 'health.disk_unreadable', {
+        path,
+        reason: errorFields(error).message,
+      });
+      continue;
+    }
+    const free = `${usage.availableGb.toFixed(1)} GB livres`;
+    if (!alerted && usage.percent >= thresholdPercent) {
+      log('warn', 'health.disk_full', { path, percent: usage.percent });
+      alerts.push({
+        subject: `Disco do servidor em ${usage.percent}%`,
+        text: `O disco que guarda ${path} está ${usage.percent}% ocupado (${free}).\n\nVerifique com: df -h && docker system df && du -sh deploy/vps/backups`,
+      });
+      state.set(key, { alerted: true });
+    } else if (alerted && usage.percent < thresholdPercent - 5) {
+      alerts.push({
+        subject: `Disco do servidor voltou a ${usage.percent}%`,
+        text: `O disco que guarda ${path} está ${usage.percent}% ocupado (${free}).`,
+      });
+      state.set(key, { alerted: false });
+    }
+  }
+  return alerts;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const targets = parseTargets(
     process.env.HEALTH_TARGETS || 'api=http://127.0.0.1:8788/health',
   );
+  const disks = String(process.env.DISK_PATHS || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const thresholdPercent = Number(process.env.DISK_ALERT_PERCENT) || 80;
   const intervalMs = Number(process.env.HEALTH_INTERVAL_MS) || 60_000;
   const state = new Map();
   log('info', 'health.monitor_started', {
     targets: targets.map((target) => target.name),
+    disks,
     intervalMs,
   });
   const round = async () => {
-    for (const alert of await checkTargets(targets, state))
-      await sendAlert(alert.subject, alert.text);
+    const alerts = [
+      ...(await checkTargets(targets, state)),
+      ...(await checkDisks(disks, state, { thresholdPercent })),
+    ];
+    for (const alert of alerts) await sendAlert(alert.subject, alert.text);
   };
   await round();
   setInterval(() => void round(), intervalMs);

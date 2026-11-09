@@ -13,6 +13,7 @@
 #   BACKUP_DATABASE_URL use quando o banco não está no compose; ignora DB_SERVICE
 #   PG_IMAGE            imagem com pg_dump para BACKUP_DATABASE_URL (postgres:18-alpine)
 #   BACKUP_DIR          onde guardar os backups (backups/ ao lado do COMPOSE_FILE)
+#   DEPLOY_BACKUPS_KEEP quantos backups de atualização manter no disco (5)
 #   HEALTH_URL          (https://api.ufaprova.com.br/health)
 #   HEALTH_TIMEOUT      segundos de espera pela API (300)
 #   BRANCH              (main)
@@ -34,6 +35,7 @@ DB_USER="${DB_USER:-caderno}"
 DB_NAME="${DB_NAME:-caderno}"
 PG_IMAGE="${PG_IMAGE:-postgres:18-alpine}"
 BACKUP_DIR="${BACKUP_DIR:-$(dirname "$COMPOSE_FILE")/backups}"
+DEPLOY_BACKUPS_KEEP="${DEPLOY_BACKUPS_KEEP:-5}"
 HEALTH_URL="${HEALTH_URL:-https://api.ufaprova.com.br/health}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-300}"
 BRANCH="${BRANCH:-main}"
@@ -134,6 +136,19 @@ applied="$(pg psql -d "$(pg_target)" -Atc 'SELECT filename FROM schema_migration
 pending="$(comm -23 <(printf '%s\n' "$known") <(printf '%s\n' "$applied" | sort))"
 if [[ -n "$pending" ]]; then printf '%s\n' "$pending"; else echo "Nenhuma."; fi
 
+step "Capacidade"
+# Somente leitura: mostra o espaço do servidor, do banco e do armazenamento.
+df -h / "$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /)" 2>/dev/null | awk 'NR==1 || !seen[$0]++'
+docker system df 2>/dev/null || true
+[[ -d "$BACKUP_DIR" ]] && echo "Backups locais: $(du -sh "$BACKUP_DIR" | cut -f1) em $(find "$BACKUP_DIR" -maxdepth 1 -name '*.dump*' | wc -l) arquivos"
+pg psql -d "$(pg_target)" -Atc "SELECT 'Banco: ' || pg_size_pretty(pg_database_size(current_database()))" || true
+echo "Maiores tabelas (dados + índices + TOAST):"
+pg psql -d "$(pg_target)" -Atc "SELECT '  ' || relname || ': ' || pg_size_pretty(pg_total_relation_size(c.oid))
+  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE c.relkind='r' AND n.nspname='public' ORDER BY pg_total_relation_size(c.oid) DESC LIMIT 12" || true
+# Uso do bucket (imagem atual da API; versões antigas não têm o script).
+compose run --rm --no-deps -T "$API_SERVICE" sh -c '[ -f storage-usage.mjs ] && node storage-usage.mjs || echo "Uso do bucket: disponível após esta atualização."' 2>/dev/null || true
+
 step "Backup do banco"
 BACKUP_FILE="$BACKUP_DIR/caderno-$(date +%Y%m%d-%H%M%S)-${PREVIOUS_COMMIT:0:7}.dump"
 if [[ $DRY_RUN -eq 1 ]]; then
@@ -145,6 +160,12 @@ else
   [[ -s "$BACKUP_FILE" ]] || fail "o backup ficou vazio."
   pg pg_restore --list <"$BACKUP_FILE" >/dev/null || fail "o backup não pôde ser lido pelo pg_restore."
   echo "$BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+  # Mantém só os backups de atualização mais recentes; o backup diário tem a
+  # própria retenção e cópia externa (backup-postgres.sh).
+  find "$BACKUP_DIR" -maxdepth 1 -name 'caderno-*.dump' -printf '%T@ %p\n' | sort -rn \
+    | tail -n +$((DEPLOY_BACKUPS_KEEP + 1)) | cut -d' ' -f2- | while read -r old; do
+      rm -f -- "$old" && echo "Removido backup antigo: $(basename "$old")"
+    done
 fi
 
 step "Build"

@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Backup diário do PostgreSQL do VPS.
-# 1. pg_dump em deploy/vps/backups (14 dias de cópias locais);
+# 1. pg_dump em deploy/vps/backups (LOCAL_BACKUP_DAYS dias de cópias locais, padrão 7);
 # 2. criptografa com age para a chave pública BACKUP_AGE_RECIPIENT do .env;
 # 3. envia a cópia criptografada ao bucket S3 (BACKUP_BUCKET ou o dos arquivos).
 # A chave privada do age fica FORA do servidor: quem invade o VPS não lê as
@@ -16,7 +16,8 @@ mkdir -p backups
 docker compose exec -T postgres pg_dump -U caderno -d caderno -Fc -f "/backups/ufaprova-$stamp.dump"
 [ -s "$dump" ] || { echo "ERRO: backup vazio: $dump" >&2; exit 1; }
 docker compose exec -T postgres pg_restore --list "/backups/ufaprova-$stamp.dump" >/dev/null
-find backups -name 'ufaprova-*.dump' -mtime +14 -delete
+# O disco é o mesmo do banco: poucas cópias locais; o histórico fica no bucket.
+find backups -name 'ufaprova-*.dump' -mtime +"${LOCAL_BACKUP_DAYS:-7}" -delete
 echo "Backup local: $dump"
 
 recipient=$(sed -n 's/^BACKUP_AGE_RECIPIENT=//p' .env 2>/dev/null | tail -1)

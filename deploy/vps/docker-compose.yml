@@ -150,16 +150,22 @@ services:
 
   monitor:
     # Checa a saúde da API e do portal a cada minuto e alerta por e-mail
-    # após 3 falhas seguidas (e quando voltam). Mesma imagem da API.
+    # após 3 falhas seguidas (e quando voltam). Também alerta quando o disco
+    # passa de 80%: o volume montado (só leitura) mostra o disco do servidor,
+    # o mesmo do banco e dos backups. Mesma imagem da API.
     build:
       context: ../..
       dockerfile: services/api/Dockerfile
     image: ufaprova-api:latest
     restart: unless-stopped
     command: ["node", "health-monitor.mjs"]
+    volumes:
+      - api-data:/var/data:ro
     environment:
       NODE_ENV: production
       HEALTH_TARGETS: api=http://api:8788/health,frontend=http://frontend:3000/portal
+      DISK_PATHS: /var/data
+      DISK_ALERT_PERCENT: ${DISK_ALERT_PERCENT:-80}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
       RESEND_API_KEY: ${RESEND_API_KEY}
       AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM}

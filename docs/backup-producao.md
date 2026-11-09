@@ -3,7 +3,8 @@
 O banco é copiado todo dia em três camadas:
 
 1. **Cópia local** em `deploy/vps/backups/ufaprova-AAAA-MM-DD_HHMM.dump`
-   (`pg_dump -Fc`, conferida com `pg_restore --list`, 14 dias).
+   (`pg_dump -Fc`, conferida com `pg_restore --list`, 7 dias; mude com
+   `LOCAL_BACKUP_DAYS`). O disco é o mesmo do banco: o histórico longo fica no bucket.
 2. **Cópia externa criptografada** no S3: o dump é criptografado com
    [age](https://age-encryption.org) para uma chave pública e enviado como
    `backups/postgres/ufaprova-….dump.age`. A chave privada não fica no VPS.

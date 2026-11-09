@@ -8,7 +8,7 @@ import {
   requestIdFrom,
   sendAlert,
 } from './observability.mjs';
-import { checkTargets, parseTargets } from './health-monitor.mjs';
+import { checkDisks, checkTargets, parseTargets } from './health-monitor.mjs';
 
 test('ID da requisição: aceita o do proxy só quando bem formado', () => {
   assert.equal(
@@ -137,6 +137,45 @@ test('monitor: alerta após falhas seguidas e avisa a recuperação', async () =
       up.map((alert) => alert.subject),
       ['api voltou a responder'],
     );
+  } finally {
+    process.stdout.write = original;
+  }
+});
+
+test('monitor: alerta de disco acima do limite e aviso quando libera espaço', async () => {
+  let usedPercent = 70;
+  // 100 blocos de 1 GiB; bavail = parte livre.
+  const reader = async () => ({
+    blocks: 100,
+    bsize: 1024 ** 3,
+    bavail: 100 - usedPercent,
+  });
+  const state = new Map();
+  const original = process.stdout.write;
+  process.stdout.write = () => true;
+  try {
+    const check = () => checkDisks(['/var/data'], state, { reader });
+    assert.deepEqual(await check(), []);
+    usedPercent = 83;
+    const full = await check();
+    assert.deepEqual(
+      full.map((alert) => alert.subject),
+      ['Disco do servidor em 83%'],
+    );
+    assert.match(full[0].text, /17\.0 GB livres/);
+    usedPercent = 78;
+    assert.deepEqual(await check(), [], 'sem repetir perto do limite');
+    usedPercent = 70;
+    assert.deepEqual(
+      (await check()).map((alert) => alert.subject),
+      ['Disco do servidor voltou a 70%'],
+    );
+    const unreadable = await checkDisks(['/nao-existe'], new Map(), {
+      reader: async () => {
+        throw new Error('ENOENT');
+      },
+    });
+    assert.deepEqual(unreadable, []);
   } finally {
     process.stdout.write = original;
   }
