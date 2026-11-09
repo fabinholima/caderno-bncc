@@ -147,3 +147,25 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  docker-deps:
+    # Confere que as imagens instalam as dependências pelo pnpm-lock.yaml
+    # (estágio "deps" de cada Dockerfile), sem baixar o ConTeXt inteiro.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        dockerfile:
+          - services/api/Dockerfile
+          - services/renderer/Dockerfile
+          - services/omr/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build deps stage
+        run: docker build --target deps -f ${{ matrix.dockerfile }} -t deps-check .
+
+      - name: Check installed modules
+        run: |
+          docker run --rm -w /src/services/api deps-check node -e "for (const name of Object.keys(require('./package.json').dependencies)) require.resolve(name); console.log('dependências da API ok')"

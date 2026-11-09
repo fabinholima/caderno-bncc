@@ -1,3 +1,12 @@
+# Dependências instaladas exatamente como no pnpm-lock.yaml (builds reproduzíveis).
+FROM node:22-bookworm-slim AS deps
+WORKDIR /src
+RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY services/api/package.json services/api/
+COPY services/renderer/package.json services/renderer/
+RUN pnpm install --frozen-lockfile --prod --filter @caderno/api --filter @caderno/renderer
+
 FROM node:22-bookworm-slim
 
 ENV TEXMFCACHE=/tmp/tex-cache
@@ -38,12 +47,11 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY services/api/package*.json services/api/
-RUN cd services/api && npm install --omit=dev
+COPY --from=deps /src/node_modules node_modules
+COPY --from=deps /src/services/api/node_modules services/api/node_modules
+COPY --from=deps /src/services/renderer/node_modules services/renderer/node_modules
 COPY services/api services/api
 COPY lib /app/lib
-COPY services/renderer/package*.json services/renderer/
-RUN cd services/renderer && npm install --omit=dev
 COPY services/renderer services/renderer
 
 ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/mtxrun

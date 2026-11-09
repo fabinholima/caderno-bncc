@@ -1,3 +1,12 @@
+# Dependências instaladas exatamente como no pnpm-lock.yaml (builds reproduzíveis).
+FROM node:24-bookworm-slim AS deps
+WORKDIR /src
+RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY services/api/package.json services/api/
+COPY services/renderer/package.json services/renderer/
+RUN pnpm install --frozen-lockfile --prod --filter @caderno/api
+
 FROM node:24-bookworm-slim
 
 WORKDIR /app
@@ -7,8 +16,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && python3 -m venv /opt/venv-omr
 
-COPY services/api/package.json services/api/package-lock.json* /app/services/api/
-RUN cd /app/services/api && npm install --omit=dev
+COPY --from=deps /src/node_modules /app/node_modules
+COPY --from=deps /src/services/api/node_modules /app/services/api/node_modules
 
 COPY services/omr/requirements.txt /app/services/omr/requirements.txt
 RUN /opt/venv-omr/bin/pip install --no-cache-dir -r /app/services/omr/requirements.txt
