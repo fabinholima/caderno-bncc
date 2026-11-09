@@ -1,6 +1,6 @@
 # Backup atual
 
-`database/backups/caderno-schema-current.sql` contém a estrutura atual do PostgreSQL, sem dados, atualizada em 30/09/2026, incluindo as migrações até 047.
+`database/backups/caderno-schema-current.sql` contém a estrutura do PostgreSQL, sem dados, gerada em 09/11/2026 a partir de uma base vazia com todas as migrações até `109`. Para regenerar: rode `node services/api/migrate.mjs` numa base vazia e `pg_dump --schema-only --no-owner --no-privileges`.
 
 O backup integral mais recente está em `outputs/backups/caderno-full-20260930-092950.sql`, incluído explicitamente no repositório privado por solicitação do proprietário. Contém dados sensíveis: não publique o repositório nem compartilhe o arquivo publicamente. Os backups anteriores foram preservados. A cópia local tem permissão restrita ao proprietário; essa permissão deve ser reaplicada após clonar o repositório.
 

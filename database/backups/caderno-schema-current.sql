@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict JUIYxJGFdvjguL8FlEkQTzKupy4dbzNNzfBI6O7xvvBIjgKrQjSdxXv2m7E7HgZ
+\restrict XxgKEiFsTqVyglNIB3Q4UNz2O2Y6m6zWYd5CnaWbKn4xEywSl5zRIXVNmLRamdv
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -18,20 +18,6 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
-
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
-
--- *not* creating schema, since initdb creates it
-
-
---
--- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON SCHEMA public IS '';
-
 
 --
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
@@ -66,7 +52,8 @@ CREATE TYPE public.question_status AS ENUM (
     'draft',
     'review',
     'approved',
-    'archived'
+    'archived',
+    'needs_adjustments'
 );
 
 
@@ -78,8 +65,99 @@ CREATE TYPE public.question_type AS ENUM (
     'single_choice',
     'multiple_choice',
     'short_answer',
-    'essay'
+    'essay',
+    'true_false'
 );
+
+
+--
+-- Name: assert_result_version_publishable(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.assert_result_version_publishable() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE pending integer; owner uuid;
+BEGIN
+  SELECT review_pending_count + manual_pending_count, result_id INTO pending, owner
+  FROM assessment_result_versions WHERE id = NEW.result_version_id;
+  IF owner IS DISTINCT FROM NEW.result_id THEN
+    RAISE EXCEPTION 'A versão não pertence a este resultado.' USING ERRCODE = '23514';
+  END IF;
+  IF pending > 0 THEN
+    RAISE EXCEPTION 'O resultado tem questões pendentes de revisão.' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+--
+-- Name: publish_legacy_scan_results(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.publish_legacy_scan_results() RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE r record; result uuid; version uuid; converted integer := 0;
+BEGIN
+  FOR r IN
+    SELECT DISTINCT ON (cs.application_student_id)
+           cs.id scan_id, cs.application_student_id, cs.completed_at, aa.institution_id,
+           sub.id submission_id, sub.assessment_version_id, sub.result, sub.score, sub.max_score,
+           encode(sha256(convert_to(av.answer_key::text, 'UTF8')), 'hex') key_hash
+    FROM card_scans cs
+    JOIN assessment_submissions sub ON sub.id = cs.submission_id
+    JOIN application_students aps ON aps.id = cs.application_student_id
+    JOIN assessment_applications aa ON aa.id = aps.application_id
+    JOIN assessment_versions av ON av.id = sub.assessment_version_id
+    WHERE cs.status = 'completed' AND NOT sub.requires_manual_review
+      AND NOT EXISTS (SELECT 1 FROM assessment_results ar WHERE ar.application_student_id = cs.application_student_id)
+    ORDER BY cs.application_student_id, cs.completed_at DESC
+  LOOP
+    INSERT INTO assessment_results(institution_id, application_student_id, processing_status, created_at)
+    VALUES (r.institution_id, r.application_student_id, 'ready', r.completed_at)
+    RETURNING id INTO result;
+    WITH items AS (
+      SELECT item,
+        CASE
+          WHEN item->>'status' = 'correct' THEN 'correct'
+          WHEN item->>'status' = 'unanswered' OR coalesce(jsonb_array_length(item->'selectedLabels'), 0) = 0 THEN 'blank'
+          WHEN jsonb_array_length(item->'selectedLabels') > 1
+               AND coalesce(jsonb_array_length(item->'correctLabels'), 0) <= 1 THEN 'invalid'
+          ELSE 'incorrect'
+        END kind
+      FROM jsonb_array_elements(coalesce(r.result->'items', '[]'::jsonb)) item
+      WHERE item ? 'correctLabels'
+    ), counts AS (
+      SELECT count(*)::int total,
+             count(*) FILTER (WHERE kind = 'correct')::int correct,
+             count(*) FILTER (WHERE kind = 'incorrect')::int incorrect,
+             count(*) FILTER (WHERE kind = 'blank')::int blank,
+             count(*) FILTER (WHERE kind = 'invalid')::int invalid,
+             coalesce(jsonb_agg(item || jsonb_build_object('status', kind)), '[]'::jsonb) items
+      FROM items
+    )
+    INSERT INTO assessment_result_versions(
+      result_id, version_number, source, card_scan_id, submission_id, assessment_version_id,
+      answer_key_sha256, scoring_rule, items, question_count, valid_count, correct_count,
+      incorrect_count, blank_count, invalid_count, review_pending_count, percent, score, max_score, created_at)
+    SELECT result, 1, 'legacy', r.scan_id, r.submission_id, r.assessment_version_id, r.key_hash,
+           '{"kind":"points_sum","annulledQuestions":[],"annulledPolicy":null,"legacy":true}'::jsonb,
+           c.items, jsonb_array_length(coalesce(r.result->'items', '[]'::jsonb)), c.total, c.correct,
+           c.incorrect, c.blank, c.invalid, 0,
+           CASE WHEN c.total > 0 THEN round(c.correct * 100.0 / c.total, 2) END,
+           r.score, r.max_score, r.completed_at
+    FROM counts c
+    RETURNING id INTO version;
+    INSERT INTO assessment_result_publications(result_id, result_version_id, authorizer_name, authorized_at, legacy)
+    VALUES (result, version, 'Publicado antes da autorização no aplicativo', r.completed_at, true);
+    UPDATE assessment_results
+    SET current_version_id = version, published_version_id = version, publication_status = 'published'
+    WHERE id = result;
+    converted := converted + 1;
+  END LOOP;
+  RETURN converted;
+END $$;
 
 
 SET default_tablespace = '';
@@ -154,6 +232,26 @@ COMMENT ON COLUMN public.application_report_snapshots.snapshot IS 'Fotografia es
 
 
 --
+-- Name: application_result_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.application_result_settings (
+    application_id uuid NOT NULL,
+    institution_id uuid NOT NULL,
+    min_expected_percent numeric(5,2),
+    release_policy text DEFAULT 'summary'::text NOT NULL,
+    annulled_questions integer[] DEFAULT '{}'::integer[] NOT NULL,
+    annulled_policy text,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT application_result_settings_annulled_policy_check CHECK ((annulled_policy = ANY (ARRAY['exclude'::text, 'award_full'::text]))),
+    CONSTRAINT application_result_settings_check CHECK (((cardinality(annulled_questions) = 0) OR (annulled_policy IS NOT NULL))),
+    CONSTRAINT application_result_settings_min_expected_percent_check CHECK (((min_expected_percent >= (0)::numeric) AND (min_expected_percent <= (100)::numeric))),
+    CONSTRAINT application_result_settings_release_policy_check CHECK ((release_policy = ANY (ARRAY['summary'::text, 'answers'::text, 'answers_and_key'::text])))
+);
+
+
+--
 -- Name: application_students; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -208,6 +306,130 @@ COMMENT ON TABLE public.assessment_presets IS 'Configurações reutilizáveis de
 
 
 --
+-- Name: assessment_result_changes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_result_changes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    result_id uuid NOT NULL,
+    from_version_id uuid,
+    to_version_id uuid NOT NULL,
+    question_number integer NOT NULL,
+    previous_labels text[] DEFAULT '{}'::text[] NOT NULL,
+    new_labels text[] DEFAULT '{}'::text[] NOT NULL,
+    previous_status text,
+    new_status text NOT NULL,
+    changed_by uuid,
+    changed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT assessment_result_changes_question_number_check CHECK ((question_number > 0))
+);
+
+
+--
+-- Name: assessment_result_publications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_result_publications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    result_id uuid NOT NULL,
+    result_version_id uuid NOT NULL,
+    authorized_by uuid,
+    authorizer_name text NOT NULL,
+    authorized_at timestamp with time zone DEFAULT now() NOT NULL,
+    batch_id uuid,
+    legacy boolean DEFAULT false NOT NULL,
+    superseded_at timestamp with time zone
+);
+
+
+--
+-- Name: TABLE assessment_result_publications; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.assessment_result_publications IS 'Autorizações de lançamento: quem autorizou, quando e qual versão foi publicada.';
+
+
+--
+-- Name: assessment_result_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_result_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    result_id uuid NOT NULL,
+    version_number integer NOT NULL,
+    source text NOT NULL,
+    card_scan_id uuid,
+    submission_id uuid,
+    assessment_version_id uuid NOT NULL,
+    answer_key_sha256 text NOT NULL,
+    scoring_rule jsonb NOT NULL,
+    items jsonb NOT NULL,
+    question_count integer NOT NULL,
+    annulled_count integer DEFAULT 0 NOT NULL,
+    valid_count integer NOT NULL,
+    correct_count integer NOT NULL,
+    incorrect_count integer NOT NULL,
+    blank_count integer NOT NULL,
+    invalid_count integer NOT NULL,
+    review_pending_count integer NOT NULL,
+    manual_pending_count integer DEFAULT 0 NOT NULL,
+    percent numeric(5,2),
+    score numeric(8,2),
+    max_score numeric(8,2),
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT assessment_result_versions_annulled_count_check CHECK ((annulled_count >= 0)),
+    CONSTRAINT assessment_result_versions_answer_key_sha256_check CHECK ((answer_key_sha256 ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT assessment_result_versions_blank_count_check CHECK ((blank_count >= 0)),
+    CONSTRAINT assessment_result_versions_check CHECK ((((((correct_count + incorrect_count) + blank_count) + invalid_count) + review_pending_count) = valid_count)),
+    CONSTRAINT assessment_result_versions_correct_count_check CHECK ((correct_count >= 0)),
+    CONSTRAINT assessment_result_versions_incorrect_count_check CHECK ((incorrect_count >= 0)),
+    CONSTRAINT assessment_result_versions_invalid_count_check CHECK ((invalid_count >= 0)),
+    CONSTRAINT assessment_result_versions_manual_pending_count_check CHECK ((manual_pending_count >= 0)),
+    CONSTRAINT assessment_result_versions_percent_check CHECK (((percent >= (0)::numeric) AND (percent <= (100)::numeric))),
+    CONSTRAINT assessment_result_versions_question_count_check CHECK ((question_count >= 0)),
+    CONSTRAINT assessment_result_versions_review_pending_count_check CHECK ((review_pending_count >= 0)),
+    CONSTRAINT assessment_result_versions_source_check CHECK ((source = ANY (ARRAY['omr'::text, 'manual_review'::text, 'recalculation'::text, 'legacy'::text]))),
+    CONSTRAINT assessment_result_versions_valid_count_check CHECK ((valid_count >= 0)),
+    CONSTRAINT assessment_result_versions_version_number_check CHECK ((version_number > 0))
+);
+
+
+--
+-- Name: TABLE assessment_result_versions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.assessment_result_versions IS 'Versões imutáveis do resultado, ligadas ao gabarito (hash) e à regra de pontuação usados.';
+
+
+--
+-- Name: assessment_results; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_results (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    institution_id uuid NOT NULL,
+    application_student_id uuid NOT NULL,
+    current_version_id uuid,
+    published_version_id uuid,
+    processing_status text DEFAULT 'processing'::text NOT NULL,
+    publication_status text DEFAULT 'unpublished'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT assessment_results_check CHECK (((publication_status = 'unpublished'::text) = (published_version_id IS NULL))),
+    CONSTRAINT assessment_results_processing_status_check CHECK ((processing_status = ANY (ARRAY['processing'::text, 'needs_review'::text, 'ready'::text, 'failed'::text]))),
+    CONSTRAINT assessment_results_publication_status_check CHECK ((publication_status = ANY (ARRAY['unpublished'::text, 'published'::text, 'republish_required'::text])))
+);
+
+
+--
+-- Name: TABLE assessment_results; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.assessment_results IS 'Resultado de um aluno em uma aplicação. O aluno vê somente published_version_id.';
+
+
+--
 -- Name: assessment_submissions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -220,7 +442,8 @@ CREATE TABLE public.assessment_submissions (
     score numeric(8,2) DEFAULT 0 NOT NULL,
     max_score numeric(8,2) DEFAULT 0 NOT NULL,
     requires_manual_review boolean DEFAULT false NOT NULL,
-    submitted_at timestamp with time zone DEFAULT now() NOT NULL
+    submitted_at timestamp with time zone DEFAULT now() NOT NULL,
+    revision integer DEFAULT 0 NOT NULL
 );
 
 
@@ -251,6 +474,23 @@ CREATE TABLE public.assessment_versions (
 --
 
 COMMENT ON COLUMN public.assessment_versions.snapshot IS 'Fotografia imutável de conteúdo, ordem, pontos e metadados entregue ao renderizador.';
+
+
+--
+-- Name: assessment_workspaces; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_workspaces (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    institution_id uuid NOT NULL,
+    created_by uuid NOT NULL,
+    configuration jsonb NOT NULL,
+    assessment_id uuid,
+    pinned boolean DEFAULT false NOT NULL,
+    revision integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -307,6 +547,19 @@ ALTER SEQUENCE public.audit_log_id_seq OWNED BY public.audit_log.id;
 
 
 --
+-- Name: auth_rate_limits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.auth_rate_limits (
+    key_hash text NOT NULL,
+    attempts integer NOT NULL,
+    window_ends_at timestamp with time zone NOT NULL,
+    CONSTRAINT auth_rate_limits_attempts_check CHECK ((attempts > 0)),
+    CONSTRAINT auth_rate_limits_key_hash_check CHECK ((key_hash ~ '^[0-9a-f]{64}$'::text))
+);
+
+
+--
 -- Name: billing_contracts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -321,8 +574,41 @@ CREATE TABLE public.billing_contracts (
     status text DEFAULT 'creating'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    coupon_id uuid,
+    coupon_code text,
+    base_amount_cents integer,
+    discount_cents integer DEFAULT 0 NOT NULL,
     CONSTRAINT billing_contracts_amount_cents_check CHECK ((amount_cents > 0)),
+    CONSTRAINT billing_contracts_discount_cents_check CHECK ((discount_cents >= 0)),
     CONSTRAINT billing_contracts_months_check CHECK ((months = ANY (ARRAY[1, 12])))
+);
+
+
+--
+-- Name: billing_coupons; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_coupons (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    code text NOT NULL,
+    discount_type text NOT NULL,
+    discount_value integer NOT NULL,
+    plan_id text,
+    cycle_months integer,
+    starts_at timestamp with time zone DEFAULT now() NOT NULL,
+    ends_at timestamp with time zone,
+    max_redemptions integer,
+    active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_coupons_check CHECK (((discount_type <> 'percent'::text) OR (discount_value <= 100))),
+    CONSTRAINT billing_coupons_check1 CHECK (((ends_at IS NULL) OR (ends_at > starts_at))),
+    CONSTRAINT billing_coupons_code_check CHECK ((code ~ '^[A-Z0-9][A-Z0-9-]{2,23}$'::text)),
+    CONSTRAINT billing_coupons_cycle_months_check CHECK ((cycle_months = ANY (ARRAY[1, 12]))),
+    CONSTRAINT billing_coupons_discount_type_check CHECK ((discount_type = ANY (ARRAY['percent'::text, 'fixed'::text]))),
+    CONSTRAINT billing_coupons_discount_value_check CHECK ((discount_value > 0)),
+    CONSTRAINT billing_coupons_max_redemptions_check CHECK (((max_redemptions IS NULL) OR (max_redemptions > 0)))
 );
 
 
@@ -397,10 +683,16 @@ CREATE TABLE public.card_scans (
     source_page integer DEFAULT 1 NOT NULL,
     source_pages integer DEFAULT 1 NOT NULL,
     review_image_data bytea,
+    upload_sha256 text,
+    expected_application_id uuid,
+    discarded_at timestamp with time zone,
+    discarded_by uuid,
+    image_ref text,
+    review_image_ref text,
     CONSTRAINT card_scans_check CHECK ((source_pages >= source_page)),
     CONSTRAINT card_scans_mime_type_check CHECK ((mime_type = ANY (ARRAY['image/png'::text, 'image/jpeg'::text, 'application/pdf'::text]))),
     CONSTRAINT card_scans_source_page_check CHECK ((source_page >= 1)),
-    CONSTRAINT card_scans_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'processing'::text, 'completed'::text, 'review'::text, 'failed'::text])))
+    CONSTRAINT card_scans_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'processing'::text, 'completed'::text, 'review'::text, 'failed'::text, 'discarded'::text])))
 );
 
 
@@ -438,6 +730,72 @@ CREATE TABLE public.class_enrollments (
 
 
 --
+-- Name: class_invites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.class_invites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    class_id uuid NOT NULL,
+    institution_id uuid NOT NULL,
+    code_hash text NOT NULL,
+    code_hint text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    deactivated_at timestamp with time zone,
+    school_id uuid
+);
+
+
+--
+-- Name: class_join_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.class_join_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    class_id uuid NOT NULL,
+    invite_id uuid,
+    institution_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    student_id uuid,
+    status text DEFAULT 'pending'::text NOT NULL,
+    requested_at timestamp with time zone DEFAULT now() NOT NULL,
+    decided_at timestamp with time zone,
+    decided_by uuid,
+    source text DEFAULT 'invite'::text NOT NULL,
+    CONSTRAINT class_join_requests_source_check CHECK (((source = ANY (ARRAY['invite'::text, 'access_code'::text])) AND ((source = 'access_code'::text) OR (invite_id IS NOT NULL)))),
+    CONSTRAINT class_join_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: class_memberships; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.class_memberships (
+    class_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    access_role text NOT NULL,
+    granted_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT class_memberships_access_role_check CHECK ((access_role = ANY (ARRAY['owner'::text, 'teacher'::text, 'coordinator'::text])))
+);
+
+
+--
+-- Name: class_subjects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.class_subjects (
+    class_id uuid NOT NULL,
+    teacher_id uuid NOT NULL,
+    subject text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT class_subjects_subject_check CHECK (((length(TRIM(BOTH FROM subject)) >= 2) AND (length(TRIM(BOTH FROM subject)) <= 80)))
+);
+
+
+--
 -- Name: classes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -448,7 +806,14 @@ CREATE TABLE public.classes (
     grade text NOT NULL,
     school_year integer NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT classes_school_year_check CHECK (((school_year >= 2000) AND (school_year <= 2100)))
+    school_id uuid,
+    school_stage_id uuid,
+    shift text DEFAULT ''::text NOT NULL,
+    created_by uuid,
+    archived_at timestamp with time zone,
+    copied_from_class_id uuid,
+    CONSTRAINT classes_school_year_check CHECK (((school_year >= 2000) AND (school_year <= 2100))),
+    CONSTRAINT classes_shift_check CHECK ((shift = ANY (ARRAY[''::text, 'manha'::text, 'tarde'::text, 'noite'::text, 'integral'::text])))
 );
 
 
@@ -523,7 +888,8 @@ CREATE TABLE public.curriculum_subjects (
     curriculum_version text DEFAULT 'BNCC-2018'::text NOT NULL,
     name text NOT NULL,
     stage text NOT NULL,
-    source_key text
+    source_key text,
+    source_metadata jsonb
 );
 
 
@@ -539,6 +905,7 @@ CREATE TABLE public.educator_profiles (
     grades text[] DEFAULT '{}'::text[] NOT NULL,
     stages text[] DEFAULT '{}'::text[] NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    selfie_data_url text DEFAULT ''::text NOT NULL,
     CONSTRAINT educator_profiles_professional_role_check CHECK ((professional_role = ANY (ARRAY['teacher'::text, 'coordinator'::text])))
 );
 
@@ -562,7 +929,179 @@ CREATE TABLE public.educator_schools (
     email text DEFAULT ''::text NOT NULL,
     logo_data_url text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    is_header_default boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: email_verification_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.email_verification_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone
+);
+
+
+--
+-- Name: escolas; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.escolas (
+    inep_code text NOT NULL,
+    name text NOT NULL,
+    name_normalized text NOT NULL,
+    school_type text DEFAULT ''::text NOT NULL,
+    cnpj text DEFAULT ''::text NOT NULL,
+    address text DEFAULT ''::text NOT NULL,
+    address_number text DEFAULT ''::text NOT NULL,
+    city text DEFAULT ''::text NOT NULL,
+    state character(2) NOT NULL,
+    postal_code text DEFAULT ''::text NOT NULL,
+    phone text DEFAULT ''::text NOT NULL,
+    email text DEFAULT ''::text NOT NULL,
+    census_year integer NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT escolas_inep_code_check CHECK ((inep_code ~ '^[0-9]{8}$'::text)),
+    CONSTRAINT escolas_school_type_check CHECK ((school_type = ANY (ARRAY[''::text, 'federal'::text, 'estadual'::text, 'municipal'::text, 'privada'::text]))),
+    CONSTRAINT escolas_state_check CHECK ((state = ANY (ARRAY['AC'::bpchar, 'AL'::bpchar, 'AP'::bpchar, 'AM'::bpchar, 'BA'::bpchar, 'CE'::bpchar, 'DF'::bpchar, 'ES'::bpchar, 'GO'::bpchar, 'MA'::bpchar, 'MT'::bpchar, 'MS'::bpchar, 'MG'::bpchar, 'PA'::bpchar, 'PB'::bpchar, 'PR'::bpchar, 'PE'::bpchar, 'PI'::bpchar, 'RJ'::bpchar, 'RN'::bpchar, 'RS'::bpchar, 'RO'::bpchar, 'RR'::bpchar, 'SC'::bpchar, 'SP'::bpchar, 'SE'::bpchar, 'TO'::bpchar])))
+);
+
+
+--
+-- Name: essay_application_students; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.essay_application_students (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    application_id uuid NOT NULL,
+    student_id uuid NOT NULL,
+    student_number integer,
+    status text DEFAULT 'pending'::text NOT NULL,
+    submission_storage_key text,
+    submission_mime_type text,
+    submitted_at timestamp with time zone,
+    competency_scores jsonb,
+    total_score integer,
+    feedback text DEFAULT ''::text NOT NULL,
+    corrected_by uuid,
+    corrected_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT essay_application_students_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'submitted'::text, 'in_review'::text, 'corrected'::text, 'absent'::text]))),
+    CONSTRAINT essay_application_students_submission_mime_type_check CHECK (((submission_mime_type IS NULL) OR (submission_mime_type = ANY (ARRAY['image/png'::text, 'image/jpeg'::text, 'application/pdf'::text])))),
+    CONSTRAINT essay_application_students_total_score_check CHECK (((total_score IS NULL) OR ((total_score >= 0) AND (total_score <= 1000))))
+);
+
+
+--
+-- Name: essay_applications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.essay_applications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    institution_id uuid NOT NULL,
+    prompt_id uuid NOT NULL,
+    class_id uuid NOT NULL,
+    created_by uuid NOT NULL,
+    applied_on date NOT NULL,
+    due_at timestamp with time zone,
+    status text DEFAULT 'scheduled'::text NOT NULL,
+    available_to_students boolean DEFAULT false NOT NULL,
+    sheet_options jsonb DEFAULT '{}'::jsonb NOT NULL,
+    prompt_snapshot jsonb NOT NULL,
+    prompt_revision integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT essay_applications_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'open'::text, 'closed'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: essay_motivating_texts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.essay_motivating_texts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    prompt_id uuid NOT NULL,
+    "position" integer NOT NULL,
+    title text DEFAULT ''::text NOT NULL,
+    content jsonb DEFAULT '[]'::jsonb NOT NULL,
+    author text DEFAULT ''::text NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    bibliographic_reference text DEFAULT ''::text NOT NULL,
+    url text DEFAULT ''::text NOT NULL,
+    image_data_url text DEFAULT ''::text NOT NULL,
+    image_alt text DEFAULT ''::text NOT NULL,
+    image_caption text DEFAULT ''::text NOT NULL,
+    image_width text DEFAULT 'large'::text NOT NULL,
+    CONSTRAINT essay_motivating_texts_content_check CHECK ((jsonb_typeof(content) = 'array'::text)),
+    CONSTRAINT essay_motivating_texts_image_width_check CHECK ((image_width = ANY (ARRAY['small'::text, 'medium'::text, 'large'::text, 'full'::text]))),
+    CONSTRAINT essay_motivating_texts_position_check CHECK (("position" > 0))
+);
+
+
+--
+-- Name: essay_prompts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.essay_prompts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    institution_id uuid NOT NULL,
+    created_by uuid NOT NULL,
+    title text NOT NULL,
+    theme text NOT NULL,
+    thematic_axis text DEFAULT ''::text NOT NULL,
+    category text DEFAULT ''::text NOT NULL,
+    reference_institution text DEFAULT ''::text NOT NULL,
+    reference_year integer,
+    essay_type text DEFAULT 'dissertativo-argumentativo'::text NOT NULL,
+    production_command text DEFAULT ''::text NOT NULL,
+    student_guidance text DEFAULT ''::text NOT NULL,
+    min_lines integer DEFAULT 7 NOT NULL,
+    max_lines integer DEFAULT 30 NOT NULL,
+    keywords text[] DEFAULT '{}'::text[] NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    duplicated_from uuid,
+    revision integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT essay_prompts_check CHECK ((min_lines <= max_lines)),
+    CONSTRAINT essay_prompts_max_lines_check CHECK (((max_lines >= 5) AND (max_lines <= 90))),
+    CONSTRAINT essay_prompts_min_lines_check CHECK (((min_lines >= 1) AND (min_lines <= 90))),
+    CONSTRAINT essay_prompts_reference_year_check CHECK (((reference_year IS NULL) OR ((reference_year >= 1900) AND (reference_year <= 2100)))),
+    CONSTRAINT essay_prompts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text]))),
+    CONSTRAINT essay_prompts_theme_check CHECK (((length(TRIM(BOTH FROM theme)) >= 3) AND (length(TRIM(BOTH FROM theme)) <= 400))),
+    CONSTRAINT essay_prompts_title_check CHECK (((length(TRIM(BOTH FROM title)) >= 3) AND (length(TRIM(BOTH FROM title)) <= 200)))
+);
+
+
+--
+-- Name: etapas_escola; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etapas_escola (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    school_id uuid NOT NULL,
+    etapa text NOT NULL,
+    ano_agrupamento text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT etapas_escola_etapa_check CHECK ((etapa = ANY (ARRAY['infantil'::text, 'fundamental_iniciais'::text, 'fundamental_finais'::text, 'medio'::text, 'eja'::text, 'tecnico'::text])))
+);
+
+
+--
+-- Name: exam_ai_daily_admissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.exam_ai_daily_admissions (
+    usage_day date NOT NULL,
+    exam_import_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -586,7 +1125,7 @@ CREATE TABLE public.exam_import_documents (
     CONSTRAINT exam_import_documents_mime_type_check CHECK ((mime_type = 'application/pdf'::text)),
     CONSTRAINT exam_import_documents_sha256_check CHECK ((sha256 ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT exam_import_documents_size_bytes_check CHECK ((size_bytes > 0)),
-    CONSTRAINT exam_import_documents_storage_provider_check CHECK ((storage_provider = ANY (ARRAY['database'::text, 'filesystem'::text, 'object_storage'::text])))
+    CONSTRAINT exam_import_documents_storage_provider_check CHECK ((storage_provider = ANY (ARRAY['database'::text, 'filesystem'::text, 'object_storage'::text, 's3'::text])))
 );
 
 
@@ -615,6 +1154,9 @@ CREATE TABLE public.exam_import_jobs (
     finished_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     prompt_version text,
+    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
+    ai_provider text,
+    CONSTRAINT exam_import_jobs_ai_provider_check CHECK ((ai_provider = ANY (ARRAY['gemini'::text, 'deepseek'::text, 'openai'::text, 'local_demo'::text]))),
     CONSTRAINT exam_import_jobs_job_type_check CHECK ((job_type = ANY (ARRAY['extract'::text, 'ai_analysis'::text]))),
     CONSTRAINT exam_import_jobs_progress_check CHECK (((progress >= 0) AND (progress <= 100))),
     CONSTRAINT exam_import_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))
@@ -679,6 +1221,18 @@ COMMENT ON COLUMN public.exam_imports.rights_status IS 'Decisão editorial sobre
 --
 
 COMMENT ON COLUMN public.exam_imports.extracted_candidates IS 'Questões candidatas extraídas do PDF, ainda sujeitas à revisão do professor.';
+
+
+--
+-- Name: google_session_exchange_codes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.google_session_exchange_codes (
+    code_hash text NOT NULL,
+    session_id uuid NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '00:02:00'::interval) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -757,8 +1311,50 @@ CREATE TABLE public.memberships (
     institution_id uuid NOT NULL,
     user_id uuid NOT NULL,
     role text NOT NULL,
-    CONSTRAINT memberships_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'coordinator'::text, 'teacher'::text])))
+    CONSTRAINT memberships_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'coordinator'::text, 'teacher'::text, 'student'::text])))
 );
+
+
+--
+-- Name: mobile_google_login_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mobile_google_login_attempts (
+    id uuid NOT NULL,
+    ticket_hash text NOT NULL,
+    token_hash text NOT NULL,
+    state_hash text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    message text,
+    expires_at timestamp with time zone DEFAULT (now() + '00:10:00'::interval) NOT NULL,
+    account_type text DEFAULT 'educator'::text NOT NULL,
+    CONSTRAINT mobile_google_login_attempts_account_type_check CHECK ((account_type = ANY (ARRAY['educator'::text, 'student'::text]))),
+    CONSTRAINT mobile_google_login_attempts_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT mobile_google_login_attempts_token_hash_check CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
+);
+
+
+--
+-- Name: mobile_mutations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mobile_mutations (
+    institution_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    request_id uuid NOT NULL,
+    kind text NOT NULL,
+    entity_id uuid NOT NULL,
+    payload_hash text NOT NULL,
+    response jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE mobile_mutations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mobile_mutations IS 'Receipts for durable mobile corrections; replaying a request returns its original result.';
 
 
 --
@@ -770,7 +1366,12 @@ CREATE TABLE public.oauth_login_attempts (
     browser_hash text NOT NULL,
     verifier text NOT NULL,
     expires_at timestamp with time zone DEFAULT (now() + '00:10:00'::interval) NOT NULL,
-    cpf_hash text
+    cpf_hash text,
+    account_type text DEFAULT 'educator'::text NOT NULL,
+    purpose text DEFAULT 'login'::text NOT NULL,
+    user_id uuid,
+    CONSTRAINT oauth_login_attempts_account_type_check CHECK ((account_type = ANY (ARRAY['educator'::text, 'student'::text]))),
+    CONSTRAINT oauth_login_attempts_purpose_check CHECK ((purpose = ANY (ARRAY['login'::text, 'link'::text])))
 );
 
 
@@ -825,6 +1426,19 @@ COMMENT ON TABLE public.pedagogical_disciplines IS 'Camada pedagógica instituci
 
 
 --
+-- Name: pedagogical_topic_cleanup_backups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pedagogical_topic_cleanup_backups (
+    topic_id uuid NOT NULL,
+    migration text NOT NULL,
+    topic jsonb NOT NULL,
+    skill_links jsonb NOT NULL,
+    removed_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: pedagogical_topic_skills; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -858,6 +1472,7 @@ CREATE TABLE public.pedagogical_topics (
     active boolean DEFAULT true NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
+    source_reference text,
     CONSTRAINT pedagogical_topics_name_check CHECK (((length(TRIM(BOTH FROM name)) >= 2) AND (length(TRIM(BOTH FROM name)) <= 120))),
     CONSTRAINT pedagogical_topics_position_check CHECK (("position" > 0))
 );
@@ -878,13 +1493,79 @@ COMMENT ON COLUMN public.pedagogical_topics.grade_range IS 'Seriação pedagógi
 
 
 --
+-- Name: performance_followups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.performance_followups (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    institution_id uuid NOT NULL,
+    result_id uuid NOT NULL,
+    result_version_id uuid,
+    status text NOT NULL,
+    reasons text[] DEFAULT '{}'::text[] NOT NULL,
+    other_reason text,
+    actions text[] DEFAULT '{}'::text[] NOT NULL,
+    internal_note text,
+    student_guidance text,
+    student_guidance_published boolean DEFAULT false NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT performance_followups_actions_check CHECK ((actions <@ ARRAY['content_review'::text, 'targeted_exercises'::text, 'individual_support'::text, 'recovery'::text, 'new_assessment'::text])),
+    CONSTRAINT performance_followups_check CHECK (((status = 'pending'::text) OR (cardinality(reasons) > 0))),
+    CONSTRAINT performance_followups_check1 CHECK (((NOT ('other'::text = ANY (reasons))) OR (length(TRIM(BOTH FROM COALESCE(other_reason, ''::text))) > 0))),
+    CONSTRAINT performance_followups_check2 CHECK (((NOT student_guidance_published) OR (length(TRIM(BOTH FROM COALESCE(student_guidance, ''::text))) > 0))),
+    CONSTRAINT performance_followups_internal_note_check CHECK (((internal_note IS NULL) OR (length(internal_note) <= 4000))),
+    CONSTRAINT performance_followups_other_reason_check CHECK (((other_reason IS NULL) OR (length(other_reason) <= 1000))),
+    CONSTRAINT performance_followups_reasons_check CHECK ((reasons <@ ARRAY['content_comprehension'::text, 'reading_interpretation'::text, 'attendance'::text, 'prior_content'::text, 'incomplete_assessment'::text, 'application_incident'::text, 'other'::text])),
+    CONSTRAINT performance_followups_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'justified'::text]))),
+    CONSTRAINT performance_followups_student_guidance_check CHECK (((student_guidance IS NULL) OR (length(student_guidance) <= 4000)))
+);
+
+
+--
+-- Name: performance_thresholds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.performance_thresholds (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    institution_id uuid NOT NULL,
+    school_id uuid,
+    subject text,
+    min_expected_percent numeric(5,2) NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT performance_thresholds_min_expected_percent_check CHECK (((min_expected_percent >= (0)::numeric) AND (min_expected_percent <= (100)::numeric))),
+    CONSTRAINT performance_thresholds_subject_check CHECK (((subject IS NULL) OR ((length(TRIM(BOTH FROM subject)) >= 2) AND (length(TRIM(BOTH FROM subject)) <= 80))))
+);
+
+
+--
 -- Name: portal_settings; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.portal_settings (
     id integer NOT NULL,
     question_bank_id uuid NOT NULL,
+    maintenance_enabled boolean DEFAULT false NOT NULL,
+    maintenance_message text DEFAULT 'Estamos realizando melhorias no UfaProva. Volte em breve.'::text NOT NULL,
     CONSTRAINT portal_settings_id_check CHECK ((id = 1))
+);
+
+
+--
+-- Name: question_editor_drafts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.question_editor_drafts (
+    id uuid NOT NULL,
+    institution_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    payload jsonb NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT question_editor_drafts_payload_check CHECK ((jsonb_typeof(payload) = 'object'::text)),
+    CONSTRAINT question_editor_drafts_version_check CHECK ((version > 0))
 );
 
 
@@ -909,6 +1590,7 @@ CREATE TABLE public.question_revisions (
     source_year smallint,
     knowledge_topic text,
     pedagogical_topic_id uuid,
+    recommend_single_column boolean DEFAULT false NOT NULL,
     CONSTRAINT question_revisions_default_points_check CHECK ((default_points >= (0)::numeric)),
     CONSTRAINT question_revisions_source_year_check CHECK (((source_year IS NULL) OR ((source_year >= 1900) AND (source_year <= 2100))))
 );
@@ -1068,6 +1750,16 @@ CREATE TABLE public.saeb_topics (
 
 
 --
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    filename text NOT NULL,
+    applied_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: skill_competencies; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1097,16 +1789,38 @@ COMMENT ON TABLE public.skill_knowledge_objects IS 'Relação N:N oficial entre 
 
 
 --
+-- Name: student_account_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.student_account_links (
+    institution_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    student_id uuid NOT NULL,
+    linked_by uuid NOT NULL,
+    linked_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: students; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.students (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     institution_id uuid NOT NULL,
-    registration text NOT NULL,
+    registration text DEFAULT ''::text NOT NULL,
     name text NOT NULL,
     active boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    access_code text,
+    teacher_id uuid,
+    selfie_data_url text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'ativo'::text,
+    adapted_exam boolean DEFAULT false NOT NULL,
+    birth_date date,
+    observation text DEFAULT ''::text NOT NULL,
+    access_code_used_at timestamp with time zone,
+    CONSTRAINT students_status_check CHECK ((status = ANY (ARRAY['ativo'::text, 'transferido'::text, 'remanejado'::text, 'atestado'::text, 'regime_domiciliar'::text])))
 );
 
 
@@ -1122,10 +1836,14 @@ CREATE TABLE public.subscription_plans (
     storage_mb integer NOT NULL,
     concurrent_renders integer NOT NULL,
     concurrent_imports integer DEFAULT 1 NOT NULL,
+    monthly_price_cents integer,
+    annual_price_cents integer,
+    CONSTRAINT subscription_plans_annual_price_cents_check CHECK (((annual_price_cents IS NULL) OR (annual_price_cents > 0))),
     CONSTRAINT subscription_plans_concurrent_imports_check CHECK ((concurrent_imports > 0)),
     CONSTRAINT subscription_plans_concurrent_renders_check CHECK ((concurrent_renders > 0)),
     CONSTRAINT subscription_plans_max_students_check CHECK ((max_students > 0)),
     CONSTRAINT subscription_plans_monthly_assessments_check CHECK ((monthly_assessments > 0)),
+    CONSTRAINT subscription_plans_monthly_price_cents_check CHECK (((monthly_price_cents IS NULL) OR (monthly_price_cents > 0))),
     CONSTRAINT subscription_plans_storage_mb_check CHECK ((storage_mb > 0))
 );
 
@@ -1179,7 +1897,8 @@ CREATE TABLE public.user_sessions (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     global_bank boolean DEFAULT false NOT NULL,
     last_ip inet,
-    user_agent text
+    user_agent text,
+    active_institution_id uuid
 );
 
 
@@ -1189,7 +1908,7 @@ CREATE TABLE public.user_sessions (
 
 CREATE TABLE public.users (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    email text NOT NULL,
+    email text,
     display_name text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     password_hash text,
@@ -1198,7 +1917,12 @@ CREATE TABLE public.users (
     cpf_hash text,
     portal_admin boolean DEFAULT false NOT NULL,
     portal_editor boolean DEFAULT false NOT NULL,
-    deleted_at timestamp with time zone
+    deleted_at timestamp with time zone,
+    email_verified_at timestamp with time zone,
+    email_verification_required boolean DEFAULT false NOT NULL,
+    account_type text DEFAULT 'educator'::text NOT NULL,
+    CONSTRAINT users_account_type_check CHECK ((account_type = ANY (ARRAY['educator'::text, 'student'::text]))),
+    CONSTRAINT users_email_required_check CHECK (((email IS NOT NULL) OR (account_type = 'student'::text)))
 );
 
 
@@ -1264,6 +1988,14 @@ ALTER TABLE ONLY public.application_report_snapshots
 
 
 --
+-- Name: application_result_settings application_result_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_result_settings
+    ADD CONSTRAINT application_result_settings_pkey PRIMARY KEY (application_id);
+
+
+--
 -- Name: application_students application_students_application_id_student_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1320,6 +2052,62 @@ ALTER TABLE ONLY public.assessment_presets
 
 
 --
+-- Name: assessment_result_changes assessment_result_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_changes
+    ADD CONSTRAINT assessment_result_changes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessment_result_publications assessment_result_publications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_publications
+    ADD CONSTRAINT assessment_result_publications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessment_result_publications assessment_result_publications_result_version_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_publications
+    ADD CONSTRAINT assessment_result_publications_result_version_id_key UNIQUE (result_version_id);
+
+
+--
+-- Name: assessment_result_versions assessment_result_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_versions
+    ADD CONSTRAINT assessment_result_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessment_result_versions assessment_result_versions_result_id_version_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_versions
+    ADD CONSTRAINT assessment_result_versions_result_id_version_number_key UNIQUE (result_id, version_number);
+
+
+--
+-- Name: assessment_results assessment_results_application_student_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_results
+    ADD CONSTRAINT assessment_results_application_student_id_key UNIQUE (application_student_id);
+
+
+--
+-- Name: assessment_results assessment_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_results
+    ADD CONSTRAINT assessment_results_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: assessment_submissions assessment_submissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1344,6 +2132,14 @@ ALTER TABLE ONLY public.assessment_versions
 
 
 --
+-- Name: assessment_workspaces assessment_workspaces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_workspaces
+    ADD CONSTRAINT assessment_workspaces_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: assessments assessments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1360,6 +2156,14 @@ ALTER TABLE ONLY public.audit_log
 
 
 --
+-- Name: auth_rate_limits auth_rate_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_rate_limits
+    ADD CONSTRAINT auth_rate_limits_pkey PRIMARY KEY (key_hash);
+
+
+--
 -- Name: billing_contracts billing_contracts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1373,6 +2177,22 @@ ALTER TABLE ONLY public.billing_contracts
 
 ALTER TABLE ONLY public.billing_contracts
     ADD CONSTRAINT billing_contracts_provider_id_key UNIQUE (provider_id);
+
+
+--
+-- Name: billing_coupons billing_coupons_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_coupons
+    ADD CONSTRAINT billing_coupons_code_key UNIQUE (code);
+
+
+--
+-- Name: billing_coupons billing_coupons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_coupons
+    ADD CONSTRAINT billing_coupons_pkey PRIMARY KEY (id);
 
 
 --
@@ -1429,6 +2249,54 @@ ALTER TABLE ONLY public.class_enrollments
 
 ALTER TABLE ONLY public.class_enrollments
     ADD CONSTRAINT class_enrollments_pkey PRIMARY KEY (class_id, student_id);
+
+
+--
+-- Name: class_invites class_invites_code_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_invites
+    ADD CONSTRAINT class_invites_code_hash_key UNIQUE (code_hash);
+
+
+--
+-- Name: class_invites class_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_invites
+    ADD CONSTRAINT class_invites_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: class_join_requests class_join_requests_class_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_class_id_user_id_key UNIQUE (class_id, user_id);
+
+
+--
+-- Name: class_join_requests class_join_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: class_memberships class_memberships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_memberships
+    ADD CONSTRAINT class_memberships_pkey PRIMARY KEY (class_id, user_id);
+
+
+--
+-- Name: class_subjects class_subjects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_subjects
+    ADD CONSTRAINT class_subjects_pkey PRIMARY KEY (class_id, teacher_id, subject);
 
 
 --
@@ -1536,6 +2404,102 @@ ALTER TABLE ONLY public.educator_schools
 
 
 --
+-- Name: email_verification_tokens email_verification_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verification_tokens
+    ADD CONSTRAINT email_verification_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: email_verification_tokens email_verification_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verification_tokens
+    ADD CONSTRAINT email_verification_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: escolas escolas_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.escolas
+    ADD CONSTRAINT escolas_pkey PRIMARY KEY (inep_code);
+
+
+--
+-- Name: essay_application_students essay_application_students_application_id_student_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_application_students
+    ADD CONSTRAINT essay_application_students_application_id_student_id_key UNIQUE (application_id, student_id);
+
+
+--
+-- Name: essay_application_students essay_application_students_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_application_students
+    ADD CONSTRAINT essay_application_students_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: essay_applications essay_applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_applications
+    ADD CONSTRAINT essay_applications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: essay_motivating_texts essay_motivating_texts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_motivating_texts
+    ADD CONSTRAINT essay_motivating_texts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: essay_motivating_texts essay_motivating_texts_prompt_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_motivating_texts
+    ADD CONSTRAINT essay_motivating_texts_prompt_id_position_key UNIQUE (prompt_id, "position") DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: essay_prompts essay_prompts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_prompts
+    ADD CONSTRAINT essay_prompts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etapas_escola etapas_escola_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etapas_escola
+    ADD CONSTRAINT etapas_escola_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etapas_escola etapas_escola_school_id_etapa_ano_agrupamento_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etapas_escola
+    ADD CONSTRAINT etapas_escola_school_id_etapa_ano_agrupamento_key UNIQUE (school_id, etapa, ano_agrupamento);
+
+
+--
+-- Name: exam_ai_daily_admissions exam_ai_daily_admissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exam_ai_daily_admissions
+    ADD CONSTRAINT exam_ai_daily_admissions_pkey PRIMARY KEY (usage_day, exam_import_id);
+
+
+--
 -- Name: exam_import_documents exam_import_documents_exam_import_id_kind_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1565,6 +2529,14 @@ ALTER TABLE ONLY public.exam_import_jobs
 
 ALTER TABLE ONLY public.exam_imports
     ADD CONSTRAINT exam_imports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: google_session_exchange_codes google_session_exchange_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.google_session_exchange_codes
+    ADD CONSTRAINT google_session_exchange_codes_pkey PRIMARY KEY (code_hash);
 
 
 --
@@ -1632,6 +2604,38 @@ ALTER TABLE ONLY public.memberships
 
 
 --
+-- Name: mobile_google_login_attempts mobile_google_login_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mobile_google_login_attempts
+    ADD CONSTRAINT mobile_google_login_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mobile_google_login_attempts mobile_google_login_attempts_state_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mobile_google_login_attempts
+    ADD CONSTRAINT mobile_google_login_attempts_state_hash_key UNIQUE (state_hash);
+
+
+--
+-- Name: mobile_google_login_attempts mobile_google_login_attempts_ticket_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mobile_google_login_attempts
+    ADD CONSTRAINT mobile_google_login_attempts_ticket_hash_key UNIQUE (ticket_hash);
+
+
+--
+-- Name: mobile_mutations mobile_mutations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mobile_mutations
+    ADD CONSTRAINT mobile_mutations_pkey PRIMARY KEY (institution_id, user_id, request_id);
+
+
+--
 -- Name: oauth_login_attempts oauth_login_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1680,6 +2684,14 @@ ALTER TABLE ONLY public.pedagogical_disciplines
 
 
 --
+-- Name: pedagogical_topic_cleanup_backups pedagogical_topic_cleanup_backups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pedagogical_topic_cleanup_backups
+    ADD CONSTRAINT pedagogical_topic_cleanup_backups_pkey PRIMARY KEY (topic_id);
+
+
+--
 -- Name: pedagogical_topic_skills pedagogical_topic_skills_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1696,6 +2708,22 @@ ALTER TABLE ONLY public.pedagogical_topics
 
 
 --
+-- Name: performance_followups performance_followups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_followups
+    ADD CONSTRAINT performance_followups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: performance_thresholds performance_thresholds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_thresholds
+    ADD CONSTRAINT performance_thresholds_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: portal_settings portal_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1709,6 +2737,14 @@ ALTER TABLE ONLY public.portal_settings
 
 ALTER TABLE ONLY public.portal_settings
     ADD CONSTRAINT portal_settings_question_bank_id_key UNIQUE (question_bank_id);
+
+
+--
+-- Name: question_editor_drafts question_editor_drafts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_editor_drafts
+    ADD CONSTRAINT question_editor_drafts_pkey PRIMARY KEY (id);
 
 
 --
@@ -1824,6 +2860,14 @@ ALTER TABLE ONLY public.saeb_topics
 
 
 --
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (filename);
+
+
+--
 -- Name: skill_competencies skill_competencies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1848,11 +2892,19 @@ ALTER TABLE ONLY public.skill_knowledge_objects
 
 
 --
--- Name: students students_institution_id_registration_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: student_account_links student_account_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.students
-    ADD CONSTRAINT students_institution_id_registration_key UNIQUE (institution_id, registration);
+ALTER TABLE ONLY public.student_account_links
+    ADD CONSTRAINT student_account_links_pkey PRIMARY KEY (institution_id, user_id);
+
+
+--
+-- Name: student_account_links student_account_links_student_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.student_account_links
+    ADD CONSTRAINT student_account_links_student_id_key UNIQUE (student_id);
 
 
 --
@@ -1962,6 +3014,34 @@ CREATE INDEX assessment_presets_owner_idx ON public.assessment_presets USING btr
 
 
 --
+-- Name: assessment_result_changes_result_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessment_result_changes_result_idx ON public.assessment_result_changes USING btree (result_id, changed_at DESC);
+
+
+--
+-- Name: assessment_result_publications_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX assessment_result_publications_active_idx ON public.assessment_result_publications USING btree (result_id) WHERE (superseded_at IS NULL);
+
+
+--
+-- Name: assessment_result_versions_scan_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessment_result_versions_scan_idx ON public.assessment_result_versions USING btree (card_scan_id) WHERE (card_scan_id IS NOT NULL);
+
+
+--
+-- Name: assessment_results_institution_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessment_results_institution_idx ON public.assessment_results USING btree (institution_id, publication_status, processing_status);
+
+
+--
 -- Name: assessment_submissions_version_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1969,10 +3049,38 @@ CREATE INDEX assessment_submissions_version_idx ON public.assessment_submissions
 
 
 --
+-- Name: assessment_workspaces_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX assessment_workspaces_owner ON public.assessment_workspaces USING btree (institution_id, created_by, updated_at DESC);
+
+
+--
 -- Name: audit_log_tenant_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX audit_log_tenant_idx ON public.audit_log USING btree (institution_id, created_at DESC);
+
+
+--
+-- Name: auth_rate_limits_window_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX auth_rate_limits_window_idx ON public.auth_rate_limits USING btree (window_ends_at);
+
+
+--
+-- Name: billing_contracts_coupon_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX billing_contracts_coupon_idx ON public.billing_contracts USING btree (coupon_id) WHERE (coupon_id IS NOT NULL);
+
+
+--
+-- Name: billing_coupons_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX billing_coupons_active_idx ON public.billing_coupons USING btree (active, starts_at, ends_at);
 
 
 --
@@ -1990,6 +3098,13 @@ CREATE INDEX card_scans_application_student_idx ON public.card_scans USING btree
 
 
 --
+-- Name: card_scans_expected_application_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX card_scans_expected_application_idx ON public.card_scans USING btree (expected_application_id) WHERE (expected_application_id IS NOT NULL);
+
+
+--
 -- Name: card_scans_parent_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2004,10 +3119,59 @@ CREATE INDEX card_scans_queue_idx ON public.card_scans USING btree (status, crea
 
 
 --
+-- Name: class_invites_active_class_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX class_invites_active_class_idx ON public.class_invites USING btree (class_id) WHERE active;
+
+
+--
+-- Name: class_join_requests_class_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX class_join_requests_class_status_idx ON public.class_join_requests USING btree (class_id, status, requested_at);
+
+
+--
+-- Name: class_join_requests_student_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX class_join_requests_student_idx ON public.class_join_requests USING btree (student_id) WHERE (student_id IS NOT NULL);
+
+
+--
+-- Name: class_join_requests_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX class_join_requests_user_idx ON public.class_join_requests USING btree (user_id, status);
+
+
+--
+-- Name: class_memberships_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX class_memberships_user_idx ON public.class_memberships USING btree (user_id, class_id);
+
+
+--
+-- Name: classes_creator_year_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classes_creator_year_idx ON public.classes USING btree (created_by, school_year DESC);
+
+
+--
 -- Name: classes_institution_year_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX classes_institution_year_idx ON public.classes USING btree (institution_id, school_year DESC);
+
+
+--
+-- Name: classes_school_year_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classes_school_year_idx ON public.classes USING btree (school_id, school_year DESC);
 
 
 --
@@ -2025,10 +3189,94 @@ CREATE UNIQUE INDEX curriculum_subjects_source_key_idx ON public.curriculum_subj
 
 
 --
+-- Name: educator_schools_one_header_default_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX educator_schools_one_header_default_idx ON public.educator_schools USING btree (user_id) WHERE is_header_default;
+
+
+--
 -- Name: educator_schools_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX educator_schools_user_idx ON public.educator_schools USING btree (user_id);
+
+
+--
+-- Name: email_verification_tokens_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX email_verification_tokens_user_idx ON public.email_verification_tokens USING btree (user_id, created_at);
+
+
+--
+-- Name: escolas_name_normalized_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX escolas_name_normalized_idx ON public.escolas USING btree (name_normalized text_pattern_ops);
+
+
+--
+-- Name: escolas_state_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX escolas_state_idx ON public.escolas USING btree (state);
+
+
+--
+-- Name: escolas_state_name_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX escolas_state_name_idx ON public.escolas USING btree (state, name_normalized text_pattern_ops);
+
+
+--
+-- Name: essay_application_students_student_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX essay_application_students_student_idx ON public.essay_application_students USING btree (student_id);
+
+
+--
+-- Name: essay_applications_class_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX essay_applications_class_idx ON public.essay_applications USING btree (class_id);
+
+
+--
+-- Name: essay_applications_institution_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX essay_applications_institution_idx ON public.essay_applications USING btree (institution_id, applied_on DESC, created_at DESC);
+
+
+--
+-- Name: essay_applications_prompt_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX essay_applications_prompt_idx ON public.essay_applications USING btree (prompt_id);
+
+
+--
+-- Name: essay_prompts_institution_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX essay_prompts_institution_idx ON public.essay_prompts USING btree (institution_id, status, updated_at DESC);
+
+
+--
+-- Name: essay_prompts_owner_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX essay_prompts_owner_idx ON public.essay_prompts USING btree (institution_id, created_by, updated_at DESC);
+
+
+--
+-- Name: etapas_escola_school_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX etapas_escola_school_idx ON public.etapas_escola USING btree (school_id, etapa);
 
 
 --
@@ -2053,10 +3301,24 @@ CREATE INDEX exam_import_jobs_claim_idx ON public.exam_import_jobs USING btree (
 
 
 --
+-- Name: exam_import_jobs_ready_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX exam_import_jobs_ready_idx ON public.exam_import_jobs USING btree (next_attempt_at) WHERE (status = 'queued'::text);
+
+
+--
 -- Name: exam_imports_tenant_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX exam_imports_tenant_status_idx ON public.exam_imports USING btree (institution_id, status, created_at DESC);
+
+
+--
+-- Name: google_session_exchange_expiry_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX google_session_exchange_expiry_idx ON public.google_session_exchange_codes USING btree (expires_at);
 
 
 --
@@ -2071,6 +3333,20 @@ CREATE UNIQUE INDEX knowledge_objects_source_key_idx ON public.knowledge_objects
 --
 
 CREATE INDEX knowledge_objects_subject_idx ON public.knowledge_objects USING btree (subject_id, grade_range);
+
+
+--
+-- Name: mobile_google_login_expiry_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX mobile_google_login_expiry_idx ON public.mobile_google_login_attempts USING btree (expires_at);
+
+
+--
+-- Name: oauth_login_attempts_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX oauth_login_attempts_user_id_idx ON public.oauth_login_attempts USING btree (user_id) WHERE (user_id IS NOT NULL);
 
 
 --
@@ -2126,7 +3402,28 @@ CREATE INDEX pedagogical_topics_discipline_idx ON public.pedagogical_topics USIN
 -- Name: pedagogical_topics_root_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX pedagogical_topics_root_unique ON public.pedagogical_topics USING btree (discipline_id, lower(name)) WHERE (parent_id IS NULL);
+CREATE UNIQUE INDEX pedagogical_topics_root_unique ON public.pedagogical_topics USING btree (discipline_id, lower(name), COALESCE(grade_range, ''::text)) WHERE (parent_id IS NULL);
+
+
+--
+-- Name: performance_followups_result_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX performance_followups_result_idx ON public.performance_followups USING btree (result_id, created_at DESC);
+
+
+--
+-- Name: performance_thresholds_scope_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX performance_thresholds_scope_idx ON public.performance_thresholds USING btree (institution_id, COALESCE(school_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(lower(subject), ''::text));
+
+
+--
+-- Name: question_editor_drafts_owner_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX question_editor_drafts_owner_idx ON public.question_editor_drafts USING btree (institution_id, user_id, updated_at DESC) WHERE (completed_at IS NULL);
 
 
 --
@@ -2193,10 +3490,31 @@ CREATE INDEX skill_knowledge_objects_object_idx ON public.skill_knowledge_object
 
 
 --
+-- Name: students_access_code_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX students_access_code_unique ON public.students USING btree (lower(access_code));
+
+
+--
 -- Name: students_institution_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX students_institution_name_idx ON public.students USING btree (institution_id, name);
+
+
+--
+-- Name: students_institution_registration_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX students_institution_registration_idx ON public.students USING btree (institution_id, registration) WHERE (registration <> ''::text);
+
+
+--
+-- Name: students_teacher_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX students_teacher_idx ON public.students USING btree (teacher_id, institution_id);
 
 
 --
@@ -2225,6 +3543,13 @@ CREATE INDEX user_sessions_token_idx ON public.user_sessions USING btree (token_
 --
 
 CREATE UNIQUE INDEX users_cpf_hash_unique ON public.users USING btree (cpf_hash) WHERE (cpf_hash IS NOT NULL);
+
+
+--
+-- Name: assessment_result_publications assessment_result_publications_publishable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER assessment_result_publications_publishable BEFORE INSERT ON public.assessment_result_publications FOR EACH ROW EXECUTE FUNCTION public.assert_result_version_publishable();
 
 
 --
@@ -2265,6 +3590,30 @@ ALTER TABLE ONLY public.application_report_snapshots
 
 ALTER TABLE ONLY public.application_report_snapshots
     ADD CONSTRAINT application_report_snapshots_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE;
+
+
+--
+-- Name: application_result_settings application_result_settings_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_result_settings
+    ADD CONSTRAINT application_result_settings_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.assessment_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: application_result_settings application_result_settings_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_result_settings
+    ADD CONSTRAINT application_result_settings_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: application_result_settings application_result_settings_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_result_settings
+    ADD CONSTRAINT application_result_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -2340,6 +3689,134 @@ ALTER TABLE ONLY public.assessment_presets
 
 
 --
+-- Name: assessment_result_changes assessment_result_changes_changed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_changes
+    ADD CONSTRAINT assessment_result_changes_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: assessment_result_changes assessment_result_changes_from_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_changes
+    ADD CONSTRAINT assessment_result_changes_from_version_id_fkey FOREIGN KEY (from_version_id) REFERENCES public.assessment_result_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessment_result_changes assessment_result_changes_result_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_changes
+    ADD CONSTRAINT assessment_result_changes_result_id_fkey FOREIGN KEY (result_id) REFERENCES public.assessment_results(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_result_changes assessment_result_changes_to_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_changes
+    ADD CONSTRAINT assessment_result_changes_to_version_id_fkey FOREIGN KEY (to_version_id) REFERENCES public.assessment_result_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessment_result_publications assessment_result_publications_authorized_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_publications
+    ADD CONSTRAINT assessment_result_publications_authorized_by_fkey FOREIGN KEY (authorized_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: assessment_result_publications assessment_result_publications_result_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_publications
+    ADD CONSTRAINT assessment_result_publications_result_id_fkey FOREIGN KEY (result_id) REFERENCES public.assessment_results(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_result_publications assessment_result_publications_result_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_publications
+    ADD CONSTRAINT assessment_result_publications_result_version_id_fkey FOREIGN KEY (result_version_id) REFERENCES public.assessment_result_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessment_result_versions assessment_result_versions_assessment_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_versions
+    ADD CONSTRAINT assessment_result_versions_assessment_version_id_fkey FOREIGN KEY (assessment_version_id) REFERENCES public.assessment_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessment_result_versions assessment_result_versions_card_scan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_versions
+    ADD CONSTRAINT assessment_result_versions_card_scan_id_fkey FOREIGN KEY (card_scan_id) REFERENCES public.card_scans(id) ON DELETE SET NULL;
+
+
+--
+-- Name: assessment_result_versions assessment_result_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_versions
+    ADD CONSTRAINT assessment_result_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: assessment_result_versions assessment_result_versions_result_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_versions
+    ADD CONSTRAINT assessment_result_versions_result_id_fkey FOREIGN KEY (result_id) REFERENCES public.assessment_results(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_result_versions assessment_result_versions_submission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_result_versions
+    ADD CONSTRAINT assessment_result_versions_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES public.assessment_submissions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: assessment_results assessment_results_application_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_results
+    ADD CONSTRAINT assessment_results_application_student_id_fkey FOREIGN KEY (application_student_id) REFERENCES public.application_students(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_results assessment_results_current_version_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_results
+    ADD CONSTRAINT assessment_results_current_version_fk FOREIGN KEY (current_version_id) REFERENCES public.assessment_result_versions(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: assessment_results assessment_results_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_results
+    ADD CONSTRAINT assessment_results_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_results assessment_results_published_version_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_results
+    ADD CONSTRAINT assessment_results_published_version_fk FOREIGN KEY (published_version_id) REFERENCES public.assessment_result_versions(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
+
+
+--
 -- Name: assessment_submissions assessment_submissions_assessment_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2353,6 +3830,30 @@ ALTER TABLE ONLY public.assessment_submissions
 
 ALTER TABLE ONLY public.assessment_versions
     ADD CONSTRAINT assessment_versions_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_workspaces assessment_workspaces_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_workspaces
+    ADD CONSTRAINT assessment_workspaces_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id);
+
+
+--
+-- Name: assessment_workspaces assessment_workspaces_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_workspaces
+    ADD CONSTRAINT assessment_workspaces_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: assessment_workspaces assessment_workspaces_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_workspaces
+    ADD CONSTRAINT assessment_workspaces_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id);
 
 
 --
@@ -2388,6 +3889,14 @@ ALTER TABLE ONLY public.audit_log
 
 
 --
+-- Name: billing_contracts billing_contracts_coupon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_contracts
+    ADD CONSTRAINT billing_contracts_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.billing_coupons(id) ON DELETE SET NULL;
+
+
+--
 -- Name: billing_contracts billing_contracts_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2401,6 +3910,22 @@ ALTER TABLE ONLY public.billing_contracts
 
 ALTER TABLE ONLY public.billing_contracts
     ADD CONSTRAINT billing_contracts_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id);
+
+
+--
+-- Name: billing_coupons billing_coupons_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_coupons
+    ADD CONSTRAINT billing_coupons_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: billing_coupons billing_coupons_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_coupons
+    ADD CONSTRAINT billing_coupons_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id);
 
 
 --
@@ -2425,6 +3950,22 @@ ALTER TABLE ONLY public.billing_refund_events
 
 ALTER TABLE ONLY public.card_scans
     ADD CONSTRAINT card_scans_application_student_id_fkey FOREIGN KEY (application_student_id) REFERENCES public.application_students(id) ON DELETE SET NULL;
+
+
+--
+-- Name: card_scans card_scans_discarded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_scans
+    ADD CONSTRAINT card_scans_discarded_by_fkey FOREIGN KEY (discarded_by) REFERENCES public.users(id);
+
+
+--
+-- Name: card_scans card_scans_expected_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_scans
+    ADD CONSTRAINT card_scans_expected_application_id_fkey FOREIGN KEY (expected_application_id) REFERENCES public.assessment_applications(id) ON DELETE RESTRICT;
 
 
 --
@@ -2476,11 +4017,163 @@ ALTER TABLE ONLY public.class_enrollments
 
 
 --
+-- Name: class_invites class_invites_class_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_invites
+    ADD CONSTRAINT class_invites_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_invites class_invites_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_invites
+    ADD CONSTRAINT class_invites_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: class_invites class_invites_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_invites
+    ADD CONSTRAINT class_invites_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_invites class_invites_school_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_invites
+    ADD CONSTRAINT class_invites_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.educator_schools(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: class_join_requests class_join_requests_class_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_join_requests class_join_requests_decided_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES public.users(id);
+
+
+--
+-- Name: class_join_requests class_join_requests_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_join_requests class_join_requests_invite_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_invite_id_fkey FOREIGN KEY (invite_id) REFERENCES public.class_invites(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: class_join_requests class_join_requests_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: class_join_requests class_join_requests_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_join_requests
+    ADD CONSTRAINT class_join_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_memberships class_memberships_class_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_memberships
+    ADD CONSTRAINT class_memberships_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_memberships class_memberships_granted_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_memberships
+    ADD CONSTRAINT class_memberships_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: class_memberships class_memberships_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_memberships
+    ADD CONSTRAINT class_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_subjects class_subjects_class_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_subjects
+    ADD CONSTRAINT class_subjects_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: class_subjects class_subjects_teacher_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_subjects
+    ADD CONSTRAINT class_subjects_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classes classes_copied_from_class_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classes
+    ADD CONSTRAINT classes_copied_from_class_id_fkey FOREIGN KEY (copied_from_class_id) REFERENCES public.classes(id) ON DELETE SET NULL;
+
+
+--
+-- Name: classes classes_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classes
+    ADD CONSTRAINT classes_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: classes classes_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.classes
     ADD CONSTRAINT classes_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classes classes_school_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classes
+    ADD CONSTRAINT classes_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.educator_schools(id) ON DELETE SET NULL;
+
+
+--
+-- Name: classes classes_school_stage_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classes
+    ADD CONSTRAINT classes_school_stage_id_fkey FOREIGN KEY (school_stage_id) REFERENCES public.etapas_escola(id) ON DELETE SET NULL;
 
 
 --
@@ -2513,6 +4206,118 @@ ALTER TABLE ONLY public.educator_profiles
 
 ALTER TABLE ONLY public.educator_schools
     ADD CONSTRAINT educator_schools_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: email_verification_tokens email_verification_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verification_tokens
+    ADD CONSTRAINT email_verification_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: essay_application_students essay_application_students_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_application_students
+    ADD CONSTRAINT essay_application_students_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.essay_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: essay_application_students essay_application_students_corrected_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_application_students
+    ADD CONSTRAINT essay_application_students_corrected_by_fkey FOREIGN KEY (corrected_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: essay_application_students essay_application_students_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_application_students
+    ADD CONSTRAINT essay_application_students_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: essay_applications essay_applications_class_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_applications
+    ADD CONSTRAINT essay_applications_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: essay_applications essay_applications_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_applications
+    ADD CONSTRAINT essay_applications_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: essay_applications essay_applications_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_applications
+    ADD CONSTRAINT essay_applications_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: essay_applications essay_applications_prompt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_applications
+    ADD CONSTRAINT essay_applications_prompt_id_fkey FOREIGN KEY (prompt_id) REFERENCES public.essay_prompts(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: essay_motivating_texts essay_motivating_texts_prompt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_motivating_texts
+    ADD CONSTRAINT essay_motivating_texts_prompt_id_fkey FOREIGN KEY (prompt_id) REFERENCES public.essay_prompts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: essay_prompts essay_prompts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_prompts
+    ADD CONSTRAINT essay_prompts_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: essay_prompts essay_prompts_duplicated_from_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_prompts
+    ADD CONSTRAINT essay_prompts_duplicated_from_fkey FOREIGN KEY (duplicated_from) REFERENCES public.essay_prompts(id) ON DELETE SET NULL;
+
+
+--
+-- Name: essay_prompts essay_prompts_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.essay_prompts
+    ADD CONSTRAINT essay_prompts_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etapas_escola etapas_escola_school_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etapas_escola
+    ADD CONSTRAINT etapas_escola_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.educator_schools(id) ON DELETE CASCADE;
+
+
+--
+-- Name: exam_ai_daily_admissions exam_ai_daily_admissions_exam_import_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exam_ai_daily_admissions
+    ADD CONSTRAINT exam_ai_daily_admissions_exam_import_id_fkey FOREIGN KEY (exam_import_id) REFERENCES public.exam_imports(id) ON DELETE CASCADE;
 
 
 --
@@ -2561,6 +4366,14 @@ ALTER TABLE ONLY public.exam_imports
 
 ALTER TABLE ONLY public.exam_imports
     ADD CONSTRAINT exam_imports_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: google_session_exchange_codes google_session_exchange_codes_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.google_session_exchange_codes
+    ADD CONSTRAINT google_session_exchange_codes_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.user_sessions(id) ON DELETE CASCADE;
 
 
 --
@@ -2617,6 +4430,30 @@ ALTER TABLE ONLY public.memberships
 
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mobile_mutations mobile_mutations_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mobile_mutations
+    ADD CONSTRAINT mobile_mutations_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mobile_mutations mobile_mutations_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mobile_mutations
+    ADD CONSTRAINT mobile_mutations_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: oauth_login_attempts oauth_login_attempts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_login_attempts
+    ADD CONSTRAINT oauth_login_attempts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -2724,11 +4561,83 @@ ALTER TABLE ONLY public.pedagogical_topics
 
 
 --
+-- Name: performance_followups performance_followups_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_followups
+    ADD CONSTRAINT performance_followups_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: performance_followups performance_followups_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_followups
+    ADD CONSTRAINT performance_followups_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: performance_followups performance_followups_result_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_followups
+    ADD CONSTRAINT performance_followups_result_id_fkey FOREIGN KEY (result_id) REFERENCES public.assessment_results(id) ON DELETE CASCADE;
+
+
+--
+-- Name: performance_followups performance_followups_result_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_followups
+    ADD CONSTRAINT performance_followups_result_version_id_fkey FOREIGN KEY (result_version_id) REFERENCES public.assessment_result_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: performance_thresholds performance_thresholds_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_thresholds
+    ADD CONSTRAINT performance_thresholds_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: performance_thresholds performance_thresholds_school_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_thresholds
+    ADD CONSTRAINT performance_thresholds_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.educator_schools(id) ON DELETE CASCADE;
+
+
+--
+-- Name: performance_thresholds performance_thresholds_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance_thresholds
+    ADD CONSTRAINT performance_thresholds_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: portal_settings portal_settings_question_bank_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.portal_settings
     ADD CONSTRAINT portal_settings_question_bank_id_fkey FOREIGN KEY (question_bank_id) REFERENCES public.institutions(id);
+
+
+--
+-- Name: question_editor_drafts question_editor_drafts_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_editor_drafts
+    ADD CONSTRAINT question_editor_drafts_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id);
+
+
+--
+-- Name: question_editor_drafts question_editor_drafts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_editor_drafts
+    ADD CONSTRAINT question_editor_drafts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -2884,11 +4793,51 @@ ALTER TABLE ONLY public.skill_knowledge_objects
 
 
 --
+-- Name: student_account_links student_account_links_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.student_account_links
+    ADD CONSTRAINT student_account_links_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: student_account_links student_account_links_linked_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.student_account_links
+    ADD CONSTRAINT student_account_links_linked_by_fkey FOREIGN KEY (linked_by) REFERENCES public.users(id);
+
+
+--
+-- Name: student_account_links student_account_links_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.student_account_links
+    ADD CONSTRAINT student_account_links_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: student_account_links student_account_links_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.student_account_links
+    ADD CONSTRAINT student_account_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: students students_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.students
     ADD CONSTRAINT students_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES public.institutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: students students_teacher_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.students
+    ADD CONSTRAINT students_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -2908,6 +4857,14 @@ ALTER TABLE ONLY public.usage_events
 
 
 --
+-- Name: user_sessions user_sessions_active_institution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_sessions
+    ADD CONSTRAINT user_sessions_active_institution_id_fkey FOREIGN KEY (active_institution_id) REFERENCES public.institutions(id) ON DELETE SET NULL;
+
+
+--
 -- Name: user_sessions user_sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2919,4 +4876,5 @@ ALTER TABLE ONLY public.user_sessions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict JUIYxJGFdvjguL8FlEkQTzKupy4dbzNNzfBI6O7xvvBIjgKrQjSdxXv2m7E7HgZ
+\unrestrict XxgKEiFsTqVyglNIB3Q4UNz2O2Y6m6zWYd5CnaWbKn4xEywSl5zRIXVNmLRamdv
+

@@ -18,16 +18,22 @@ A questão é uma unidade reutilizável e versionada. Enunciado, alternativas, r
 - `lib/assessment-contract.ts`: contrato estável entre aplicação e renderizador;
 - `samples/assessment-snapshot.json`: exemplo completo do contrato;
 - `renderer/context/`: primeiro adaptador ConTeXt/t-basicexam;
-- `docker-compose.yml`: PostgreSQL de desenvolvimento.
+- `docker-compose.yml`: PostgreSQL de desenvolvimento e o serviço `migrate`, que aplica todas as migrações.
 
 ## Execução local
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres
 pnpm install
+docker compose up -d postgres
+docker compose run --rm migrate
 pnpm --filter @caderno/api start
 ```
+
+O serviço `migrate` aplica as migrações pendentes de `database/` e pode ser
+repetido a cada atualização. Um volume criado pelo `docker-compose.yml` antigo
+(que só carregava as migrações 001 a 040, sem `schema_migrations`) precisa ser
+recriado com `docker compose down -v` antes do primeiro `migrate`.
 
 Durante o desenvolvimento, `DEV_AUTH_BYPASS=true` abre o sistema sem mostrar a
 tela de login. O perfil é escolhido por `DEV_AUTH_BYPASS_ROLE` (`admin`,

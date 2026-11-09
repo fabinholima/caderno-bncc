@@ -254,7 +254,7 @@ psql "$DATABASE_URL" -f database/020_pedagogical_topics.sql
 psql "$DATABASE_URL" -f database/012_individual_assessment_applications.sql
 ```
 
-Uma base nova criada pelo `docker compose` recebe todas as migrações automaticamente.
+Numa base nova, `docker compose run --rm migrate` aplica todas as migrações pendentes e as registra em `schema_migrations`.
 
 ### Habilidades BNCC do Ensino Médio
 
