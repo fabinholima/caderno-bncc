@@ -54,6 +54,20 @@ export async function hashPassword(value) {
   return `scrypt:${salt}:${Buffer.from(derived).toString('hex')}`;
 }
 
+// Hash descartável: o login de quem não existe (ou não tem senha) gasta o
+// mesmo scrypt que um login real, sem revelar pelo tempo quais contas existem.
+let decoyHash;
+const decoyPasswordHash = () =>
+  (decoyHash ??= hashPassword(crypto.randomBytes(32).toString('hex')));
+
+// Cadastro com e-mail ou CPF já usados responde igual a um cadastro novo; o
+// dono da conta recebe um aviso por e-mail para entrar ou recuperar a senha.
+async function answerExistingAccount(recipient, password) {
+  await hashPassword(password);
+  await sendAuthMail('existing', recipient, null);
+  return { verificationRequired: true };
+}
+
 export async function verifyPassword(value, encoded) {
   if (!encoded?.startsWith('scrypt:')) return false;
   const [, salt, expectedHex] = encoded.split(':');
@@ -95,16 +109,11 @@ export async function register(input) {
       value.email,
     ]);
     const existing = await client.query(
-      'SELECT id FROM users WHERE lower(email)=$1',
-      [value.email],
+      'SELECT email FROM users WHERE lower(email)=$1 OR cpf_hash=$2 ORDER BY lower(email)=$1 DESC LIMIT 1',
+      [value.email, cpfHash],
     );
     if (existing.rowCount)
-      throw Object.assign(
-        new Error(
-          'Não foi possível cadastrar este e-mail. Tente entrar na sua conta.',
-        ),
-        { statusCode: 409 },
-      );
+      return answerExistingAccount(existing.rows[0].email, value.password);
     const institution = await client.query(
       `INSERT INTO institutions(name,slug) VALUES($1,$2) RETURNING id,name`,
       [value.institutionName, slugify(value.institutionName)],
@@ -168,12 +177,7 @@ export async function registerStudent(input) {
         ])
       ).rowCount
     )
-      throw Object.assign(
-        new Error(
-          'Este e-mail já possui uma conta. Entre ou recupere sua senha.',
-        ),
-        { statusCode: 409 },
-      );
+      return answerExistingAccount(value.email, value.password);
     const user = await client.query(
       "INSERT INTO users(email,display_name,password_hash,account_type,email_verification_required) VALUES($1,$2,$3,'student',true) RETURNING id",
       [value.email, value.displayName, await hashPassword(value.password)],
@@ -299,7 +303,11 @@ export async function login(input) {
     [value.email],
   );
   const row = result.rows[0];
-  if (!row || !(await verifyPassword(value.password, row.password_hash)))
+  const storedHash = row?.password_hash?.startsWith('scrypt:')
+    ? row.password_hash
+    : await decoyPasswordHash();
+  const valid = await verifyPassword(value.password, storedHash);
+  if (!valid || storedHash !== row?.password_hash)
     throw Object.assign(new Error('E-mail ou senha inválidos.'), {
       statusCode: 401,
     });

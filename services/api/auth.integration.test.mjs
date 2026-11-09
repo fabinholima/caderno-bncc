@@ -228,9 +228,18 @@ test(
         (await getEducatorProfile(identity.userId)).schools.length,
         6,
       );
+      // E-mail ou CPF já cadastrados: mesma resposta de um cadastro novo, sem
+      // criar nada e sem revelar que a conta existe.
+      assert.deepEqual(
+        await register({ ...account, email: 'other@example.com' }),
+        { verificationRequired: true },
+      );
+      assert.deepEqual(await register(account), {
+        verificationRequired: true,
+      });
       await assert.rejects(
-        register({ ...account, email: 'other@example.com' }),
-        { code: '23505' },
+        login({ email: 'nobody@example.com', password: 'whatever-123' }),
+        /inválidos/,
       );
       assert.equal(
         (await pool.query('SELECT count(*)::int n FROM institutions')).rows[0]

@@ -31,6 +31,8 @@ export function requireMail() {
     );
 }
 export function authMailLink(kind, token, env = process.env) {
+  if (kind === 'existing')
+    return new URL('/portal', env.AUTH_FRONTEND_URL).href;
   const param = {
     verify: 'verify_token',
     reset: 'reset_token',
@@ -64,6 +66,12 @@ export async function sendAuthMail(
       intro: 'Você solicitou uma nova senha para o UfaProva.',
       expires: '30 minutos',
     },
+    existing: {
+      subject: 'Você já tem uma conta — UfaProva',
+      intro:
+        'Recebemos um pedido de cadastro com dados que já pertencem à sua conta no UfaProva. Entre com seu e-mail ou use "Esqueci minha senha" na página abaixo.',
+      expires: null,
+    },
     invite: {
       subject: 'Convite para a equipe — UfaProva',
       intro:
@@ -71,7 +79,9 @@ export async function sendAuthMail(
       expires: '7 dias',
     },
   }[kind];
-  const text = `${intro}\n\n${link}\n\nEste link expira em ${expires} e só pode ser usado uma vez. Se você não fez esta solicitação, ignore este e-mail.`;
+  const text = expires
+    ? `${intro}\n\n${link}\n\nEste link expira em ${expires} e só pode ser usado uma vez. Se você não fez esta solicitação, ignore este e-mail.`
+    : `${intro}\n\n${link}\n\nSe você não fez esta solicitação, ignore este e-mail; nenhuma conta nova foi criada.`;
   try {
     const response = await fetcher('https://api.resend.com/emails', {
       method: 'POST',

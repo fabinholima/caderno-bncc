@@ -130,6 +130,14 @@ test(
         login({ email: 'student@example.test', password: 'TestPassword123!' }),
         /Confirme/,
       );
+      assert.deepEqual(
+        await registerStudent({
+          displayName: 'Outro aluno',
+          email: 'student@example.test',
+          password: 'OutraSenha123!',
+        }),
+        { verificationRequired: true },
+      );
       await verifyEmail({ token: registration.developmentToken });
       const session = await login({
         email: 'student@example.test',
