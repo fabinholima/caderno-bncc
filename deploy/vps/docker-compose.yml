@@ -54,6 +54,17 @@ services:
       timeout: 5s
       retries: 10
 
+  # Os containers rodam como o usuário `node` (uid 1000). Volumes criados quando
+  # ainda rodavam como root precisam trocar de dono uma vez; repetir é inofensivo.
+  volume-permissions:
+    image: node:22-bookworm-slim
+    user: root
+    command: ["chown", "-R", "1000:1000", "/var/data/api", "/var/data/renderer"]
+    volumes:
+      - api-data:/var/data/api
+      - renderer-data:/var/data/renderer
+    restart: "no"
+
   api:
     build:
       context: ../..
@@ -63,6 +74,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      volume-permissions:
+        condition: service_completed_successfully
     environment:
       <<: *api-env
       PORT: "8788"
@@ -81,6 +94,8 @@ services:
       MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET}
       MP_BACK_URL: ${MP_BACK_URL:-}
       PREVIEW_CONCURRENCY: "1"
+      # Alerta por e-mail (Resend) quando há erros 5xx repetidos.
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
     volumes:
       - api-data:/var/data
     healthcheck:
@@ -98,6 +113,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      volume-permissions:
+        condition: service_completed_successfully
     environment:
       <<: *api-env
       RENDER_POLL_MS: "3000"
@@ -116,6 +133,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      volume-permissions:
+        condition: service_completed_successfully
     environment:
       <<: *api-env
       IMPORT_POLL_MS: "2000"
@@ -126,6 +145,22 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
     volumes:
       - api-data:/var/data
+
+  monitor:
+    # Checa a saúde da API e do portal a cada minuto e alerta por e-mail
+    # após 3 falhas seguidas (e quando voltam). Mesma imagem da API.
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    image: ufaprova-api:latest
+    restart: unless-stopped
+    command: ["node", "health-monitor.mjs"]
+    environment:
+      NODE_ENV: production
+      HEALTH_TARGETS: api=http://api:8788/health,frontend=http://frontend:3000/portal
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM}
 
   omr:
     build:

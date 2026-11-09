@@ -27,7 +27,7 @@ esac
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_SERVICE="${API_SERVICE:-api}"
-OTHER_SERVICES="${OTHER_SERVICES:-renderer imports omr frontend}"
+OTHER_SERVICES="${OTHER_SERVICES:-renderer imports omr frontend monitor}"
 COMPOSE_FILE="${COMPOSE_FILE:-$REPO_DIR/deploy/vps/docker-compose.yml}"
 DB_SERVICE="${DB_SERVICE:-postgres}"
 DB_USER="${DB_USER:-caderno}"
@@ -147,6 +147,14 @@ fi
 
 step "Build"
 run compose build "$API_SERVICE" "${others[@]}"
+
+step "Permissões dos volumes"
+# Os containers rodam sem root (usuário node); volumes antigos mudam de dono.
+if compose config --services | grep -qx volume-permissions; then
+  run compose run --rm --no-deps volume-permissions
+else
+  echo "Serviço volume-permissions ausente; nada a fazer."
+fi
 
 step "API"
 run compose up -d --no-deps "$API_SERVICE"

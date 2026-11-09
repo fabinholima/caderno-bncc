@@ -50,5 +50,9 @@ ENV CONTEXT_BIN=/opt/context/tex/texmf-linux-64/bin/mtxrun
 ENV CONTEXT_VIA_MTXRUN=true
 ENV CONTEXT_SCRIPT=/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua
 ENV NODE_ENV=production
+# Sem root: o ConTeXt escreve só no próprio cache e no volume de dados.
+RUN mkdir -p /app/tmp /var/data "$TEXMFCACHE" \
+  && chown -R node:node /app/tmp /var/data "$TEXMFCACHE"
+USER node
 WORKDIR /app/services/renderer
 CMD ["sh", "-c", "mkdir -p \"$TEXMFCACHE\" && /opt/context/tex/texmf-linux-64/bin/mtxrun --generate && exec node worker.mjs"]

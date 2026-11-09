@@ -28,13 +28,16 @@ async function proxy(
   for (const name of hopByHopHeaders) headers.delete(name);
   headers.set('cache-control', 'no-store');
 
-  const upstream = await fetch(target, {
+  // `duplex: 'half'` é exigido pelo fetch do Node para repassar o corpo em stream.
+  const init: RequestInit & { duplex?: 'half' } = {
     method: request.method,
     headers,
     body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
     redirect: 'manual',
     cache: 'no-store',
-  });
+    duplex: 'half',
+  };
+  const upstream = await fetch(target, init);
   const responseHeaders = new Headers(upstream.headers);
   for (const name of hopByHopHeaders) responseHeaders.delete(name);
   const cookies = upstream.headers.getSetCookie?.() || [];

@@ -276,6 +276,13 @@ import {
   retryExamImportAnalysis,
   retryExamImportJob,
 } from './exam-import-jobs.mjs';
+import {
+  createErrorAlerter,
+  errorFields,
+  log,
+  logPath,
+  requestIdFrom,
+} from './observability.mjs';
 
 const port = Number(process.env.PORT || 8788);
 const maxConcurrentPreviews = Number(process.env.PREVIEW_CONCURRENCY || 2);
@@ -289,6 +296,7 @@ function corsHeaders(response) {
     ? {
         'access-control-allow-origin': response.corsOrigin,
         'access-control-allow-credentials': 'true',
+        'access-control-expose-headers': 'x-request-id',
         vary: 'Origin',
       }
     : {};
@@ -360,8 +368,25 @@ if (missingSecrets.length) {
   process.exit(1);
 }
 const securityHeaders = apiSecurityHeaders();
+const recordServerError = createErrorAlerter();
 
 const server = createServer(async (request, response) => {
+  const startedAt = performance.now();
+  const requestId = requestIdFrom(request);
+  response.setHeader('x-request-id', requestId);
+  response.on('finish', () => {
+    const entry = {
+      requestId,
+      method: request.method,
+      path: logPath(request.url),
+      status: response.statusCode,
+      durationMs: Math.round(performance.now() - startedAt),
+    };
+    // A checagem de saúde roda a cada 30 s: só entra no log quando falha.
+    if (entry.path === '/health' && entry.status < 400) return;
+    log(entry.status >= 500 ? 'error' : 'info', 'request', entry);
+    recordServerError(entry);
+  });
   const requestOrigin = request.headers.origin;
   response.corsOrigin = allowedOrigins.has(requestOrigin) ? requestOrigin : '';
   for (const [name, value] of Object.entries(securityHeaders))
@@ -2761,13 +2786,22 @@ const server = createServer(async (request, response) => {
             }
           : {}),
       });
-    console.error(error);
-    return json(response, 500, { error: 'Erro interno.' });
+    log('error', 'request.failed', {
+      requestId,
+      method: request.method,
+      path: logPath(request.url),
+      ...errorFields(error),
+    });
+    return json(response, 500, { error: 'Erro interno.', requestId });
   }
 });
 
 server.listen(port, () =>
   console.log(`Caderno API em http://localhost:${port}`),
+);
+
+process.on('unhandledRejection', (error) =>
+  log('error', 'process.unhandled_rejection', errorFields(error)),
 );
 
 for (const signal of ['SIGINT', 'SIGTERM'])

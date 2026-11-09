@@ -39,5 +39,10 @@ ENV CONTEXT_VIA_MTXRUN=true
 ENV CONTEXT_SCRIPT=/opt/context/tex/texmf-context/scripts/context/lua/mtx-context.lua
 ENV PREVIEW_CONCURRENCY=1
 ENV NODE_ENV=production
+# Sem root: o processo só escreve no cache do TeX, nos PDFs temporários e no
+# volume de dados (/var/data).
+RUN mkdir -p /app/tmp/pdfs /var/data "$TEXMFCACHE" \
+  && chown -R node:node /app/tmp /var/data "$TEXMFCACHE"
+USER node
 WORKDIR /app/services/api
 CMD ["sh", "-c", "mkdir -p \"$TEXMFCACHE\" && node migrate.mjs && exec node server.mjs"]

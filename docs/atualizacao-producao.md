@@ -8,8 +8,8 @@ A produção roda num VPS da Hostinger com `deploy/vps/docker-compose.yml` (inst
 2. Traz a `main` com `git merge --ff-only`. Se houver commit local divergente, para sem mexer.
 3. Lista as migrações que ainda não estão em `schema_migrations`.
 4. Faz o backup do banco com `pg_dump -Fc` em `deploy/vps/backups/` e confere o arquivo com `pg_restore --list`. Sem backup válido, não segue.
-5. Gera as imagens da API, do gerador de PDFs (`renderer`), da importação (`imports`), da correção (`omr`) e do portal (`frontend`).
-6. Reinicia a API. Ela aplica as migrações ao iniciar, numa única transação.
+5. Gera as imagens da API, do gerador de PDFs (`renderer`), da importação (`imports`), da correção (`omr`), do monitor de saúde (`monitor`) e do portal (`frontend`).
+6. Ajusta o dono dos volumes de dados para o usuário `node` (serviço `volume-permissions`) e reinicia a API. Ela aplica as migrações ao iniciar, numa única transação.
 7. Espera `/health` responder `"status":"ok"` e confere se todas as migrações foram aplicadas.
 8. Só então reinicia os workers e o portal. Ao iniciar, o worker OMR converte em "publicado (legado)" os resultados que a versão anterior concluiu durante a troca.
 

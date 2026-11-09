@@ -1,4 +1,4 @@
-# Portal (vinext) servido como no Render: build de produção + wrangler/workerd.
+# Portal (vinext): build de produção servido pelo `vinext start`, como no Render.
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
@@ -13,12 +13,13 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN pnpm build
 
 FROM node:22-bookworm-slim
-# O workerd usa os certificados do sistema; sem eles, todo fetch HTTPS do portal
-# (ex.: o proxy /api) falha com "certificate is not trusted".
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+# Servidor de produção do vinext (Node), não o `wrangler dev`, que é de
+# desenvolvimento. Roda como o usuário sem privilégios `node` da imagem.
 WORKDIR /app
-COPY --from=build /app /app
+COPY --from=build --chown=node:node /app/package.json ./
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/dist ./dist
 ENV NODE_ENV=production
+USER node
 EXPOSE 3000
-CMD ["npx", "wrangler", "dev", "--config", "dist/server/wrangler.json", "--ip", "0.0.0.0", "--port", "3000"]
+CMD ["node", "node_modules/vinext/dist/cli.js", "start", "--hostname", "0.0.0.0", "--port", "3000"]

@@ -9,7 +9,7 @@
     "dev": "vinext dev",
     "dev:lan": "vinext dev --hostname 0.0.0.0",
     "build": "vinext build",
-    "start": "wrangler dev --config dist/server/wrangler.json",
+    "start": "vinext start",
     "test:services": "pnpm --filter @caderno/api test && pnpm --filter @caderno/renderer test && node --test services/omr/*.test.mjs",
     "test:e2e": "playwright test",
     "test:production-env": "node --test scripts/check-production-env.test.mjs",

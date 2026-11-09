@@ -19,5 +19,7 @@ COPY lib /app/lib
 
 ENV OMR_PYTHON=/opt/venv-omr/bin/python
 ENV NODE_ENV=production
+# Sem root: o worker só usa arquivos temporários em /tmp.
+USER node
 
 CMD ["node", "services/omr/worker.mjs"]

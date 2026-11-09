@@ -153,7 +153,19 @@ o DNS e reativar os serviços de lá.
   `docs/backup-producao.md`. O backup semanal da Hostinger é uma camada extra.
 - **Espaço em disco**: `docker system prune -f` remove imagens antigas.
 - **Logs**: `docker compose logs --tail 100 NOME` (api, renderer, imports, omr,
-  frontend, caddy, postgres).
+  frontend, monitor, caddy, postgres). A API grava uma linha JSON por
+  requisição (`requestId`, método, caminho sem query string, status, duração).
+  Toda resposta leva o cabeçalho `x-request-id`, e o erro 500 devolve o mesmo
+  `requestId` no corpo: para achar o erro relatado por um usuário,
+  `docker compose logs api | grep ID`.
+- **Alertas**: preencha `ALERT_EMAIL_TO` no `.env` (e-mails separados por
+  vírgula; usa o mesmo Resend do login). Chega um e-mail quando a API responde
+  5 erros 5xx em 5 minutos (no máximo um a cada 30 minutos) e quando o serviço
+  `monitor` vê a API ou o portal falharem 3 checagens seguidas (outro quando
+  voltam). Sem `ALERT_EMAIL_TO`, os alertas ficam só no log.
+- **Usuário dos containers**: API, workers e portal rodam como o usuário `node`
+  (uid 1000), não como root. O serviço `volume-permissions` ajusta o dono dos
+  volumes de dados antes de a API subir; o script de atualização também o executa.
 
 ## Uso de memória no KVM 2
 

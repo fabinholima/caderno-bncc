@@ -25,6 +25,8 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      - key: ALERT_EMAIL_TO
+        sync: false
       - key: AUTH_EMAIL_FROM
         sync: false
       - key: QR_SIGNING_SECRET
@@ -62,7 +64,7 @@ services:
     name: ufaprova-frontend
     runtime: node
     buildCommand: npm install && npm run build
-    startCommand: npm run start -- --ip 0.0.0.0 --port $PORT
+    startCommand: npm run start -- --hostname 0.0.0.0 --port $PORT
     envVars:
       - key: NEXT_PUBLIC_API_URL
         sync: false
