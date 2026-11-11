@@ -1323,6 +1323,9 @@ export default function Home() {
               name={identity.user.displayName}
               view={active}
               canEditCatalog={canEditCatalog}
+              canPurge={
+                identity.role === 'admin' || Boolean(identity.portalAdmin)
+              }
               onNavigate={(view) => {
                 setInitialApplicationId('');
                 setActive(view);
@@ -1360,7 +1363,9 @@ export default function Home() {
             </div>
           ) : active === 'Avaliações' ? (
             <AssessmentBuilder
-              canPurge={identity.role === 'admin' || Boolean(identity.portalAdmin)}
+              canPurge={
+                identity.role === 'admin' || Boolean(identity.portalAdmin)
+              }
               questions={questions.filter(
                 (question) => question.status === 'Aprovada',
               )}
@@ -1376,7 +1381,9 @@ export default function Home() {
                 ['admin', 'coordinator'].includes(identity.role) ||
                 Boolean(identity.portalAdmin)
               }
-              canPurge={identity.role === 'admin' || Boolean(identity.portalAdmin)}
+              canPurge={
+                identity.role === 'admin' || Boolean(identity.portalAdmin)
+              }
               apiUrl={apiUrl}
               initialSection={
                 active === 'Corrigir'
