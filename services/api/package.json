@@ -10,6 +10,7 @@
     "import:bncc:api": "node --env-file-if-exists=../../.env bncc-api-import.mjs",
     "import:saeb": "node saeb-import.mjs",
     "worker:imports": "node --env-file-if-exists=../../.env exam-import-worker.mjs",
+    "worker:essays": "node --env-file-if-exists=../../.env essay-worker.mjs",
     "test": "node --test",
     "import:ita": "node --env-file-if-exists=../../.env import-ita-catalog.mjs"
     ,"import:pedagogical-topics": "node --env-file-if-exists=../../.env pedagogical-topic-import.mjs",

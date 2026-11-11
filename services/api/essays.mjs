@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { pool, transaction } from './db.mjs';
 import { createObjectStorage } from './object-storage.mjs';
 import { ownsEssayApplication, teacherScope } from './ownership.mjs';
+import { rubricSnapshot } from './essay-correction.mjs';
 import { readScanImage } from './scan-image-storage.mjs';
 import {
   ESSAY_SHEET_TEMPLATE_IDS,
@@ -151,23 +152,59 @@ export const sheetRequestSchema = sheetOptionsSchema.extend({
   studentName: text(160),
 });
 
-export const applicationSchema = sheetOptionsSchema.extend({
-  promptId: z.uuid(),
-  classId: z.uuid(),
-  appliedOn: isoDate,
-  dueAt: z
-    .union([z.iso.datetime({ offset: true }), isoDate, z.literal('')])
-    .default(''),
-  availableToStudents: z.boolean().default(false),
-  teacherName: text(160),
-});
+const dateTime = z
+  .union([z.iso.datetime({ offset: true }), isoDate, z.literal('')])
+  .default('');
+
+export const applicationSchema = sheetOptionsSchema
+  .extend({
+    promptId: z.uuid(),
+    classId: z.uuid().optional(),
+    classIds: z.array(z.uuid()).max(30).optional(),
+    appliedOn: isoDate,
+    opensAt: dateTime,
+    dueAt: dateTime,
+    availableToStudents: z.boolean().default(false),
+    teacherName: text(160),
+    rubricId: z.uuid().nullable().optional(),
+    submissionModes: z
+      .array(z.enum(['typed', 'upload']))
+      .max(2)
+      .default(['typed', 'upload'])
+      .transform((items) => [...new Set(items)]),
+    aiAssist: z.boolean().default(false),
+    aiFeedbackVisible: z.boolean().default(false),
+  })
+  .refine(
+    (value) => value.classId || value.classIds?.length,
+    'Selecione ao menos uma turma.',
+  );
 
 const applicationUpdateSchema = z
   .object({
     status: z.enum(['scheduled', 'open', 'closed', 'cancelled']).optional(),
     availableToStudents: z.boolean().optional(),
+    dueAt: dateTime.optional(),
+    opensAt: dateTime.optional(),
+    submissionModes: z
+      .array(z.enum(['typed', 'upload']))
+      .max(2)
+      .transform((items) => [...new Set(items)])
+      .optional(),
+    aiAssist: z.boolean().optional(),
+    aiFeedbackVisible: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length, 'Nada para atualizar.');
+
+/** Data (AAAA-MM-DD = fim do dia em Brasília) ou data e hora; null quando vazio. */
+function deadline(value, endOfDay = true) {
+  if (!value) return null;
+  return new Date(
+    value.length === 10
+      ? `${value}T${endOfDay ? '23:59:00' : '00:00:00'}-03:00`
+      : value,
+  );
+}
 
 /** Bytes decodificados de uma data URL PNG/JPEG válida; 0 quando inválida. */
 export function imageBytes(value) {
@@ -858,62 +895,80 @@ function sheetPrompt(prompt) {
 export async function createEssayApplication(identity, input) {
   requireStaff(identity);
   const value = applicationSchema.parse(input);
-  const dueAt = value.dueAt
-    ? new Date(
-        value.dueAt.length === 10
-          ? `${value.dueAt}T23:59:00-03:00`
-          : value.dueAt,
-      )
-    : null;
+  const classIds = [
+    ...new Set([value.classId, ...(value.classIds || [])].filter(Boolean)),
+  ];
+  const dueAt = deadline(value.dueAt);
+  const opensAt = deadline(value.opensAt, false);
   if (dueAt && dueAt < new Date(`${value.appliedOn}T00:00:00-03:00`))
     throw fail('O prazo de entrega não pode ser anterior à data de aplicação.');
-  const id = await transaction(async (client) => {
+  if (dueAt && opensAt && dueAt <= opensAt)
+    throw fail('O prazo de entrega precisa ser depois da liberação.');
+  if (!value.submissionModes.length)
+    throw fail('Escolha ao menos uma forma de entrega.');
+  const ids = await transaction(async (client) => {
     const prompt = await loadPrompt(client, identity, value.promptId);
     if (prompt.status === 'archived')
       throw fail('Temas arquivados não podem ser aplicados.', 409);
-    const schoolClass = await client.query(
-      'SELECT id FROM classes WHERE id=$1 AND institution_id=$2',
-      [value.classId, identity.institutionId],
+    const classes = await client.query(
+      'SELECT id,class_year_locked(id) AS locked FROM classes WHERE id=ANY($1::uuid[]) AND institution_id=$2',
+      [classIds, identity.institutionId],
     );
-    if (!schoolClass.rowCount) throw fail('Turma não encontrada.', 404);
+    if (classes.rowCount !== classIds.length)
+      throw fail('Turma não encontrada.', 404);
+    if (classes.rows.some((row) => row.locked))
+      throw fail('Uma das turmas pertence a um ano letivo encerrado.', 409);
+    const rubric = await rubricSnapshot(client, identity, value.rubricId);
     const snapshot = sheetPrompt(
       promptFromRow(prompt, identity, await loadTexts(client, prompt.id)),
     );
-    const application = await client.query(
-      `INSERT INTO essay_applications
-         (institution_id,prompt_id,class_id,created_by,applied_on,due_at,status,available_to_students,
-          sheet_options,prompt_snapshot,prompt_revision)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-      [
-        identity.institutionId,
-        prompt.id,
-        value.classId,
-        identity.userId,
-        value.appliedOn,
-        dueAt,
-        value.availableToStudents ? 'open' : 'scheduled',
-        value.availableToStudents,
-        JSON.stringify({
-          template: value.template,
-          includeProposal: value.includeProposal,
-          includeCriteria: value.includeCriteria,
-          duplex: value.duplex,
-          teacherName: value.teacherName || identity.displayName || '',
-        }),
-        JSON.stringify(snapshot),
-        prompt.revision,
-      ],
-    );
-    await client.query(
-      `INSERT INTO essay_application_students (application_id,student_id,student_number)
-       SELECT $1,s.id,ce.number FROM class_enrollments ce
-         JOIN students s ON s.id=ce.student_id AND s.institution_id=$3 AND s.active
-        WHERE ce.class_id=$2`,
-      [application.rows[0].id, value.classId, identity.institutionId],
-    );
-    return application.rows[0].id;
+    const created = [];
+    for (const classId of classIds) {
+      const application = await client.query(
+        `INSERT INTO essay_applications
+           (institution_id,prompt_id,class_id,created_by,applied_on,due_at,status,available_to_students,
+            sheet_options,prompt_snapshot,prompt_revision,rubric_id,rubric_snapshot,opens_at,submission_modes,
+            ai_assist,ai_feedback_visible)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+        [
+          identity.institutionId,
+          prompt.id,
+          classId,
+          identity.userId,
+          value.appliedOn,
+          dueAt,
+          value.availableToStudents ? 'open' : 'scheduled',
+          value.availableToStudents,
+          JSON.stringify({
+            template: value.template,
+            includeProposal: value.includeProposal,
+            includeCriteria: value.includeCriteria,
+            duplex: value.duplex,
+            teacherName: value.teacherName || identity.displayName || '',
+          }),
+          JSON.stringify(snapshot),
+          prompt.revision,
+          rubric.id,
+          JSON.stringify(rubric.snapshot),
+          opensAt,
+          value.submissionModes,
+          value.aiAssist,
+          value.aiFeedbackVisible,
+        ],
+      );
+      await client.query(
+        `INSERT INTO essay_application_students (application_id,student_id,student_number)
+         SELECT $1,s.id,ce.number FROM class_enrollments ce
+           JOIN students s ON s.id=ce.student_id AND s.institution_id=$3 AND s.active
+          WHERE ce.class_id=$2`,
+        [application.rows[0].id, classId, identity.institutionId],
+      );
+      created.push(application.rows[0].id);
+    }
+    return created;
   });
-  return getEssayApplication(identity, id);
+  const first = await getEssayApplication(identity, ids[0]);
+  return { ...first, createdIds: ids };
 }
 
 const applicationColumns = `a.id,a.prompt_id,a.class_id,a.applied_on::text AS applied_on,a.due_at,a.status,
@@ -921,7 +976,10 @@ const applicationColumns = `a.id,a.prompt_id,a.class_id,a.applied_on::text AS ap
   a.prompt_snapshot->>'title' AS prompt_title,a.prompt_snapshot->>'theme' AS prompt_theme,
   c.name AS class_name,c.grade AS class_grade,c.school_year,u.display_name AS created_by_name,
   (SELECT count(*)::int FROM essay_application_students s WHERE s.application_id=a.id) AS students_count,
-  (SELECT count(*)::int FROM essay_application_students s WHERE s.application_id=a.id AND s.status IN ('submitted','in_review','corrected')) AS submitted_count`;
+  (SELECT count(*)::int FROM essay_application_students s WHERE s.application_id=a.id AND s.status NOT IN ('pending','draft','absent')) AS submitted_count,
+  (SELECT count(*)::int FROM essay_application_students s WHERE s.application_id=a.id AND s.status='published') AS published_count,
+  (SELECT count(*)::int FROM essay_application_students s WHERE s.application_id=a.id AND s.status='awaiting_approval') AS approval_count,
+  a.opens_at,a.submission_modes,a.ai_assist,a.ai_feedback_visible,a.rubric_snapshot->>'name' AS rubric_name`;
 
 function applicationFromRow(row, identity) {
   return {
@@ -941,6 +999,13 @@ function applicationFromRow(row, identity) {
     sheetOptions: row.sheet_options,
     studentsCount: row.students_count,
     submittedCount: row.submitted_count,
+    publishedCount: row.published_count,
+    awaitingApprovalCount: row.approval_count,
+    opensAt: row.opens_at,
+    submissionModes: row.submission_modes,
+    aiAssist: row.ai_assist,
+    aiFeedbackVisible: row.ai_feedback_visible,
+    rubricName: row.rubric_name,
     createdAt: row.created_at,
     createdByName: row.created_by_name,
     canEdit: canManageEssay(identity, row.created_by),
@@ -1023,14 +1088,31 @@ export async function updateEssayApplication(identity, applicationId, input) {
       (value.availableToStudents && row.status === 'scheduled'
         ? 'open'
         : row.status);
+    const dueAt =
+      value.dueAt === undefined ? row.due_at : deadline(value.dueAt);
+    const opensAt =
+      value.opensAt === undefined
+        ? row.opens_at
+        : deadline(value.opensAt, false);
+    if (dueAt && opensAt && new Date(dueAt) <= new Date(opensAt))
+      throw fail('O prazo de entrega precisa ser depois da liberação.');
+    if (value.submissionModes && !value.submissionModes.length)
+      throw fail('Escolha ao menos uma forma de entrega.');
     await client.query(
-      `UPDATE essay_applications SET status=$2,available_to_students=$3,updated_at=now() WHERE id=$1`,
+      `UPDATE essay_applications SET status=$2,available_to_students=$3,due_at=$4,opens_at=$5,
+              submission_modes=COALESCE($6,submission_modes),ai_assist=COALESCE($7,ai_assist),
+              ai_feedback_visible=COALESCE($8,ai_feedback_visible),updated_at=now() WHERE id=$1`,
       [
         applicationId,
         status,
         status === 'cancelled'
           ? false
           : (value.availableToStudents ?? row.available_to_students),
+        dueAt,
+        opensAt,
+        value.submissionModes ?? null,
+        value.aiAssist ?? null,
+        value.aiFeedbackVisible ?? null,
       ],
     );
   });

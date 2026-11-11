@@ -7,7 +7,7 @@
 # Variáveis (padrões entre parênteses):
 #   COMPOSE_FILE        arquivo compose de produção (deploy/vps/docker-compose.yml)
 #   API_SERVICE         serviço da API (api)
-#   OTHER_SERVICES      reiniciados depois da API (renderer imports omr frontend)
+#   OTHER_SERVICES      reiniciados depois da API (renderer imports essays omr frontend)
 #   DB_SERVICE          serviço do PostgreSQL no compose (postgres)
 #   DB_USER, DB_NAME    usuário e banco (caderno)
 #   BACKUP_DATABASE_URL use quando o banco não está no compose; ignora DB_SERVICE
@@ -28,7 +28,7 @@ esac
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_SERVICE="${API_SERVICE:-api}"
-OTHER_SERVICES="${OTHER_SERVICES:-renderer imports omr frontend monitor}"
+OTHER_SERVICES="${OTHER_SERVICES:-renderer imports essays omr frontend monitor}"
 COMPOSE_FILE="${COMPOSE_FILE:-$REPO_DIR/deploy/vps/docker-compose.yml}"
 DB_SERVICE="${DB_SERVICE:-postgres}"
 DB_USER="${DB_USER:-caderno}"

@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpenCheck,
   ChevronDown,
+  ClipboardCheck,
   Clock,
   FileInput,
   FileText,
@@ -37,6 +38,8 @@ const essay: ReadonlyArray<readonly [string, LucideIcon]> = [
   ['Minhas Propostas', FolderOpen],
   ['Aplicar Redação', Send],
   ['Histórico', Clock],
+  ['Corrigir Redações', ClipboardCheck],
+  ['Painel de Redação', BarChart3],
 ];
 const workflow: ReadonlyArray<readonly [string, LucideIcon]> = [
   ['Corrigir', ScanLine],

@@ -54,6 +54,8 @@ const checks = {
   reportRenderJob: `SELECT 1 FROM application_report_render_jobs j JOIN application_report_snapshots rs ON rs.id=j.report_snapshot_id JOIN assessment_applications aa ON aa.id=rs.application_id WHERE j.id=$1 AND aa.institution_id=$2 AND ${ownsApplication('aa', '$3')}`,
   submission: `SELECT 1 FROM assessment_submissions sub JOIN assessment_versions av ON av.id=sub.assessment_version_id JOIN assessments a ON a.id=av.assessment_id WHERE sub.id=$1 AND a.institution_id=$2 AND ($3::uuid IS NULL OR a.created_by=$3 OR EXISTS(SELECT 1 FROM card_scans own_ss WHERE own_ss.submission_id=sub.id AND ${ownsScan('own_ss', '$3')}))`,
   essayApplication: `SELECT 1 FROM essay_applications ea WHERE ea.id=$1 AND ea.institution_id=$2 AND ${ownsEssayApplication('ea', '$3')}`,
+  essayEntry: `SELECT 1 FROM essay_application_students eas JOIN essay_applications ea ON ea.id=eas.application_id WHERE eas.id=$1 AND ea.institution_id=$2 AND ${ownsEssayApplication('ea', '$3')}`,
+  essayFile: `SELECT 1 FROM essay_submission_files f JOIN essay_submissions sub ON sub.id=f.submission_id JOIN essay_application_students eas ON eas.id=sub.application_student_id JOIN essay_applications ea ON ea.id=eas.application_id WHERE f.id=$1 AND ea.institution_id=$2 AND ${ownsEssayApplication('ea', '$3')}`,
   joinRequest: `SELECT 1 FROM class_join_requests r JOIN classes c ON c.id=r.class_id WHERE r.id=$1 AND r.institution_id=$2 AND ${ownsClass('c', '$3')}`,
 };
 
@@ -95,6 +97,8 @@ const routeKinds = [
   [/^\/api\/report-render-jobs\/([0-9a-f-]{36})(?:\/|$)/i, 'reportRenderJob'],
   [/^\/api\/submissions\/([0-9a-f-]{36})(?:\/|$)/i, 'submission'],
   [/^\/api\/essay-applications\/([0-9a-f-]{36})(?:\/|$)/i, 'essayApplication'],
+  [/^\/api\/essay-entries\/([0-9a-f-]{36})(?:\/|$)/i, 'essayEntry'],
+  [/^\/api\/essay-files\/([0-9a-f-]{36})(?:\/|$)/i, 'essayFile'],
   [/^\/api\/class-join-requests\/([0-9a-f-]{36})$/i, 'joinRequest'],
 ];
 

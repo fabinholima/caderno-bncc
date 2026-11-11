@@ -247,6 +247,25 @@ import {
   updateEssayApplication,
   updateEssayPrompt,
 } from './essays.mjs';
+import {
+  addTeacherScanFile,
+  essayDashboard,
+  essayFileForStaff,
+  getEssayEntry,
+  listEssayEntries,
+  listEssayRubrics,
+  markEssayAbsent,
+  publishEssayApplication,
+  publishEssayEntry,
+  receiveTeacherScan,
+  removeTeacherScanFile,
+  reopenEssayGrading,
+  requestEssayAiGrading,
+  requestEssayOcr,
+  returnEssayEntry,
+  saveEssayGrading,
+  saveEssayTranscription,
+} from './essay-correction.mjs';
 import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
@@ -311,6 +330,20 @@ function json(response, status, body) {
     'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
   });
   response.end(JSON.stringify(body));
+}
+
+/** Arquivo privado (foto ou PDF da redação): sem cache e nunca executável. */
+function privateFile(response, { contents, mimeType, filename }) {
+  response.writeHead(200, {
+    'content-type': mimeType,
+    'content-disposition': `inline; filename="${filename}"`,
+    'cache-control': 'private, no-store',
+    'x-content-type-options': 'nosniff',
+    'content-security-policy':
+      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
+    ...corsHeaders(response),
+  });
+  return response.end(contents);
 }
 
 function pdf(response, contents, filename, download = false) {
@@ -827,6 +860,7 @@ const server = createServer(async (request, response) => {
       const result = await route.handler({ identity, params, body });
       if (route.responseType === 'pdf')
         return pdf(response, result.pdf, result.filename);
+      if (route.responseType === 'file') return privateFile(response, result);
       return json(response, route.status ?? 200, { data: result });
     }
     const studentGate = gates.studentArea(identity, url.pathname);
@@ -1421,7 +1455,91 @@ const server = createServer(async (request, response) => {
           identity,
           await ownedInput(await readJson(request, 16384), {
             classId: 'class',
+            classIds: 'class',
           }),
+        ),
+      });
+    // Correção de redações (essay-correction.mjs).
+    if (url.pathname === '/api/essay-rubrics' && request.method === 'GET')
+      return json(response, 200, { data: await listEssayRubrics(identity) });
+    const essayFilters = () =>
+      Object.fromEntries(
+        [
+          'applicationId',
+          'classId',
+          'promptId',
+          'teacherId',
+          'schoolId',
+          'schoolYear',
+          'from',
+          'to',
+          'status',
+          'q',
+          'page',
+        ].map((key) => [key, url.searchParams.get(key) || undefined]),
+      );
+    if (url.pathname === '/api/essay-entries' && request.method === 'GET')
+      return json(response, 200, {
+        data: await listEssayEntries(identity, essayFilters()),
+      });
+    if (url.pathname === '/api/essay-dashboard' && request.method === 'GET')
+      return json(response, 200, {
+        data: await essayDashboard(identity, essayFilters()),
+      });
+    const essayFileMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/essay-files\/([0-9a-f-]{36})$/i);
+    if (essayFileMatch)
+      return privateFile(
+        response,
+        await essayFileForStaff(identity, essayFileMatch[1]),
+      );
+    const essayEntryMatch = url.pathname.match(
+      /^\/api\/essay-entries\/([0-9a-f-]{36})(?:\/([a-z-]+(?:\/(?![0-9a-f-]{36}$)[a-z-]+)?))?(?:\/([0-9a-f-]{36}))?$/i,
+    );
+    if (essayEntryMatch) {
+      const [, entryId, action = '', fileId] = essayEntryMatch;
+      const route = `${request.method} ${action}${fileId ? '/:id' : ''}`;
+      const body = () => readJson(request, 64000);
+      const handlers = {
+        'GET ': () => getEssayEntry(identity, entryId),
+        'POST files': async () =>
+          addTeacherScanFile(
+            identity,
+            entryId,
+            await readJson(request, 12_500_000),
+          ),
+        'DELETE files/:id': () =>
+          removeTeacherScanFile(identity, entryId, fileId),
+        'POST receive': () => receiveTeacherScan(identity, entryId),
+        'POST absent': async () =>
+          markEssayAbsent(identity, entryId, await body()),
+        'PUT transcription': async () =>
+          saveEssayTranscription(identity, entryId, await body()),
+        'POST ocr': () => requestEssayOcr(identity, entryId),
+        'POST ai-grading': () => requestEssayAiGrading(identity, entryId),
+        'PUT grading': async () =>
+          saveEssayGrading(identity, entryId, await body()),
+        'POST grading/finalize': async () =>
+          saveEssayGrading(identity, entryId, await body(), { finalize: true }),
+        'POST grading/reopen': () => reopenEssayGrading(identity, entryId),
+        'POST publish': async () =>
+          publishEssayEntry(identity, entryId, await body()),
+        'POST return': async () =>
+          returnEssayEntry(identity, entryId, await body()),
+      };
+      if (handlers[route])
+        return json(response, 200, { data: await handlers[route]() });
+    }
+    if (
+      request.method === 'POST' &&
+      /^\/api\/essay-applications\/[0-9a-f-]{36}\/publish$/i.test(url.pathname)
+    )
+      return json(response, 200, {
+        data: await publishEssayApplication(
+          identity,
+          url.pathname.split('/')[3],
+          await readJson(request, 4096),
         ),
       });
     const essayApplicationMatch = url.pathname.match(
@@ -1557,13 +1675,11 @@ const server = createServer(async (request, response) => {
       );
     if (academicYearActionMatch)
       return json(response, 200, {
-        data: await (academicYearActionMatch[2] === 'archive'
-          ? archiveAcademicYear
-          : reopenAcademicYear)(
-          identity,
-          academicYearActionMatch[1],
-          await readJson(request, 4096),
-        ),
+        data: await (
+          academicYearActionMatch[2] === 'archive'
+            ? archiveAcademicYear
+            : reopenAcademicYear
+        )(identity, academicYearActionMatch[1], await readJson(request, 4096)),
       });
     if (request.method === 'GET' && url.pathname === '/api/academic-dashboard')
       return json(response, 200, {

@@ -30,6 +30,9 @@ x-api-env: &api-env
   OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-}
   RENDER_OUTPUT_DIR: /var/data/renders
   TEXMFCACHE: /var/data/tex-cache
+  # Redação: "gemini" liga OCR e sugestão de correção (worker "essays").
+  # Vazio = correção só manual; a API não oferece os botões de IA.
+  ESSAY_AI_PROVIDER: ${ESSAY_AI_PROVIDER:-}
   # Cópia externa do backup (backup-postgres.sh). Sem BACKUP_BUCKET, usa o bucket dos arquivos.
   BACKUP_BUCKET: ${BACKUP_BUCKET:-}
   BACKUP_PREFIX: ${BACKUP_PREFIX:-backups/postgres}
@@ -145,6 +148,30 @@ services:
       GEMINI_EXAM_MODEL: ${GEMINI_EXAM_MODEL:-gemini-3.5-flash-lite}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    volumes:
+      - api-data:/var/data
+
+  essays:
+    # Mesma imagem da API: fila de redações (OCR das fotos e sugestão de
+    # correção pela IA). Nada de IA roda dentro das requisições da API.
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    image: ufaprova-api:latest
+    restart: unless-stopped
+    command: ["node", "essay-worker.mjs"]
+    depends_on:
+      api:
+        condition: service_healthy
+      volume-permissions:
+        condition: service_completed_successfully
+    environment:
+      <<: *api-env
+      ESSAY_POLL_MS: "3000"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ESSAY_AI_MODEL: ${ESSAY_AI_MODEL:-}
+      ESSAY_OCR_MIN_CONFIDENCE: ${ESSAY_OCR_MIN_CONFIDENCE:-0.85}
+      ESSAY_FILE_RETENTION_DAYS: ${ESSAY_FILE_RETENTION_DAYS:-0}
     volumes:
       - api-data:/var/data
 

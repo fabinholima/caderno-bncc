@@ -29,6 +29,8 @@ import {
   type EssayContentBlock,
   type EssayImageWidth,
 } from './essay-content-editor';
+import { EssayDashboard, EssayGradingQueue } from './essay-grading';
+import { essayStatusLabels, type EssayEntryStatus } from '@/lib/essay-status';
 
 export const essayViews = [
   'Banco de Temas',
@@ -37,6 +39,8 @@ export const essayViews = [
   'Minhas Propostas',
   'Aplicar Redação',
   'Histórico',
+  'Corrigir Redações',
+  'Painel de Redação',
 ] as const;
 export type EssayView = (typeof essayViews)[number];
 
@@ -116,6 +120,14 @@ type EssayApplication = {
   };
   studentsCount: number;
   submittedCount: number;
+  publishedCount?: number;
+  awaitingApprovalCount?: number;
+  opensAt?: string | null;
+  submissionModes?: Array<'typed' | 'upload'>;
+  aiAssist?: boolean;
+  aiFeedbackVisible?: boolean;
+  rubricName?: string | null;
+  createdIds?: string[];
   createdByName: string;
   canEdit: boolean;
   students?: Array<{
@@ -123,8 +135,14 @@ type EssayApplication = {
     studentId: string;
     number: number | null;
     name: string;
-    status: string;
+    status: EssayEntryStatus;
   }>;
+};
+type RubricSummary = {
+  id: string;
+  name: string;
+  maxScore: number;
+  system: boolean;
 };
 type SheetOptions = {
   template: string;
@@ -1628,12 +1646,18 @@ function ApplyEssay({
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [form, setForm] = useState({
     promptId,
-    classId: '',
+    classIds: [] as string[],
     appliedOn: today(),
+    opensAt: '',
     dueAt: '',
     availableToStudents: true,
     teacherName,
+    rubricId: '',
+    submissionModes: ['typed', 'upload'] as Array<'typed' | 'upload'>,
+    aiAssist: false,
+    aiFeedbackVisible: false,
   });
+  const [rubrics, setRubrics] = useState<RubricSummary[]>([]);
   const [options, setOptions] = useState<SheetOptions>({
     template: 'enem-30-v1',
     includeProposal: true,
@@ -1647,8 +1671,25 @@ function ApplyEssay({
     request<SchoolClass[]>('classes')
       .then(setClasses)
       .catch((e) => setError(e.message));
+    request<RubricSummary[]>('essay-rubrics')
+      .then(setRubrics)
+      .catch(() => undefined);
   }, [request]);
   const selectedPrompt = prompts.find((prompt) => prompt.id === form.promptId);
+  const toggleClass = (id: string) =>
+    setForm({
+      ...form,
+      classIds: form.classIds.includes(id)
+        ? form.classIds.filter((item) => item !== id)
+        : [...form.classIds, id],
+    });
+  const toggleMode = (mode: 'typed' | 'upload') =>
+    setForm({
+      ...form,
+      submissionModes: form.submissionModes.includes(mode)
+        ? form.submissionModes.filter((item) => item !== mode)
+        : [...form.submissionModes, mode],
+    });
   async function submit() {
     setBusy(true);
     setError('');
@@ -1656,7 +1697,12 @@ function ApplyEssay({
       setResult(
         await request<EssayApplication>('essay-applications', {
           method: 'POST',
-          body: JSON.stringify({ ...form, ...options }),
+          body: JSON.stringify({
+            ...form,
+            rubricId: form.rubricId || null,
+            opensAt: form.opensAt ? new Date(form.opensAt).toISOString() : '',
+            ...options,
+          }),
         }),
       );
     } catch (e) {
@@ -1688,6 +1734,12 @@ function ApplyEssay({
           <h2 className="font-display text-lg font-bold text-emerald-900">
             {result.promptTitle}
           </h2>
+          {(result.createdIds?.length || 1) > 1 && (
+            <p className="mt-1 text-sm font-semibold text-emerald-900">
+              Aplicada em {result.createdIds?.length} turmas. As folhas de cada
+              turma ficam no Histórico.
+            </p>
+          )}
           <p className="mt-1 text-sm text-emerald-900">
             Turma {result.classGrade} — {result.className} · aplicação em{' '}
             {formatDate(result.appliedOn)}
@@ -1738,28 +1790,53 @@ function ApplyEssay({
               ))}
             </select>
           </Field>
-          <Field
-            label="Turma *"
-            hint={
-              classes.length ? undefined : 'Cadastre turmas em Turmas e alunos.'
-            }
-          >
+          <Field label="Modelo de correção">
             <select
-              value={form.classId}
+              value={form.rubricId}
               onChange={(event) =>
-                setForm({ ...form, classId: event.target.value })
+                setForm({ ...form, rubricId: event.target.value })
               }
               className={fieldClass}
             >
-              <option value="">Selecione uma turma</option>
-              {classes.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.grade} — {item.name} ({item.schoolYear}) ·{' '}
-                  {item.students} aluno(s)
-                </option>
-              ))}
+              <option value="">
+                {rubrics.find((item) => item.system)?.name || 'Enem (padrão)'}
+              </option>
+              {rubrics
+                .filter((item) => !item.system)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
             </select>
           </Field>
+          <fieldset className="text-sm md:col-span-2">
+            <legend className="mb-1 font-semibold text-slate-700">
+              Turmas *
+            </legend>
+            {!classes.length ? (
+              <p className="text-xs text-slate-500">
+                Cadastre turmas em Turmas e alunos.
+              </p>
+            ) : (
+              <div className="grid max-h-48 gap-1 overflow-auto rounded-lg border border-slate-200 p-2 sm:grid-cols-2">
+                {classes.map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.classIds.includes(item.id)}
+                      onChange={() => toggleClass(item.id)}
+                    />
+                    {item.grade} — {item.name} ({item.schoolYear}) ·{' '}
+                    {item.students} aluno(s)
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
           <Field label="Data de aplicação *">
             <Input
               type="date"
@@ -1770,7 +1847,23 @@ function ApplyEssay({
               className="h-9"
             />
           </Field>
-          <Field label="Prazo de entrega">
+          <Field
+            label="Liberação para envio"
+            hint="Vazio: o aluno pode enviar assim que a proposta ficar disponível."
+          >
+            <Input
+              type="datetime-local"
+              value={form.opensAt}
+              onChange={(event) =>
+                setForm({ ...form, opensAt: event.target.value })
+              }
+              className="h-9"
+            />
+          </Field>
+          <Field
+            label="Prazo de entrega"
+            hint="O aluno pode editar e enviar até 23h59 deste dia."
+          >
             <Input
               type="date"
               value={form.dueAt}
@@ -1801,6 +1894,59 @@ function ApplyEssay({
             />
             Disponibilizar a proposta no portal do aluno
           </label>
+          <fieldset className="text-sm">
+            <legend className="mb-1 font-semibold text-slate-700">
+              Formas de entrega pelo aluno *
+            </legend>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.submissionModes.includes('typed')}
+                onChange={() => toggleMode('typed')}
+              />
+              Texto digitado no portal
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.submissionModes.includes('upload')}
+                onChange={() => toggleMode('upload')}
+              />
+              Fotos ou PDF da folha manuscrita
+            </label>
+            <span className="mt-1 block text-xs text-slate-500">
+              Folhas em papel podem ser digitalizadas por você na correção.
+            </span>
+          </fieldset>
+          <fieldset className="text-sm">
+            <legend className="mb-1 font-semibold text-slate-700">
+              Inteligência artificial
+            </legend>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.aiAssist}
+                onChange={(event) =>
+                  setForm({ ...form, aiAssist: event.target.checked })
+                }
+              />
+              Reconhecer manuscritos e sugerir correção (você revisa e decide a
+              nota)
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                disabled={!form.aiAssist}
+                checked={form.aiAssist && form.aiFeedbackVisible}
+                onChange={(event) =>
+                  setForm({ ...form, aiFeedbackVisible: event.target.checked })
+                }
+              />
+              Mostrar ao aluno o retorno da IA junto com a nota publicada
+            </label>
+          </fieldset>
         </div>
         <SheetOptionsFields
           templates={templates}
@@ -1809,7 +1955,13 @@ function ApplyEssay({
           maxLines={selectedPrompt?.maxLines}
         />
         <Button
-          disabled={busy || !form.promptId || !form.classId || !form.appliedOn}
+          disabled={
+            busy ||
+            !form.promptId ||
+            !form.classIds.length ||
+            !form.appliedOn ||
+            !form.submissionModes.length
+          }
           onClick={submit}
         >
           <Send /> {busy ? 'Registrando…' : 'Registrar aplicação'}
@@ -1821,7 +1973,13 @@ function ApplyEssay({
 
 // ---------- Histórico ----------
 
-function ApplicationHistory({ apiUrl }: { apiUrl: string }) {
+function ApplicationHistory({
+  apiUrl,
+  onGrade,
+}: {
+  apiUrl: string;
+  onGrade: (applicationId: string) => void;
+}) {
   const { request, pdf } = useEssayApi(apiUrl);
   const [items, setItems] = useState<EssayApplication[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -1873,7 +2031,12 @@ function ApplicationHistory({ apiUrl }: { apiUrl: string }) {
   }
   async function update(
     item: EssayApplication,
-    body: Partial<Pick<EssayApplication, 'status' | 'availableToStudents'>>,
+    body: Partial<
+      Pick<
+        EssayApplication,
+        'status' | 'availableToStudents' | 'aiFeedbackVisible'
+      >
+    >,
   ) {
     if (
       body.status === 'cancelled' &&
@@ -1890,6 +2053,31 @@ function ApplicationHistory({ apiUrl }: { apiUrl: string }) {
         { method: 'PATCH', body: JSON.stringify(body) },
       );
       if (openId === item.id) setDetail(data);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy('');
+    }
+  }
+  async function publishAll(item: EssayApplication) {
+    if (
+      !window.confirm(
+        `Publicar as ${item.awaitingApprovalCount} correção(ões) finalizadas desta aplicação? Os alunos passam a ver nota e comentários.`,
+      )
+    )
+      return;
+    setBusy(item.id);
+    setError('');
+    try {
+      await request(`essay-applications/${item.id}/publish`, {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (openId === item.id)
+        setDetail(
+          await request<EssayApplication>(`essay-applications/${item.id}`),
+        );
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -1972,7 +2160,10 @@ function ApplicationHistory({ apiUrl }: { apiUrl: string }) {
                   </span>
                 </span>
                 <span className="text-xs text-slate-500">
-                  {item.studentsCount} aluno(s)
+                  {item.submittedCount}/{item.studentsCount} entregue(s)
+                  {item.publishedCount
+                    ? ` · ${item.publishedCount} publicada(s)`
+                    : ''}
                 </span>
                 {item.availableToStudents && (
                   <Badge variant="outline">No portal do aluno</Badge>
@@ -1999,6 +2190,41 @@ function ApplicationHistory({ apiUrl }: { apiUrl: string }) {
                         onClick={() => download(item)}
                       >
                         <Download /> Folhas da turma
+                      </Button>
+                    )}
+                    {item.status !== 'cancelled' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onGrade(item.id)}
+                      >
+                        <Pencil /> Corrigir produções
+                      </Button>
+                    )}
+                    {!!item.awaitingApprovalCount && (
+                      <Button
+                        size="sm"
+                        disabled={busy === item.id}
+                        onClick={() => publishAll(item)}
+                      >
+                        <Send /> Publicar {item.awaitingApprovalCount}{' '}
+                        finalizada(s)
+                      </Button>
+                    )}
+                    {item.canEdit && item.aiAssist && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy === item.id}
+                        onClick={() =>
+                          update(item, {
+                            aiFeedbackVisible: !item.aiFeedbackVisible,
+                          })
+                        }
+                      >
+                        {item.aiFeedbackVisible
+                          ? 'Ocultar retorno da IA ao aluno'
+                          : 'Mostrar retorno da IA ao aluno'}
                       </Button>
                     )}
                     {item.canEdit && item.status !== 'cancelled' && (
@@ -2067,9 +2293,8 @@ function ApplicationHistory({ apiUrl }: { apiUrl: string }) {
                             {student.name}
                           </span>
                           <span className="hidden text-xs text-slate-500 sm:inline">
-                            {student.status === 'pending'
-                              ? 'Aguardando entrega'
-                              : student.status}
+                            {essayStatusLabels[student.status] ||
+                              student.status}
                           </span>
                           {item.status !== 'cancelled' && (
                             <Button
@@ -2111,6 +2336,7 @@ export function EssayManager({
   const [editingId, setEditingId] = useState('');
   const [editorKey, setEditorKey] = useState(0);
   const [selectedId, setSelectedId] = useState('');
+  const [gradingApplicationId, setGradingApplicationId] = useState('');
   const go = (next: EssayView) => {
     onNavigate(next);
     window.scrollTo({ top: 0 });
@@ -2165,8 +2391,28 @@ export function EssayManager({
           teacherName={teacherName}
           onHistory={() => go('Histórico')}
         />
+      ) : view === 'Corrigir Redações' ? (
+        <EssayGradingQueue
+          key={gradingApplicationId}
+          apiUrl={apiUrl}
+          applicationId={gradingApplicationId}
+        />
+      ) : view === 'Painel de Redação' ? (
+        <EssayDashboard
+          apiUrl={apiUrl}
+          onOpenQueue={() => {
+            setGradingApplicationId('');
+            go('Corrigir Redações');
+          }}
+        />
       ) : (
-        <ApplicationHistory apiUrl={apiUrl} />
+        <ApplicationHistory
+          apiUrl={apiUrl}
+          onGrade={(id) => {
+            setGradingApplicationId(id);
+            go('Corrigir Redações');
+          }}
+        />
       )}
     </div>
   );

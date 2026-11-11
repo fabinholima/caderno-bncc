@@ -13,7 +13,16 @@ import {
   myJoinRequests,
   requestJoin,
 } from '../class-invites.mjs';
-import { myEssayApplications, myEssayProposalPdf } from '../essays.mjs';
+import { myEssayProposalPdf } from '../essays.mjs';
+import {
+  addMyEssayFile,
+  myEssayDetail,
+  myEssayFile,
+  myEssays,
+  removeMyEssayFile,
+  saveMyEssayDraft,
+  submitMyEssay,
+} from '../essay-correction.mjs';
 import { claimAccessCode, inspectAccessCode } from '../student-access-code.mjs';
 import {
   myStudentProfiles,
@@ -128,7 +137,50 @@ export const studentAreaRoutes = [
   {
     method: 'GET',
     path: '/api/student/essays',
-    handler: ({ identity }) => myEssayApplications(identity),
+    handler: ({ identity }) => myEssays(identity),
+  },
+  // Minhas Redações: escrever, enviar fotos/PDF, entregar e ver a correção.
+  {
+    method: 'GET',
+    path: new RegExp(`^/api/student/essays/${id}$`, 'i'),
+    handler: ({ identity, params }) => myEssayDetail(identity, params[0]),
+  },
+  {
+    method: 'PUT',
+    path: new RegExp(`^/api/student/essays/${id}/draft$`, 'i'),
+    originOrMobile: true,
+    maxBytes: 90000,
+    handler: ({ identity, params, body }) =>
+      saveMyEssayDraft(identity, params[0], body),
+  },
+  {
+    method: 'POST',
+    path: new RegExp(`^/api/student/essays/${id}/files$`, 'i'),
+    status: 201,
+    originOrMobile: true,
+    maxBytes: 12_500_000,
+    handler: ({ identity, params, body }) =>
+      addMyEssayFile(identity, params[0], body),
+  },
+  {
+    method: 'DELETE',
+    path: new RegExp(`^/api/student/essays/${id}/files/${id}$`, 'i'),
+    originOrMobile: true,
+    handler: ({ identity, params }) =>
+      removeMyEssayFile(identity, params[0], params[1]),
+  },
+  {
+    method: 'GET',
+    path: new RegExp(`^/api/student/essays/${id}/files/${id}$`, 'i'),
+    handler: ({ identity, params }) =>
+      myEssayFile(identity, params[0], params[1]),
+    responseType: 'file',
+  },
+  {
+    method: 'POST',
+    path: new RegExp(`^/api/student/essays/${id}/submit$`, 'i'),
+    originOrMobile: true,
+    handler: ({ identity, params }) => submitMyEssay(identity, params[0]),
   },
   {
     method: 'GET',
