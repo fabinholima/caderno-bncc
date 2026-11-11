@@ -5,6 +5,12 @@ import {
 import { regenerateAssessment } from './assessments.mjs';
 import { getClassRoster, listClassStudents } from './academic.mjs';
 import {
+  createAcademicYear,
+  getStudentHistory,
+  listAcademicYears,
+  updateAcademicYear,
+} from './academic-years.mjs';
+import {
   listWorkspaces,
   getWorkspace,
   createWorkspace,
@@ -1479,6 +1485,34 @@ const server = createServer(async (request, response) => {
           classId: classMatch[1],
         }),
       });
+    if (request.method === 'GET' && url.pathname === '/api/academic-years')
+      return json(response, 200, { data: await listAcademicYears(identity) });
+    if (request.method === 'POST' && url.pathname === '/api/academic-years')
+      return json(response, 201, {
+        data: await createAcademicYear(identity, await readJson(request, 4096)),
+      });
+    const academicYearMatch =
+      request.method === 'PATCH' &&
+      url.pathname.match(/^\/api\/academic-years\/([0-9a-f-]{36})$/i);
+    if (academicYearMatch)
+      return json(response, 200, {
+        data: await updateAcademicYear(
+          identity,
+          academicYearMatch[1],
+          await readJson(request, 4096),
+        ),
+      });
+    const studentHistoryMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/history$/i);
+    if (studentHistoryMatch)
+      return json(response, 200, {
+        data: await getStudentHistory(
+          identity,
+          studentHistoryMatch[1],
+          teacherScope(identity),
+        ),
+      });
     if (request.method === 'POST' && url.pathname === '/api/students')
       return json(response, 201, {
         data: await createStudent({
@@ -1557,6 +1591,7 @@ const server = createServer(async (request, response) => {
       return json(response, 201, {
         data: await enrollStudent({
           institutionId,
+          userId,
           classId: enrollmentMatch[1],
           input: await ownedInput(await readJson(request), {
             studentId: 'student',

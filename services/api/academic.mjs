@@ -198,17 +198,36 @@ export async function updateStudent({ institutionId, studentId, input }) {
     });
   return r.rows[0];
 }
-export async function enrollStudent({ institutionId, classId, input }) {
+export async function enrollStudent({
+  institutionId,
+  userId = null,
+  classId,
+  input,
+}) {
   const v = enrollmentSchema.parse(input);
-  const r = await pool.query({
-    text: `INSERT INTO class_enrollments(class_id,student_id,number) SELECT c.id,s.id,$4 FROM classes c JOIN students s ON s.id=$3 AND s.institution_id=$1 WHERE c.id=$2 AND c.institution_id=$1 RETURNING class_id,student_id,number`,
-    values: [institutionId, classId, v.studentId, v.number || null],
-  });
-  if (!r.rowCount)
-    throw Object.assign(new Error('Turma ou aluno não encontrado.'), {
-      statusCode: 404,
+  try {
+    return await transaction(async (client) => {
+      // O trigger de histórico (migração 111) registra quem matriculou.
+      await client.query(
+        "SELECT set_config('ufaprova.actor_id',$1,true)",
+        [userId ?? ''],
+      );
+      const r = await client.query({
+        text: `INSERT INTO class_enrollments(class_id,student_id,number) SELECT c.id,s.id,$4 FROM classes c JOIN students s ON s.id=$3 AND s.institution_id=$1 WHERE c.id=$2 AND c.institution_id=$1 RETURNING class_id,student_id,number`,
+        values: [institutionId, classId, v.studentId, v.number || null],
+      });
+      if (!r.rowCount)
+        throw Object.assign(new Error('Turma ou aluno não encontrado.'), {
+          statusCode: 404,
+        });
+      return r.rows[0];
     });
-  return r.rows[0];
+  } catch (error) {
+    // Ano letivo encerrado (trigger) responde como conflito.
+    if (error?.code === '23514')
+      throw Object.assign(new Error(error.message), { statusCode: 409 });
+    throw error;
+  }
 }
 export async function createApplication({ institutionId, userId, input }) {
   const v = applicationSchema.parse(input);

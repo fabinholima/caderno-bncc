@@ -462,9 +462,39 @@ test(
         'DELETE FROM essay_applications WHERE institution_id=ANY($1)',
         [[institutionId, otherInstitutionId]],
       );
-      await admin.query('DELETE FROM institutions WHERE id=ANY($1)', [
-        [institutionId, otherInstitutionId],
-      ]);
+      // Histórico acadêmico (migração 111) é protegido contra exclusão;
+      // a limpeza de teste libera explicitamente dentro da transação.
+      const purge = admin;
+      try {
+        const ids = [[institutionId, otherInstitutionId]];
+        await purge.query('BEGIN');
+        await purge.query("SET LOCAL ufaprova.allow_history_purge='on'");
+        await purge.query(
+          'DELETE FROM class_enrollments WHERE class_id IN (SELECT id FROM classes WHERE institution_id=ANY($1))',
+          ids,
+        );
+        await purge.query(
+          'DELETE FROM academic_events WHERE institution_id=ANY($1)',
+          ids,
+        );
+        await purge.query(
+          'DELETE FROM student_enrollments WHERE institution_id=ANY($1)',
+          ids,
+        );
+        await purge.query(
+          'DELETE FROM classes WHERE institution_id=ANY($1)',
+          ids,
+        );
+        await purge.query(
+          'DELETE FROM academic_years WHERE institution_id=ANY($1)',
+          ids,
+        );
+        await purge.query('DELETE FROM institutions WHERE id=ANY($1)', ids);
+        await purge.query('COMMIT');
+      } catch (error) {
+        await purge.query('ROLLBACK');
+        throw error;
+      }
       await admin.query('DELETE FROM users WHERE id=ANY($1)', [
         [teacherId, colleagueId, coordinatorId, studentUserId, outsiderId],
       ]);
