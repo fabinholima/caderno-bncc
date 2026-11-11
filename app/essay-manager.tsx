@@ -16,6 +16,7 @@ import {
   Search,
   Send,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -1978,7 +1979,7 @@ function ApplicationHistory({
   onGrade,
 }: {
   apiUrl: string;
-  onGrade: (applicationId: string) => void;
+  onGrade: (applicationId: string, status?: string) => void;
 }) {
   const { request, pdf } = useEssayApi(apiUrl);
   const [items, setItems] = useState<EssayApplication[]>([]);
@@ -2201,6 +2202,15 @@ function ApplicationHistory({
                         <Pencil /> Corrigir produções
                       </Button>
                     )}
+                    {item.status !== 'cancelled' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onGrade(item.id, 'pending')}
+                      >
+                        <Upload /> Enviar redações escaneadas
+                      </Button>
+                    )}
                     {!!item.awaitingApprovalCount && (
                       <Button
                         size="sm"
@@ -2337,6 +2347,7 @@ export function EssayManager({
   const [editorKey, setEditorKey] = useState(0);
   const [selectedId, setSelectedId] = useState('');
   const [gradingApplicationId, setGradingApplicationId] = useState('');
+  const [gradingStatus, setGradingStatus] = useState('');
   const go = (next: EssayView) => {
     onNavigate(next);
     window.scrollTo({ top: 0 });
@@ -2393,23 +2404,26 @@ export function EssayManager({
         />
       ) : view === 'Corrigir Redações' ? (
         <EssayGradingQueue
-          key={gradingApplicationId}
+          key={`${gradingApplicationId}:${gradingStatus}`}
           apiUrl={apiUrl}
           applicationId={gradingApplicationId}
+          initialStatus={gradingStatus}
         />
       ) : view === 'Painel de Redação' ? (
         <EssayDashboard
           apiUrl={apiUrl}
           onOpenQueue={() => {
             setGradingApplicationId('');
+            setGradingStatus('');
             go('Corrigir Redações');
           }}
         />
       ) : (
         <ApplicationHistory
           apiUrl={apiUrl}
-          onGrade={(id) => {
+          onGrade={(id, status = '') => {
             setGradingApplicationId(id);
+            setGradingStatus(status);
             go('Corrigir Redações');
           }}
         />

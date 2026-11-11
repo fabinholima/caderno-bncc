@@ -324,15 +324,17 @@ function Header({
 export function EssayGradingQueue({
   apiUrl,
   applicationId = '',
+  initialStatus = '',
 }: {
   apiUrl: string;
   applicationId?: string;
+  initialStatus?: string;
 }) {
   const request = useApi(apiUrl);
   const [openId, setOpenId] = useState('');
   const [filters, setFilters] = useState({
     applicationId,
-    status: '',
+    status: initialStatus,
     q: '',
     page: 1,
   });
@@ -407,6 +409,29 @@ export function EssayGradingQueue({
         title="Corrigir redações"
         description="Produções recebidas das suas turmas. Abra uma redação para corrigir por competência; a sugestão da IA (quando ligada) aparece ao lado e só vale depois da sua revisão."
       />
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+        <Upload className="size-5 shrink-0" />
+        <p className="min-w-0 flex-1">
+          <strong>Redações em papel:</strong> abra o aluno que ainda não
+          entregou, envie as fotos ou o PDF da folha escaneada e clique em
+          Registrar recebimento.
+        </p>
+        <Button
+          size="sm"
+          variant={filters.status === 'pending' ? 'default' : 'outline'}
+          onClick={() =>
+            setFilters({
+              ...filters,
+              status: filters.status === 'pending' ? '' : 'pending',
+              page: 1,
+            })
+          }
+        >
+          {filters.status === 'pending'
+            ? 'Mostrar todas'
+            : 'Ver quem falta entregar'}
+        </Button>
+      </div>
       <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <select
           aria-label="Aplicação"
@@ -500,6 +525,11 @@ export function EssayGradingQueue({
                       <span className="text-xs font-normal text-slate-500">
                         /{item.maxScore}
                       </span>
+                    </span>
+                  )}
+                  {item.status === 'pending' && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700">
+                      <Upload className="size-3.5" /> Enviar escaneada
                     </span>
                   )}
                   <StatusBadge status={item.status} />
