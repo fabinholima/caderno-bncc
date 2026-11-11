@@ -26,7 +26,21 @@ async function sha256(value: string) {
   return btoa(String.fromCharCode(...new Uint8Array(digest)));
 }
 
+// O portal chama a API pelo domínio próprio (NEXT_PUBLIC_API_URL, por exemplo
+// https://api.ufaprova.com.br); sem ele no connect-src, o navegador bloqueia
+// todas as chamadas e o portal fica "temporariamente indisponível".
+function apiOrigin() {
+  try {
+    return process.env.NEXT_PUBLIC_API_URL
+      ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
+      : '';
+  } catch {
+    return '';
+  }
+}
+
 export function contentSecurityPolicy(nonce: string, themeHash: string) {
+  const api = apiOrigin();
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'sha256-${themeHash}' 'strict-dynamic'`,
@@ -35,7 +49,7 @@ export function contentSecurityPolicy(nonce: string, themeHash: string) {
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
-    "connect-src 'self'",
+    `connect-src 'self'${api ? ` ${api}` : ''}`,
     "frame-src 'self' blob:",
     "worker-src 'self' blob:",
     "object-src 'none'",
