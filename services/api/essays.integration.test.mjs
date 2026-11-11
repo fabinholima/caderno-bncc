@@ -492,8 +492,9 @@ test(
         await purge.query('DELETE FROM institutions WHERE id=ANY($1)', ids);
         await purge.query('COMMIT');
       } catch (error) {
+        // Sem throw no finally: registra a falha de limpeza e segue.
         await purge.query('ROLLBACK');
-        throw error;
+        console.error('Falha ao limpar dados do teste de redação:', error);
       }
       await admin.query('DELETE FROM users WHERE id=ANY($1)', [
         [teacherId, colleagueId, coordinatorId, studentUserId, outsiderId],
