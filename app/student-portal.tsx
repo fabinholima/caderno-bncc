@@ -6,6 +6,10 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { shrinkStudentPhoto } from '@/lib/shrink-photo';
 import { StudentEssays } from './student-essays';
+import {
+  StudentHistoryTimeline,
+  type TimelineEntry,
+} from './academic/student-history-timeline';
 type Request = {
   id: string;
   status: string;
@@ -43,6 +47,7 @@ export function StudentPortal({
     [requests, setRequests] = useState<Request[]>([]),
     [activities, setActivities] = useState<Activity[]>([]),
     [profiles, setProfiles] = useState<Profile[]>([]),
+    [history, setHistory] = useState<TimelineEntry[] | null>(null),
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false);
   const call = useCallback(
@@ -66,14 +71,17 @@ export function StudentPortal({
   );
   const refresh = useCallback(async () => {
     try {
-      const [list, own, linkedProfiles] = await Promise.all([
+      const [list, own, linkedProfiles, timeline] = await Promise.all([
         call<Request[]>('/api/class-join-requests/me'),
         call<Activity[]>('/api/student/activities'),
         call<Profile[]>('/api/student/profile'),
+        // Falha no histórico não pode derrubar o restante do portal.
+        call<TimelineEntry[]>('/api/student/history').catch(() => []),
       ]);
       setRequests(list);
       setActivities(own);
       setProfiles(linkedProfiles);
+      setHistory(timeline);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Falha ao atualizar.');
     }
@@ -294,6 +302,18 @@ export function StudentPortal({
             </p>
           </article>
         ))}
+        <h2 className="mt-6 font-semibold">Meu histórico acadêmico</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Seus anos letivos, turmas e as notas que os professores já
+          publicaram.
+        </p>
+        <div className="mt-3">
+          {history ? (
+            <StudentHistoryTimeline entries={history} />
+          ) : (
+            <p className="text-sm text-slate-500">Carregando histórico…</p>
+          )}
+        </div>
         <StudentEssays apiUrl={apiUrl} />
       </section>
     </main>

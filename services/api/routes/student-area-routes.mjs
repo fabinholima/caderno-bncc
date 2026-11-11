@@ -20,6 +20,7 @@ import {
   updateMyStudentPhoto,
 } from '../student-profile.mjs';
 import { myResultDetail, mySkillPerformance } from '../student-results.mjs';
+import { myAcademicHistory } from '../academic-insights.mjs';
 
 const id = '([0-9a-f-]{36})';
 const inviteLimit = (identity) => `invite:${identity.userId}`;
@@ -95,6 +96,11 @@ export const studentAreaRoutes = [
     method: 'GET',
     path: '/api/student/activities',
     handler: ({ identity }) => myActivities(identity),
+  },
+  {
+    method: 'GET',
+    path: '/api/student/history',
+    handler: ({ identity }) => myAcademicHistory(identity),
   },
   {
     method: 'GET',

@@ -5,6 +5,7 @@ import {
 import { regenerateAssessment } from './assessments.mjs';
 import { getClassRoster, listClassStudents } from './academic.mjs';
 import { deleteScanImage } from './scan-image-storage.mjs';
+import { academicDashboard, studentTimeline } from './academic-insights.mjs';
 import {
   archiveAcademicYear,
   createAcademicYear,
@@ -1529,6 +1530,21 @@ const server = createServer(async (request, response) => {
           identity,
           academicYearActionMatch[1],
           await readJson(request, 4096),
+        ),
+      });
+    if (request.method === 'GET' && url.pathname === '/api/academic-dashboard')
+      return json(response, 200, {
+        data: await academicDashboard(identity, teacherScope(identity)),
+      });
+    const studentTimelineMatch =
+      request.method === 'GET' &&
+      url.pathname.match(/^\/api\/students\/([0-9a-f-]{36})\/timeline$/i);
+    if (studentTimelineMatch)
+      return json(response, 200, {
+        data: await studentTimeline(
+          identity,
+          studentTimelineMatch[1],
+          teacherScope(identity),
         ),
       });
     const studentHistoryMatch =

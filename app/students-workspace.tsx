@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { apiFetch } from '@/lib/api-client';
 import { StudentPhoto } from './student-photo';
+import { StudentHistoryDialog } from './academic/student-history-timeline';
 
 // Página "Alunos" organizada como o professor pensa: escola → turma → alunos.
 // Mostra uma turma por vez; cadastro, matrícula e planilha ficam na janela
@@ -96,6 +97,7 @@ export function StudentsWorkspace({
   });
   const selected = classes.find((item) => item.id === selectedId) ?? schools[0]?.classes[0] ?? null;
   const [openSchools, setOpenSchools] = useState<Set<string>>(() => new Set());
+  const [historyStudent, setHistoryStudent] = useState<{ id: string; name: string } | null>(null);
   const isOpen = (key: string) => openSchools.has(key) || schools.find((s) => s.key === key)?.classes.some((c) => c.id === selected?.id);
   const [globalQuery, setGlobalQuery] = useState('');
   const [query, setQuery] = useState('');
@@ -183,6 +185,7 @@ export function StudentsWorkspace({
 
   return (
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <StudentHistoryDialog apiUrl={apiUrl} student={historyStudent} onClose={() => setHistoryStudent(null)} />
       {/* Escolas e turmas (no celular, dois seletores) */}
       <nav aria-label="Escolas e turmas" className="hidden rounded-2xl border border-slate-200 bg-white p-3 lg:block">
         <label htmlFor="students-global-search" className="relative block">
@@ -338,6 +341,9 @@ export function StudentsWorkspace({
                             <DropdownMenuItem className="md:hidden" disabled={savingStudent !== null}
                               onClick={() => void updateStudent(student, { adaptedExam: !student.adaptedExam }).catch((error: Error) => setMessage(error.message))}>
                               {student.adaptedExam ? 'Remover prova adaptada' : 'Marcar prova adaptada'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setHistoryStudent({ id: student.id, name: student.name })}>
+                              Histórico acadêmico
                             </DropdownMenuItem>
                             <DropdownMenuItem disabled={renewing !== null} onClick={() => void renewCode(student)}>
                               {renewing === student.id ? 'Gerando código…' : 'Gerar novo código de acesso'}

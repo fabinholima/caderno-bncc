@@ -57,6 +57,10 @@ export function AcademicYearsPanel({
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [editing, setEditing] = useState<AcademicYear | null>(null);
+  const [yearFilter, setYearFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'' | AcademicYear['status']>(
+    '',
+  );
 
   const request = useCallback(
     async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -201,6 +205,11 @@ export function AcademicYearsPanel({
       `Ano letivo ${item.year} ativado.`,
     );
 
+  const visibleYears = years.filter(
+    (item) =>
+      (!yearFilter || String(item.year).includes(yearFilter)) &&
+      (!statusFilter || item.status === statusFilter),
+  );
   const nextYear =
     (years.reduce((max, item) => Math.max(max, item.year), 0) ||
       new Date().getFullYear() - 1) + 1;
@@ -274,6 +283,51 @@ export function AcademicYearsPanel({
         </p>
       )}
 
+      {years.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3">
+          <label htmlFor="years-filter-year" className="grid gap-1 text-sm font-medium">
+            Ano
+            <Input
+              id="years-filter-year"
+              inputMode="numeric"
+              placeholder="Ex.: 2026"
+              value={yearFilter}
+              onChange={(event) => setYearFilter(event.target.value.trim())}
+              className="w-32"
+            />
+          </label>
+          <label htmlFor="years-filter-status" className="grid gap-1 text-sm font-medium">
+            Situação
+            <select
+              id="years-filter-status"
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as typeof statusFilter)
+              }
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+            >
+              <option value="">Todas</option>
+              {Object.entries(statusLabel).map(([value, [text]]) => (
+                <option key={value} value={value}>
+                  {text}
+                </option>
+              ))}
+            </select>
+          </label>
+          {(yearFilter || statusFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setYearFilter('');
+                setStatusFilter('');
+              }}
+            >
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+      )}
       <div className="grid gap-3">
         {loading && (
           <p className="flex items-center gap-2 text-sm text-slate-500">
@@ -286,7 +340,12 @@ export function AcademicYearsPanel({
             Nenhum ano letivo cadastrado ainda.
           </p>
         )}
-        {years.map((item) => {
+        {!loading && years.length > 0 && !visibleYears.length && (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            Nenhum ano letivo com esses filtros.
+          </p>
+        )}
+        {visibleYears.map((item) => {
           const [label, tone] = statusLabel[item.status];
           const open = ['planning', 'active'].includes(item.status);
           const closed = ['closing', 'closed', 'archived'].includes(
