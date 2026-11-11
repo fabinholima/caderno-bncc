@@ -73,8 +73,11 @@ export function AcademicManager({
   initialApplicationId,
   onOpenCorrection,
   onOpenResults,
+  canPurge = false,
 }: {
   apiUrl: string;
+  // Administrador: descarta também cartões já corrigidos (zera a nota).
+  canPurge?: boolean;
   initialSection?: 'correction' | 'reports';
   initialApplicationId?: string;
   onOpenCorrection?: () => void;
@@ -647,10 +650,12 @@ export function AcademicManager({
     if (reviewSequence)
       await continueReviewSequence(latest, scanId, reviewSequence);
   };
-  const discardCard = async (scanId: string) => {
+  const discardCard = async (scanId: string, graded = false) => {
     if (
       !window.confirm(
-        'Remover este cartão da fila? Ele não identificou nenhum aluno, então nenhuma nota será alterada.',
+        graded
+          ? 'Descartar este cartão já corrigido? A nota do aluno será apagada (inclusive se já publicada) e o cartão poderá ser reenviado. A ação fica registrada na auditoria.'
+          : 'Remover este cartão da fila? Ele não identificou nenhum aluno, então nenhuma nota será alterada.',
       )
     )
       return;
@@ -660,7 +665,11 @@ export function AcademicManager({
     );
     const body = (await response.json()) as ApiBody<unknown>;
     if (!response.ok) throw new Error(body.error);
-    setMessage('Cartão removido da fila.');
+    setMessage(
+      graded
+        ? 'Cartão descartado e nota do aluno zerada.'
+        : 'Cartão removido da fila.',
+    );
     const reviewing = scanReview?.id === scanId;
     if (reviewing) setScanReview(null);
     const latest = (await refresh()) || [];
@@ -2418,20 +2427,23 @@ export function AcademicManager({
                         {scanTabOf(x) === 'review' ? 'Revisar' : 'Ver cartão'}
                       </Button>
                     )}
-                    {canDiscardScan(x) && (
+                    {canDiscardScan(x, canPurge) && (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         className="text-rose-700"
                         onClick={() =>
-                          discardCard(x.id).catch((error) =>
-                            setMessage(error.message),
-                          )
+                          discardCard(
+                            x.id,
+                            Boolean(x.studentName) || x.status === 'completed',
+                          ).catch((error) => setMessage(error.message))
                         }
                       >
                         <Trash2 />
-                        Remover
+                        {canPurge && x.status === 'completed'
+                          ? 'Descartar'
+                          : 'Remover'}
                       </Button>
                     )}
                     {x.status === 'completed' && x.applicationId && (
@@ -2502,16 +2514,19 @@ export function AcademicManager({
                   Reprocessar OMR
                 </Button>
               )}
-              {['review', 'failed'].includes(scanReview.status) &&
-                !scanReview.applicationStudentId && (
+              {(canPurge
+                ? !['discarded', 'processing'].includes(scanReview.status)
+                : ['review', 'failed'].includes(scanReview.status) &&
+                  !scanReview.applicationStudentId) && (
                   <Button
                     type="button"
                     variant="outline"
                     className="text-rose-700"
                     onClick={() =>
-                      discardCard(scanReview.id).catch((error) =>
-                        setMessage(error.message),
-                      )
+                      discardCard(
+                        scanReview.id,
+                        Boolean(scanReview.applicationStudentId),
+                      ).catch((error) => setMessage(error.message))
                     }
                   >
                     <Trash2 />

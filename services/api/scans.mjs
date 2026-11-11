@@ -350,23 +350,111 @@ export async function retryScan({
 
 // Só sai da fila o cartão com erro que não chegou a identificar o aluno:
 // ele não gerou resultado, então nenhuma nota ou relatório muda.
-export async function discardScan({ institutionId, userId, scanId }) {
-  const result = await pool.query({
-    text: `UPDATE card_scans
-           SET status='discarded',discarded_at=now(),discarded_by=$3
-           WHERE id=$1 AND institution_id=$2
-             AND status IN ('review','failed') AND application_student_id IS NULL
-           RETURNING id,status`,
-    values: [scanId, institutionId, userId],
-  });
-  if (!result.rowCount)
-    throw Object.assign(
-      new Error(
-        'Só é possível remover da fila cartões com erro e sem aluno identificado. Para os demais, confirme a revisão ou reprocesse.',
-      ),
-      { statusCode: 409 },
+export async function discardScan({
+  institutionId,
+  userId,
+  scanId,
+  privileged = false,
+  reason = '',
+}) {
+  if (!privileged) {
+    const result = await pool.query({
+      text: `UPDATE card_scans
+             SET status='discarded',discarded_at=now(),discarded_by=$3
+             WHERE id=$1 AND institution_id=$2
+               AND status IN ('review','failed') AND application_student_id IS NULL
+             RETURNING id,status`,
+      values: [scanId, institutionId, userId],
+    });
+    if (!result.rowCount)
+      throw Object.assign(
+        new Error(
+          'Só é possível remover da fila cartões com erro e sem aluno identificado. Para os demais, confirme a revisão ou reprocesse.',
+        ),
+        { statusCode: 409 },
+      );
+    return result.rows[0];
+  }
+  // Administrador: descarta qualquer cartão. Se ele já gerou nota, a nota do
+  // aluno volta a "sem correção" (resultado, versões e publicação removidos)
+  // e o cartão pode ser reenviado. Cartão e imagem ficam para auditoria.
+  return transaction(async (client) => {
+    const scan = await client.query(
+      `SELECT id,status,application_student_id,submission_id FROM card_scans
+       WHERE id=$1 AND institution_id=$2 FOR UPDATE`,
+      [scanId, institutionId],
     );
-  return result.rows[0];
+    if (!scan.rowCount)
+      throw Object.assign(new Error('Cartão não encontrado.'), {
+        statusCode: 404,
+      });
+    const current = scan.rows[0];
+    if (current.status === 'discarded')
+      throw Object.assign(new Error('Este cartão já foi descartado.'), {
+        statusCode: 409,
+      });
+    if (current.status === 'processing')
+      throw Object.assign(
+        new Error('O cartão está em leitura agora. Aguarde e tente novamente.'),
+        { statusCode: 409 },
+      );
+    await client.query(
+      `UPDATE card_scans SET status='discarded',discarded_at=now(),discarded_by=$3
+       WHERE (id=$1 OR parent_scan_id=$1) AND institution_id=$2`,
+      [scanId, institutionId, userId],
+    );
+    let resultReset = false;
+    if (current.application_student_id) {
+      const results = await client.query(
+        `SELECT id,publication_status FROM assessment_results
+         WHERE application_student_id=$1 AND institution_id=$2 FOR UPDATE`,
+        [current.application_student_id, institutionId],
+      );
+      const resultIds = results.rows.map((row) => row.id);
+      if (resultIds.length) {
+        for (const table of [
+          'assessment_result_changes',
+          'assessment_result_publications',
+          'performance_followups',
+        ])
+          await client.query(
+            `DELETE FROM ${table} WHERE result_id=ANY($1::uuid[])`,
+            [resultIds],
+          );
+        await client.query(
+          `UPDATE assessment_results SET current_version_id=NULL,published_version_id=NULL,
+             publication_status='unpublished' WHERE id=ANY($1::uuid[])`,
+          [resultIds],
+        );
+        await client.query(
+          'DELETE FROM assessment_result_versions WHERE result_id=ANY($1::uuid[])',
+          [resultIds],
+        );
+        await client.query(
+          'DELETE FROM assessment_results WHERE id=ANY($1::uuid[])',
+          [resultIds],
+        );
+        resultReset = true;
+      }
+    }
+    await client.query(
+      `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,before_data,reason)
+       VALUES($1,$2,'card_scan.discard_admin','card_scan',$3,$4,$5)`,
+      [
+        institutionId,
+        userId,
+        scanId,
+        {
+          status: current.status,
+          applicationStudentId: current.application_student_id,
+          submissionId: current.submission_id,
+          resultReset,
+        },
+        reason || 'Descarte pelo administrador',
+      ],
+    );
+    return { id: scanId, status: 'discarded', resultReset };
+  });
 }
 
 export async function confirmScanReview({

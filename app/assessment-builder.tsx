@@ -76,9 +76,12 @@ export type BuilderQuestion = {
 export function AssessmentBuilder({
   questions,
   apiUrl,
+  canPurge = false,
 }: {
   questions: BuilderQuestion[];
   apiUrl: string;
+  // Administrador: pode excluir a prova com aplicações, cartões e notas.
+  canPurge?: boolean;
 }) {
   const subjects = useMemo(
     () => Array.from(new Set(questions.map((question) => question.subject))),
@@ -204,6 +207,7 @@ export function AssessmentBuilder({
   const [pendingDelete, setPendingDelete] = useState<
     (typeof recent)[number] | null
   >(null);
+  const [purgeAll, setPurgeAll] = useState(false);
   const [unlinkUnsentApplications, setUnlinkUnsentApplications] =
     useState(false);
   const [selectedRecentIds, setSelectedRecentIds] = useState<Set<string>>(
@@ -295,10 +299,19 @@ export function AssessmentBuilder({
     [apiUrl],
   );
   const deleteRecentItem = useCallback(
-    async (item: (typeof recent)[number], unlinkApplications = false) => {
+    async (
+      item: (typeof recent)[number],
+      unlinkApplications = false,
+      purge = false,
+    ) => {
       if (item.assessmentId) {
+        const query = purge
+          ? '?purge=true'
+          : unlinkApplications
+            ? '?unlinkUnsentApplications=true'
+            : '';
         const response = await apiFetch(
-          `${apiUrl}/api/assessments/${item.assessmentId}${unlinkApplications ? '?unlinkUnsentApplications=true' : ''}`,
+          `${apiUrl}/api/assessments/${item.assessmentId}${query}`,
           { method: 'DELETE' },
         );
         const body = (await response.json()) as { error?: string };
@@ -311,14 +324,27 @@ export function AssessmentBuilder({
     [apiUrl, workspaceRequest],
   );
   const confirmRecentDelete = useCallback(
-    async (item: (typeof recent)[number], unlinkApplications = false) => {
+    async (
+      item: (typeof recent)[number],
+      unlinkApplications = false,
+      purge = false,
+    ) => {
+      if (
+        purge &&
+        !window.confirm(
+          `Excluir DEFINITIVAMENTE “${item.title || 'Prova sem título'}”? Serão apagados aplicações, cartões-resposta, respostas e notas dos alunos. Não é possível desfazer.`,
+        )
+      )
+        return;
       setDeletingWorkspaceId(item.id);
       try {
-        await deleteRecentItem(item, unlinkApplications);
+        await deleteRecentItem(item, unlinkApplications, purge);
         setRecent(await workspaceRequest<typeof recent>(`?offset=${offset}`));
         setMessage(
           item.assessmentId
-            ? unlinkApplications
+            ? purge
+              ? 'Prova excluída com aplicações, cartões e notas.'
+              : unlinkApplications
               ? 'Aplicações ainda não aplicadas desvinculadas e prova excluída.'
               : 'Prova gerada excluída.'
             : 'Rascunho excluído.',
@@ -330,6 +356,7 @@ export function AssessmentBuilder({
         });
         setPendingDelete(null);
         setUnlinkUnsentApplications(false);
+        setPurgeAll(false);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : String(error));
       } finally {
@@ -1356,6 +1383,7 @@ export function AssessmentBuilder({
           if (!open && !deletingWorkspaceId) {
             setPendingDelete(null);
             setUnlinkUnsentApplications(false);
+            setPurgeAll(false);
           }
         }}
       >
@@ -1393,6 +1421,27 @@ export function AssessmentBuilder({
               </span>
             </label>
           </div>
+          {canPurge && pendingDelete?.assessmentId && (
+            <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-950">
+              <input
+                id="purge-assessment"
+                type="checkbox"
+                checked={purgeAll}
+                onChange={(event) => setPurgeAll(event.target.checked)}
+                className="mt-0.5 size-4 shrink-0 accent-rose-700"
+              />
+              <label htmlFor="purge-assessment" className="cursor-pointer">
+                <span className="block font-semibold">
+                  Excluir tudo, inclusive respostas e notas (administrador)
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-rose-900">
+                  Apaga também as aplicações, os cartões-resposta lidos, as
+                  respostas e as notas dos alunos. Fica registrado na auditoria
+                  e não pode ser desfeito.
+                </span>
+              </label>
+            </div>
+          )}
           <DialogFooter>
             <Button
               type="button"
@@ -1411,10 +1460,15 @@ export function AssessmentBuilder({
                 void confirmRecentDelete(
                   pendingDelete,
                   unlinkUnsentApplications,
+                  canPurge && purgeAll,
                 )
               }
             >
-              {deletingWorkspaceId ? 'Excluindo…' : 'Excluir prova'}
+              {deletingWorkspaceId
+                ? 'Excluindo…'
+                : canPurge && purgeAll
+                  ? 'Excluir tudo'
+                  : 'Excluir prova'}
             </Button>
           </DialogFooter>
         </DialogContent>

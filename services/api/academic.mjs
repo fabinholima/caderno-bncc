@@ -391,7 +391,7 @@ async function listApplicationAssignments(client, applicationId) {
 
 export async function listApplications({ institutionId, ownerId = null }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL AND cs.status<>'discarded'))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
     values: [institutionId, ownerId],
   });
   // Versões e gabarito de cada avaliação, para o professor conferir antes de corrigir.
@@ -448,7 +448,7 @@ export async function getApplication({ institutionId, applicationId }) {
     text: `SELECT aps.id,s.name student_name,s.registration,ce.number,
                   av.code version_code,rj.id render_job_id,rj.status render_status,
                   rj.error_message,
-                  EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=aps.id) has_scan
+                  EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=aps.id AND cs.status<>'discarded') has_scan
            FROM application_students aps
            JOIN assessment_applications aa ON aa.id=aps.application_id
            JOIN students s ON s.id=aps.student_id

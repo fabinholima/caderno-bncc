@@ -492,17 +492,26 @@ export async function deleteAssessment({
   userId,
   assessmentId,
   unlinkUnsentApplications = false,
+  purge = false,
 }) {
   return transaction(async (client) => {
+    // Exclusão total (somente administrador, validado na rota): qualquer prova
+    // da instituição, com aplicações, cartões, respostas e notas.
     const assessment = await client.query(
       `SELECT id FROM assessments
-       WHERE id = $1 AND institution_id = $2 AND created_by = $3
+       WHERE id = $1 AND institution_id = $2 AND ($4 OR created_by = $3)
        FOR UPDATE`,
-      [assessmentId, institutionId, userId],
+      [assessmentId, institutionId, userId, purge],
     );
     if (!assessment.rowCount)
       throw Object.assign(new Error('Avaliação não encontrada.'), {
         statusCode: 404,
+      });
+    if (purge)
+      return purgeAssessment(client, {
+        institutionId,
+        userId,
+        assessmentId,
       });
 
     const applications = await client.query(
@@ -608,6 +617,129 @@ export async function deleteAssessment({
     await client.query('DELETE FROM assessments WHERE id = $1', [assessmentId]);
     return { id: assessmentId, deleted: true };
   });
+}
+
+/**
+ * Apaga a prova e tudo que depende dela: aplicações, cartões-resposta lidos,
+ * respostas, notas (versões, publicações, alterações e acompanhamentos) e
+ * relatórios. Irreversível fora do backup; fica registrado na auditoria.
+ * Retorna as referências das imagens dos cartões para remoção do storage
+ * depois do COMMIT.
+ */
+async function purgeAssessment(
+  client,
+  { institutionId, userId, assessmentId },
+) {
+  const { title } = (
+    await client.query('SELECT title FROM assessments WHERE id=$1', [
+      assessmentId,
+    ])
+  ).rows[0];
+  const ids = async (text, values) =>
+    (await client.query(text, values)).rows.map((row) => row.id);
+  const applicationIds = await ids(
+    'SELECT id FROM assessment_applications WHERE assessment_id=$1 FOR UPDATE',
+    [assessmentId],
+  );
+  const assignmentIds = await ids(
+    'SELECT id FROM application_students WHERE application_id=ANY($1::uuid[]) FOR UPDATE',
+    [applicationIds],
+  );
+  const versionIds = await ids(
+    'SELECT id FROM assessment_versions WHERE assessment_id=$1',
+    [assessmentId],
+  );
+  const running = await client.query(
+    `SELECT 1 FROM render_jobs WHERE status='running'
+       AND (application_student_id=ANY($1::uuid[]) OR assessment_version_id=ANY($2::uuid[])) LIMIT 1`,
+    [assignmentIds, versionIds],
+  );
+  if (running.rowCount)
+    throw Object.assign(
+      new Error(
+        'Há cartões desta prova sendo gerados. Aguarde a geração terminar e tente novamente.',
+      ),
+      { statusCode: 409 },
+    );
+  const scans = await client.query(
+    `SELECT id,image_ref,review_image_ref,status FROM card_scans
+     WHERE institution_id=$1 AND (
+       expected_application_id=ANY($2::uuid[]) OR application_student_id=ANY($3::uuid[])
+       OR submission_id IN (SELECT id FROM assessment_submissions WHERE assessment_version_id=ANY($4::uuid[]))
+       OR parent_scan_id IN (SELECT id FROM card_scans WHERE expected_application_id=ANY($2::uuid[]) OR application_student_id=ANY($3::uuid[])))
+     FOR UPDATE`,
+    [institutionId, applicationIds, assignmentIds, versionIds],
+  );
+  if (scans.rows.some((scan) => scan.status === 'processing'))
+    throw Object.assign(
+      new Error(
+        'Há cartões desta prova em leitura neste momento. Aguarde e tente novamente.',
+      ),
+      { statusCode: 409 },
+    );
+  const resultIds = await ids(
+    'SELECT id FROM assessment_results WHERE application_student_id=ANY($1::uuid[]) FOR UPDATE',
+    [assignmentIds],
+  );
+  const submissions = await client.query(
+    'SELECT count(*)::int n FROM assessment_submissions WHERE assessment_version_id=ANY($1::uuid[])',
+    [versionIds],
+  );
+  // Ordem explícita: as versões de nota são referenciadas com RESTRICT.
+  for (const table of [
+    'assessment_result_changes',
+    'assessment_result_publications',
+    'performance_followups',
+  ])
+    await client.query(
+      `DELETE FROM ${table} WHERE result_id=ANY($1::uuid[])`,
+      [resultIds],
+    );
+  await client.query(
+    `UPDATE assessment_results SET current_version_id=NULL,published_version_id=NULL,
+       publication_status='unpublished' WHERE id=ANY($1::uuid[])`,
+    [resultIds],
+  );
+  await client.query(
+    'DELETE FROM assessment_result_versions WHERE result_id=ANY($1::uuid[])',
+    [resultIds],
+  );
+  await client.query('DELETE FROM assessment_results WHERE id=ANY($1::uuid[])', [
+    resultIds,
+  ]);
+  const scanIds = scans.rows.map((scan) => scan.id);
+  await client.query('DELETE FROM card_scans WHERE id=ANY($1::uuid[])', [
+    scanIds,
+  ]);
+  await client.query(
+    'DELETE FROM assessment_applications WHERE id=ANY($1::uuid[])',
+    [applicationIds],
+  );
+  await client.query(
+    'DELETE FROM assessment_workspaces WHERE assessment_id = $1',
+    [assessmentId],
+  );
+  await client.query('DELETE FROM assessments WHERE id = $1', [assessmentId]);
+  const purged = {
+    applications: applicationIds.length,
+    students: assignmentIds.length,
+    cardScans: scanIds.length,
+    submissions: submissions.rows[0].n,
+    results: resultIds.length,
+  };
+  await client.query(
+    `INSERT INTO audit_log(institution_id,user_id,action,entity_type,entity_id,before_data,reason)
+     VALUES($1,$2,'assessment.purge','assessment',$3,$4,'Exclusão total pelo administrador')`,
+    [institutionId, userId, assessmentId, { title, ...purged }],
+  );
+  return {
+    id: assessmentId,
+    deleted: true,
+    purged,
+    imageRefs: scans.rows
+      .flatMap((scan) => [scan.image_ref, scan.review_image_ref])
+      .filter(Boolean),
+  };
 }
 
 export async function regenerateAssessment({ institutionId, assessmentId }) {

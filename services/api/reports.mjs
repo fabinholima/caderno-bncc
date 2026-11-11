@@ -338,7 +338,7 @@ export async function getApplicationReport({ institutionId, applicationId }) {
            LEFT JOIN LATERAL (
              SELECT cs.status,cs.submission_id
              FROM card_scans cs
-             WHERE cs.application_student_id=aps.id
+             WHERE cs.application_student_id=aps.id AND cs.status<>'discarded'
              ORDER BY cs.completed_at DESC NULLS LAST,cs.created_at DESC
              LIMIT 1
            ) scan ON true
@@ -455,7 +455,7 @@ export async function getStudentApplicationReport({
            LEFT JOIN class_enrollments ce ON ce.class_id=aa.class_id AND ce.student_id=s.id
            LEFT JOIN LATERAL (
              SELECT cs.status,cs.submission_id FROM card_scans cs
-             WHERE cs.application_student_id=aps.id
+             WHERE cs.application_student_id=aps.id AND cs.status<>'discarded'
              ORDER BY cs.completed_at DESC NULLS LAST,cs.created_at DESC LIMIT 1
            ) scan ON true
            LEFT JOIN assessment_submissions sub ON sub.id=scan.submission_id
@@ -754,7 +754,7 @@ export async function getStudentProgress({ institutionId, studentId }) {
              SELECT submission.id AS submission_id
              FROM card_scans scan
              JOIN assessment_submissions submission ON submission.id=scan.submission_id
-             WHERE scan.application_student_id=aps.id
+             WHERE scan.application_student_id=aps.id AND scan.status<>'discarded'
              ORDER BY scan.completed_at DESC NULLS LAST,scan.created_at DESC LIMIT 1
            ) latest ON true
            JOIN assessment_submissions sub ON sub.id=latest.submission_id

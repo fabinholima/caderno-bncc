@@ -4,6 +4,7 @@ import {
 } from './student-import.mjs';
 import { regenerateAssessment } from './assessments.mjs';
 import { getClassRoster, listClassStudents } from './academic.mjs';
+import { deleteScanImage } from './scan-image-storage.mjs';
 import {
   createAcademicYear,
   getStudentHistory,
@@ -87,7 +88,10 @@ import {
   createGoogleSessionExchange,
   claimGoogleSessionExchange,
 } from './google-session-exchange.mjs';
-import { canManageInstitutionTeam } from './institution-permissions.mjs';
+import {
+  canManageInstitutionTeam,
+  canPurgeAcademicRecords,
+} from './institution-permissions.mjs';
 import {
   assertOwnership,
   assertRouteOwnership,
@@ -1904,6 +1908,7 @@ const server = createServer(async (request, response) => {
           institutionId,
           userId,
           scanId: scanDiscardMatch[1],
+          privileged: canPurgeAcademicRecords(identity),
         }),
       });
     const scanConfirmMatch =
@@ -2565,16 +2570,31 @@ const server = createServer(async (request, response) => {
     const assessmentMatch = url.pathname.match(
       /^\/api\/assessments\/([0-9a-f-]{36})$/i,
     );
-    if (assessmentMatch && request.method === 'DELETE')
-      return json(response, 200, {
-        data: await deleteAssessment({
-          institutionId,
-          userId,
-          assessmentId: assessmentMatch[1],
-          unlinkUnsentApplications:
-            url.searchParams.get('unlinkUnsentApplications') === 'true',
-        }),
+    if (assessmentMatch && request.method === 'DELETE') {
+      const purge = url.searchParams.get('purge') === 'true';
+      if (purge && !canPurgeAcademicRecords(identity))
+        return json(response, 403, {
+          error:
+            'Somente o administrador pode excluir provas com respostas e notas.',
+        });
+      const { imageRefs = [], ...data } = await deleteAssessment({
+        institutionId,
+        userId,
+        assessmentId: assessmentMatch[1],
+        unlinkUnsentApplications:
+          url.searchParams.get('unlinkUnsentApplications') === 'true',
+        purge,
       });
+      // Imagens no storage só saem depois do COMMIT; falha não desfaz a exclusão.
+      for (const ref of imageRefs)
+        await deleteScanImage(ref).catch((error) =>
+          log('warn', 'assessment.purge.image', {
+            requestId,
+            ...errorFields(error),
+          }),
+        );
+      return json(response, 200, { data });
+    }
     if (assessmentMatch && request.method === 'GET') {
       const assessment = await getAssessment({
         institutionId,

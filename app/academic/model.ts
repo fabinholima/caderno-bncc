@@ -161,10 +161,15 @@ export function scanTabOf(scan: CardScan): ScanTab {
 }
 
 // Cartão com erro que não identificou o aluno: não gerou resultado.
-export const canDiscardScan = (scan: {
-  status: string;
-  studentName?: string;
-}) => ['review', 'failed'].includes(scan.status) && !scan.studentName;
+// O administrador descarta qualquer cartão (exceto em leitura); se ele já
+// gerou nota, a nota do aluno é zerada no servidor.
+export const canDiscardScan = (
+  scan: { status: string; studentName?: string },
+  canPurge = false,
+) =>
+  canPurge
+    ? !['discarded', 'processing'].includes(scan.status)
+    : ['review', 'failed'].includes(scan.status) && !scan.studentName;
 
 export const canReviewScan = (scan: CardScan) =>
   scanTabOf(scan) === 'review' && Boolean(scan.imageAvailable);

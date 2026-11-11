@@ -1360,6 +1360,7 @@ export default function Home() {
             </div>
           ) : active === 'Avaliações' ? (
             <AssessmentBuilder
+              canPurge={identity.role === 'admin' || Boolean(identity.portalAdmin)}
               questions={questions.filter(
                 (question) => question.status === 'Aprovada',
               )}
@@ -1371,6 +1372,7 @@ export default function Home() {
             active === 'Diagnosticar' ? (
             <AcademicManager
               key={active}
+              canPurge={identity.role === 'admin' || Boolean(identity.portalAdmin)}
               apiUrl={apiUrl}
               initialSection={
                 active === 'Corrigir'

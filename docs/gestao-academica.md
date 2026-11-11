@@ -106,3 +106,22 @@ ACADEMIC_TEST_DATABASE_URL=postgresql://... node --test services/api/academic-ye
 3. Progressão em lote, retenção, conclusão, transferência e reversão.
 4. Vínculos de professores com acesso revogável e substituição em turmas.
 5. Telas de Gestão Acadêmica, histórico do aluno e painel.
+
+## Permissões de exclusão do administrador
+
+Quem tem a permissão: qualquer conta com papel `admin` na instituição ativa
+(inclui o professor de conta individual, que é admin da própria instituição)
+e a administração do portal (`portal_admin`). Regra em
+`canPurgeAcademicRecords` (`services/api/institution-permissions.mjs`).
+Professor e coordenação seguem as regras que preservam o histórico.
+
+| Ação                   | Professor / coordenação                                                                    | Administrador                                                                                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Excluir prova          | Só as próprias, sem respostas; aplicações agendadas ou canceladas podem ser desvinculadas. | Qualquer prova da instituição com `DELETE /api/assessments/:id?purge=true`: apaga aplicações, cartões-resposta, respostas, notas (versões, publicações, alterações, acompanhamentos) e relatórios. Turma, alunos e histórico de matrícula ficam. |
+| Remover cartão da fila | Só cartões com erro ou em revisão sem aluno identificado.                                  | Qualquer cartão, menos os que estão em leitura. Se o cartão já gerou nota, a nota do aluno é apagada (inclusive a publicada) e o cartão pode ser reenviado. O cartão fica como `discarded`, com quem descartou, para auditoria.                  |
+
+As duas ações do administrador ficam no `audit_log` (`assessment.purge` com
+título e contagens; `card_scan.discard_admin` com o estado anterior). A
+exclusão total de prova é irreversível fora do backup; as imagens dos cartões
+são removidas do storage depois do COMMIT. Relatórios e contagens de
+corrigidos ignoram cartões descartados.
