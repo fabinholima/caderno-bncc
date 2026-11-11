@@ -214,7 +214,7 @@ export function AssessmentBuilder({
     () => new Set(),
   );
   const [deletingSelected, setDeletingSelected] = useState<
-    false | 'delete' | 'unlink'
+    false | 'delete' | 'unlink' | 'purge'
   >(false);
   const configuration = useMemo(
     () => ({
@@ -345,8 +345,8 @@ export function AssessmentBuilder({
             ? purge
               ? 'Prova excluída com aplicações, cartões e notas.'
               : unlinkApplications
-              ? 'Aplicações ainda não aplicadas desvinculadas e prova excluída.'
-              : 'Prova gerada excluída.'
+                ? 'Aplicações ainda não aplicadas desvinculadas e prova excluída.'
+                : 'Prova gerada excluída.'
             : 'Rascunho excluído.',
         );
         setSelectedRecentIds((current) => {
@@ -366,23 +366,29 @@ export function AssessmentBuilder({
     [deleteRecentItem, offset, workspaceRequest],
   );
   const deleteSelectedRecent = useCallback(
-    async (unlinkApplications: boolean) => {
+    async (unlinkApplications: boolean, purge = false) => {
       const selected = recent.filter((item) => selectedRecentIds.has(item.id));
       if (!selected.length) return;
       if (
         !window.confirm(
-          unlinkApplications
-            ? `Desvincular aplicações não aplicadas e excluir ${selected.length} prova(s) selecionada(s)? Cartões-resposta já gerados dessas aplicações serão descartados e, se já foram impressos, deixarão de ser lidos. Provas com aplicações abertas/encerradas, cartões enviados ou respostas serão preservadas.`
-            : `Excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações ou respostas vinculadas serão preservadas.`,
+          purge
+            ? `Excluir DEFINITIVAMENTE ${selected.length} prova(s) selecionada(s)? Serão apagados aplicações, cartões-resposta, respostas e notas dos alunos. Não é possível desfazer.`
+            : unlinkApplications
+              ? `Desvincular aplicações não aplicadas e excluir ${selected.length} prova(s) selecionada(s)? Cartões-resposta já gerados dessas aplicações serão descartados e, se já foram impressos, deixarão de ser lidos. Provas com aplicações abertas/encerradas, cartões enviados ou respostas serão preservadas.`
+              : `Excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações ou respostas vinculadas serão preservadas.`,
         )
       )
         return;
 
-      setDeletingSelected(unlinkApplications ? 'unlink' : 'delete');
+      setDeletingSelected(
+        purge ? 'purge' : unlinkApplications ? 'unlink' : 'delete',
+      );
       setMessage(
-        unlinkApplications
-          ? 'Desvinculando aplicações e excluindo provas selecionadas…'
-          : 'Excluindo provas selecionadas…',
+        purge
+          ? 'Excluindo provas selecionadas com aplicações, cartões e notas…'
+          : unlinkApplications
+            ? 'Desvinculando aplicações e excluindo provas selecionadas…'
+            : 'Excluindo provas selecionadas…',
       );
       const failed: Array<{
         id: string;
@@ -392,7 +398,7 @@ export function AssessmentBuilder({
       let deleted = 0;
       for (const item of selected) {
         try {
-          await deleteRecentItem(item, unlinkApplications);
+          await deleteRecentItem(item, unlinkApplications, purge);
           deleted += 1;
         } catch (error) {
           failed.push({
@@ -414,12 +420,19 @@ export function AssessmentBuilder({
       setSelectedRecentIds(new Set(failed.map((item) => item.id)));
       setMessage(
         failed.length
-          ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}${unlinkApplications ? '' : ' As provas não excluídas continuam selecionadas: use “Desvincular e excluir” para remover as vinculadas a aplicações ainda não aplicadas.'}`
+          ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}${unlinkApplications || purge ? '' : canPurge ? ' As provas não excluídas continuam selecionadas: use “Excluir tudo (admin)” para apagar também respostas e notas.' : ' As provas não excluídas continuam selecionadas: use “Desvincular e excluir” para remover as vinculadas a aplicações ainda não aplicadas.'}`
           : `${deleted} prova(s) excluída(s).`,
       );
       setDeletingSelected(false);
     },
-    [deleteRecentItem, offset, recent, selectedRecentIds, workspaceRequest],
+    [
+      canPurge,
+      deleteRecentItem,
+      offset,
+      recent,
+      selectedRecentIds,
+      workspaceRequest,
+    ],
   );
   useEffect(() => {
     if (step !== 0) return;
@@ -1561,6 +1574,25 @@ export function AssessmentBuilder({
                 ? 'Desvinculando…'
                 : 'Desvincular e excluir'}
             </Button>
+            {canPurge && (
+              <Button
+                type="button"
+                size="sm"
+                disabled={!selectedRecentIds.size || Boolean(deletingSelected)}
+                title="Administrador: exclui as provas selecionadas com aplicações, cartões-resposta, respostas e notas. Não pode ser desfeito."
+                className="bg-rose-700 text-white hover:bg-rose-800"
+                onClick={() => void deleteSelectedRecent(false, true)}
+              >
+                {deletingSelected === 'purge' ? (
+                  <LoaderCircle className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Trash2 aria-hidden="true" />
+                )}
+                {deletingSelected === 'purge'
+                  ? 'Excluindo tudo…'
+                  : 'Excluir tudo (admin)'}
+              </Button>
+            )}
           </div>
           <div className="grid gap-3">
             {recent.map((r) => (
