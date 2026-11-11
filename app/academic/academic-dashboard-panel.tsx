@@ -27,7 +27,12 @@ type Dashboard = {
   activeEnrollments: number;
   academicYears: number;
   outcomes: Record<
-    'promoted' | 'retained' | 'transferred' | 'graduated' | 'dropped' | 'pending',
+    | 'promoted'
+    | 'retained'
+    | 'transferred'
+    | 'graduated'
+    | 'dropped'
+    | 'pending',
     number
   >;
   pending: {
@@ -166,12 +171,18 @@ export function AcademicDashboardPanel({
           disabled={loading}
           onClick={() => void load()}
         >
-          <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
+          <RefreshCw
+            className={loading ? 'animate-spin' : ''}
+            aria-hidden="true"
+          />
           Atualizar
         </Button>
       </div>
       {error && (
-        <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">
+        <p
+          role="alert"
+          className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800"
+        >
           {error}
         </p>
       )}
@@ -210,7 +221,11 @@ export function AcademicDashboardPanel({
           label="Promovidos"
           value={data.outcomes.promoted}
         />
-        <Stat icon={<Users />} label="Reprovados" value={data.outcomes.retained} />
+        <Stat
+          icon={<Users />}
+          label="Reprovados"
+          value={data.outcomes.retained}
+        />
         <Stat
           icon={<Users />}
           label="Transferidos"
@@ -221,7 +236,10 @@ export function AcademicDashboardPanel({
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="font-display flex items-center gap-2 text-lg font-bold">
-            <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />
+            <AlertTriangle
+              className="size-5 text-amber-600"
+              aria-hidden="true"
+            />
             Pendências acadêmicas
           </h2>
           {pendingItems.length ? (
@@ -250,7 +268,10 @@ export function AcademicDashboardPanel({
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="font-display flex items-center gap-2 text-lg font-bold">
-            <CalendarRange className="size-5 text-blue-600" aria-hidden="true" />
+            <CalendarRange
+              className="size-5 text-blue-600"
+              aria-hidden="true"
+            />
             Matrículas por ano letivo
           </h2>
           {data.years.length ? (
@@ -264,10 +285,12 @@ export function AcademicDashboardPanel({
                       turma(s)
                     </span>
                   </div>
+                  <span className="sr-only">
+                    {`${item.year}: ${item.activeEnrollments} ativas de ${item.totalEnrollments} matrículas`}
+                  </span>
                   <div
                     className="h-2.5 overflow-hidden rounded-full bg-slate-100"
-                    role="img"
-                    aria-label={`${item.year}: ${item.activeEnrollments} ativas de ${item.totalEnrollments} matrículas`}
+                    aria-hidden="true"
                   >
                     <div
                       className="h-full rounded-full bg-blue-600"
