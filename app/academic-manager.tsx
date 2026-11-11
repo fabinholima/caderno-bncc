@@ -1031,16 +1031,16 @@ export function AcademicManager({
           : activePanel === 'dashboard'
             ? 'Indicadores de alunos, turmas, matrículas e pendências acadêmicas.'
             : activePanel === 'years'
-            ? 'Cadastre, ative e arquive os anos letivos; turmas e matrículas ficam ligadas a eles.'
-            : activePanel === 'classes'
-            ? 'Organize as turmas por etapa, ano letivo e escola vinculada.'
-            : activePanel === 'students'
-              ? 'Cadastre, importe e matricule estudantes com controle da situação escolar.'
-              : activePanel === 'applications'
-                ? 'Associe uma avaliação à turma e imprima cartões já identificados por aluno.'
-                : activePanel === 'correction'
-                  ? 'Envie cartões-resposta e revise as leituras feitas pelo aplicativo.'
-                  : 'Acompanhe resultados, habilidades e evolução das turmas.'}
+              ? 'Cadastre, ative e arquive os anos letivos; turmas e matrículas ficam ligadas a eles.'
+              : activePanel === 'classes'
+                ? 'Organize as turmas por etapa, ano letivo e escola vinculada.'
+                : activePanel === 'students'
+                  ? 'Cadastre, importe e matricule estudantes com controle da situação escolar.'
+                  : activePanel === 'applications'
+                    ? 'Associe uma avaliação à turma e imprima cartões já identificados por aluno.'
+                    : activePanel === 'correction'
+                      ? 'Envie cartões-resposta e revise as leituras feitas pelo aplicativo.'
+                      : 'Acompanhe resultados, habilidades e evolução das turmas.'}
       </p>
       {message && (
         <output className="mt-4 block rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
@@ -1081,6 +1081,7 @@ export function AcademicManager({
           apiUrl={apiUrl}
           canManage={canManageYears}
           canReopen={canPurge}
+          onOpenPanel={setActivePanel}
         />
       )}
       {activePanel === 'applications' && (
@@ -2539,21 +2540,21 @@ export function AcademicManager({
                 ? !['discarded', 'processing'].includes(scanReview.status)
                 : ['review', 'failed'].includes(scanReview.status) &&
                   !scanReview.applicationStudentId) && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="text-rose-700"
-                    onClick={() =>
-                      discardCard(
-                        scanReview.id,
-                        Boolean(scanReview.applicationStudentId),
-                      ).catch((error) => setMessage(error.message))
-                    }
-                  >
-                    <Trash2 />
-                    Remover da fila
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="text-rose-700"
+                  onClick={() =>
+                    discardCard(
+                      scanReview.id,
+                      Boolean(scanReview.applicationStudentId),
+                    ).catch((error) => setMessage(error.message))
+                  }
+                >
+                  <Trash2 />
+                  Remover da fila
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

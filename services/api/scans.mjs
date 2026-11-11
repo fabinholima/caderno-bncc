@@ -379,6 +379,8 @@ export async function discardScan({
   // aluno volta a "sem correção" (resultado, versões e publicação removidos)
   // e o cartão pode ser reenviado. Cartão e imagem ficam para auditoria.
   return transaction(async (client) => {
+    // Descarte do administrador vale também para ano letivo encerrado.
+    await client.query("SET LOCAL ufaprova.allow_closed_year_changes='on'");
     const scan = await client.query(
       `SELECT id,status,application_student_id,submission_id FROM card_scans
        WHERE id=$1 AND institution_id=$2 FOR UPDATE`,

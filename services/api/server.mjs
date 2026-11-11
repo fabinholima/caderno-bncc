@@ -7,7 +7,9 @@ import { getClassRoster, listClassStudents } from './academic.mjs';
 import { deleteScanImage } from './scan-image-storage.mjs';
 import { academicDashboard, studentTimeline } from './academic-insights.mjs';
 import {
+  academicYearClosingCheck,
   archiveAcademicYear,
+  closeAcademicYear,
   createAcademicYear,
   deleteAcademicYear,
   reopenAcademicYear,
@@ -1517,6 +1519,37 @@ const server = createServer(async (request, response) => {
       return json(response, 200, {
         data: await deleteAcademicYear(identity, academicYearDeleteMatch[1]),
       });
+    const closingCheckMatch =
+      request.method === 'GET' &&
+      url.pathname.match(
+        /^\/api\/academic-years\/([0-9a-f-]{36})\/closing-check$/i,
+      );
+    if (closingCheckMatch)
+      return json(response, 200, {
+        data: await academicYearClosingCheck(identity, closingCheckMatch[1]),
+      });
+    const closeYearMatch =
+      request.method === 'POST' &&
+      url.pathname.match(/^\/api\/academic-years\/([0-9a-f-]{36})\/close$/i);
+    if (closeYearMatch) {
+      try {
+        return json(response, 200, {
+          data: await closeAcademicYear(
+            identity,
+            closeYearMatch[1],
+            await readJson(request, 4096),
+          ),
+        });
+      } catch (error) {
+        // O relatório de pendências volta junto, para o assistente mostrar.
+        if (error?.report)
+          return json(response, error.statusCode || 409, {
+            error: error.message,
+            report: error.report,
+          });
+        throw error;
+      }
+    }
     const academicYearActionMatch =
       request.method === 'POST' &&
       url.pathname.match(

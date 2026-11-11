@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Archive,
+  Lock,
   CalendarPlus,
   CheckCircle2,
   LoaderCircle,
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { formString } from '@/lib/form-data';
 import type { ApiBody } from './model';
+import { YearClosingWizard, type ClosingTarget } from './year-closing-wizard';
 
 type AcademicYear = {
   id: string;
@@ -40,18 +42,21 @@ const formatDate = (value: string | null) =>
 /**
  * Anos letivos da instituição. A administração e a coordenação cadastram,
  * editam o período, ativam, excluem (só ano vazio) e arquivam (sem matrículas
- * ativas); só o administrador reabre um ano arquivado. As regras são
+ * ativas), encerram pelo assistente; só o administrador reabre. As regras são
  * validadas no servidor (services/api/academic-years.mjs).
  */
 export function AcademicYearsPanel({
   apiUrl,
   canManage,
   canReopen,
+  onOpenPanel,
 }: {
   apiUrl: string;
   canManage: boolean;
   canReopen: boolean;
+  onOpenPanel?: (panel: 'correction' | 'results') => void;
 }) {
+  const [closing, setClosing] = useState<ClosingTarget | null>(null);
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -285,7 +290,10 @@ export function AcademicYearsPanel({
 
       {years.length > 0 && (
         <div className="flex flex-wrap items-end gap-3">
-          <label htmlFor="years-filter-year" className="grid gap-1 text-sm font-medium">
+          <label
+            htmlFor="years-filter-year"
+            className="grid gap-1 text-sm font-medium"
+          >
             Ano
             <Input
               id="years-filter-year"
@@ -296,7 +304,10 @@ export function AcademicYearsPanel({
               className="w-32"
             />
           </label>
-          <label htmlFor="years-filter-status" className="grid gap-1 text-sm font-medium">
+          <label
+            htmlFor="years-filter-status"
+            className="grid gap-1 text-sm font-medium"
+          >
             Situação
             <select
               id="years-filter-status"
@@ -392,6 +403,19 @@ export function AcademicYearsPanel({
                       >
                         <Pencil aria-hidden="true" />
                         Período
+                      </Button>
+                    )}
+                    {open && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isBusy}
+                        onClick={() =>
+                          setClosing({ id: item.id, year: item.year })
+                        }
+                      >
+                        <Lock aria-hidden="true" />
+                        Encerrar
                       </Button>
                     )}
                     {item.status !== 'archived' && (
@@ -495,6 +519,13 @@ export function AcademicYearsPanel({
           );
         })}
       </div>
+      <YearClosingWizard
+        apiUrl={apiUrl}
+        target={closing}
+        onClose={() => setClosing(null)}
+        onClosed={() => void load()}
+        onOpenPanel={onOpenPanel}
+      />
     </section>
   );
 }

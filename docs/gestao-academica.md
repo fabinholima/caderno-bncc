@@ -99,6 +99,18 @@ as migrações:
 ACADEMIC_TEST_DATABASE_URL=postgresql://... node --test services/api/academic-years.integration.test.mjs
 ```
 
+## Encerramento do ano letivo (migração `112_academic_year_closing_lock.sql`)
+
+- `GET /api/academic-years/:id/closing-check` (administração e coordenação): diagnóstico.
+  - **Pendências críticas** (impedem): cartões na fila, em leitura ou em revisão; notas em processamento, revisão ou com falha.
+  - **Avisos**: notas prontas e não publicadas; matrículas sem situação acadêmica.
+- `POST /api/academic-years/:id/close` com `{confirmYear, reason?}`: numa única transação o ano passa por `closing`, o diagnóstico é refeito (409 com `report` se houver pendência crítica, e nada muda), turmas viram `closed`, matrículas ativas viram `completed` com data de saída, e ficam registrados `audit_log` (`academic_year.close`) e o evento `year_closed`.
+- Em ano `closing`, `closed` ou `archived`, gatilhos bloqueiam aplicações, notas, versões e publicações das turmas do ano. Exclusão total e descarte do administrador ligam `SET LOCAL ufaprova.allow_closed_year_changes='on'` e ficam auditados.
+- Reabrir (somente administrador) volta as turmas a ativas e reativa, como reversão administrativa, as matrículas concluídas que continuam na turma.
+- Arquivar aceita ano encerrado.
+- Na tela: botão **Encerrar** em Anos letivos abre o assistente (Diagnóstico → Revisão com atalhos para Correção e Resultados → Confirmação digitando o ano → Resultado).
+- Teste: `academic-year-closing.integration.test.mjs` (`ACADEMIC_CLOSING_TEST_DATABASE_URL`).
+
 ## Próximas fases
 
 2. Encerramento e reabertura excepcional do ano letivo (pendências, bloqueio

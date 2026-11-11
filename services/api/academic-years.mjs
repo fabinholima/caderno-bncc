@@ -245,6 +245,190 @@ async function reloadYear(client, yearId) {
   return yearFromRow(r.rows[0]);
 }
 
+/**
+ * Diagnóstico de encerramento. Pendências críticas impedem encerrar:
+ * cartões na fila, em leitura ou em revisão e notas em processamento ou
+ * revisão. Avisos não impedem, mas aparecem na confirmação.
+ */
+async function closingReport(db, yearId) {
+  const r = await db.query(
+    `WITH yc AS (SELECT id,name FROM classes WHERE academic_year_id=$1),
+     apps AS (SELECT aa.id,aa.class_id FROM assessment_applications aa
+              WHERE aa.class_id IN (SELECT id FROM yc) AND aa.status<>'cancelled'),
+     aps AS (SELECT aps.id FROM application_students aps WHERE aps.application_id IN (SELECT id FROM apps))
+     SELECT
+       (SELECT count(*) FROM yc) classes,
+       (SELECT count(*) FROM classes WHERE academic_year_id=$1 AND status='active') active_classes,
+       (SELECT count(*) FROM student_enrollments WHERE academic_year_id=$1 AND status='active') active_enrollments,
+       (SELECT count(*) FROM student_enrollments WHERE academic_year_id=$1 AND status='active' AND academic_outcome IN ('pending','recovery')) without_outcome,
+       (SELECT count(*) FROM apps) applications,
+       (SELECT count(*) FROM card_scans cs WHERE cs.status IN ('queued','processing')
+          AND (cs.expected_application_id IN (SELECT id FROM apps) OR cs.application_student_id IN (SELECT id FROM aps))) scans_processing,
+       (SELECT count(*) FROM card_scans cs WHERE cs.status='review'
+          AND (cs.expected_application_id IN (SELECT id FROM apps) OR cs.application_student_id IN (SELECT id FROM aps))) scans_in_review,
+       (SELECT count(*) FROM assessment_results ar WHERE ar.application_student_id IN (SELECT id FROM aps)
+          AND ar.processing_status IN ('processing','needs_review','failed')) results_pending,
+       (SELECT count(*) FROM assessment_results ar WHERE ar.application_student_id IN (SELECT id FROM aps)
+          AND ar.processing_status='ready' AND ar.publication_status IN ('unpublished','republish_required')) results_unpublished`,
+    [yearId],
+  );
+  const n = Object.fromEntries(
+    Object.entries(r.rows[0]).map(([key, value]) => [key, Number(value)]),
+  );
+  const critical = [
+    n.scans_processing && {
+      code: 'scans_processing',
+      count: n.scans_processing,
+      message: 'cartão(ões) na fila ou em leitura automática',
+      panel: 'correction',
+    },
+    n.scans_in_review && {
+      code: 'scans_in_review',
+      count: n.scans_in_review,
+      message: 'cartão(ões) aguardando revisão da leitura',
+      panel: 'correction',
+    },
+    n.results_pending && {
+      code: 'results_pending',
+      count: n.results_pending,
+      message: 'nota(s) em processamento, revisão ou com falha',
+      panel: 'results',
+    },
+  ].filter(Boolean);
+  const warnings = [
+    n.results_unpublished && {
+      code: 'results_unpublished',
+      count: n.results_unpublished,
+      message:
+        'nota(s) prontas e não publicadas: depois do encerramento o aluno só as verá se o ano for reaberto',
+      panel: 'results',
+    },
+    n.without_outcome && {
+      code: 'without_outcome',
+      count: n.without_outcome,
+      message:
+        'matrícula(s) sem situação acadêmica definida (promovido, reprovado etc.): ficam registradas como "aguardando decisão"',
+      panel: 'years',
+    },
+  ].filter(Boolean);
+  return {
+    classes: n.classes,
+    activeClasses: n.active_classes,
+    activeEnrollments: n.active_enrollments,
+    enrollmentsWithoutOutcome: n.without_outcome,
+    applications: n.applications,
+    critical,
+    warnings,
+    canClose: critical.length === 0,
+  };
+}
+
+export async function academicYearClosingCheck(identity, yearId) {
+  requireManager(identity);
+  const year = await pool.query(
+    `SELECT ${yearColumns} FROM academic_years ay WHERE ay.id=$1 AND ay.institution_id=$2`,
+    [yearId, identity.institutionId],
+  );
+  if (!year.rowCount) throw fail('Ano letivo não encontrado.', 404);
+  return { year: yearFromRow(year.rows[0]), ...(await closingReport(pool, yearId)) };
+}
+
+/**
+ * Encerra o ano letivo numa única transação: turmas passam a encerradas,
+ * matrículas ativas viram registro histórico (concluídas) e as notas ficam
+ * bloqueadas (migração 112). Exige digitar o ano como confirmação e falha
+ * sem alterar nada se houver pendência crítica.
+ */
+export async function closeAcademicYear(identity, yearId, input = {}) {
+  requireManager(identity);
+  const v = z
+    .object({
+      confirmYear: z.number().int(),
+      reason: z.string().trim().max(500).optional(),
+    })
+    .parse(input);
+  try {
+    return await transaction(async (client) => {
+      const before = await lockYear(client, identity, yearId);
+      if (v.confirmYear !== before.year)
+        throw fail(
+          `Para confirmar, informe o ano letivo ${before.year}.`,
+          422,
+        );
+      if (!['planning', 'active'].includes(before.status))
+        throw fail('Este ano letivo já está encerrado ou arquivado.', 409);
+      // Impede novas leituras e notas enquanto o diagnóstico é refeito.
+      await client.query(
+        `UPDATE academic_years SET status='closing',updated_at=now() WHERE id=$1`,
+        [yearId],
+      );
+      const report = await closingReport(client, yearId);
+      if (!report.canClose)
+        throw Object.assign(
+          fail(
+            'Há pendências críticas: resolva-as antes de encerrar o ano letivo.',
+            409,
+          ),
+          { report },
+        );
+      const exitDate = before.endDate ?? null;
+      const enrollments = await client.query(
+        `UPDATE student_enrollments
+         SET status='completed',
+             exit_date=greatest(entry_date,LEAST(COALESCE($2::date,current_date),current_date))
+         WHERE academic_year_id=$1 AND status='active' RETURNING id`,
+        [yearId, exitDate],
+      );
+      const classes = await client.query(
+        `UPDATE classes SET status='closed' WHERE academic_year_id=$1 AND status='active' RETURNING id`,
+        [yearId],
+      );
+      await client.query(
+        `UPDATE academic_years SET status='closed',closed_at=now(),closed_by=$2,updated_at=now() WHERE id=$1`,
+        [yearId, identity.userId ?? null],
+      );
+      const after = await reloadYear(client, yearId);
+      const summary = {
+        classesClosed: classes.rowCount,
+        enrollmentsCompleted: enrollments.rowCount,
+        enrollmentsWithoutOutcome: report.enrollmentsWithoutOutcome,
+        warnings: report.warnings,
+      };
+      await audit(
+        client,
+        identity,
+        'academic_year.close',
+        yearId,
+        before,
+        { ...after, summary },
+        v.reason,
+      );
+      await client.query(
+        `INSERT INTO academic_events(institution_id,academic_year_id,event_type,actor_id,reason,before_data,after_data)
+         VALUES($1,$2,'year_closed',$3,$4,$5,$6)`,
+        [
+          identity.institutionId,
+          yearId,
+          identity.userId ?? null,
+          v.reason ?? '',
+          before,
+          { ...after, summary },
+        ],
+      );
+      const actor = identity.userId
+        ? (
+            await client.query('SELECT display_name FROM users WHERE id=$1', [
+              identity.userId,
+            ])
+          ).rows[0]?.display_name
+        : null;
+      return { year: after, summary, closedBy: actor ?? null };
+    });
+  } catch (error) {
+    throw translateDatabaseError(error);
+  }
+}
+
 /** Exclui ano letivo cadastrado por engano: só sem turmas e sem matrículas. */
 export async function deleteAcademicYear(identity, yearId) {
   requireManager(identity);
@@ -300,7 +484,7 @@ export async function archiveAcademicYear(identity, yearId, input = {}) {
         [yearId, identity.userId ?? null],
       );
       await client.query(
-        `UPDATE classes SET status='archived' WHERE academic_year_id=$1 AND status='active'`,
+        `UPDATE classes SET status='archived' WHERE academic_year_id=$1 AND status IN ('active','closed')`,
         [yearId],
       );
       const after = await reloadYear(client, yearId);
@@ -338,9 +522,20 @@ export async function reopenAcademicYear(identity, yearId, input = {}) {
       );
       // Turmas arquivadas individualmente (archived_at) continuam arquivadas.
       await client.query(
-        `UPDATE classes SET status='active' WHERE academic_year_id=$1 AND status='archived' AND archived_at IS NULL`,
+        `UPDATE classes SET status='active' WHERE academic_year_id=$1 AND (status='closed' OR (status='archived' AND archived_at IS NULL))`,
         [yearId],
       );
+      // Reversão administrativa: matrículas concluídas pelo encerramento e que
+      // continuam na turma voltam a ficar ativas.
+      await client.query("SET LOCAL ufaprova.allow_enrollment_reversal='on'");
+      await client.query(
+        `UPDATE student_enrollments se SET status='active',exit_date=NULL
+         WHERE se.academic_year_id=$1 AND se.status='completed'
+           AND EXISTS (SELECT 1 FROM class_enrollments ce
+                       WHERE ce.class_id=se.class_id AND ce.student_id=se.student_id)`,
+        [yearId],
+      );
+      await client.query("SET LOCAL ufaprova.allow_enrollment_reversal='off'");
       const after = await reloadYear(client, yearId);
       await audit(client, identity, 'academic_year.reopen', yearId, before, after, reason);
       await client.query(

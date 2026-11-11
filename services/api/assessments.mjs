@@ -635,6 +635,8 @@ async function purgeAssessment(
       assessmentId,
     ])
   ).rows[0];
+  // Exclusão total do administrador também vale para ano letivo encerrado.
+  await client.query("SET LOCAL ufaprova.allow_closed_year_changes='on'");
   const ids = async (text, values) =>
     (await client.query(text, values)).rows.map((row) => row.id);
   const applicationIds = await ids(
