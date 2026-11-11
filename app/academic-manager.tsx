@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ClassInvitePanel } from './class-invite-panel';
+import { AcademicYearsPanel } from './academic/academic-years-panel';
 import { StudentsWorkspace } from './students-workspace';
 import { ClassRosterPrint } from './class-roster-print';
 import { StudentPhoto } from './student-photo';
@@ -74,8 +75,11 @@ export function AcademicManager({
   onOpenCorrection,
   onOpenResults,
   canPurge = false,
+  canManageYears = false,
 }: {
   apiUrl: string;
+  // Administração e coordenação: cadastram e arquivam anos letivos.
+  canManageYears?: boolean;
   // Administrador: descarta também cartões já corrigidos (zera a nota).
   canPurge?: boolean;
   initialSection?: 'correction' | 'reports';
@@ -828,6 +832,7 @@ export function AcademicManager({
     label: string;
     icon: React.ReactNode;
   }> = [
+    { id: 'years', label: 'Anos letivos', icon: <CalendarCheck /> },
     { id: 'classes', label: 'Turmas e escolas', icon: <GraduationCap /> },
     { id: 'students', label: 'Alunos', icon: <Users /> },
     {
@@ -1021,7 +1026,9 @@ export function AcademicManager({
       <p className="mt-2 text-sm text-slate-500">
         {initialSection === 'reports'
           ? 'Escolha uma aplicação para ver o desempenho por habilidade, competência e descritor, e as prioridades de intervenção.'
-          : activePanel === 'classes'
+          : activePanel === 'years'
+            ? 'Cadastre, ative e arquive os anos letivos; turmas e matrículas ficam ligadas a eles.'
+            : activePanel === 'classes'
             ? 'Organize as turmas por etapa, ano letivo e escola vinculada.'
             : activePanel === 'students'
               ? 'Cadastre, importe e matricule estudantes com controle da situação escolar.'
@@ -1040,7 +1047,7 @@ export function AcademicManager({
         <div
           aria-label="Seções da gestão acadêmica"
           role="tablist"
-          className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3 xl:grid-cols-5"
+          className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3 xl:grid-cols-6"
         >
           {panelNavigation.map((item) => (
             <button
@@ -1061,6 +1068,13 @@ export function AcademicManager({
             </button>
           ))}
         </div>
+      )}
+      {activePanel === 'years' && (
+        <AcademicYearsPanel
+          apiUrl={apiUrl}
+          canManage={canManageYears}
+          canReopen={canPurge}
+        />
       )}
       {activePanel === 'applications' && (
         <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">

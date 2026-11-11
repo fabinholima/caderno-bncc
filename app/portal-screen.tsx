@@ -1372,6 +1372,10 @@ export default function Home() {
             active === 'Diagnosticar' ? (
             <AcademicManager
               key={active}
+              canManageYears={
+                ['admin', 'coordinator'].includes(identity.role) ||
+                Boolean(identity.portalAdmin)
+              }
               canPurge={identity.role === 'admin' || Boolean(identity.portalAdmin)}
               apiUrl={apiUrl}
               initialSection={

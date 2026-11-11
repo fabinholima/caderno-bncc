@@ -9,6 +9,7 @@ export type SchoolClass = {
 };
 
 export type AcademicPanel =
+  | 'years'
   | 'classes'
   | 'students'
   | 'applications'

@@ -269,6 +269,105 @@ test(
         );
       });
 
+      await t.test(
+        'exclui ano vazio, arquiva sem matrículas ativas e reabre com motivo',
+        async () => {
+          const empty = await years.createAcademicYear(coordinator, {
+            year: 2031,
+          });
+          await assert.rejects(
+            years.deleteAcademicYear(teacher, empty.id),
+            { statusCode: 403 },
+          );
+          assert.deepEqual(
+            await years.deleteAcademicYear(coordinator, empty.id),
+            { id: empty.id, deleted: true },
+          );
+          const [{ n: gone }] = await q(
+            'SELECT count(*)::int n FROM academic_years WHERE id=$1',
+            [empty.id],
+          );
+          assert.equal(gone, 0);
+          const [log] = await q(
+            `SELECT before_data FROM audit_log WHERE action='academic_year.delete' AND entity_id=$1`,
+            [empty.id],
+          );
+          assert.equal(log.before_data.year, 2031);
+
+          const c = await newClass('1º Z', '1º ano', 2032);
+          const s = await newStudent('Zeca', `RA-Z-${tag}`);
+          await q(
+            'INSERT INTO class_enrollments(class_id,student_id) VALUES($1,$2)',
+            [c.id, s],
+          );
+          await assert.rejects(
+            years.deleteAcademicYear(coordinator, c.academic_year_id),
+            { statusCode: 409 },
+          );
+          await assert.rejects(
+            years.archiveAcademicYear(coordinator, c.academic_year_id),
+            { statusCode: 409 },
+          );
+          await q('DELETE FROM class_enrollments WHERE class_id=$1', [c.id]);
+          const archived = await years.archiveAcademicYear(
+            coordinator,
+            c.academic_year_id,
+            { reason: 'Fim do ano' },
+          );
+          assert.equal(archived.status, 'archived');
+          assert.ok(archived.closedAt);
+          const [klass] = await q('SELECT status FROM classes WHERE id=$1', [
+            c.id,
+          ]);
+          assert.equal(klass.status, 'archived');
+          // Arquivado não aceita matrícula nem edição.
+          await assert.rejects(
+            enrollStudent({
+              institutionId: inst.id,
+              classId: c.id,
+              input: { studentId: s },
+            }),
+            { statusCode: 409 },
+          );
+          await assert.rejects(
+            years.updateAcademicYear(coordinator, c.academic_year_id, {
+              endDate: '2032-12-01',
+            }),
+            { statusCode: 409 },
+          );
+          // Reabertura: só administrador e com motivo.
+          await assert.rejects(
+            years.reopenAcademicYear(coordinator, c.academic_year_id, {
+              reason: 'Correção de notas',
+            }),
+            { statusCode: 403 },
+          );
+          const adminIdentity = { ...coordinator, role: 'admin' };
+          await assert.rejects(
+            years.reopenAcademicYear(adminIdentity, c.academic_year_id, {}),
+          );
+          const reopened = await years.reopenAcademicYear(
+            adminIdentity,
+            c.academic_year_id,
+            { reason: 'Correção de notas' },
+          );
+          assert.equal(reopened.status, 'active');
+          const [again] = await q('SELECT status FROM classes WHERE id=$1', [
+            c.id,
+          ]);
+          assert.equal(again.status, 'active');
+          const [event] = await q(
+            `SELECT reason FROM academic_events WHERE academic_year_id=$1 AND event_type='year_reopened'`,
+            [c.academic_year_id],
+          );
+          assert.equal(event.reason, 'Correção de notas');
+          await assert.rejects(
+            years.archiveAcademicYear(outsiderAdmin, c.academic_year_id),
+            { statusCode: 404 },
+          );
+        },
+      );
+
       await t.test('autorização no backend', async () => {
         await assert.rejects(
           years.createAcademicYear(teacher, { year: 2030 }),

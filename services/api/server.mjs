@@ -6,7 +6,10 @@ import { regenerateAssessment } from './assessments.mjs';
 import { getClassRoster, listClassStudents } from './academic.mjs';
 import { deleteScanImage } from './scan-image-storage.mjs';
 import {
+  archiveAcademicYear,
   createAcademicYear,
+  deleteAcademicYear,
+  reopenAcademicYear,
   getStudentHistory,
   listAcademicYears,
   updateAcademicYear,
@@ -1503,6 +1506,28 @@ const server = createServer(async (request, response) => {
         data: await updateAcademicYear(
           identity,
           academicYearMatch[1],
+          await readJson(request, 4096),
+        ),
+      });
+    const academicYearDeleteMatch =
+      request.method === 'DELETE' &&
+      url.pathname.match(/^\/api\/academic-years\/([0-9a-f-]{36})$/i);
+    if (academicYearDeleteMatch)
+      return json(response, 200, {
+        data: await deleteAcademicYear(identity, academicYearDeleteMatch[1]),
+      });
+    const academicYearActionMatch =
+      request.method === 'POST' &&
+      url.pathname.match(
+        /^\/api\/academic-years\/([0-9a-f-]{36})\/(archive|reopen)$/i,
+      );
+    if (academicYearActionMatch)
+      return json(response, 200, {
+        data: await (academicYearActionMatch[2] === 'archive'
+          ? archiveAcademicYear
+          : reopenAcademicYear)(
+          identity,
+          academicYearActionMatch[1],
           await readJson(request, 4096),
         ),
       });

@@ -168,7 +168,7 @@ export async function updateAcademicYear(identity, yearId, input) {
       const before = yearFromRow(current.rows[0]);
       if (['closing', 'closed', 'archived'].includes(before.status))
         throw fail(
-          'Ano letivo em encerramento ou encerrado não pode ser editado; use a reabertura excepcional.',
+          'Ano letivo encerrado ou arquivado não pode ser editado; use a reabertura.',
           409,
         );
       const startDate =
@@ -219,6 +219,134 @@ export async function updateAcademicYear(identity, yearId, input) {
           before,
           after,
         ],
+      );
+      return after;
+    });
+  } catch (error) {
+    throw translateDatabaseError(error);
+  }
+}
+
+async function lockYear(client, identity, yearId) {
+  const current = await client.query(
+    `SELECT ${yearColumns} FROM academic_years ay
+     WHERE ay.id=$1 AND ay.institution_id=$2 FOR UPDATE OF ay`,
+    [yearId, identity.institutionId],
+  );
+  if (!current.rowCount) throw fail('Ano letivo não encontrado.', 404);
+  return yearFromRow(current.rows[0]);
+}
+
+async function reloadYear(client, yearId) {
+  const r = await client.query(
+    `SELECT ${yearColumns} FROM academic_years ay WHERE ay.id=$1`,
+    [yearId],
+  );
+  return yearFromRow(r.rows[0]);
+}
+
+/** Exclui ano letivo cadastrado por engano: só sem turmas e sem matrículas. */
+export async function deleteAcademicYear(identity, yearId) {
+  requireManager(identity);
+  try {
+    return await transaction(async (client) => {
+      const before = await lockYear(client, identity, yearId);
+      const enrollments = await client.query(
+        'SELECT count(*)::int n FROM student_enrollments WHERE academic_year_id=$1',
+        [yearId],
+      );
+      if (before.classCount > 0 || enrollments.rows[0].n > 0)
+        throw fail(
+          'Este ano letivo tem turmas ou matrículas e não pode ser excluído. Arquive-o depois de encerrar as matrículas.',
+          409,
+        );
+      // Só eventos do próprio ano (sem aluno): a exclusão fica no audit_log.
+      await client.query("SET LOCAL ufaprova.allow_history_purge='on'");
+      await client.query(
+        'DELETE FROM academic_events WHERE academic_year_id=$1 AND student_id IS NULL',
+        [yearId],
+      );
+      await client.query("SET LOCAL ufaprova.allow_history_purge='off'");
+      await client.query('DELETE FROM academic_years WHERE id=$1', [yearId]);
+      await audit(client, identity, 'academic_year.delete', yearId, before, null);
+      return { id: yearId, deleted: true };
+    });
+  } catch (error) {
+    throw translateDatabaseError(error);
+  }
+}
+
+/**
+ * Arquiva o ano letivo: ele sai das listas operacionais, as turmas ficam
+ * arquivadas e não aceitam novas matrículas nem novas turmas. Exige que
+ * nenhuma matrícula esteja ativa (encerre ou promova os alunos antes).
+ */
+export async function archiveAcademicYear(identity, yearId, input = {}) {
+  requireManager(identity);
+  const reason = z.string().trim().max(500).optional().parse(input?.reason);
+  try {
+    return await transaction(async (client) => {
+      const before = await lockYear(client, identity, yearId);
+      if (before.status === 'archived')
+        throw fail('Este ano letivo já está arquivado.', 409);
+      if (before.activeEnrollmentCount > 0)
+        throw fail(
+          `Ainda há ${before.activeEnrollmentCount} matrícula(s) ativa(s) neste ano letivo. Retire os alunos das turmas (ou promova-os) antes de arquivar.`,
+          409,
+        );
+      await client.query(
+        `UPDATE academic_years SET status='archived',closed_at=COALESCE(closed_at,now()),
+           closed_by=COALESCE(closed_by,$2),updated_at=now() WHERE id=$1`,
+        [yearId, identity.userId ?? null],
+      );
+      await client.query(
+        `UPDATE classes SET status='archived' WHERE academic_year_id=$1 AND status='active'`,
+        [yearId],
+      );
+      const after = await reloadYear(client, yearId);
+      await audit(client, identity, 'academic_year.archive', yearId, before, after, reason);
+      await client.query(
+        `INSERT INTO academic_events(institution_id,academic_year_id,event_type,actor_id,reason,before_data,after_data)
+         VALUES($1,$2,'year_status_changed',$3,$4,$5,$6)`,
+        [identity.institutionId, yearId, identity.userId ?? null, reason ?? '', before, after],
+      );
+      return after;
+    });
+  } catch (error) {
+    throw translateDatabaseError(error);
+  }
+}
+
+/** Reabertura excepcional: somente administrador, com motivo registrado. */
+export async function reopenAcademicYear(identity, yearId, input = {}) {
+  if (!(identity?.portalAdmin || identity?.role === 'admin'))
+    throw fail('Somente o administrador pode reabrir um ano letivo.', 403);
+  const reason = z
+    .string({ error: 'Informe o motivo da reabertura.' })
+    .trim()
+    .min(5, 'Informe o motivo da reabertura.')
+    .max(500)
+    .parse(input?.reason);
+  try {
+    return await transaction(async (client) => {
+      const before = await lockYear(client, identity, yearId);
+      if (!['closing', 'closed', 'archived'].includes(before.status))
+        throw fail('Este ano letivo já está aberto.', 409);
+      await client.query(
+        `UPDATE academic_years SET status='active',closed_at=NULL,closed_by=NULL,updated_at=now() WHERE id=$1`,
+        [yearId],
+      );
+      // Turmas arquivadas individualmente (archived_at) continuam arquivadas.
+      await client.query(
+        `UPDATE classes SET status='active' WHERE academic_year_id=$1 AND status='archived' AND archived_at IS NULL`,
+        [yearId],
+      );
+      const after = await reloadYear(client, yearId);
+      await audit(client, identity, 'academic_year.reopen', yearId, before, after, reason);
+      await client.query(
+        `INSERT INTO academic_events(institution_id,academic_year_id,event_type,actor_id,reason,before_data,after_data)
+         VALUES($1,$2,'year_reopened',$3,$4,$5,$6)`,
+        [identity.institutionId, yearId, identity.userId ?? null, reason, before, after],
       );
       return after;
     });
