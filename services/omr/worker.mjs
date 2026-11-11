@@ -20,6 +20,7 @@ import {
   readScanImage,
   storeScanImage,
 } from '../api/scan-image-storage.mjs';
+import { tickEssayScans } from './essay-scans.mjs';
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const python =
   process.env.OMR_PYTHON ||
@@ -333,7 +334,13 @@ for (const delay of [0, 5 * 60_000, 30 * 60_000])
     convertLegacyResults().catch(console.error);
   }, delay);
 console.log('Worker OMR ativo');
+// Folhas de redação em lote: mesmo leitor de QR, fila própria.
+const readEssayQr = async (file) =>
+  (await run(file, '--qr-only')).qrPayload || '';
 for (;;) {
   await tick().catch(console.error);
+  await tickEssayScans({ readQr: readEssayQr, runCommand }).catch(
+    console.error,
+  );
   await new Promise((r) => setTimeout(r, 1500));
 }

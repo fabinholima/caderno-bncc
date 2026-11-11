@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { EssayScanUpload } from '@/app/essay-scans';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -1990,6 +1991,9 @@ function ApplicationHistory({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [scanId, setScanId] = useState('');
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [deleteId, setDeleteId] = useState('');
   const load = useCallback(async () => {
     try {
       setItems(
@@ -2086,6 +2090,23 @@ function ApplicationHistory({
       setBusy('');
     }
   }
+  async function remove(item: EssayApplication) {
+    setBusy(item.id);
+    setError('');
+    try {
+      await request(`essay-applications/${item.id}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ confirm: true }),
+      });
+      setDeleteId('');
+      if (openId === item.id) setOpenId('');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy('');
+    }
+  }
   async function download(
     item: EssayApplication,
     studentId?: string,
@@ -2106,37 +2127,70 @@ function ApplicationHistory({
       setBusy('');
     }
   }
+  if (scanId)
+    return (
+      <EssayScanUpload
+        apiUrl={apiUrl}
+        applicationId={scanId}
+        onBack={() => {
+          setScanId('');
+          void load();
+        }}
+        onGrade={() => onGrade(scanId)}
+      />
+    );
+  const cancelledCount = items.filter(
+    (item) => item.status === 'cancelled',
+  ).length;
+  const visible = showCancelled
+    ? items
+    : items.filter((item) => item.status !== 'cancelled');
   return (
     <div>
       <Header
         title="Histórico"
         description="Aplicações anteriores por turma, com folhas individuais para reimpressão e situação de cada aluno."
       />
-      <div className="mb-4 max-w-sm">
-        <select
-          aria-label="Filtrar por turma"
-          value={classId}
-          onChange={(event) => setClassId(event.target.value)}
-          className={fieldClass}
-        >
-          <option value="">Todas as turmas</option>
-          {classes.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.grade} — {item.name} ({item.schoolYear})
-            </option>
-          ))}
-        </select>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="w-full max-w-sm">
+          <select
+            aria-label="Filtrar por turma"
+            value={classId}
+            onChange={(event) => setClassId(event.target.value)}
+            className={fieldClass}
+          >
+            <option value="">Todas as turmas</option>
+            {classes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.grade} — {item.name} ({item.schoolYear})
+              </option>
+            ))}
+          </select>
+        </div>
+        {cancelledCount > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowCancelled((value) => !value)}
+          >
+            {showCancelled
+              ? 'Ocultar canceladas'
+              : `Mostrar canceladas (${cancelledCount})`}
+          </Button>
+        )}
       </div>
       <Alert message={error} />
       {loading ? (
         <p className="text-sm text-slate-500">Carregando…</p>
-      ) : !items.length ? (
+      ) : !visible.length ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-          Nenhuma redação aplicada ainda.
+          {items.length
+            ? 'Só há aplicações canceladas. Use “Mostrar canceladas” para vê-las ou excluí-las.'
+            : 'Nenhuma redação aplicada ainda.'}
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((item) => (
+          {visible.map((item) => (
             <li
               key={item.id}
               className="rounded-2xl border border-slate-200 bg-white"
@@ -2206,7 +2260,7 @@ function ApplicationHistory({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onGrade(item.id, 'pending')}
+                        onClick={() => setScanId(item.id)}
                       >
                         <Upload /> Enviar redações escaneadas
                       </Button>
@@ -2221,22 +2275,24 @@ function ApplicationHistory({
                         finalizada(s)
                       </Button>
                     )}
-                    {item.canEdit && item.aiAssist && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy === item.id}
-                        onClick={() =>
-                          update(item, {
-                            aiFeedbackVisible: !item.aiFeedbackVisible,
-                          })
-                        }
-                      >
-                        {item.aiFeedbackVisible
-                          ? 'Ocultar retorno da IA ao aluno'
-                          : 'Mostrar retorno da IA ao aluno'}
-                      </Button>
-                    )}
+                    {item.canEdit &&
+                      item.aiAssist &&
+                      item.status !== 'cancelled' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy === item.id}
+                          onClick={() =>
+                            update(item, {
+                              aiFeedbackVisible: !item.aiFeedbackVisible,
+                            })
+                          }
+                        >
+                          {item.aiFeedbackVisible
+                            ? 'Ocultar retorno da IA ao aluno'
+                            : 'Mostrar retorno da IA ao aluno'}
+                        </Button>
+                      )}
                     {item.canEdit && item.status !== 'cancelled' && (
                       <>
                         <Button
@@ -2282,7 +2338,51 @@ function ApplicationHistory({
                         </Button>
                       </>
                     )}
+                    {item.canEdit && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                        disabled={busy === item.id}
+                        onClick={() => setDeleteId(item.id)}
+                      >
+                        <Trash2 /> Excluir definitivamente
+                      </Button>
+                    )}
                   </div>
+                  {deleteId === item.id && (
+                    <div className="mb-3 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm">
+                      <p className="font-semibold text-rose-900">
+                        Excluir esta aplicação para sempre?
+                      </p>
+                      <p className="mt-1 text-xs text-rose-900">
+                        Serão apagadas as {item.studentsCount} folha(s) da
+                        turma, {item.submittedCount} produção(ões) recebida(s)
+                        {item.publishedCount
+                          ? `, ${item.publishedCount} nota(s) já publicada(s) aos alunos`
+                          : ''}
+                        , as correções e os arquivos escaneados. Esta ação não
+                        pode ser desfeita. O tema continua no seu banco.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={busy === item.id}
+                          onClick={() => remove(item)}
+                        >
+                          {busy === item.id ? 'Excluindo…' : 'Excluir de vez'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteId('')}
+                        >
+                          Manter
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   {!detail ? (
                     <p className="text-sm text-slate-500">Carregando alunos…</p>
                   ) : !detail.students?.length ? (

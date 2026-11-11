@@ -1,5 +1,6 @@
 // Módulo de redação: temas (propostas), textos motivadores, aplicação às
 // turmas existentes e folhas de produção textual em PDF.
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -766,6 +767,34 @@ export async function materializeEssayImages(
   return { ...prompt, motivatingTexts: texts };
 }
 
+export const ESSAY_QR_PATTERN = /^CBR1:[0-9A-F]{20}$/;
+
+/** QR da folha (zint, o mesmo gerador das provas); o OMR o lê no envio em lote. */
+async function writeEssayQr(directory, name, payload) {
+  if (!ESSAY_QR_PATTERN.test(payload))
+    throw new Error('Identificador QR da redação inválido.');
+  const fileName = `${name}.png`;
+  await new Promise((resolve, reject) => {
+    const child = spawn('zint', [
+      '--barcode=58',
+      '--secure=3',
+      `--data=${payload}`,
+      '--scale=4',
+      '--border=0',
+      `--output=${path.join(directory, fileName)}`,
+    ]);
+    let error = '';
+    child.stderr.on('data', (chunk) => (error += chunk));
+    child.on('error', reject);
+    child.on('close', (code) =>
+      code === 0
+        ? resolve()
+        : reject(new Error(error || `Zint terminou com código ${code}.`)),
+    );
+  });
+  return fileName;
+}
+
 export async function renderEssayPdf({
   userId,
   institutionId,
@@ -797,7 +826,14 @@ export async function renderEssayPdf({
         logoFile: logoDataUrl
           ? await writeImage(directory, 'logotipo', logoDataUrl)
           : '',
-        copies,
+        copies: await Promise.all(
+          copies.map(async ({ qrCode, ...copy }, index) => ({
+            ...copy,
+            qrFile: qrCode
+              ? await writeEssayQr(directory, `qr-${index + 1}`, qrCode)
+              : '',
+          })),
+        ),
       });
       await writeFile(path.join(directory, 'redacao.tex'), document, 'utf8');
       await compileAndValidate(
@@ -1047,7 +1083,7 @@ async function loadApplication(db, identity, applicationId) {
 
 async function applicationStudents(db, applicationId) {
   const result = await db.query(
-    `SELECT eas.id,eas.student_id,eas.student_number,eas.status,s.name,s.registration
+    `SELECT eas.id,eas.student_id,eas.student_number,eas.status,eas.qr_code,s.name,s.registration
        FROM essay_application_students eas JOIN students s ON s.id=eas.student_id
       WHERE eas.application_id=$1 ORDER BY eas.student_number NULLS LAST,s.name`,
     [applicationId],
@@ -1059,6 +1095,7 @@ async function applicationStudents(db, applicationId) {
     name: row.name,
     registration: row.registration,
     status: row.status,
+    qrCode: row.qr_code,
   }));
 }
 
@@ -1067,7 +1104,9 @@ export async function getEssayApplication(identity, applicationId) {
   const row = await loadApplication(pool, identity, applicationId);
   return {
     ...applicationFromRow(row, identity),
-    students: await applicationStudents(pool, applicationId),
+    students: (await applicationStudents(pool, applicationId)).map(
+      ({ qrCode: _qrCode, ...student }) => student,
+    ),
   };
 }
 
@@ -1157,6 +1196,7 @@ export async function essayApplicationSheetsPdf(
       studentName: student.number
         ? `${student.name} (nº ${student.number})`
         : student.name,
+      qrCode: student.qrCode,
     })),
     logoDataUrl: school.logoDataUrl,
   });

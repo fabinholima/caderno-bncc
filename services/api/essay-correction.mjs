@@ -129,15 +129,21 @@ const fileTypes = {
 };
 
 /** Decodifica e confere tipo, assinatura e tamanho do arquivo enviado. */
-export function decodeEssayFile(dataUrl) {
+export function decodeEssayFile(
+  dataUrl,
+  { maxBytes = MAX_ESSAY_FILE_BYTES } = {},
+) {
   const match = String(dataUrl || '').match(
     /^data:(image\/png|image\/jpeg|application\/pdf);base64,([A-Za-z0-9+/]+={0,2})$/,
   );
   if (!match) throw fail('Envie imagens PNG, JPEG ou um arquivo PDF.');
   const contents = Buffer.from(match[2], 'base64');
   if (!contents.length) throw fail('O arquivo está vazio.');
-  if (contents.length > MAX_ESSAY_FILE_BYTES)
-    throw fail('Cada arquivo pode ter no máximo 8 MB.', 413);
+  if (contents.length > maxBytes)
+    throw fail(
+      `Cada arquivo pode ter no máximo ${Math.round(maxBytes / 1048576)} MB.`,
+      413,
+    );
   const mimeType = match[1];
   const valid =
     mimeType === 'image/png'
@@ -741,14 +747,17 @@ export async function essayFileForStaff(identity, fileId) {
   };
 }
 
-async function addFile(db, { submission, institutionId, dataUrl, userId }) {
+async function addFile(
+  db,
+  { submission, institutionId, dataUrl, decoded, userId },
+) {
   const count = await db.query(
     'SELECT count(*)::int AS n,COALESCE(max(position),0) AS last FROM essay_submission_files WHERE submission_id=$1',
     [submission.id],
   );
   if (count.rows[0].n >= MAX_ESSAY_FILES)
     throw fail(`Envie no máximo ${MAX_ESSAY_FILES} páginas por redação.`);
-  const file = decodeEssayFile(dataUrl);
+  const file = decoded || decodeEssayFile(dataUrl);
   const storage = essayFileStorage();
   const key = await storage.put(
     `essay-submissions/${institutionId}/${submission.id}/${file.sha256}.${fileTypes[file.mimeType]}`,
@@ -869,6 +878,53 @@ export async function addTeacherScanFile(identity, entryId, input) {
     );
     return file;
   });
+}
+
+/**
+ * Página escaneada em lote (QR lido pelo worker OMR ou aluno escolhido pelo
+ * professor): entra no rascunho de digitalização da produção. A mesma página
+ * enviada de novo não é duplicada. Erros 409 indicam produção já recebida ou
+ * com rascunho do aluno.
+ */
+export async function attachScanPage(client, { entryId, userId, file }) {
+  const result = await client.query(
+    `SELECT ${entryColumns}
+       FROM essay_application_students eas
+       JOIN essay_applications ea ON ea.id=eas.application_id
+       JOIN students s ON s.id=eas.student_id
+       JOIN classes c ON c.id=ea.class_id
+      WHERE eas.id=$1 FOR UPDATE OF eas`,
+    [entryId],
+  );
+  const entry = result.rows[0];
+  if (!entry) throw fail('Produção não encontrada.', 404);
+  if (entry.application_status === 'cancelled')
+    throw fail('A aplicação desta folha foi cancelada.', 409);
+  assertYearOpen(entry);
+  const identity = { userId };
+  const submission = await teacherScanDraft(client, entry, identity);
+  const existing = await client.query(
+    'SELECT * FROM essay_submission_files WHERE submission_id=$1 AND sha256=$2',
+    [submission.id, file.sha256],
+  );
+  const added = existing.rows[0]
+    ? fileFromRow(existing.rows[0])
+    : await addFile(client, {
+        submission,
+        institutionId: entry.institution_id,
+        decoded: file,
+        userId,
+      });
+  if (!existing.rowCount)
+    await audit(
+      client,
+      identity,
+      entry.institution_id,
+      'essay.scan.batch',
+      entryId,
+      { fileId: added.id },
+    );
+  return { file: added, entry };
 }
 
 export async function removeTeacherScanFile(identity, entryId, fileId) {

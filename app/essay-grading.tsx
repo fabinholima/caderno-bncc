@@ -32,6 +32,7 @@ import {
   type EssayEntryStatus,
 } from '@/lib/essay-status';
 import { prepareEssayFile } from '@/lib/essay-upload';
+import { EssayScanUpload } from '@/app/essay-scans';
 
 // ---------- Tipos ----------
 
@@ -332,6 +333,7 @@ export function EssayGradingQueue({
 }) {
   const request = useApi(apiUrl);
   const [openId, setOpenId] = useState('');
+  const [scanning, setScanning] = useState(false);
   const [filters, setFilters] = useState({
     applicationId,
     status: initialStatus,
@@ -403,6 +405,21 @@ export function EssayGradingQueue({
         }
       />
     );
+  if (scanning && filters.applicationId)
+    return (
+      <EssayScanUpload
+        apiUrl={apiUrl}
+        applicationId={filters.applicationId}
+        onBack={() => {
+          setScanning(false);
+          void load();
+        }}
+        onGrade={() => {
+          setScanning(false);
+          setFilters({ ...filters, status: '', page: 1 });
+        }}
+      />
+    );
   return (
     <div>
       <Header
@@ -412,10 +429,16 @@ export function EssayGradingQueue({
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
         <Upload className="size-5 shrink-0" />
         <p className="min-w-0 flex-1">
-          <strong>Redações em papel:</strong> abra o aluno que ainda não
-          entregou, envie as fotos ou o PDF da folha escaneada e clique em
-          Registrar recebimento.
+          <strong>Redações em papel:</strong>{' '}
+          {filters.applicationId
+            ? 'envie o PDF da turma escaneada: o QR de cada folha identifica o aluno. Para um aluno só, abra-o na lista.'
+            : 'escolha a aplicação no filtro abaixo para enviar o PDF da turma escaneada; o QR de cada folha identifica o aluno.'}
         </p>
+        {filters.applicationId && (
+          <Button size="sm" onClick={() => setScanning(true)}>
+            <Upload /> Enviar folhas escaneadas
+          </Button>
+        )}
         <Button
           size="sm"
           variant={filters.status === 'pending' ? 'default' : 'outline'}

@@ -266,6 +266,15 @@ import {
   saveEssayGrading,
   saveEssayTranscription,
 } from './essay-correction.mjs';
+import {
+  assignEssayScanPage,
+  deleteEssayApplication,
+  discardEssayScanPage,
+  essayScanPageImage,
+  listEssayScans,
+  receiveEssayScans,
+  uploadEssayScan,
+} from './essay-scans.mjs';
 import { createQuestionPdfPreview } from './question-preview.mjs';
 import { listSaebDescriptors, listSaebMatrices } from './saeb.mjs';
 import { renderChemicalStructure } from './chemical-structures.mjs';
@@ -1542,6 +1551,51 @@ const server = createServer(async (request, response) => {
           await readJson(request, 4096),
         ),
       });
+    const essayScanMatch = url.pathname.match(
+      /^\/api\/essay-applications\/([0-9a-f-]{36})\/scans(\/receive)?$/i,
+    );
+    if (essayScanMatch) {
+      const [, applicationId, receive] = essayScanMatch;
+      if (!receive && request.method === 'GET')
+        return json(response, 200, {
+          data: await listEssayScans(identity, applicationId),
+        });
+      if (!receive && request.method === 'POST')
+        return json(response, 202, {
+          data: await uploadEssayScan(
+            identity,
+            applicationId,
+            await readJson(request, 36_000_000),
+          ),
+        });
+      if (receive && request.method === 'POST')
+        return json(response, 200, {
+          data: await receiveEssayScans(identity, applicationId),
+        });
+    }
+    const essayScanPageMatch = url.pathname.match(
+      /^\/api\/essay-scan-pages\/([0-9a-f-]{36})\/(image|assign|discard)$/i,
+    );
+    if (essayScanPageMatch) {
+      const [, pageId, action] = essayScanPageMatch;
+      if (action === 'image' && request.method === 'GET')
+        return privateFile(
+          response,
+          await essayScanPageImage(identity, pageId),
+        );
+      if (action === 'assign' && request.method === 'POST')
+        return json(response, 200, {
+          data: await assignEssayScanPage(
+            identity,
+            pageId,
+            await readJson(request, 4096),
+          ),
+        });
+      if (action === 'discard' && request.method === 'POST')
+        return json(response, 200, {
+          data: await discardEssayScanPage(identity, pageId),
+        });
+    }
     const essayApplicationMatch = url.pathname.match(
       /^\/api\/essay-applications\/([0-9a-f-]{36})(\/sheets\.pdf)?$/i,
     );
@@ -1559,6 +1613,14 @@ const server = createServer(async (request, response) => {
       if (!sheets && request.method === 'GET')
         return json(response, 200, {
           data: await getEssayApplication(identity, applicationId),
+        });
+      if (!sheets && request.method === 'DELETE')
+        return json(response, 200, {
+          data: await deleteEssayApplication(
+            identity,
+            applicationId,
+            await readJson(request, 4096),
+          ),
         });
       if (!sheets && request.method === 'PATCH')
         return json(response, 200, {

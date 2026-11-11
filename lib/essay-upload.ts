@@ -17,10 +17,18 @@ function readAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
-export async function prepareEssayFile(file: File): Promise<string> {
+/** Lote de folhas escaneadas: um PDF com a turma inteira pode ser maior. */
+export const ESSAY_MAX_SCAN_PDF_BYTES = 25 * 1024 * 1024;
+
+export async function prepareEssayFile(
+  file: File,
+  { maxPdfBytes = ESSAY_MAX_FILE_BYTES }: { maxPdfBytes?: number } = {},
+): Promise<string> {
   if (file.type === 'application/pdf') {
-    if (file.size > ESSAY_MAX_FILE_BYTES)
-      throw new Error('O PDF pode ter no máximo 8 MB.');
+    if (file.size > maxPdfBytes)
+      throw new Error(
+        `O PDF pode ter no máximo ${Math.round(maxPdfBytes / 1048576)} MB.`,
+      );
     return readAsDataUrl(file);
   }
   if (!/^image\/(png|jpeg|webp)$/.test(file.type))

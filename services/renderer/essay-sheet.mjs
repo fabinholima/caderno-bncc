@@ -240,8 +240,15 @@ function identificationHeader({
   date,
   logoFile,
   institutionName,
+  qrFile,
 }) {
   const [day, month, year] = datePieces(date);
+  // Com QR (folhas nominais da aplicação), os campos encolhem para abrir
+  // espaço ao código, com margem branca para a leitura.
+  const right = qrFile ? 415 : 480.808;
+  const dateX = qrFile
+    ? { day: 318, slash1: 331, month: 345, slash2: 358, year: 384 }
+    : { day: 321.5, slash1: 340.2121, month: 378, slash2: 412.2148, year: 448 };
   const value = (text, x, y) =>
     text ? mpLabel(`{\\tf ${contextText(text)}}`, x, y) : '';
   const centered = (text, x, y) =>
@@ -253,23 +260,29 @@ function identificationHeader({
       : '';
   return [
     mpRect(28.346, 736.626, 538.583, 76.917),
-    mpRect(35.4842, 788.7608, 445.324, 18.472, 'white'),
-    mpRect(35.4842, 765.8489, 445.324, 18.472, 'white'),
+    mpRect(35.4842, 788.7608, right - 35.4842, 18.472, 'white'),
+    mpRect(35.4842, 765.8489, right - 35.4842, 18.472, 'white'),
     mpRect(35.4842, 742.9369, 222.662, 18.472, 'white'),
-    mpRect(268.2096, 742.9369, 212.598, 18.472, 'white'),
+    mpRect(268.2096, 742.9369, right - 268.2096, 18.472, 'white'),
     mpRect(487.118, 742.937, 73.5, 64.296, 'white'),
+    ...(qrFile
+      ? [
+          mpRect(421, 742.937, 60.118, 64.296, 'white'),
+          `p := textext("\\externalfigure[${qrFile}][width=46bp,height=46bp]"); draw p shifted (451.059 - xpart center p, 775.085 - ypart center p);`,
+        ]
+      : []),
     mpLabel('{\\bf Estudante:}', 43.9882, 793.8716),
     mpLabel('{\\bf Professor(a):}', 43.9882, 770.9597),
     mpLabel('{\\bf Série/Turma:}', 43.9882, 748.0477),
     mpLabel('{\\bf Data:}', 276.7135, 748.0477),
-    mpLabel('{\\bf /}', 340.2121, 748.0477),
-    mpLabel('{\\bf /}', 412.2148, 748.0477),
+    mpLabel('{\\bf /}', dateX.slash1, 748.0477),
+    mpLabel('{\\bf /}', dateX.slash2, 748.0477),
     value(studentName, 102.5, 793.8716),
     value(teacherName, 111.8, 770.9597),
     value(className, 112.6, 748.0477),
-    centered(day, 321.5, 748.0477),
-    centered(month, 378, 748.0477),
-    centered(year, 448, 748.0477),
+    centered(day, dateX.day, 748.0477),
+    centered(month, dateX.month, 748.0477),
+    centered(year, dateX.year, 748.0477),
     logo,
   ];
 }
@@ -543,7 +556,7 @@ ${[...guidance, lineRule].map((item) => `\\item ${inlineMarkup(item)}`).join('\n
  *   date?: string,
  *   logoFile?: string,
  *   institutionName?: string,
- *   copies?: Array<{ studentName?: string }>,
+ *   copies?: Array<{ studentName?: string, qrFile?: string }>,
  * }} input
  */
 export function renderEssayDocument(input) {
@@ -565,6 +578,7 @@ export function renderEssayDocument(input) {
       date: input.date || '',
       logoFile: input.logoFile || '',
       institutionName: input.institutionName || '',
+      qrFile: copy.qrFile || '',
     };
     const sheets = productionSheetPages(header, lineCount, 1);
     fixed.push(...sheets.map(fixedPage));
