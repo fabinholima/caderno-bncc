@@ -243,6 +243,27 @@ export function AiSuggestionReview({
           {suggestion.normalizedText}
         </pre>
       </details>
+      {suggestion.sharedText?.content && (
+        <details className="mt-3 rounded border border-amber-200 bg-amber-50 p-2">
+          <summary className="cursor-pointer text-xs font-semibold text-amber-900">
+            Texto-base comum detectado
+            {suggestion.sharedText.sourceNumbers.length
+              ? ` · itens ${suggestion.sharedText.sourceNumbers.join(', ')}`
+              : ''}
+            {suggestion.sharedText.title
+              ? ` · ${suggestion.sharedText.title}`
+              : ''}
+          </summary>
+          <p className="mt-2 text-xs text-amber-900">
+            Ao aceitar o texto sugerido, este texto sai do enunciado e vira o
+            texto-base do grupo: no cadastro ele é criado uma vez e vinculado a
+            todos os itens indicados.
+          </p>
+          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-white p-3 text-xs">
+            {suggestion.sharedText.content}
+          </pre>
+        </details>
+      )}
     </section>
   );
 }

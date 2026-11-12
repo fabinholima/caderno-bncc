@@ -421,6 +421,8 @@ export function mergeReextractedCandidates(candidates, previousCandidates) {
           'pedagogicalTopicId',
           'duplicateQuestionId',
           'duplicateQuestionCode',
+          // Vínculo com o texto-base já criado no banco para o grupo.
+          'sharedTextId',
         ]
           .filter((field) => previous[field] !== undefined)
           .map((field) => [field, previous[field]]),
@@ -604,6 +606,18 @@ export const candidateUpdateSchema = z.object({
   pedagogicalDisciplineId: z.uuid().optional().or(z.literal('')),
   pedagogicalTopicId: z.uuid().optional().or(z.literal('')),
   aiReview: aiReviewSchema.optional(),
+  // Texto-base sugerido pela IA (aceito junto com o texto) e o texto-base do
+  // banco criado para o grupo no primeiro cadastro.
+  sharedText: z
+    .object({
+      title: z.string().trim().max(300).default(''),
+      source: z.string().trim().max(500).default(''),
+      content: z.string().trim().min(1).max(30000),
+      sourceNumbers: z.array(z.number().int().min(1).max(9999)).max(200),
+    })
+    .nullable()
+    .optional(),
+  sharedTextId: z.uuid().nullable().optional(),
 });
 
 const cropSchema = z

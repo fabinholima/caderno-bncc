@@ -1511,6 +1511,12 @@ export default function Home() {
                   candidateId: candidate.candidateId,
                 });
                 setQuestionType(candidate.questionType);
+                // Texto-base detectado na importação (já criado no banco).
+                setSharedText(
+                  candidate.questionType === 'true_false'
+                    ? candidate.sharedText || null
+                    : null,
+                );
                 if (candidate.subject) {
                   setDiscipline(candidate.subject);
                   setEducationStage('Ensino Médio');

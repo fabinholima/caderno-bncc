@@ -6,7 +6,10 @@ const question = {
   sourceNumber: 1,
   pageNumber: 2,
   statement: 'Considere o gráfico da questão.',
-  alternatives: [{label:'A',text:'10'},{label:'B',text:'20'}],
+  alternatives: [
+    { label: 'A', text: '10' },
+    { label: 'B', text: '20' },
+  ],
   questionType: 'single_choice',
 };
 function options(questions, seen = () => {}) {
@@ -49,13 +52,19 @@ test('sends the PDF directly and preserves page references with review required'
   assert.deepEqual(candidate.correctAnswers, []);
 });
 test('preserves a judgment item as true_false without inventing A-E choices', async () => {
-  const [candidate] = await extractPdfWithGemini(pdf, options([{
-    sourceNumber: 2,
-    pageNumber: 1,
-    statement: 'A afirmação apresenta um conceito que deve ser julgado pelo estudante.',
-    alternatives: [],
-    questionType: 'true_false',
-  }]));
+  const [candidate] = await extractPdfWithGemini(
+    pdf,
+    options([
+      {
+        sourceNumber: 2,
+        pageNumber: 1,
+        statement:
+          'A afirmação apresenta um conceito que deve ser julgado pelo estudante.',
+        alternatives: [],
+        questionType: 'true_false',
+      },
+    ]),
+  );
   assert.equal(candidate.questionType, 'true_false');
   assert.match(candidate.rawText, /A afirmação apresenta/);
   assert.deepEqual(candidate.correctAnswers, []);
@@ -74,4 +83,48 @@ test('rejects missing, repeated questions and invalid page references', async ()
     extractPdfWithGemini(Buffer.from('html'), options([question])),
     /PDF inválido/,
   );
+});
+test('separa o texto-base comum dos itens Certo/Errado', async () => {
+  let body;
+  const shared = {
+    title: 'De próprio punho',
+    source: 'ENEM 2025',
+    content: 'Estranhei muito na primeira vez.',
+    sourceNumbers: [6, 7],
+  };
+  const candidates = await extractPdfWithGemini(
+    pdf,
+    options(
+      [
+        {
+          sourceNumber: 6,
+          pageNumber: 1,
+          statement: 'O texto pertence ao gênero crônica e é reflexivo.',
+          alternatives: [],
+          questionType: 'true_false',
+          sharedText: shared,
+        },
+        {
+          sourceNumber: 7,
+          pageNumber: 1,
+          statement: 'A autora rejeita totalmente a escrita digital.',
+          alternatives: [],
+          questionType: 'true_false',
+          sharedText: shared,
+        },
+        {
+          ...question,
+          sourceNumber: 8,
+          sharedText: { ...shared, sourceNumbers: [8] },
+        },
+      ],
+      (value) => (body = value),
+    ),
+  );
+  assert.match(JSON.stringify(body), /sharedText/);
+  assert.deepEqual(candidates[0].sharedText, shared);
+  assert.doesNotMatch(candidates[0].rawText, /Estranhei/);
+  // Fora do Certo/Errado o texto continua no enunciado.
+  assert.equal(candidates[2].sharedText, null);
+  assert.match(candidates[2].rawText, /^Estranhei muito/);
 });

@@ -141,3 +141,68 @@ test('piloto envia no máximo cinco questões selecionadas e ainda não analisad
     ['2', '3', '4', '5', '6'],
   );
 });
+
+test('análise separa texto-base só em itens Certo/Errado e valida o ConTeXt', () => {
+  const candidates = [
+    {
+      id: 'q1',
+      rawText: 'Texto para os itens 1 e 2. Crônica. Item 1.',
+      questionType: 'true_false',
+    },
+    {
+      id: 'q2',
+      rawText: 'Questão discursiva com texto.',
+      questionType: 'essay',
+    },
+  ];
+  const [first, second] = createLocalDemoAnalysis({
+    candidates,
+    catalog: {},
+  }).questions;
+  const shared = {
+    title: 'Crônica',
+    source: '',
+    content: 'Estranhei muito.',
+    sourceNumbers: [1, 2],
+  };
+  const [judgment, essay] = validateExamAnalysis(
+    [
+      {
+        ...first,
+        questionType: 'true_false',
+        normalizedText: 'Item 1 da prova.',
+        sharedText: shared,
+      },
+      {
+        ...second,
+        questionType: 'essay',
+        normalizedText: 'Explique o texto.',
+        sharedText: shared,
+      },
+    ],
+    candidates,
+  );
+  assert.deepEqual(judgment.sharedText, shared);
+  assert.equal(essay.sharedText, null);
+  assert.match(essay.normalizedText, /^Estranhei muito\.\n\nExplique/);
+  assert.throws(
+    () =>
+      validateExamAnalysis(
+        [
+          {
+            ...first,
+            questionType: 'true_false',
+            sharedText: { ...shared, content: '\\input /etc/passwd' },
+          },
+          second,
+        ],
+        candidates,
+      ),
+    /não permitido/,
+  );
+  assert.ok(
+    examAnalysisJsonSchema.properties.questions.items.required.includes(
+      'sharedText',
+    ),
+  );
+});

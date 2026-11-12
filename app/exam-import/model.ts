@@ -63,8 +63,18 @@ export type AiReviewField =
   | 'skill'
   | 'pedagogicalTopicId';
 
+/** Texto-base comum a vários itens C/E, como a IA o devolve. */
+export type CandidateSharedText = {
+  title: string;
+  source: string;
+  content: string;
+  sourceNumbers: number[];
+};
+
 export type ExamImportCandidate = {
   resetAi?: boolean;
+  sharedText?: CandidateSharedText | null;
+  sharedTextId?: string | null;
   id: string;
   sourceNumber: number;
   rawText: string;
@@ -104,6 +114,7 @@ export type ExamImportCandidate = {
     topicId?: string | null;
     confidence: number;
     warnings: string[];
+    sharedText?: CandidateSharedText | null;
     model: string;
     promptVersion: string;
     provider?: string;

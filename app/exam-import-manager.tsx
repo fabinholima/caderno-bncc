@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { importReviewGroup } from '@/lib/import-review-queue.mjs';
 import { resolveImportClassification } from '@/lib/import-classification.mjs';
 import { parsePastedExam } from '@/lib/pasted-exam.mjs';
+import { examSharedTextGroups } from '@/lib/exam-shared-texts.mjs';
+import type { SharedTextSummary } from './shared-text-picker';
 import type { SubmitEvent } from 'react';
 import { formString } from '@/lib/form-data';
 import {
@@ -90,6 +92,7 @@ export function ExamImportManager({
     skill?: string;
     pedagogicalDisciplineId?: string;
     pedagogicalTopicId?: string;
+    sharedText?: SharedTextSummary | null;
   }) => void;
   onOpenQuestion: (questionId: string) => void;
 }) {
@@ -580,7 +583,11 @@ export function ExamImportManager({
         entry.name.toLocaleLowerCase('pt-BR') ===
         suggestion.subject?.toLocaleLowerCase('pt-BR'),
     );
-    if (fields.includes('rawText')) changes.rawText = suggestion.normalizedText;
+    if (fields.includes('rawText')) {
+      changes.rawText = suggestion.normalizedText;
+      // O texto-base sai do enunciado junto com a conversão aceita.
+      if (suggestion.sharedText) changes.sharedText = suggestion.sharedText;
+    }
     if (fields.includes('questionType'))
       changes.questionType = suggestion.questionType;
     if (fields.includes('pedagogicalDisciplineId') && discipline)
@@ -801,6 +808,69 @@ export function ExamImportManager({
       },
     }));
 
+  // Texto-base do grupo do item: reaproveita o já criado no banco ou cria no
+  // primeiro cadastro e grava o vínculo em todos os itens do grupo.
+  const ensureSharedText = async (
+    item: ExamImport,
+    candidate: ExamImportCandidate,
+    created = new Map<string, SharedTextSummary>(),
+  ): Promise<SharedTextSummary | null> => {
+    if (candidate.questionType !== 'true_false') return null;
+    const group = examSharedTextGroups(item.candidates).byCandidate.get(
+      candidate.id,
+    );
+    if (!group) return null;
+    const cached = created.get(group.key);
+    if (cached) return cached;
+    if (group.sharedTextId) {
+      const response = await apiFetch(
+        `${apiUrl}/api/questions/shared-texts/${group.sharedTextId}`,
+        { cache: 'no-store' },
+      );
+      if (response.ok) {
+        const summary = ((await response.json()) as { data: SharedTextSummary })
+          .data;
+        created.set(group.key, summary);
+        return summary;
+      }
+    }
+    // Blocos ConTeXt têm limite de 20 mil caracteres: divide por parágrafo.
+    const content: Array<{ type: 'contextRaw'; code: string }> = [];
+    for (const paragraph of group.content.split(/\n{2,}/)) {
+      const last = content.at(-1);
+      if (last && last.code.length + paragraph.length + 2 <= 20_000)
+        last.code = `${last.code}\n\n${paragraph}`;
+      else
+        content.push({ type: 'contextRaw', code: paragraph.slice(0, 20_000) });
+    }
+    const response = await apiFetch(`${apiUrl}/api/questions/shared-texts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        title: group.title,
+        source: group.source,
+        content,
+      }),
+    });
+    const body = (await response.json()) as {
+      data?: SharedTextSummary;
+      error?: string;
+      issues?: Array<{ message: string }>;
+    };
+    if (!response.ok || !body.data)
+      throw new Error(
+        `Texto-base dos itens ${group.sourceNumbers.join(', ')}: ${
+          body.issues?.map((issue) => issue.message).join(' ') ||
+          body.error ||
+          'não foi possível criar.'
+        }`,
+      );
+    created.set(group.key, body.data);
+    for (const id of group.candidateIds)
+      await updateCandidate(item.id, id, { sharedTextId: body.data.id });
+    return body.data;
+  };
+
   const registerSelectedCandidates = async (item: ExamImport) => {
     const settings = bulkSettings[item.id] || defaultBulkSettings;
     const readyCandidates = item.candidates.filter(
@@ -847,8 +917,14 @@ export function ExamImportManager({
     setBulkRegisteringId(item.id);
     let registered = 0;
     const failures: string[] = [];
+    const createdSharedTexts = new Map<string, SharedTextSummary>();
     for (const candidate of readyCandidates) {
       try {
+        const sharedText = await ensureSharedText(
+          item,
+          candidate,
+          createdSharedTexts,
+        );
         const classification = resolveImportClassification({
           candidate,
           settings,
@@ -897,6 +973,7 @@ export function ExamImportManager({
             pedagogicalDisciplineId: classification.discipline?.id || '',
             pedagogicalTopicId: classification.topicId,
             difficulty: candidate.difficulty || settings.difficulty,
+            sharedTextId: sharedText?.id || '',
             alternatives:
               candidate.questionType === 'essay'
                 ? []
@@ -2320,6 +2397,35 @@ GABARITO: B`}
                                   ),
                                 )}
                               </div>
+                              {(() => {
+                                const group = examSharedTextGroups(
+                                  item.candidates,
+                                ).byCandidate.get(candidate.id);
+                                if (!group) return null;
+                                return (
+                                  <details className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                                    <summary className="cursor-pointer font-semibold">
+                                      Texto-base comum
+                                      {group.title
+                                        ? ` “${group.title}”`
+                                        : ''} ·
+                                      itens {group.sourceNumbers.join(', ')}
+                                      {group.sharedTextId
+                                        ? ' · já criado no banco'
+                                        : ' · será criado no primeiro cadastro'}
+                                    </summary>
+                                    <p className="mt-1">
+                                      Na prova, o texto sai uma vez antes do
+                                      grupo. Se algum item não pertencer a ele,
+                                      mude o tipo do item ou corrija o texto na
+                                      conversão.
+                                    </p>
+                                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-white p-2">
+                                      {group.content}
+                                    </pre>
+                                  </details>
+                                );
+                              })()}
                               {candidate.aiSuggestion &&
                                 !['completed', 'duplicate', 'ignored'].includes(
                                   candidate.status,
@@ -2713,7 +2819,22 @@ GABARITO: B`}
                                     ) ||
                                     candidate.status === 'ignored'
                                   }
-                                  onClick={() => {
+                                  onClick={async () => {
+                                    let sharedText: SharedTextSummary | null =
+                                      null;
+                                    try {
+                                      sharedText = await ensureSharedText(
+                                        item,
+                                        candidate,
+                                      );
+                                    } catch (error) {
+                                      setMessage(
+                                        error instanceof Error
+                                          ? error.message
+                                          : 'Não foi possível criar o texto-base.',
+                                      );
+                                      return;
+                                    }
                                     const classification =
                                       resolveImportClassification({
                                         candidate,
@@ -2749,6 +2870,7 @@ GABARITO: B`}
                                         classification.discipline?.id,
                                       pedagogicalTopicId:
                                         classification.topicId,
+                                      sharedText,
                                     });
                                   }}
                                 >
