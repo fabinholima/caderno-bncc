@@ -27,6 +27,11 @@ test('importação agrupa os itens C/E pelo texto-base detectado pela IA', async
     }),
     item('d', 4),
     item('e', 5, { questionType: 'single_choice' }),
+    item('i', 9, {
+      questionType: 'essay',
+      sharedText: shared('Charge', [9, 10]),
+    }),
+    item('j', 10, { questionType: 'single_choice' }),
     item('f', 6, { sharedText: shared('Minha terra tem palmeiras', []) }),
     item('g', 7, { status: 'ignored', sharedText: shared('Ignorado', [7, 8]) }),
     item('h', 8, {
@@ -36,7 +41,8 @@ test('importação agrupa os itens C/E pelo texto-base detectado pela IA', async
       ),
     }),
   ]);
-  assert.equal(groups.length, 2);
+  assert.equal(groups.length, 3);
+  assert.deepEqual(byCandidate.get('j').candidateIds, ['i', 'j']);
   const cronica = byCandidate.get('d');
   assert.equal(cronica.key, 'texto-2-4');
   assert.equal(cronica.content, 'Estranhei muito na primeira vez.');

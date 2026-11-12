@@ -815,7 +815,6 @@ export function ExamImportManager({
     candidate: ExamImportCandidate,
     created = new Map<string, SharedTextSummary>(),
   ): Promise<SharedTextSummary | null> => {
-    if (candidate.questionType !== 'true_false') return null;
     const group = examSharedTextGroups(item.candidates).byCandidate.get(
       candidate.id,
     );

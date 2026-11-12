@@ -142,7 +142,7 @@ test('piloto envia no máximo cinco questões selecionadas e ainda não analisad
   );
 });
 
-test('análise separa texto-base só em itens Certo/Errado e valida o ConTeXt', () => {
+test('análise separa texto-base em qualquer tipo e valida o ConTeXt', () => {
   const candidates = [
     {
       id: 'q1',
@@ -183,8 +183,8 @@ test('análise separa texto-base só em itens Certo/Errado e valida o ConTeXt', 
     candidates,
   );
   assert.deepEqual(judgment.sharedText, shared);
-  assert.equal(essay.sharedText, null);
-  assert.match(essay.normalizedText, /^Estranhei muito\.\n\nExplique/);
+  assert.deepEqual(essay.sharedText, shared);
+  assert.equal(essay.normalizedText, 'Explique o texto.');
   assert.throws(
     () =>
       validateExamAnalysis(

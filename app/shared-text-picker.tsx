@@ -60,13 +60,39 @@ export function SharedTextPicker({
   value,
   onChange,
   linkedQuestionId = '',
+  judgment = false,
 }: {
   apiUrl: string;
   value: SharedTextSummary | null;
   onChange: (value: SharedTextSummary | null) => void;
   /** Questão em edição: não conta como "outro item" que usa o texto. */
   linkedQuestionId?: string;
+  /** Itens Certo/Errado ("itens") ou demais tipos ("questões"). */
+  judgment?: boolean;
 }) {
+  const words = judgment
+    ? {
+        one: 'item',
+        many: 'itens',
+        other: 'outro item',
+        others: 'outros itens',
+        this: 'Este item',
+        twoOrMore: 'dois ou mais itens',
+        heading: 'Texto para os itens X a Y',
+        exclusive: 'deste item fica na contextualização abaixo',
+      }
+    : {
+        one: 'questão',
+        many: 'questões',
+        other: 'outra questão',
+        others: 'outras questões',
+        this: 'Esta questão',
+        twoOrMore: 'duas ou mais questões',
+        heading: 'Texto para as questões X a Y',
+        exclusive: 'desta questão fica no próprio enunciado',
+      };
+  const count = (total: number) =>
+    `${total} ${total === 1 ? words.one : words.many}`;
   const [enabled, setEnabled] = useState(Boolean(value));
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SharedTextSummary[]>([]);
@@ -179,7 +205,7 @@ export function SharedTextPicker({
       editor.id &&
       editor.otherQuestions > 0 &&
       !window.confirm(
-        `Esta alteração aparece também em ${editor.otherQuestions} ${editor.otherQuestions === 1 ? 'outro item' : 'outros itens'} que usam este texto-base. Provas já geradas não mudam. Continuar?`,
+        `Esta alteração aparece também em ${editor.otherQuestions} ${editor.otherQuestions === 1 ? words.other : words.others} que usam este texto-base. Provas já geradas não mudam. Continuar?`,
       )
     )
       return;
@@ -235,10 +261,10 @@ export function SharedTextPicker({
           }}
         />
         <span>
-          Este item faz parte de um grupo com texto-base comum
+          {words.this} faz parte de um grupo com texto-base comum
           <span className="block text-xs font-normal text-slate-500">
-            Use só quando o mesmo texto servir a dois ou mais itens. Texto
-            exclusivo deste item fica na contextualização abaixo.
+            Use só quando o mesmo texto servir a {words.twoOrMore}. Texto
+            exclusivo {words.exclusive}.
           </span>
         </span>
       </label>
@@ -253,9 +279,8 @@ export function SharedTextPicker({
           </p>
           {editor.id && editor.otherQuestions > 0 && (
             <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-900">
-              Este texto é usado por mais {editor.otherQuestions}{' '}
-              {editor.otherQuestions === 1 ? 'item' : 'itens'}. A alteração
-              aparece em todos eles.
+              Este texto é usado por mais {count(editor.otherQuestions)}. A
+              alteração aparece em {judgment ? 'todos eles' : 'todas elas'}.
             </p>
           )}
           <label className="block text-xs font-medium text-slate-600">
@@ -332,10 +357,10 @@ export function SharedTextPicker({
           </p>
           <p className="mt-1 text-xs text-slate-500">
             {usedBy
-              ? `Usado também por ${usedBy} ${usedBy === 1 ? 'item' : 'itens'}.`
-              : 'Ainda não usado por outros itens.'}{' '}
-            Na prova, o texto sai uma vez antes do grupo, com o título
-            &quot;Texto para os itens X a Y&quot;.
+              ? `Usado também por ${count(usedBy)}.`
+              : `Ainda não usado por ${words.others}.`}{' '}
+            Na prova, o texto sai uma vez antes do grupo, com o título &quot;
+            {words.heading}&quot;.
           </p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <button
@@ -395,8 +420,7 @@ export function SharedTextPicker({
                     {text.title || 'Sem título'}
                     <span className="font-normal text-slate-500">
                       {text.source ? ` · ${text.source}` : ''} ·{' '}
-                      {text.questionCount}{' '}
-                      {text.questionCount === 1 ? 'item' : 'itens'}
+                      {count(text.questionCount)}
                     </span>
                   </span>
                   <span className="line-clamp-2 block text-xs text-slate-600">

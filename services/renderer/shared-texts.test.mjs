@@ -208,27 +208,52 @@ test('materializa imagens do texto-base', async () => {
 // Docker, CONTEXT_MTXRUN_BIN/CONTEXT_SCRIPT apontando para a instalação local).
 // Sem o módulo t-basicexam instalado, CONTEXT_PDF_TEST_STUB=1 usa um substituto
 // mínimo só para validar o bloco do texto-base.
+// Mesmo grupo, em questões A–E (e uma discursiva, quando o layout aceita).
+async function choiceSnapshot(sharedTextIds, { essay = false } = {}) {
+  const snapshot = await judgmentSnapshot(sharedTextIds);
+  const sample = JSON.parse(
+    await readFile(
+      new URL('../../samples/assessment-snapshot.json', import.meta.url),
+    ),
+  ).questions[0];
+  snapshot.render.template = 'basicexam-v1';
+  snapshot.questions = snapshot.questions.map((question, index) => ({
+    ...question,
+    type: essay && index === 3 ? 'essay' : 'single_choice',
+    alternatives: essay && index === 3 ? [] : sample.alternatives,
+    answer: {
+      correctStableKeys: essay && index === 3 ? [] : ['alt-b'],
+      explanation: [],
+    },
+  }));
+  return snapshot;
+}
+
 test(
-  'gera PDFs reais com texto-base nos layouts de Certo/Errado',
+  'gera PDFs reais com texto-base nos layouts A–E, discursivos e de Certo/Errado',
   { skip: !process.env.CONTEXT_PDF_TEST && 'defina CONTEXT_PDF_TEST=1' },
   async () => {
     const { compileAndValidate, materializeVersionQr } =
       await import('./worker.mjs');
     const { copyFile, writeFile } = await import('node:fs/promises');
     const { execFileSync } = await import('node:child_process');
+    /** @type {Array<{template: string, columns: number, essay?: boolean}>} */
     const layouts = [
-      ['certo-errado-v1', 1],
-      ['certo-errado-v1', 2],
-      ['certo-errado-10-v1', 1],
+      { template: 'certo-errado-v1', columns: 1 },
+      { template: 'certo-errado-v1', columns: 2 },
+      { template: 'certo-errado-10-v1', columns: 1 },
+      { template: 'basicexam-v1', columns: 1, essay: true },
+      { template: 'basicexam-v1', columns: 2, essay: true },
+      { template: 'simulado-v1', columns: 2 },
+      { template: 'caderno-duas-colunas-v1', columns: 2 },
+      { template: 'compacto-10-v1', columns: 1 },
     ];
-    for (const [template, columns] of layouts) {
-      const snapshot = await judgmentSnapshot([
-        null,
-        'texto-1',
-        'texto-1',
-        'texto-1',
-        null,
-      ]);
+    for (const { template, columns, essay } of layouts) {
+      const judgment = template.startsWith('certo-errado');
+      const ids = [null, 'texto-1', 'texto-1', 'texto-1', null];
+      const snapshot = judgment
+        ? await judgmentSnapshot(ids)
+        : await choiceSnapshot(ids, { essay });
       snapshot.render.template = template;
       snapshot.sections = [
         {
@@ -273,7 +298,9 @@ test(
         const flat = text.replace(/\s+/g, ' ');
         assert.match(
           flat,
-          /Texto para os itens 2 a 4/,
+          judgment
+            ? /Texto para os itens 2 a 4/
+            : /Texto para as questões 2 a 4/,
           `${template}/${columns}`,
         );
         assert.equal((flat.match(/Estranhei muito/g) || []).length, 1);

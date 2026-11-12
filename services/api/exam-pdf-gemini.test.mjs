@@ -84,7 +84,7 @@ test('rejects missing, repeated questions and invalid page references', async ()
     /PDF inválido/,
   );
 });
-test('separa o texto-base comum dos itens Certo/Errado', async () => {
+test('separa o texto-base comum em itens C/E e questões A–E', async () => {
   let body;
   const shared = {
     title: 'De próprio punho',
@@ -124,7 +124,11 @@ test('separa o texto-base comum dos itens Certo/Errado', async () => {
   assert.match(JSON.stringify(body), /sharedText/);
   assert.deepEqual(candidates[0].sharedText, shared);
   assert.doesNotMatch(candidates[0].rawText, /Estranhei/);
-  // Fora do Certo/Errado o texto continua no enunciado.
-  assert.equal(candidates[2].sharedText, null);
-  assert.match(candidates[2].rawText, /^Estranhei muito/);
+  // Questões A–E também usam texto-base; ele não volta ao enunciado.
+  assert.deepEqual(candidates[2].sharedText, { ...shared, sourceNumbers: [8] });
+  assert.doesNotMatch(candidates[2].rawText, /Estranhei/);
+  assert.match(
+    body.systemInstruction?.parts?.[0]?.text || JSON.stringify(body),
+    /Texto para as questões 06 a 10/,
+  );
 });

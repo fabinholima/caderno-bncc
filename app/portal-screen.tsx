@@ -147,6 +147,7 @@ export default function Home() {
   const [sharedText, setSharedText] = useState<SharedTextSummary | null>(null);
   const [lastSharedText, setLastSharedText] = useState<{
     text: SharedTextSummary;
+    type: Question['type'];
     sourceInstitution: string;
     sourceYear: string;
   } | null>(null);
@@ -688,7 +689,7 @@ export default function Home() {
     if (!lastSharedText) return;
     setEditingQuestionId('');
     setImportCandidateSource(null);
-    setQuestionType('true_false');
+    setQuestionType(lastSharedText.type);
     setSharedText(lastSharedText.text);
     setImportedQuestion({
       sourceInstitution: lastSharedText.sourceInstitution,
@@ -720,7 +721,7 @@ export default function Home() {
     setImportCandidateSource(e.importCandidateSource || null);
     setRecommendSingleColumn(Boolean(v.recommendSingleColumn));
     setQuestionType(v.type || 'single_choice');
-    void loadSharedText(v.type === 'true_false' ? v.sharedTextId : null);
+    void loadSharedText(v.sharedTextId);
     setDiscipline(v.subject || 'Química');
     setFundamentalGrade(e.fundamentalGrade || '6º ano');
     setPedagogicalGrade(e.pedagogicalGrade || '1ª série');
@@ -867,6 +868,7 @@ export default function Home() {
                   questionCount:
                     sharedText.questionCount + (editingQuestionId ? 0 : 1),
                 },
+                type: questionType,
                 sourceInstitution: input.sourceInstitution,
                 sourceYear: String(input.sourceYear || ''),
               }
@@ -969,8 +971,7 @@ export default function Home() {
       knowledgeTopic: formString('knowledgeTopic'),
       skill: formString('skill'),
       difficulty: formString('difficulty'),
-      sharedTextId:
-        questionType === 'true_false' ? formString('sharedTextId') : '',
+      sharedTextId: formString('sharedTextId'),
       alternatives:
         questionType === 'essay'
           ? []
@@ -1098,9 +1099,7 @@ export default function Home() {
       setEditingQuestionId(question.id);
       setImportCandidateSource(null);
       setQuestionType(question.type);
-      await loadSharedText(
-        question.type === 'true_false' ? question.sharedTextId : null,
-      );
+      await loadSharedText(question.sharedTextId);
       setDiscipline(question.subject);
       setKnowledgeObjectId(restored.knowledgeObjectId);
       setCompetencyId(competency?.competency_id || '');
@@ -1512,11 +1511,7 @@ export default function Home() {
                 });
                 setQuestionType(candidate.questionType);
                 // Texto-base detectado na importação (já criado no banco).
-                setSharedText(
-                  candidate.questionType === 'true_false'
-                    ? candidate.sharedText || null
-                    : null,
-                );
+                setSharedText(candidate.sharedText || null);
                 if (candidate.subject) {
                   setDiscipline(candidate.subject);
                   setEducationStage('Ensino Médio');
@@ -1636,7 +1631,7 @@ export default function Home() {
                       onClick={newItemWithSharedText}
                       className="ml-3 rounded-md border border-blue-300 bg-white px-2 py-1 text-xs font-semibold text-blue-700"
                     >
-                      + Novo item com o texto “
+                      + Nova questão com o texto “
                       {lastSharedText.text.title || 'sem título'}”
                     </button>
                   )}
@@ -3441,14 +3436,13 @@ export default function Home() {
                           : 'Escreva o conteúdo principal e acrescente fórmulas, imagens ou ilustrações somente quando necessário.'}
                       </p>
                     </div>
-                    {questionType === 'true_false' && (
-                      <SharedTextPicker
-                        apiUrl={apiUrl}
-                        value={sharedText}
-                        onChange={setSharedText}
-                        linkedQuestionId={editingQuestionId}
-                      />
-                    )}
+                    <SharedTextPicker
+                      apiUrl={apiUrl}
+                      value={sharedText}
+                      onChange={setSharedText}
+                      linkedQuestionId={editingQuestionId}
+                      judgment={questionType === 'true_false'}
+                    />
                     {questionType === 'true_false' && (
                       <RichContentEditor
                         apiUrl={apiUrl}
