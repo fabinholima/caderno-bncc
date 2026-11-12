@@ -190,6 +190,8 @@ export default function Home() {
   const [bankQuestionId, setBankQuestionId] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [bankQuestionTypeFilter, setBankQuestionTypeFilter] = useState('');
+  // '' = todas; 'with' = só com texto-base; 'without' = só sem texto-base.
+  const [sharedTextFilter, setSharedTextFilter] = useState('');
   const [active, setActive] = useState('Início');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
@@ -363,12 +365,14 @@ export default function Home() {
     () =>
       questions.filter(
         (q) =>
-          `${q.statement} ${q.code} ${q.skill} ${q.sourceInstitution} ${q.sourceYear}`
+          `${q.statement} ${q.code} ${q.skill} ${q.sourceInstitution} ${q.sourceYear} ${q.sharedTextTitle || ''}`
             .toLowerCase()
             .includes(query.toLowerCase()) &&
           q.stage === educationStage &&
           (!statusFilter || q.status === statusFilter) &&
           (!bankQuestionTypeFilter || q.type === bankQuestionTypeFilter) &&
+          (!sharedTextFilter ||
+            (sharedTextFilter === 'with') === Boolean(q.sharedTextId)) &&
           (!gradeFilter || q.grade === gradeFilter) &&
           (subject === 'Todas' || q.subject === subject) &&
           (!knowledgeObjectFilter ||
@@ -392,6 +396,7 @@ export default function Home() {
       questions,
       statusFilter,
       bankQuestionTypeFilter,
+      sharedTextFilter,
       query,
       educationStage,
       gradeFilter,
@@ -1873,6 +1878,18 @@ export default function Home() {
                       <option value="essay">Dissertativa</option>
                     </select>
                     <select
+                      aria-label="Texto-base"
+                      value={sharedTextFilter}
+                      onChange={(event) =>
+                        setSharedTextFilter(event.target.value)
+                      }
+                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option value="">Com ou sem texto-base</option>
+                      <option value="with">Com texto-base</option>
+                      <option value="without">Sem texto-base</option>
+                    </select>
+                    <select
                       aria-label="Situação das questões"
                       value={statusFilter}
                       onChange={(event) => setStatusFilter(event.target.value)}
@@ -2133,6 +2150,7 @@ export default function Home() {
                     {(query ||
                       statusFilter ||
                       bankQuestionTypeFilter ||
+                      sharedTextFilter ||
                       gradeFilter ||
                       competencyFilter ||
                       topicDetailFilter ||
@@ -2150,6 +2168,7 @@ export default function Home() {
                           setQuery('');
                           setStatusFilter('');
                           setBankQuestionTypeFilter('');
+                          setSharedTextFilter('');
                           setGradeFilter('');
                           setCompetencyFilter('');
                           setSubject('Todas');

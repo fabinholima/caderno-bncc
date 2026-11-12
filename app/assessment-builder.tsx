@@ -700,6 +700,8 @@ export function AssessmentBuilder({
     useState('');
   const [questionSourceYear, setQuestionSourceYear] = useState('');
   const [questionDifficulty, setQuestionDifficulty] = useState('');
+  // '' = todas; 'with' / 'without' = com ou sem texto-base.
+  const [questionSharedText, setQuestionSharedText] = useState('');
   function resetQuestionFilters() {
     setQuestionSkill('');
     setQuestionTopic('');
@@ -786,7 +788,9 @@ export function AssessmentBuilder({
         question.sourceInstitution === questionSourceInstitution) &&
       (!questionSourceYear ||
         question.sourceYear === Number(questionSourceYear)) &&
-      (!questionDifficulty || question.difficulty === questionDifficulty),
+      (!questionDifficulty || question.difficulty === questionDifficulty) &&
+      (!questionSharedText ||
+        (questionSharedText === 'with') === Boolean(question.sharedTextId)),
   );
   const chosen = useMemo(() => {
     const selectedIds = new Set(
@@ -2202,11 +2206,22 @@ export function AssessmentBuilder({
                 <option value="Média">Média</option>
                 <option value="Difícil">Difícil</option>
               </select>
+              <select
+                aria-label="Filtrar por texto-base"
+                value={questionSharedText}
+                onChange={(event) => setQuestionSharedText(event.target.value)}
+                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+              >
+                <option value="">Com ou sem texto-base</option>
+                <option value="with">Com texto-base</option>
+                <option value="without">Sem texto-base</option>
+              </select>
               {(questionTopic ||
                 questionSubtopic ||
                 questionSourceInstitution ||
                 questionSourceYear ||
-                questionDifficulty) && (
+                questionDifficulty ||
+                questionSharedText) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -2215,6 +2230,7 @@ export function AssessmentBuilder({
                     setQuestionSourceInstitution('');
                     setQuestionSourceYear('');
                     setQuestionDifficulty('');
+                    setQuestionSharedText('');
                   }}
                   className="text-left text-xs font-semibold text-blue-600 xl:col-span-3"
                 >
@@ -2253,6 +2269,15 @@ export function AssessmentBuilder({
                         <span className="font-mono text-xs font-bold text-blue-700">
                           {question.code}
                         </span>
+                        {question.sharedTextId && (
+                          <span
+                            className="rounded bg-amber-50 px-1.5 text-xs text-amber-800"
+                            title="Questão de um grupo com texto-base comum"
+                          >
+                            Texto-base:{' '}
+                            {question.sharedTextTitle || 'sem título'}
+                          </span>
+                        )}
                         <Badge
                           variant="outline"
                           className="border-violet-200 bg-violet-50 font-mono text-violet-700"
