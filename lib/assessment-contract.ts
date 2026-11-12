@@ -39,7 +39,12 @@ export type AssessmentQuestionSnapshot = {
   sourceQuestionId: string;
   sourceRevision: number;
   number: number;
-  type: 'single_choice' | 'multiple_choice' | 'true_false' | 'short_answer' | 'essay';
+  type:
+    | 'single_choice'
+    | 'multiple_choice'
+    | 'true_false'
+    | 'short_answer'
+    | 'essay';
   source: { institution: string; year: number };
   difficulty: 'easy' | 'medium' | 'hard';
   statement: RichTextNode[];
@@ -105,5 +110,7 @@ export type AssessmentRenderContract = {
     showBnccSkills?: boolean;
     showSaebDescriptors?: boolean;
     showStudentPhoto?: boolean;
+    includePeriodicTable?: boolean;
+    includePhysicalConstants?: boolean;
   };
 };

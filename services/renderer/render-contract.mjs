@@ -1,5 +1,6 @@
 import { isCompactTemplate } from '../../lib/compact-assessment.mjs';
 import { getRenderTemplate } from './template-registry.mjs';
+import { renderScienceAppendix } from './science-appendix.mjs';
 import {
   withoutEmbeddedMetaPost,
   validMetaPost,
@@ -629,7 +630,18 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
       ? `\n\\subject{Comentários e critérios de correção}\n${explanations}`
       : ''
   }`;
-  const content = mode === 'answer-key' ? answerKey : studentQuestions;
+  // Anexo de Química e Física: só no caderno do aluno, nunca no gabarito.
+  const scienceAppendix =
+    mode === 'student' && !snapshot.render?.previewOnly
+      ? renderScienceAppendix({
+          periodicTable: Boolean(snapshot.render?.includePeriodicTable),
+          constants: Boolean(snapshot.render?.includePhysicalConstants),
+        })
+      : '';
+  const content =
+    mode === 'answer-key'
+      ? answerKey
+      : `${studentQuestions}${scienceAppendix ? `\n\n${scienceAppendix}` : ''}`;
   const total = Number(snapshot.totals?.points) || 0;
   const title =
     mode === 'answer-key'

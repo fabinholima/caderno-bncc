@@ -4,6 +4,7 @@ import {
   isJudgmentTemplate,
 } from '@/lib/compact-assessment.mjs';
 import { assertAssessmentQuestionStyle } from '@/lib/render-templates.mjs';
+import { supportsScienceAppendix } from '@/lib/periodic-table.mjs';
 import type { EducatorData, School } from './educator-profile';
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
@@ -114,6 +115,9 @@ export function AssessmentBuilder({
   const [showBnccSkills, setShowBnccSkills] = useState(false);
   const [showSaebDescriptors, setShowSaebDescriptors] = useState(false);
   const [showStudentPhoto, setShowStudentPhoto] = useState(false);
+  const [includePeriodicTable, setIncludePeriodicTable] = useState(false);
+  const [includePhysicalConstants, setIncludePhysicalConstants] =
+    useState(false);
   const [title, setTitle] = useState('Simulado multidisciplinar');
   const [grade, setGrade] = useState('Ensino Médio');
   const [institutionName, setInstitutionName] = useState(
@@ -216,6 +220,10 @@ export function AssessmentBuilder({
   const [deletingSelected, setDeletingSelected] = useState<
     false | 'delete' | 'unlink' | 'purge'
   >(false);
+  // Tabela periódica e constantes só aparecem em provas de Química ou Física.
+  const scienceAppendixAvailable = supportsScienceAppendix(
+    sections.map((section) => section.subject),
+  );
   const configuration = useMemo(
     () => ({
       title,
@@ -246,6 +254,9 @@ export function AssessmentBuilder({
       showBnccSkills,
       showSaebDescriptors,
       showStudentPhoto,
+      includePeriodicTable: includePeriodicTable && scienceAppendixAvailable,
+      includePhysicalConstants:
+        includePhysicalConstants && scienceAppendixAvailable,
       instructions,
       questionPoints,
       shuffleQuestions,
@@ -270,6 +281,9 @@ export function AssessmentBuilder({
       showBnccSkills,
       showSaebDescriptors,
       showStudentPhoto,
+      includePeriodicTable,
+      includePhysicalConstants,
+      scienceAppendixAvailable,
       instructions,
       questionPoints,
       shuffleQuestions,
@@ -532,6 +546,8 @@ export function AssessmentBuilder({
     setShowBnccSkills(c.showBnccSkills);
     setShowSaebDescriptors(c.showSaebDescriptors);
     setShowStudentPhoto(c.showStudentPhoto ?? false);
+    setIncludePeriodicTable(Boolean(c.includePeriodicTable));
+    setIncludePhysicalConstants(Boolean(c.includePhysicalConstants));
     setInstructions(c.instructions);
     setQuestionPoints(c.questionPoints || {});
     setShuffleQuestions(c.shuffleQuestions ?? false);
@@ -1228,6 +1244,10 @@ export function AssessmentBuilder({
             showBnccSkills,
             showSaebDescriptors,
             showStudentPhoto,
+            includePeriodicTable:
+              includePeriodicTable && scienceAppendixAvailable,
+            includePhysicalConstants:
+              includePhysicalConstants && scienceAppendixAvailable,
             instructions,
             questionPoints: Object.fromEntries(
               chosen.map((q) => [q.id, questionPoints[q.id] ?? q.points ?? 1]),
@@ -2878,6 +2898,52 @@ export function AssessmentBuilder({
                 </span>
               </span>
             </div>
+            {scienceAppendixAvailable &&
+              (
+                [
+                  {
+                    id: 'include-periodic-table',
+                    checked: includePeriodicTable,
+                    onChange: setIncludePeriodicTable,
+                    label: 'Incluir tabela periódica',
+                    hint: 'Página de anexo no fim do caderno com número atômico, símbolo e massa atômica de cada elemento.',
+                  },
+                  {
+                    id: 'include-physical-constants',
+                    checked: includePhysicalConstants,
+                    onChange: setIncludePhysicalConstants,
+                    label: 'Incluir tabela de constantes físicas e químicas',
+                    hint: 'Constantes usuais (g, c, h, e, R, Avogadro…) no anexo, na mesma página da tabela periódica quando as duas forem escolhidas.',
+                  },
+                ] as const
+              ).map((option) => (
+                <div
+                  key={option.id}
+                  className="mt-3 flex items-start gap-3 rounded-xl border border-slate-200 p-3"
+                >
+                  <input
+                    id={option.id}
+                    type="checkbox"
+                    checked={option.checked}
+                    onChange={(event) => {
+                      option.onChange(event.target.checked);
+                      setGenerated(false);
+                    }}
+                    className="mt-0.5 size-4 accent-blue-600"
+                  />
+                  <span>
+                    <label
+                      htmlFor={option.id}
+                      className="block text-sm font-semibold"
+                    >
+                      {option.label}
+                    </label>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {option.hint}
+                    </span>
+                  </span>
+                </div>
+              ))}
             {
               <div className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <label

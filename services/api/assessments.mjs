@@ -1,4 +1,5 @@
 import { isCompactTemplate } from '../../lib/compact-assessment.mjs';
+import { supportsScienceAppendix } from '../../lib/periodic-table.mjs';
 import { assertApprovedQuestionSelection } from './question-workflow.mjs';
 import { z } from 'zod';
 import crypto from 'node:crypto';
@@ -74,6 +75,9 @@ export const createAssessmentSchema = z
     showSaebDescriptors: z.boolean().default(false),
     // Foto do aluno (cadastro da turma) no cartão-resposta de cada aluno.
     showStudentPhoto: z.boolean().default(false),
+    // Anexo ao fim do caderno (oferecido na montagem de provas de Química e Física).
+    includePeriodicTable: z.boolean().default(false),
+    includePhysicalConstants: z.boolean().default(false),
     instructions: z
       .array(z.string().trim().min(1).max(500))
       .max(10)
@@ -308,6 +312,10 @@ export async function createAssessment({
       const snapshotQuestions = snapshotSections.flatMap(
         (section) => section.questions,
       );
+      // Tabela periódica e constantes só em provas com Química ou Física.
+      const scienceAppendixAllowed = supportsScienceAppendix(
+        value.sections.map((section) => section.subject),
+      );
       const snapshot = {
         schemaVersion: '1.0',
         assessment: {
@@ -358,6 +366,10 @@ export async function createAssessment({
           showBnccSkills: value.showBnccSkills,
           showSaebDescriptors: value.showSaebDescriptors,
           showStudentPhoto: value.showStudentPhoto,
+          includePeriodicTable:
+            value.includePeriodicTable && scienceAppendixAllowed,
+          includePhysicalConstants:
+            value.includePhysicalConstants && scienceAppendixAllowed,
         },
       };
       const answerKey = snapshotQuestions.map((question) => ({
@@ -693,10 +705,9 @@ async function purgeAssessment(
     'assessment_result_publications',
     'performance_followups',
   ])
-    await client.query(
-      `DELETE FROM ${table} WHERE result_id=ANY($1::uuid[])`,
-      [resultIds],
-    );
+    await client.query(`DELETE FROM ${table} WHERE result_id=ANY($1::uuid[])`, [
+      resultIds,
+    ]);
   await client.query(
     `UPDATE assessment_results SET current_version_id=NULL,published_version_id=NULL,
        publication_status='unpublished' WHERE id=ANY($1::uuid[])`,
@@ -706,9 +717,10 @@ async function purgeAssessment(
     'DELETE FROM assessment_result_versions WHERE result_id=ANY($1::uuid[])',
     [resultIds],
   );
-  await client.query('DELETE FROM assessment_results WHERE id=ANY($1::uuid[])', [
-    resultIds,
-  ]);
+  await client.query(
+    'DELETE FROM assessment_results WHERE id=ANY($1::uuid[])',
+    [resultIds],
+  );
   const scanIds = scans.rows.map((scan) => scan.id);
   await client.query('DELETE FROM card_scans WHERE id=ANY($1::uuid[])', [
     scanIds,
