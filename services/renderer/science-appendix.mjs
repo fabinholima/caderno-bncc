@@ -104,71 +104,66 @@ fi;
 }
 
 // Constantes usuais em provas (CODATA, arredondadas como nos vestibulares).
+// Cada linha é [nome, expressão em modo matemático]. As grandezas usam o
+// \unit do ConTeXt (manual units-mkiv): vírgula decimal e ponto nos milhares
+// na entrada (order=reverse), notação científica com e (3,00e8 → 3,00×10⁸),
+// unidades por extenso (meter per square second → m/s²) e ^-1 para expoente
+// negativo (mole^-1 → mol⁻¹).
 export const physicalConstants = Object.freeze([
-  ['Aceleração da gravidade', 'g = 9\\mathord{,}8\\ \\mathrm{m/s^2}'],
-  [
-    'Velocidade da luz no vácuo',
-    'c = 3\\mathord{,}00 \\cdot 10^{8}\\ \\mathrm{m/s}',
-  ],
-  [
-    'Constante de Planck',
-    'h = 6\\mathord{,}63 \\cdot 10^{-34}\\ \\mathrm{J \\cdot s}',
-  ],
-  ['Carga elementar', 'e = 1\\mathord{,}60 \\cdot 10^{-19}\\ \\mathrm{C}'],
+  ['Aceleração da gravidade', 'g = \\unit{9,8 meter per square second}'],
+  ['Velocidade da luz no vácuo', 'c = \\unit{3,00e8 meter per second}'],
+  ['Constante de Planck', 'h = \\unit{6,63e-34 joule second}'],
+  ['Carga elementar', 'e = \\unit{1,60e-19 coulomb}'],
   [
     'Constante eletrostática',
-    'k = 8\\mathord{,}99 \\cdot 10^{9}\\ \\mathrm{N \\cdot m^2/C^2}',
+    'k = \\unit{8,99e9 newton square meter per square coulomb}',
   ],
   [
     'Permissividade do vácuo',
-    '\\varepsilon_0 = 8\\mathord{,}85 \\cdot 10^{-12}\\ \\mathrm{F/m}',
+    '\\varepsilon_0 = \\unit{8,85e-12 farad per meter}',
   ],
   [
     'Permeabilidade do vácuo',
-    '\\mu_0 = 4\\pi \\cdot 10^{-7}\\ \\mathrm{T \\cdot m/A}',
+    '\\mu_0 = 4\\pi \\cdot 10^{-7}\\,\\unit{tesla meter per ampere}',
   ],
   [
     'Constante gravitacional',
-    'G = 6\\mathord{,}67 \\cdot 10^{-11}\\ \\mathrm{N \\cdot m^2/kg^2}',
+    'G = \\unit{6,67e-11 newton square meter per square kilogram}',
   ],
-  ['Massa do elétron', 'm_e = 9\\mathord{,}11 \\cdot 10^{-31}\\ \\mathrm{kg}'],
-  ['Massa do próton', 'm_p = 1\\mathord{,}67 \\cdot 10^{-27}\\ \\mathrm{kg}'],
-  [
-    'Elétron-volt',
-    '1\\ \\mathrm{eV} = 1\\mathord{,}60 \\cdot 10^{-19}\\ \\mathrm{J}',
-  ],
-  ['Caloria', '1\\ \\mathrm{cal} = 4\\mathord{,}18\\ \\mathrm{J}'],
-  [
-    'Constante de Avogadro',
-    'N_A = 6\\mathord{,}02 \\cdot 10^{23}\\ \\mathrm{mol^{-1}}',
-  ],
-  [
-    'Constante de Boltzmann',
-    'k_B = 1\\mathord{,}38 \\cdot 10^{-23}\\ \\mathrm{J/K}',
-  ],
+  ['Massa do elétron', 'm_e = \\unit{9,11e-31 kilogram}'],
+  ['Massa do próton', 'm_p = \\unit{1,67e-27 kilogram}'],
+  ['Elétron-volt', '\\unit{1 electronvolt} = \\unit{1,60e-19 joule}'],
+  ['Caloria', '\\unit{1 calorie} = \\unit{4,18 joule}'],
+  ['Constante de Avogadro', 'N_A = \\unit{6,02e23 mole^-1}'],
+  ['Constante de Boltzmann', 'k_B = \\unit{1,38e-23 joule per kelvin}'],
   [
     'Constante dos gases',
-    'R = 8\\mathord{,}31\\ \\mathrm{J/(mol \\cdot K)} = 0\\mathord{,}082\\ \\mathrm{atm \\cdot L/(mol \\cdot K)}',
+    'R = \\unit{8,31 joule mole^-1 kelvin^-1} = \\unit{0,082 atmosphere liter mole^-1 kelvin^-1}',
   ],
-  ['Constante de Faraday', 'F = 96\\,500\\ \\mathrm{C/mol}'],
-  ['Volume molar (0 °C e 1 atm)', 'V_m = 22\\mathord{,}4\\ \\mathrm{L/mol}'],
+  ['Constante de Faraday', 'F = \\unit{96.500 coulomb per mole}'],
+  ['Volume molar (0 °C e 1 atm)', 'V_m = \\unit{22,4 liter per mole}'],
   [
     'Pressão atmosférica',
-    '1\\ \\mathrm{atm} = 1\\mathord{,}01 \\cdot 10^{5}\\ \\mathrm{Pa} = 760\\ \\mathrm{mmHg}',
+    '\\unit{1 atmosphere} = \\unit{1,01e5 pascal} = \\unit{760 mmHg}',
   ],
-  ['Densidade da água', '\\rho = 1\\mathord{,}0\\ \\mathrm{g/cm^3}'],
+  ['Densidade da água', '\\rho = \\unit{1,0 gram per cubic centimeter}'],
   [
     'Calor específico da água',
-    'c = 1\\mathord{,}0\\ \\mathrm{cal/(g \\cdot °C)} = 4\\mathord{,}18\\ \\mathrm{J/(g \\cdot °C)}',
+    'c = \\unit{1,0 calorie gram^-1 degree celsius^-1} = \\unit{4,18 joule gram^-1 degree celsius^-1}',
   ],
-  ['Zero absoluto', '0\\ \\mathrm{K} = -273\\mathord{,}15\\ \\mathrm{°C}'],
+  ['Zero absoluto', '\\unit{0 kelvin} = \\unit{-273,15 degree celsius}'],
 ]);
 
 export function physicalConstantsTable() {
   const rows = physicalConstants
     .map(([name, value]) => `\\NC ${name} \\NC $${value}$ \\NC\\NR`)
     .join('\n');
+  // method=5: espaço fino nos milhares e vírgula decimal na saída;
+  // order=reverse: na entrada a vírgula é decimal e o ponto separa milhares.
+  // Os ajustes valem só dentro deste grupo.
   return `{\\switchtobodyfont[small]
+\\setupunit[method=5,order=reverse]
+\\setupunittext[liter=L]
 \\starttabulate[|p(.38\\textwidth)|p|]
 \\HL
 ${rows}
