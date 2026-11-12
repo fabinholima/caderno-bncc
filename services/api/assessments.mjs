@@ -63,6 +63,8 @@ export const createAssessmentSchema = z
           startOnNewPage: z.boolean().default(false),
           questionIds: z.array(z.uuid()).min(1).max(100),
           fullWidthQuestionIds: z.array(z.uuid()).max(100).default([]),
+          // Textos-base em largura total nesta prova (além do cadastro).
+          fullWidthSharedTextIds: z.array(z.uuid()).max(100).default([]),
         }),
       )
       .min(1)
@@ -239,10 +241,18 @@ export async function createAssessment({
           sharedTextId: questionById.get(id)?.shared_text_id,
         })),
       );
-    const sharedTexts = await loadSharedTexts(
-      client,
-      questions.rows.map((question) => question.shared_text_id),
+    const fullWidthSharedTextIds = new Set(
+      value.sections.flatMap((section) => section.fullWidthSharedTextIds),
     );
+    const sharedTexts = (
+      await loadSharedTexts(
+        client,
+        questions.rows.map((question) => question.shared_text_id),
+      )
+    ).map((text) => ({
+      ...text,
+      fullWidth: text.fullWidth || fullWidthSharedTextIds.has(text.id),
+    }));
     const assessment = await client.query(
       `INSERT INTO assessments (institution_id, title, subject, grade, instructions, status, created_by)
        VALUES ($1, $2, $3, $4, $5, 'frozen', $6) RETURNING id`,

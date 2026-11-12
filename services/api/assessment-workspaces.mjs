@@ -26,6 +26,7 @@ export const workspaceConfigurationSchema = createAssessmentSchema
           startOnNewPage: z.boolean(),
           questionIds: z.array(z.uuid()).max(100),
           fullWidthQuestionIds: z.array(z.uuid()).max(100),
+          fullWidthSharedTextIds: z.array(z.uuid()).max(100).default([]),
         }),
       )
       .max(20),

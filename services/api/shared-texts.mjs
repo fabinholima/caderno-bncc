@@ -10,6 +10,7 @@ export const sharedTextSchema = z.object({
   content: richContentSchema,
   keepLineBreaks: z.boolean().default(false),
   lineNumbering: z.boolean().default(false),
+  fullWidth: z.boolean().default(false),
 });
 
 const sharedTextQuerySchema = z.string().trim().max(200).default('');
@@ -41,6 +42,7 @@ function formatSharedText(row) {
     source: row.source,
     keepLineBreaks: row.keep_line_breaks === true,
     lineNumbering: row.line_numbering === true,
+    fullWidth: row.full_width === true,
     preview: plainPreview(row.content),
     questionCount: Number(row.question_count || 0),
     updatedAt: row.updated_at,
@@ -58,7 +60,7 @@ export async function listSharedTexts({ institutionId, query = '' }) {
   const search = sharedTextQuerySchema.parse(query);
   const result = await pool.query(
     `SELECT t.id, t.title, t.source, t.content, t.updated_at,
-            t.keep_line_breaks, t.line_numbering,
+            t.keep_line_breaks, t.line_numbering, t.full_width,
             ${questionCountSql} AS question_count
      FROM question_shared_texts t
      WHERE t.institution_id = $1
@@ -74,7 +76,7 @@ export async function listSharedTexts({ institutionId, query = '' }) {
 export async function getSharedText({ institutionId, id }) {
   const result = await pool.query(
     `SELECT t.id, t.title, t.source, t.content, t.updated_at,
-            t.keep_line_breaks, t.line_numbering,
+            t.keep_line_breaks, t.line_numbering, t.full_width,
             ${questionCountSql} AS question_count
      FROM question_shared_texts t
      WHERE t.id = $1 AND t.institution_id = $2`,
@@ -110,10 +112,10 @@ export async function createSharedText({ institutionId, userId, input }) {
   return transaction(async (client) => {
     const result = await client.query(
       `INSERT INTO question_shared_texts
-         (institution_id, title, source, content, created_by, keep_line_breaks, line_numbering)
-       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+         (institution_id, title, source, content, created_by, keep_line_breaks, line_numbering, full_width)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
        RETURNING id, title, source, content, updated_at, keep_line_breaks,
-                 line_numbering, 0 AS question_count`,
+                 line_numbering, full_width, 0 AS question_count`,
       [
         institutionId,
         value.title,
@@ -122,6 +124,7 @@ export async function createSharedText({ institutionId, userId, input }) {
         userId,
         value.keepLineBreaks,
         value.lineNumbering,
+        value.fullWidth,
       ],
     );
     await client.query(
@@ -140,10 +143,11 @@ export async function updateSharedText({ institutionId, userId, id, input }) {
     const result = await client.query(
       `UPDATE question_shared_texts t
        SET title = $3, source = $4, content = $5::jsonb,
-           keep_line_breaks = $6, line_numbering = $7, updated_at = now()
+           keep_line_breaks = $6, line_numbering = $7, full_width = $8,
+           updated_at = now()
        WHERE t.id = $1 AND t.institution_id = $2
        RETURNING t.id, t.title, t.source, t.content, t.updated_at,
-            t.keep_line_breaks, t.line_numbering,
+            t.keep_line_breaks, t.line_numbering, t.full_width,
                  ${questionCountSql} AS question_count`,
       [
         id,
@@ -153,6 +157,7 @@ export async function updateSharedText({ institutionId, userId, id, input }) {
         JSON.stringify(content),
         value.keepLineBreaks,
         value.lineNumbering,
+        value.fullWidth,
       ],
     );
     if (!result.rowCount)
@@ -173,7 +178,8 @@ export async function loadSharedTexts(client, ids, institutionIds = null) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return [];
   const result = await client.query(
-    `SELECT id, title, source, content, keep_line_breaks, line_numbering
+    `SELECT id, title, source, content, keep_line_breaks, line_numbering,
+            full_width
      FROM question_shared_texts
      WHERE id = ANY($1::uuid[])
        AND ($2::uuid[] IS NULL OR institution_id = ANY($2::uuid[]))`,
@@ -186,5 +192,6 @@ export async function loadSharedTexts(client, ids, institutionIds = null) {
     content: row.content,
     keepLineBreaks: row.keep_line_breaks === true,
     lineNumbering: row.line_numbering === true,
+    fullWidth: row.full_width === true,
   }));
 }

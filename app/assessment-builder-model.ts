@@ -7,6 +7,8 @@ export type AssessmentSection = {
   startOnNewPage: boolean;
   selected: Set<string>;
   fullWidth: Set<string>;
+  /** Textos-base em largura total só nesta prova. */
+  fullWidthTexts?: Set<string>;
 };
 
 export type GeneratedVersion = {

@@ -126,7 +126,25 @@ test(
 
       const loaded = await getQuestion({ institutionId, questionId: first.id });
       assert.equal(loaded.sharedTextId, text.id);
+      await updateSharedText({
+        institutionId,
+        userId,
+        id: otherText.id,
+        input: {
+          content: [{ type: 'paragraph', text: 'Outro texto.' }],
+          fullWidth: true,
+        },
+      });
       const listed = await listQuestions({ institutionId });
+      assert.equal(
+        listed.find((question) => question.id === first.id).sharedTextFullWidth,
+        false,
+      );
+      assert.equal(
+        listed.find((question) => question.sharedTextId === otherText.id)
+          .sharedTextFullWidth,
+        true,
+      );
       assert.equal(
         listed.find((question) => question.id === first.id).sharedTextTitle,
         'De próprio punho',
@@ -213,7 +231,12 @@ test(
         portalAdmin: true,
         input: {
           ...base,
-          sections: [section([loose.id, first.id, second.id])],
+          sections: [
+            {
+              ...section([loose.id, first.id, second.id]),
+              fullWidthSharedTextIds: [text.id],
+            },
+          ],
         },
       });
       const versions = await admin.query(
@@ -224,6 +247,8 @@ test(
       for (const { snapshot } of versions.rows) {
         assert.equal(snapshot.sharedTexts.length, 1);
         assert.equal(snapshot.sharedTexts[0].lineNumbering, true);
+        // Largura total escolhida na montagem desta prova.
+        assert.equal(snapshot.sharedTexts[0].fullWidth, true);
         assert.equal(snapshot.sharedTexts[0].keepLineBreaks, true);
         assert.equal(
           snapshot.sharedTexts[0].title,

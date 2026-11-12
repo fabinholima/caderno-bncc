@@ -110,6 +110,8 @@ export type AssessmentRenderContract = {
     keepLineBreaks?: boolean;
     /** Linhas numeradas; o texto sai em largura total. */
     lineNumbering?: boolean;
+    /** Largura total nas seções de duas colunas (cadastro ou montagem). */
+    fullWidth?: boolean;
   }>;
   totals: { points: number; questions: number };
   render: {

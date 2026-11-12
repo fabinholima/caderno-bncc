@@ -632,6 +632,7 @@ export async function listQuestions({
              (jsonb_array_length(COALESCE(qr.explanation,'[]'::jsonb)) > 0) AS has_resolution,
              qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
              qr.shared_text_id, st_text.title AS shared_text_title,
+             (st_text.full_width OR st_text.line_numbering) AS shared_text_full_width,
              COALESCE(cs.stage,
                CASE WHEN qr.grade ILIKE '%médio%' OR qr.grade ILIKE '%série%'
                  THEN 'Ensino Médio' ELSE 'Ensino Fundamental' END) AS stage,
@@ -689,7 +690,8 @@ export async function listQuestions({
           CASE WHEN qr.grade ILIKE '%médio%' OR qr.grade ILIKE '%série%'
             THEN 'Ensino Médio' ELSE 'Ensino Fundamental' END) = $10)
       GROUP BY q.id, qr.question_id, qr.revision, cs.code, cs.stage, ko.id, ko.name,
-               cc.id, cc.number, sd.id, sd.code, sd.description, st_text.title
+               cc.id, cc.number, sd.id, sd.code, sd.description, st_text.title,
+               st_text.full_width, st_text.line_numbering
       ORDER BY q.updated_at DESC`,
     values: [
       allInstitutions ? null : institutionId,
@@ -715,6 +717,8 @@ export async function listQuestions({
     type: row.type,
     sharedTextId: row.shared_text_id || null,
     sharedTextTitle: row.shared_text_id ? row.shared_text_title || '' : null,
+    // Largura total definida no cadastro do texto-base (ou linhas numeradas).
+    sharedTextFullWidth: row.shared_text_full_width === true,
     hasResolution: row.has_resolution === true,
     subject: row.subject,
     grade: row.grade,

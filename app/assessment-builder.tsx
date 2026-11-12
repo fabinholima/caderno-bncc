@@ -78,6 +78,8 @@ export type BuilderQuestion = {
   difficulty: string;
   sharedTextId?: string | null;
   sharedTextTitle?: string | null;
+  /** Largura total definida no cadastro do texto-base. */
+  sharedTextFullWidth?: boolean;
 };
 
 export function AssessmentBuilder({
@@ -251,6 +253,7 @@ export function AssessmentBuilder({
         startOnNewPage: s.startOnNewPage,
         questionIds: [...s.selected],
         fullWidthQuestionIds: [...s.fullWidth],
+        fullWidthSharedTextIds: [...(s.fullWidthTexts || [])],
       })),
       versionCount: versions,
       paper,
@@ -541,6 +544,11 @@ export function AssessmentBuilder({
         ...s,
         selected: new Set(s.questionIds),
         fullWidth: new Set(s.fullWidthQuestionIds),
+        // Montagens salvas antes da opção não têm o campo.
+        fullWidthTexts: new Set(
+          (s as { fullWidthSharedTextIds?: string[] }).fullWidthSharedTextIds ||
+            [],
+        ),
       })),
     );
     setVersions(c.versionCount);
@@ -582,6 +590,7 @@ export function AssessmentBuilder({
                 ...s,
                 questionIds: [],
                 fullWidthQuestionIds: [],
+                fullWidthSharedTextIds: [],
               })),
               questionPoints: {},
             };
@@ -1023,6 +1032,19 @@ export function AssessmentBuilder({
     );
   }
 
+  function toggleSharedTextFullWidth(textId: string) {
+    setGenerated(false);
+    setSections((current) =>
+      current.map((section) => {
+        if (section.id !== activeSectionId) return section;
+        const fullWidthTexts = new Set(section.fullWidthTexts);
+        if (fullWidthTexts.has(textId)) fullWidthTexts.delete(textId);
+        else fullWidthTexts.add(textId);
+        return { ...section, fullWidthTexts };
+      }),
+    );
+  }
+
   function addSection() {
     const subject =
       subjectToAdd ||
@@ -1282,6 +1304,7 @@ export function AssessmentBuilder({
               startOnNewPage: section.startOnNewPage,
               questionIds: Array.from(section.selected),
               fullWidthQuestionIds: Array.from(section.fullWidth),
+              fullWidthSharedTextIds: Array.from(section.fullWidthTexts || []),
             })),
             versionCount: versions,
             paper,
@@ -2325,6 +2348,31 @@ export function AssessmentBuilder({
                         {question.recommendSingleColumn
                           ? 'Largura total (1 coluna) · definido no cadastro da questão'
                           : 'Usar largura total (1 coluna) para esta questão'}
+                      </label>
+                    )}
+                  {activeSection?.selected.has(question.id) &&
+                    activeSection.columns === 2 &&
+                    question.sharedTextId && (
+                      <label className="mt-2 ml-8 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+                        <input
+                          type="checkbox"
+                          checked={
+                            question.sharedTextFullWidth ||
+                            Boolean(
+                              activeSection.fullWidthTexts?.has(
+                                question.sharedTextId,
+                              ),
+                            )
+                          }
+                          disabled={question.sharedTextFullWidth}
+                          onChange={() =>
+                            toggleSharedTextFullWidth(question.sharedTextId!)
+                          }
+                          className="accent-amber-600"
+                        />
+                        {question.sharedTextFullWidth
+                          ? 'Texto-base em largura total · definido no cadastro do texto'
+                          : `Usar largura total para o texto-base “${question.sharedTextTitle || 'sem título'}”`}
                       </label>
                     )}
                 </article>

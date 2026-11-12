@@ -68,6 +68,7 @@ test('valida o vínculo e o conteúdo do texto-base', () => {
       content: [{ type: 'paragraph', text: 'Texto' }],
       keepLineBreaks: false,
       lineNumbering: false,
+      fullWidth: false,
     },
   );
 });

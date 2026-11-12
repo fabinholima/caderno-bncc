@@ -631,10 +631,11 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
             {
               kind: 'text',
               group,
-              // Linhas numeradas saem em largura total: numa coluna estreita
-              // as linhas quebrariam e a numeração mudaria.
+              // Largura total: marcada no cadastro ou na montagem, ou linhas
+              // numeradas (numa coluna estreita quebrariam e a numeração mudaria).
               fullWidth:
                 sharedTexts.get(group.sharedTextId)?.lineNumbering === true ||
+                sharedTexts.get(group.sharedTextId)?.fullWidth === true ||
                 group.questions[0].fullWidth ||
                 group.questions[0].recommendSingleColumn,
             },

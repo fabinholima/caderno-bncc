@@ -15,6 +15,7 @@ export type SharedTextSummary = {
   questionCount: number;
   keepLineBreaks?: boolean;
   lineNumbering?: boolean;
+  fullWidth?: boolean;
 };
 
 type SharedTextDetail = SharedTextSummary & { content: RichContentBlock[] };
@@ -106,6 +107,7 @@ export function SharedTextPicker({
     content: RichContentBlock[];
     keepLineBreaks: boolean;
     lineNumbering: boolean;
+    fullWidth: boolean;
     otherQuestions: number;
   } | null>(null);
   const [editorKey, setEditorKey] = useState(0);
@@ -165,6 +167,7 @@ export function SharedTextPicker({
       content: detail?.content || [],
       keepLineBreaks: detail?.keepLineBreaks === true,
       lineNumbering: detail?.lineNumbering === true,
+      fullWidth: detail?.fullWidth === true,
       otherQuestions: detail
         ? Math.max(0, detail.questionCount - (linkedQuestionId ? 1 : 0))
         : 0,
@@ -231,6 +234,7 @@ export function SharedTextPicker({
             content,
             keepLineBreaks: editor.keepLineBreaks,
             lineNumbering: editor.lineNumbering,
+            fullWidth: editor.fullWidth,
           }),
         },
       );
@@ -327,7 +331,9 @@ export function SharedTextPicker({
             />
           </label>
           <fieldset className="space-y-2 rounded-lg border border-slate-200 p-2 text-xs text-slate-700">
-            <legend className="px-1 font-medium text-slate-600">Linhas</legend>
+            <legend className="px-1 font-medium text-slate-600">
+              Linhas e largura
+            </legend>
             <label className="flex items-start gap-2">
               <input
                 type="checkbox"
@@ -371,6 +377,25 @@ export function SharedTextPicker({
                 acima e digite o texto linha a linha.
               </p>
             )}
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={editor.fullWidth || editor.lineNumbering}
+                disabled={editor.lineNumbering}
+                onChange={(event) =>
+                  setEditor({ ...editor, fullWidth: event.target.checked })
+                }
+              />
+              <span>
+                Sempre em largura total (uma coluna)
+                <span className="block text-slate-500">
+                  {editor.lineNumbering
+                    ? 'Texto com linhas numeradas já sai em largura total.'
+                    : `Em provas de duas colunas, o texto ocupa a largura da página e as ${words.many} seguem nas colunas. Use para textos longos, tabelas e figuras largas. Também é possível escolher isso só em uma prova, na montagem.`}
+                </span>
+              </span>
+            </label>
           </fieldset>
           <div className="flex flex-wrap gap-2">
             <button

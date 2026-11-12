@@ -227,6 +227,28 @@ test('linhas do original e numeração de linhas', async () => {
   assert.match(columns.slice(textAt), /\\startmixedcolumns/);
 });
 
+test('texto-base marcado em largura total sai fora das colunas', async () => {
+  const snapshot = await judgmentSnapshot(['texto-1', 'texto-1', null]);
+  snapshot.sharedTexts[0].fullWidth = true;
+  snapshot.sections = [
+    {
+      title: 'Itens',
+      subject: 'Língua Portuguesa',
+      columns: 2,
+      questions: snapshot.questions,
+    },
+  ];
+  const tex = renderAssessment(snapshot);
+  const textAt = tex.indexOf('Estranhei muito');
+  const before = tex.slice(0, textAt);
+  // Nenhuma coluna aberta no ponto do texto; os itens voltam às colunas.
+  assert.equal(
+    (before.match(/\\startmixedcolumns/g) || []).length,
+    (before.match(/\\stopmixedcolumns/g) || []).length,
+  );
+  assert.match(tex.slice(textAt), /\\startmixedcolumns[\s\S]*Afirmação 1\./);
+});
+
 test('prova sem texto-base continua igual', async () => {
   const snapshot = await judgmentSnapshot([null, null]);
   delete snapshot.sharedTexts;
@@ -308,8 +330,10 @@ test(
         ? await judgmentSnapshot(ids)
         : await choiceSnapshot(ids, { essay });
       snapshot.render.template = template;
-      // Nos modelos de duas colunas, o texto vai com linhas numeradas.
-      if (columns === 2)
+      // Nos modelos de duas colunas: o simulado testa a largura total
+      // marcada no texto; os demais, o texto com linhas numeradas.
+      if (template === 'simulado-v1') snapshot.sharedTexts[0].fullWidth = true;
+      else if (columns === 2)
         Object.assign(snapshot.sharedTexts[0], {
           keepLineBreaks: true,
           lineNumbering: true,
