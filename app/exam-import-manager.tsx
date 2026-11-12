@@ -849,6 +849,8 @@ export function ExamImportManager({
         title: group.title,
         source: group.source,
         content,
+        keepLineBreaks: group.keepLineBreaks,
+        lineNumbering: group.lineNumbering,
       }),
     });
     const body = (await response.json()) as {
@@ -2409,6 +2411,11 @@ GABARITO: B`}
                                         ? ` “${group.title}”`
                                         : ''} ·
                                       itens {group.sourceNumbers.join(', ')}
+                                      {group.lineNumbering
+                                        ? ' · linhas numeradas'
+                                        : group.keepLineBreaks
+                                          ? ' · linhas do original'
+                                          : ''}
                                       {group.sharedTextId
                                         ? ' · já criado no banco'
                                         : ' · será criado no primeiro cadastro'}

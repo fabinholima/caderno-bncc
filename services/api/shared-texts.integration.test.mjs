@@ -156,6 +156,20 @@ test(
         input: { ...detail, title: 'De próprio punho (adaptado)' },
       });
       assert.equal(updated.title, 'De próprio punho (adaptado)');
+      assert.equal(updated.lineNumbering, false);
+      const numbered = await updateSharedText({
+        institutionId,
+        userId,
+        id: text.id,
+        input: {
+          ...detail,
+          title: 'De próprio punho (adaptado)',
+          keepLineBreaks: true,
+          lineNumbering: true,
+        },
+      });
+      assert.equal(numbered.keepLineBreaks, true);
+      assert.equal(numbered.lineNumbering, true);
       await assert.rejects(
         updateSharedText({
           institutionId: other.id,
@@ -209,6 +223,8 @@ test(
       assert.equal(versions.rowCount, 3);
       for (const { snapshot } of versions.rows) {
         assert.equal(snapshot.sharedTexts.length, 1);
+        assert.equal(snapshot.sharedTexts[0].lineNumbering, true);
+        assert.equal(snapshot.sharedTexts[0].keepLineBreaks, true);
         assert.equal(
           snapshot.sharedTexts[0].title,
           'De próprio punho (adaptado)',

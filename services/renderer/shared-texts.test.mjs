@@ -174,6 +174,59 @@ test('texto-base em seção de duas colunas fica no fluxo das colunas', async ()
   assert.match(columns, /Estranhei muito/);
 });
 
+test('linhas do original e numeração de linhas', async () => {
+  const snapshot = await judgmentSnapshot(['texto-1', 'texto-1', null]);
+  snapshot.sharedTexts[0].content = [
+    { type: 'contextRaw', code: 'Primeira linha do original,\nsegunda linha.' },
+  ];
+  const plain = renderAssessment(snapshot);
+  assert.doesNotMatch(plain, /startlinenumbering|startlines/);
+  snapshot.sharedTexts[0].keepLineBreaks = true;
+  const lines = renderAssessment(snapshot);
+  assert.match(
+    lines,
+    /\\startlines\nPrimeira linha do original,\nsegunda linha\.\n\\stoplines/,
+  );
+  assert.doesNotMatch(lines, /startlinenumbering/);
+  snapshot.sharedTexts[0].lineNumbering = true;
+  const numbered = renderAssessment(snapshot);
+  assert.match(
+    numbered,
+    /\\startlinenumbering\[textobase\]\n\\startlines[\s\S]*\\stoplines\n\\stoplinenumbering\n\\par/,
+  );
+  // Linhas do original numeradas: a fonte é reduzida até a mais longa caber
+  // (aqui, 27 caracteres) e a definição fica fora do grupo local.
+  assert.match(numbered, /\\dimexpr\\hsize\*20\/351\\relax/);
+  assert.ok(
+    numbered.indexOf('\\definelinenumbering') <
+      numbered.indexOf('\\begingroup'),
+  );
+  // O título e a fonte ficam fora da numeração.
+  const start = numbered.indexOf('\\startlinenumbering');
+  assert.ok(numbered.indexOf('De próprio punho') < start);
+  assert.ok(
+    numbered.indexOf('Fonte: Revista') >
+      numbered.indexOf('\\stoplinenumbering'),
+  );
+  // Em duas colunas, o texto numerado sai em largura total.
+  snapshot.sections = [
+    {
+      title: 'Itens',
+      subject: 'Língua Portuguesa',
+      columns: 2,
+      questions: snapshot.questions,
+    },
+  ];
+  const columns = renderAssessment(snapshot);
+  const textAt = columns.indexOf('\\startlinenumbering');
+  const before = columns.slice(0, textAt);
+  assert.equal(
+    (before.match(/\\startmixedcolumns/g) || []).length,
+    (before.match(/\\stopmixedcolumns/g) || []).length,
+  );
+  assert.match(columns.slice(textAt), /\\startmixedcolumns/);
+});
+
 test('prova sem texto-base continua igual', async () => {
   const snapshot = await judgmentSnapshot([null, null]);
   delete snapshot.sharedTexts;
@@ -255,6 +308,18 @@ test(
         ? await judgmentSnapshot(ids)
         : await choiceSnapshot(ids, { essay });
       snapshot.render.template = template;
+      // Nos modelos de duas colunas, o texto vai com linhas numeradas.
+      if (columns === 2)
+        Object.assign(snapshot.sharedTexts[0], {
+          keepLineBreaks: true,
+          lineNumbering: true,
+          content: [
+            {
+              type: 'contextRaw',
+              code: 'Estranhei muito na primeira vez que escutei a expressão\n“de próprio punho”. Parecia que eu ia bater em alguém.\n\nNão era bem o caso.',
+            },
+          ],
+        });
       snapshot.sections = [
         {
           title: 'Itens',

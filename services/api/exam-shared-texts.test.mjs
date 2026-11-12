@@ -22,7 +22,10 @@ test('importação agrupa os itens C/E pelo texto-base detectado pela IA', async
     // Lotes vizinhos repetem a definição, uma delas cortada.
     item('b', 2, { sharedText: shared('Estranhei muito', [2, 3, 4]) }),
     item('c', 3, {
-      sharedText: shared('Estranhei muito na primeira vez.', [3, 4], 'Crônica'),
+      sharedText: {
+        ...shared('Estranhei muito na primeira vez.', [3, 4], 'Crônica'),
+        lineNumbering: true,
+      },
       sharedTextId: 'db-1',
     }),
     item('d', 4),
@@ -48,6 +51,10 @@ test('importação agrupa os itens C/E pelo texto-base detectado pela IA', async
   assert.equal(cronica.content, 'Estranhei muito na primeira vez.');
   assert.equal(cronica.title, 'Crônica');
   assert.equal(cronica.sharedTextId, 'db-1');
+  // Numeração vinda de qualquer lote vale para o grupo e implica linhas fixas.
+  assert.equal(cronica.lineNumbering, true);
+  assert.equal(cronica.keepLineBreaks, true);
+  assert.equal(byCandidate.get('f').lineNumbering, false);
   assert.deepEqual(cronica.candidateIds, ['b', 'c', 'd']);
   assert.equal(byCandidate.get('a'), undefined);
   assert.equal(byCandidate.get('e'), undefined);
@@ -68,6 +75,8 @@ test('candidato aceita texto-base sugerido e vínculo ao banco', async () => {
     source: '',
     content: 'Texto',
     sourceNumbers: [1, 2],
+    keepLineBreaks: false,
+    lineNumbering: false,
   });
   assert.equal(
     candidateUpdateSchema.parse({ sharedTextId: null }).sharedTextId,

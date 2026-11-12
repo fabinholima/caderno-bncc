@@ -69,6 +69,8 @@ export type CandidateSharedText = {
   source: string;
   content: string;
   sourceNumbers: number[];
+  keepLineBreaks?: boolean;
+  lineNumbering?: boolean;
 };
 
 export type ExamImportCandidate = {

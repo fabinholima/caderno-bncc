@@ -62,6 +62,12 @@ test('valida o vínculo e o conteúdo do texto-base', () => {
     sharedTextSchema.parse({
       content: [{ type: 'paragraph', text: ' Texto ' }],
     }),
-    { title: '', source: '', content: [{ type: 'paragraph', text: 'Texto' }] },
+    {
+      title: '',
+      source: '',
+      content: [{ type: 'paragraph', text: 'Texto' }],
+      keepLineBreaks: false,
+      lineNumbering: false,
+    },
   );
 });

@@ -89,8 +89,11 @@ test('separa o texto-base comum em itens C/E e questões A–E', async () => {
   const shared = {
     title: 'De próprio punho',
     source: 'ENEM 2025',
-    content: 'Estranhei muito na primeira vez.',
+    content:
+      'Estranhei muito na primeira vez.\nParecia que eu ia bater em alguém.',
     sourceNumbers: [6, 7],
+    keepLineBreaks: true,
+    lineNumbering: true,
   };
   const candidates = await extractPdfWithGemini(
     pdf,
@@ -126,6 +129,9 @@ test('separa o texto-base comum em itens C/E e questões A–E', async () => {
   assert.doesNotMatch(candidates[0].rawText, /Estranhei/);
   // Questões A–E também usam texto-base; ele não volta ao enunciado.
   assert.deepEqual(candidates[2].sharedText, { ...shared, sourceNumbers: [8] });
+  // Quebras de linha do original chegam intactas para a numeração.
+  assert.match(candidates[0].sharedText.content, /vez\.\nParecia/);
+  assert.match(JSON.stringify(body), /lineNumbering/);
   assert.doesNotMatch(candidates[2].rawText, /Estranhei/);
   assert.match(
     body.systemInstruction?.parts?.[0]?.text || JSON.stringify(body),

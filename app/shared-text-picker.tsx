@@ -13,6 +13,8 @@ export type SharedTextSummary = {
   source: string;
   preview: string;
   questionCount: number;
+  keepLineBreaks?: boolean;
+  lineNumbering?: boolean;
 };
 
 type SharedTextDetail = SharedTextSummary & { content: RichContentBlock[] };
@@ -102,6 +104,8 @@ export function SharedTextPicker({
     title: string;
     source: string;
     content: RichContentBlock[];
+    keepLineBreaks: boolean;
+    lineNumbering: boolean;
     otherQuestions: number;
   } | null>(null);
   const [editorKey, setEditorKey] = useState(0);
@@ -159,6 +163,8 @@ export function SharedTextPicker({
       title: detail?.title || '',
       source: detail?.source || '',
       content: detail?.content || [],
+      keepLineBreaks: detail?.keepLineBreaks === true,
+      lineNumbering: detail?.lineNumbering === true,
       otherQuestions: detail
         ? Math.max(0, detail.questionCount - (linkedQuestionId ? 1 : 0))
         : 0,
@@ -223,6 +229,8 @@ export function SharedTextPicker({
             title: editor.title,
             source: editor.source,
             content,
+            keepLineBreaks: editor.keepLineBreaks,
+            lineNumbering: editor.lineNumbering,
           }),
         },
       );
@@ -318,6 +326,52 @@ export function SharedTextPicker({
               placeholder="Ex.: Disponível em: ... Acesso em: ..."
             />
           </label>
+          <fieldset className="space-y-2 rounded-lg border border-slate-200 p-2 text-xs text-slate-700">
+            <legend className="px-1 font-medium text-slate-600">Linhas</legend>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={editor.keepLineBreaks}
+                onChange={(event) =>
+                  setEditor({ ...editor, keepLineBreaks: event.target.checked })
+                }
+              />
+              <span>
+                Manter as quebras de linha do original
+                <span className="block text-slate-500">
+                  Cada linha digitada vira uma linha impressa. Use para poemas e
+                  para textos transcritos linha a linha. Linha em branco separa
+                  estrofes ou parágrafos.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={editor.lineNumbering}
+                onChange={(event) =>
+                  setEditor({ ...editor, lineNumbering: event.target.checked })
+                }
+              />
+              <span>
+                Numerar as linhas
+                <span className="block text-slate-500">
+                  Para {words.many} que citam linhas, como &quot;(l. 3-4)&quot;.
+                  O texto sai em largura total, mesmo em provas de duas colunas.
+                </span>
+              </span>
+            </label>
+            {editor.lineNumbering && !editor.keepLineBreaks && (
+              <p role="note" className="rounded bg-amber-50 p-2 text-amber-900">
+                Sem manter as quebras do original, a numeração segue a largura
+                da página e pode não coincidir com as linhas citadas nas{' '}
+                {words.many}. Para provas como o ENEM, marque também a opção
+                acima e digite o texto linha a linha.
+              </p>
+            )}
+          </fieldset>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"

@@ -106,6 +106,10 @@ export type AssessmentRenderContract = {
     title: string;
     source: string;
     content: RichTextNode[];
+    /** Cada linha cadastrada vira uma linha impressa (\startlines). */
+    keepLineBreaks?: boolean;
+    /** Linhas numeradas; o texto sai em largura total. */
+    lineNumbering?: boolean;
   }>;
   totals: { points: number; questions: number };
   render: {

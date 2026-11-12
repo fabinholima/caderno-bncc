@@ -164,6 +164,8 @@ test('análise separa texto-base em qualquer tipo e valida o ConTeXt', () => {
     source: '',
     content: 'Estranhei muito.',
     sourceNumbers: [1, 2],
+    keepLineBreaks: false,
+    lineNumbering: false,
   };
   const [judgment, essay] = validateExamAnalysis(
     [

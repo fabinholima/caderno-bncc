@@ -8,6 +8,8 @@ export const sharedTextSchema = z.object({
   title: z.string().trim().max(300).default(''),
   source: z.string().trim().max(500).default(''),
   content: richContentSchema,
+  keepLineBreaks: z.boolean().default(false),
+  lineNumbering: z.boolean().default(false),
 });
 
 const sharedTextQuerySchema = z.string().trim().max(200).default('');
@@ -17,7 +19,14 @@ function plainPreview(content = []) {
     .map((node) =>
       node?.type === 'image'
         ? `[Imagem: ${node.alt || ''}]`
-        : node?.text || node?.caption || (node?.items || []).join(' ') || '',
+        : node?.text ||
+          // Conteúdo ConTeXt: mostra o texto sem os comandos.
+          String(node?.code || '')
+            .replace(/\\[A-Za-z]+(\[[^\]]*\])?/g, ' ')
+            .replace(/[{}]/g, '') ||
+          node?.caption ||
+          (node?.items || []).join(' ') ||
+          '',
     )
     .filter(Boolean)
     .join(' ')
@@ -30,6 +39,8 @@ function formatSharedText(row) {
     id: row.id,
     title: row.title,
     source: row.source,
+    keepLineBreaks: row.keep_line_breaks === true,
+    lineNumbering: row.line_numbering === true,
     preview: plainPreview(row.content),
     questionCount: Number(row.question_count || 0),
     updatedAt: row.updated_at,
@@ -47,6 +58,7 @@ export async function listSharedTexts({ institutionId, query = '' }) {
   const search = sharedTextQuerySchema.parse(query);
   const result = await pool.query(
     `SELECT t.id, t.title, t.source, t.content, t.updated_at,
+            t.keep_line_breaks, t.line_numbering,
             ${questionCountSql} AS question_count
      FROM question_shared_texts t
      WHERE t.institution_id = $1
@@ -62,6 +74,7 @@ export async function listSharedTexts({ institutionId, query = '' }) {
 export async function getSharedText({ institutionId, id }) {
   const result = await pool.query(
     `SELECT t.id, t.title, t.source, t.content, t.updated_at,
+            t.keep_line_breaks, t.line_numbering,
             ${questionCountSql} AS question_count
      FROM question_shared_texts t
      WHERE t.id = $1 AND t.institution_id = $2`,
@@ -96,15 +109,19 @@ export async function createSharedText({ institutionId, userId, input }) {
   const content = await prepareChemicalStructureBlocks(value.content);
   return transaction(async (client) => {
     const result = await client.query(
-      `INSERT INTO question_shared_texts (institution_id, title, source, content, created_by)
-       VALUES ($1, $2, $3, $4::jsonb, $5)
-       RETURNING id, title, source, content, updated_at, 0 AS question_count`,
+      `INSERT INTO question_shared_texts
+         (institution_id, title, source, content, created_by, keep_line_breaks, line_numbering)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+       RETURNING id, title, source, content, updated_at, keep_line_breaks,
+                 line_numbering, 0 AS question_count`,
       [
         institutionId,
         value.title,
         value.source,
         JSON.stringify(content),
         userId,
+        value.keepLineBreaks,
+        value.lineNumbering,
       ],
     );
     await client.query(
@@ -122,11 +139,21 @@ export async function updateSharedText({ institutionId, userId, id, input }) {
   return transaction(async (client) => {
     const result = await client.query(
       `UPDATE question_shared_texts t
-       SET title = $3, source = $4, content = $5::jsonb, updated_at = now()
+       SET title = $3, source = $4, content = $5::jsonb,
+           keep_line_breaks = $6, line_numbering = $7, updated_at = now()
        WHERE t.id = $1 AND t.institution_id = $2
        RETURNING t.id, t.title, t.source, t.content, t.updated_at,
+            t.keep_line_breaks, t.line_numbering,
                  ${questionCountSql} AS question_count`,
-      [id, institutionId, value.title, value.source, JSON.stringify(content)],
+      [
+        id,
+        institutionId,
+        value.title,
+        value.source,
+        JSON.stringify(content),
+        value.keepLineBreaks,
+        value.lineNumbering,
+      ],
     );
     if (!result.rowCount)
       throw Object.assign(new Error('Texto-base não encontrado.'), {
@@ -146,7 +173,8 @@ export async function loadSharedTexts(client, ids, institutionIds = null) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return [];
   const result = await client.query(
-    `SELECT id, title, source, content FROM question_shared_texts
+    `SELECT id, title, source, content, keep_line_breaks, line_numbering
+     FROM question_shared_texts
      WHERE id = ANY($1::uuid[])
        AND ($2::uuid[] IS NULL OR institution_id = ANY($2::uuid[]))`,
     [unique, institutionIds],
@@ -156,5 +184,7 @@ export async function loadSharedTexts(client, ids, institutionIds = null) {
     title: row.title,
     source: row.source,
     content: row.content,
+    keepLineBreaks: row.keep_line_breaks === true,
+    lineNumbering: row.line_numbering === true,
   }));
 }

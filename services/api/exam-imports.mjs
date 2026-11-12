@@ -614,6 +614,8 @@ export const candidateUpdateSchema = z.object({
       source: z.string().trim().max(500).default(''),
       content: z.string().trim().min(1).max(30000),
       sourceNumbers: z.array(z.number().int().min(1).max(9999)).max(200),
+      keepLineBreaks: z.boolean().default(false),
+      lineNumbering: z.boolean().default(false),
     })
     .nullable()
     .optional(),

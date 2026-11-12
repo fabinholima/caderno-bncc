@@ -470,6 +470,18 @@ function adoteNote(nodes = []) {
   return `\\startframedtext[frame=on,background=color,backgroundcolor=lightgray,width=\\hsize,align={normal,hyphenated,verytolerant,stretch},offset=3mm]\n{\\bf Note e adote:}\n\\blank[small]\n${code}\n\\stopframedtext`;
 }
 
+// Linhas de texto do texto-base, sem comandos, para medir a mais longa.
+function sharedTextLines(nodes = []) {
+  return nodes
+    .flatMap((node) =>
+      String(node?.code ?? node?.text ?? '')
+        .replace(/\\[A-Za-z]+(\[[^\]]*\])?/g, '')
+        .replace(/[{}]/g, '')
+        .split('\n'),
+    )
+    .map((line) => line.trim());
+}
+
 export function renderAssessment(snapshot) {
   if (snapshot?.schemaVersion !== '1.0' || !Array.isArray(snapshot.questions)) {
     throw new Error('Snapshot de avaliação inválido ou incompatível.');
@@ -586,7 +598,30 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
     const source = text.source
       ? `\n\\startalignment[flushright,nothyphenated]\n{\\tfx ${escapeContext(text.source)}}\n\\stopalignment`
       : '';
-    return `\\testpage[6]\n\\blank[medium]\n\\noindent{\\bf ${escapeContext(heading)}}\n\\blank[small]\n${title}${richText(text.content)}${source}\n\\blank[medium]`;
+    // Linhas do original: cada linha cadastrada vira uma linha impressa.
+    let body = richText(text.content);
+    if (text.keepLineBreaks) body = `\\startlines\n${body}\n\\stoplines`;
+    // Numeração para questões que citam "(l. 3-4)"; reinicia em cada texto.
+    if (text.lineNumbering) {
+      body = `\\startlinenumbering[textobase]\n${body}\n\\stoplinenumbering\n\\par`;
+      // Com as linhas do original, cada uma precisa caber numa linha impressa
+      // (senão quebra e a numeração deixa de bater com as referências). O
+      // ConTeXt reduz a fonte do texto (10, 9, 8 ou 7 pt) até a linha mais
+      // longa caber, estimando ~0,65 em por caractere.
+      if (text.keepLineBreaks) {
+        const longest = Math.max(
+          1,
+          ...sharedTextLines(text.content).map((line) => line.length),
+        );
+        body = `\\begingroup\n\\scratchdimen=\\dimexpr\\hsize*20/${13 * longest}\\relax\n\\ifdim\\scratchdimen<8pt\\switchtobodyfont[7pt]\\else\\ifdim\\scratchdimen<9pt\\switchtobodyfont[8pt]\\else\\ifdim\\scratchdimen<10pt\\switchtobodyfont[9pt]\\else\\ifdim\\scratchdimen<\\bodyfontsize\\switchtobodyfont[10pt]\\fi\\fi\\fi\\fi\n${body}\n\\endgroup`;
+      }
+    }
+    // A definição fica fora de grupos: os números são desenhados depois, na
+    // montagem da página, e precisam dela.
+    const numbering = text.lineNumbering
+      ? '\\definelinenumbering[textobase][step=1,style={\\switchtobodyfont[7pt]},location=left,distance=2mm,align=flushright]\n'
+      : '';
+    return `${numbering}\\testpage[6]\n\\blank[medium]\n\\noindent{\\bf ${escapeContext(heading)}}\n\\blank[small]\n${title}${body}${source}\n\\blank[medium]`;
   };
   // Cada item é um texto-base ou uma questão, na ordem de impressão.
   const sectionItems = (questions) =>
@@ -596,7 +631,10 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
             {
               kind: 'text',
               group,
+              // Linhas numeradas saem em largura total: numa coluna estreita
+              // as linhas quebrariam e a numeração mudaria.
               fullWidth:
+                sharedTexts.get(group.sharedTextId)?.lineNumbering === true ||
                 group.questions[0].fullWidth ||
                 group.questions[0].recommendSingleColumn,
             },
