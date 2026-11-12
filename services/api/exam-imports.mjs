@@ -8,7 +8,7 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
@@ -223,12 +223,55 @@ export function questionNeedsVisualCapture(rawText) {
   return axisLabels >= 4 || (visualReference && emptyChoices >= 2);
 }
 
+/**
+ * Prova escaneada: a maioria das páginas sem texto aproveitável. Uma capa ou
+ * página em branco não manda a prova inteira para o OCR ou para o Gemini.
+ * @param {string[]} pageTexts
+ */
+export function pdfNeedsOcr(pageTexts) {
+  if (!pageTexts.length) return true;
+  return pageTexts.filter(pdfTextNeedsOcr).length > pageTexts.length / 2;
+}
+
+/**
+ * Executa `task` em no máximo `limit` itens ao mesmo tempo, mantendo a ordem.
+ * @template T, R
+ * @param {T[]} items
+ * @param {number} limit
+ * @param {(item: T, index: number) => Promise<R>} task
+ * @returns {Promise<R[]>}
+ */
+export async function mapWithLimit(items, limit, task) {
+  const results = Array.from({ length: items.length });
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await task(items[index], index);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker),
+  );
+  return results;
+}
+
+// O Tesseract usa várias threads por processo; com várias páginas ao mesmo
+// tempo elas disputam a CPU e o OCR fica minutos parado. Uma thread por
+// processo e no máximo uma página por núcleo.
+const tesseractEnv = () => ({ ...process.env, OMP_THREAD_LIMIT: '1' });
+const ocrConcurrency = () =>
+  Math.max(1, Number(process.env.OCR_CONCURRENCY) || availableParallelism());
+
 export function pdfTextNeedsOcr(text) {
   const value = String(text ?? '');
   if (value.length < 120) return true;
   let controls = 0;
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
+    // Tabulação, quebra de linha, retorno e quebra de página são texto
+    // normal; contá-los marcava toda página real como "precisa de OCR".
+    if ([0x09, 0x0a, 0x0c, 0x0d].includes(code)) continue;
     if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) controls += 1;
   }
   const replacement = (value.match(/[�]/g) || []).length;
@@ -1255,7 +1298,11 @@ export async function extractExamImportQuestions({
       ['-layout', '-enc', 'UTF-8', pdfPath, '-'],
       { maxBuffer: 20_000_000 },
     );
+    // O pdftotext termina cada página com \f: o pedaço vazio depois da
+    // última não é uma página.
     const pageTexts = stdout.split('\f');
+    if (pageTexts.length > 1 && !pageTexts.at(-1).trim()) pageTexts.pop();
+    const scanned = pdfNeedsOcr(pageTexts);
     let candidates = pageTexts.flatMap((pageText, pageIndex) =>
       splitExamQuestions(pageText).map((candidate) => ({
         ...candidate,
@@ -1266,6 +1313,8 @@ export async function extractExamImportQuestions({
     // Prefer question-sized regions whenever bbox data is available. This is
     // essential for two-column exams: page-wide extraction interleaves columns.
     let readingBboxXml = '';
+    // Texto do OCR por página (provas escaneadas), para achar o texto-base.
+    const ocrTexts = [];
     try {
       const { stdout: bboxXml } = await execFileAsync(
         process.env.PDFTOTEXT_BIN || 'pdftotext',
@@ -1306,7 +1355,8 @@ export async function extractExamImportQuestions({
         .filter(
           (candidate) =>
             candidate.rawText.length >= 40 &&
-            (candidate.questionType === 'essay' ||
+            // Itens Certo/Errado não têm alternativas A–E.
+            (['essay', 'true_false'].includes(candidate.questionType) ||
               candidate.rawText.match(/(?:^|\s)[A-Ea-e]\s*(?:[.)]|\(\s*\))\s+/g)
                 ?.length >= 2),
         );
@@ -1319,7 +1369,7 @@ export async function extractExamImportQuestions({
     const useGeminiPdf =
       process.env.EXAM_AI_PROVIDER === 'gemini' &&
       Boolean(process.env.GEMINI_API_KEY) &&
-      (!candidates.length || pageTexts.some(pdfTextNeedsOcr));
+      (!candidates.length || scanned);
     if (useGeminiPdf) {
       await transaction(async (client) => {
         await client.query(
@@ -1354,10 +1404,7 @@ export async function extractExamImportQuestions({
         onProgress: checkpoint,
       });
     }
-    if (
-      !useGeminiPdf &&
-      (!candidates.length || pageTexts.some(pdfTextNeedsOcr))
-    ) {
+    if (!useGeminiPdf && (!candidates.length || scanned)) {
       await checkpoint('rendering_pages', 45);
       const imagePrefix = join(workingDirectory, 'pagina');
       await execFileAsync(
@@ -1371,8 +1418,10 @@ export async function extractExamImportQuestions({
       try {
         await checkpoint('running_ocr', 55);
         candidates = (
-          await Promise.all(
-            pageImages.map(async (name, pageIndex) => {
+          await mapWithLimit(
+            pageImages,
+            ocrConcurrency(),
+            async (name, pageIndex) => {
               const { stdout: ocrText } = await execFileAsync(
                 process.env.TESSERACT_BIN || 'tesseract',
                 [
@@ -1383,14 +1432,15 @@ export async function extractExamImportQuestions({
                   '--psm',
                   '6',
                 ],
-                { maxBuffer: 20_000_000 },
+                { maxBuffer: 20_000_000, env: tesseractEnv() },
               );
+              ocrTexts[pageIndex] = ocrText;
               return splitExamQuestions(ocrText).map((candidate) => ({
                 ...candidate,
                 pageNumber: pageIndex + 1,
                 extractionMethod: 'ocr',
               }));
-            }),
+            },
           )
         ).flat();
       } catch (error) {
@@ -1423,9 +1473,11 @@ export async function extractExamImportQuestions({
       candidates = applyDetectedSharedTexts(
         candidates,
         detectSharedTexts(
-          readingBboxXml
-            ? readingTextFromBbox(readingBboxXml)
-            : pageTexts.join('\n'),
+          ocrTexts.length
+            ? ocrTexts.join('\n')
+            : readingBboxXml
+              ? readingTextFromBbox(readingBboxXml)
+              : pageTexts.join('\n'),
         ),
       );
     candidates = mergeReextractedCandidates(
@@ -1632,7 +1684,7 @@ export async function cropExamImportCandidateImage({
       const { stdout } = await execFileAsync(
         process.env.TESSERACT_BIN || 'tesseract',
         [cropPath, 'stdout', '-l', 'por+eng', '--psm', '6'],
-        { maxBuffer: 2_000_000 },
+        { maxBuffer: 2_000_000, env: tesseractEnv() },
       );
       cropText = repairExtractedQuestionText(stdout);
     } catch (error) {

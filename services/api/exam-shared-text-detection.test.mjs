@@ -163,3 +163,31 @@ test('não corta questão que só cita linhas do texto', () => {
     'QUESTÃO 05 Enunciado da questão cinco.\nE) quinta alternativa',
   );
 });
+
+test('só prova escaneada vai para OCR ou Gemini', async () => {
+  const { pdfTextNeedsOcr, pdfNeedsOcr, mapWithLimit } =
+    await import('./exam-imports.mjs');
+  const page = Array.from(
+    { length: 20 },
+    (_, index) => `Linha ${index + 1} de uma página com texto selecionável.`,
+  ).join('\n');
+  // Quebras de linha e de página não são caracteres de controle.
+  assert.equal(pdfTextNeedsOcr(`${page}\f`), false);
+  assert.equal(pdfTextNeedsOcr('\u0001\u0002\u0003\u0004\u0005 texto'), true);
+  assert.equal(pdfTextNeedsOcr(''), true);
+  // Capa ou página em branco não manda a prova inteira para o OCR.
+  assert.equal(pdfNeedsOcr([page, '', page, page]), false);
+  assert.equal(pdfNeedsOcr(['', '', page]), true);
+  assert.equal(pdfNeedsOcr([]), true);
+  let running = 0;
+  let peak = 0;
+  const results = await mapWithLimit([1, 2, 3, 4, 5], 2, async (value) => {
+    running += 1;
+    peak = Math.max(peak, running);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    running -= 1;
+    return value * 10;
+  });
+  assert.deepEqual(results, [10, 20, 30, 40, 50]);
+  assert.equal(peak, 2);
+});
