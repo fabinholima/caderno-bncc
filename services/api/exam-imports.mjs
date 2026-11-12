@@ -1,3 +1,10 @@
+import {
+  applyDetectedSharedTexts,
+  columnSplit,
+  detectSharedTexts,
+  pageIsSingleColumn,
+  readingTextFromBbox,
+} from './exam-shared-text-detection.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -339,20 +346,28 @@ export function parsePdfQuestionRegions(xml) {
       );
       if (!duplicate) deduped.push(marker);
     }
+    // Vão entre colunas pela margem real da coluna da direita (que nem sempre
+    // começa no meio da folha); sem vão claro, o meio da página, como antes.
+    const middle = columnSplit(words) ?? width / 2;
     const columns = deduped.reduce((map, marker) => {
-      const key = marker.xMin < width / 2 ? 'left' : 'right';
+      const key = marker.xMin < middle ? 'left' : 'right';
       const list = map.get(key) || [];
       list.push(marker);
       map.set(key, list);
       return map;
     }, new Map());
     const regions = [];
-    for (const [column, columnMarkers] of columns) {
+    // Em coluna única a região ocupa a largura toda; sem isso, linhas longas
+    // perdiam as palavras depois do meio da página.
+    const singleColumn = pageIsSingleColumn(words);
+    for (const [column, columnMarkers] of singleColumn
+      ? [['left', deduped]]
+      : columns) {
       columnMarkers.sort((a, b) => a.yMin - b.yMin);
       columnMarkers.forEach((marker, index) => {
         const next = columnMarkers[index + 1];
-        const left = column === 'left' ? 0 : width / 2;
-        const right = column === 'left' ? width / 2 : width;
+        const left = column === 'left' ? 0 : middle;
+        const right = column === 'left' && !singleColumn ? middle : width;
         const regionWords = words.filter(
           (word) =>
             word.xMin >= left - 3 &&
@@ -1250,12 +1265,14 @@ export async function extractExamImportQuestions({
     );
     // Prefer question-sized regions whenever bbox data is available. This is
     // essential for two-column exams: page-wide extraction interleaves columns.
+    let readingBboxXml = '';
     try {
       const { stdout: bboxXml } = await execFileAsync(
         process.env.PDFTOTEXT_BIN || 'pdftotext',
         ['-bbox-layout', '-enc', 'UTF-8', pdfPath, '-'],
         { maxBuffer: 30_000_000 },
       );
+      readingBboxXml = bboxXml;
       const regions = parsePdfQuestionRegions(bboxXml);
       const regionCandidates = regions
         .map((region) => {
@@ -1400,6 +1417,17 @@ export async function extractExamImportQuestions({
       return [];
     }
     await checkpoint('normalizing_questions', 72);
+    // Texto-base sem IA: "Texto para as questões 06 a 10" no texto do PDF.
+    // Com o PDF lido pelo Gemini, a própria IA já separa o texto-base.
+    if (!useGeminiPdf)
+      candidates = applyDetectedSharedTexts(
+        candidates,
+        detectSharedTexts(
+          readingBboxXml
+            ? readingTextFromBbox(readingBboxXml)
+            : pageTexts.join('\n'),
+        ),
+      );
     candidates = mergeReextractedCandidates(
       candidates,
       source.rows[0].extracted_candidates || [],

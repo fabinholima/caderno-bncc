@@ -76,6 +76,8 @@ export type CandidateSharedText = {
 export type ExamImportCandidate = {
   resetAi?: boolean;
   sharedText?: CandidateSharedText | null;
+  /** 'text': texto-base achado no texto do PDF, sem IA. */
+  sharedTextDetection?: 'text';
   sharedTextId?: string | null;
   id: string;
   sourceNumber: number;

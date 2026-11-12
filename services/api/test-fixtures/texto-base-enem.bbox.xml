@@ -1,0 +1,848 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>enem</title>
+<meta name="Creator" content="LuaMetaTeX 2.10 20230426 + ConTeXt LMTX 2023.05.05 18:36"/>
+<meta name="Producer" content="LuaMetaTeX-2.10"/>
+<meta name="CreationDate" content="2026-11-12T23:43:50Z"/>
+<meta name="ModDate" content="2026-11-12T23:43:50Z"/>
+</head>
+<body>
+<doc>
+  <page width="595.275590" height="841.889758">
+    <flow>
+      <block xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">
+        <line xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">
+          <word xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">1</word>
+        </line>
+      </block>
+    </flow>
+    <flow>
+      <block xMin="70.867000" yMin="129.482836" xMax="350.946698" yMax="211.543334">
+        <line xMin="70.867000" yMin="129.482836" xMax="141.422416" yMax="139.445476">
+          <word xMin="70.867000" yMin="129.482836" xMax="126.149689" yMax="139.445476">QUESTÃO</word>
+          <word xMin="129.965380" yMin="129.482836" xMax="141.422416" yMax="139.445476">01</word>
+        </line>
+        <line xMin="70.867000" yMin="141.499146" xMax="350.946698" yMax="151.461786">
+          <word xMin="70.867000" yMin="141.499146" xMax="116.685181" yMax="151.461786">Enunciado</word>
+          <word xMin="120.002740" yMin="141.499146" xMax="130.523288" yMax="151.461786">da</word>
+          <word xMin="133.840847" yMin="141.499146" xMax="166.827148" yMax="151.461786">questão</word>
+          <word xMin="170.144708" yMin="141.499146" xMax="186.752428" yMax="151.461786">um,</word>
+          <word xMin="190.069988" yMin="141.499146" xMax="207.773599" yMax="151.461786">com</word>
+          <word xMin="211.091158" yMin="141.499146" xMax="233.507098" yMax="151.461786">texto</word>
+          <word xMin="236.824657" yMin="141.499146" xMax="277.003984" yMax="151.461786">suficiente</word>
+          <word xMin="280.321543" yMin="141.499146" xMax="299.728766" yMax="151.461786">para</word>
+          <word xMin="303.046325" yMin="141.499146" xMax="308.027645" yMax="151.461786">a</word>
+          <word xMin="311.345204" yMin="141.499146" xMax="350.946698" yMax="151.461786">extração.</word>
+        </line>
+        <line xMin="70.867000" yMin="153.515455" xMax="222.388792" yMax="163.478095">
+          <word xMin="70.867000" yMin="153.515455" xMax="82.214447" yMax="163.478095">A)</word>
+          <word xMin="85.532006" yMin="153.515455" xMax="122.124783" yMax="163.478095">primeira</word>
+          <word xMin="125.442342" yMin="153.515455" xMax="172.246825" yMax="163.478095">alternativa</word>
+          <word xMin="175.564384" yMin="153.515455" xMax="186.084932" yMax="163.478095">da</word>
+          <word xMin="189.402491" yMin="153.515455" xMax="222.388792" yMax="163.478095">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="165.531765" xMax="220.306600" yMax="175.494405">
+          <word xMin="70.867000" yMin="165.531765" xMax="81.796016" yMax="175.494405">B)</word>
+          <word xMin="85.113575" yMin="165.531765" xMax="120.042591" yMax="175.494405">segunda</word>
+          <word xMin="123.360150" yMin="165.531765" xMax="170.164633" yMax="175.494405">alternativa</word>
+          <word xMin="173.482192" yMin="165.531765" xMax="184.002740" yMax="175.494405">da</word>
+          <word xMin="187.320299" yMin="165.531765" xMax="220.306600" yMax="175.494405">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="177.548075" xMax="218.224408" yMax="187.510715">
+          <word xMin="70.867000" yMin="177.548075" xMax="81.935493" yMax="187.510715">C)</word>
+          <word xMin="85.253052" yMin="177.548075" xMax="117.960399" yMax="187.510715">terceira</word>
+          <word xMin="121.277958" yMin="177.548075" xMax="168.082441" yMax="187.510715">alternativa</word>
+          <word xMin="171.400000" yMin="177.548075" xMax="181.920548" yMax="187.510715">da</word>
+          <word xMin="185.238107" yMin="177.548075" xMax="218.224408" yMax="187.510715">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="189.564384" xMax="214.478456" yMax="199.527024">
+          <word xMin="70.867000" yMin="189.564384" xMax="82.353924" yMax="199.527024">D)</word>
+          <word xMin="85.671483" yMin="189.564384" xMax="114.214447" yMax="199.527024">quarta</word>
+          <word xMin="117.532006" yMin="189.564384" xMax="164.336488" yMax="199.527024">alternativa</word>
+          <word xMin="167.654048" yMin="189.564384" xMax="178.174595" yMax="199.527024">da</word>
+          <word xMin="181.492155" yMin="189.564384" xMax="214.478456" yMax="199.527024">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="201.580694" xMax="212.794769" yMax="211.543334">
+          <word xMin="70.867000" yMin="201.580694" xMax="81.527025" yMax="211.543334">E)</word>
+          <word xMin="84.844584" yMin="201.580694" xMax="112.530760" yMax="211.543334">quinta</word>
+          <word xMin="115.848320" yMin="201.580694" xMax="162.652802" yMax="211.543334">alternativa</word>
+          <word xMin="165.970361" yMin="201.580694" xMax="176.490909" yMax="211.543334">da</word>
+          <word xMin="179.808468" yMin="201.580694" xMax="212.794769" yMax="211.543334">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="222.609228" xMax="354.324033" yMax="304.669727">
+        <line xMin="70.867000" yMin="222.609228" xMax="141.422416" yMax="232.571868">
+          <word xMin="70.867000" yMin="222.609228" xMax="126.149689" yMax="232.571868">QUESTÃO</word>
+          <word xMin="129.965380" yMin="222.609228" xMax="141.422416" yMax="232.571868">02</word>
+        </line>
+        <line xMin="70.867000" yMin="234.625538" xMax="354.324033" yMax="244.588178">
+          <word xMin="70.867000" yMin="234.625538" xMax="116.685181" yMax="244.588178">Enunciado</word>
+          <word xMin="120.002740" yMin="234.625538" xMax="130.523288" yMax="244.588178">da</word>
+          <word xMin="133.840847" yMin="234.625538" xMax="166.827148" yMax="244.588178">questão</word>
+          <word xMin="170.144708" yMin="234.625538" xMax="190.129763" yMax="244.588178">dois,</word>
+          <word xMin="193.447323" yMin="234.625538" xMax="211.150934" yMax="244.588178">com</word>
+          <word xMin="214.468493" yMin="234.625538" xMax="236.884433" yMax="244.588178">texto</word>
+          <word xMin="240.201992" yMin="234.625538" xMax="280.381319" yMax="244.588178">suficiente</word>
+          <word xMin="283.698878" yMin="234.625538" xMax="303.106101" yMax="244.588178">para</word>
+          <word xMin="306.423660" yMin="234.625538" xMax="311.404980" yMax="244.588178">a</word>
+          <word xMin="314.722539" yMin="234.625538" xMax="354.324033" yMax="244.588178">extração.</word>
+        </line>
+        <line xMin="70.867000" yMin="246.641848" xMax="222.388792" yMax="256.604488">
+          <word xMin="70.867000" yMin="246.641848" xMax="82.214447" yMax="256.604488">A)</word>
+          <word xMin="85.532006" yMin="246.641848" xMax="122.124783" yMax="256.604488">primeira</word>
+          <word xMin="125.442342" yMin="246.641848" xMax="172.246825" yMax="256.604488">alternativa</word>
+          <word xMin="175.564384" yMin="246.641848" xMax="186.084932" yMax="256.604488">da</word>
+          <word xMin="189.402491" yMin="246.641848" xMax="222.388792" yMax="256.604488">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="258.658158" xMax="220.306600" yMax="268.620798">
+          <word xMin="70.867000" yMin="258.658158" xMax="81.796016" yMax="268.620798">B)</word>
+          <word xMin="85.113575" yMin="258.658158" xMax="120.042591" yMax="268.620798">segunda</word>
+          <word xMin="123.360150" yMin="258.658158" xMax="170.164633" yMax="268.620798">alternativa</word>
+          <word xMin="173.482192" yMin="258.658158" xMax="184.002740" yMax="268.620798">da</word>
+          <word xMin="187.320299" yMin="258.658158" xMax="220.306600" yMax="268.620798">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="270.674467" xMax="218.224408" yMax="280.637107">
+          <word xMin="70.867000" yMin="270.674467" xMax="81.935493" yMax="280.637107">C)</word>
+          <word xMin="85.253052" yMin="270.674467" xMax="117.960399" yMax="280.637107">terceira</word>
+          <word xMin="121.277958" yMin="270.674467" xMax="168.082441" yMax="280.637107">alternativa</word>
+          <word xMin="171.400000" yMin="270.674467" xMax="181.920548" yMax="280.637107">da</word>
+          <word xMin="185.238107" yMin="270.674467" xMax="218.224408" yMax="280.637107">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="282.690777" xMax="214.478456" yMax="292.653417">
+          <word xMin="70.867000" yMin="282.690777" xMax="82.353924" yMax="292.653417">D)</word>
+          <word xMin="85.671483" yMin="282.690777" xMax="114.214447" yMax="292.653417">quarta</word>
+          <word xMin="117.532006" yMin="282.690777" xMax="164.336488" yMax="292.653417">alternativa</word>
+          <word xMin="167.654048" yMin="282.690777" xMax="178.174595" yMax="292.653417">da</word>
+          <word xMin="181.492155" yMin="282.690777" xMax="214.478456" yMax="292.653417">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="294.707087" xMax="212.794769" yMax="304.669727">
+          <word xMin="70.867000" yMin="294.707087" xMax="81.527025" yMax="304.669727">E)</word>
+          <word xMin="84.844584" yMin="294.707087" xMax="112.530760" yMax="304.669727">quinta</word>
+          <word xMin="115.848320" yMin="294.707087" xMax="162.652802" yMax="304.669727">alternativa</word>
+          <word xMin="165.970361" yMin="294.707087" xMax="176.490909" yMax="304.669727">da</word>
+          <word xMin="179.808468" yMin="294.707087" xMax="212.794769" yMax="304.669727">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="315.735621" xMax="353.238106" yMax="397.796119">
+        <line xMin="70.867000" yMin="315.735621" xMax="141.422416" yMax="325.698261">
+          <word xMin="70.867000" yMin="315.735621" xMax="126.149689" yMax="325.698261">QUESTÃO</word>
+          <word xMin="129.965380" yMin="315.735621" xMax="141.422416" yMax="325.698261">03</word>
+        </line>
+        <line xMin="70.867000" yMin="327.751931" xMax="353.238106" yMax="337.714571">
+          <word xMin="70.867000" yMin="327.751931" xMax="116.685181" yMax="337.714571">Enunciado</word>
+          <word xMin="120.002740" yMin="327.751931" xMax="130.523288" yMax="337.714571">da</word>
+          <word xMin="133.840847" yMin="327.751931" xMax="166.827148" yMax="337.714571">questão</word>
+          <word xMin="170.144708" yMin="327.751931" xMax="189.043836" yMax="337.714571">três,</word>
+          <word xMin="192.361395" yMin="327.751931" xMax="210.065006" yMax="337.714571">com</word>
+          <word xMin="213.382565" yMin="327.751931" xMax="235.798505" yMax="337.714571">texto</word>
+          <word xMin="239.116064" yMin="327.751931" xMax="279.295391" yMax="337.714571">suficiente</word>
+          <word xMin="282.612951" yMin="327.751931" xMax="302.020173" yMax="337.714571">para</word>
+          <word xMin="305.337732" yMin="327.751931" xMax="310.319052" yMax="337.714571">a</word>
+          <word xMin="313.636612" yMin="327.751931" xMax="353.238106" yMax="337.714571">extração.</word>
+        </line>
+        <line xMin="70.867000" yMin="339.768240" xMax="222.388792" yMax="349.730880">
+          <word xMin="70.867000" yMin="339.768240" xMax="82.214447" yMax="349.730880">A)</word>
+          <word xMin="85.532006" yMin="339.768240" xMax="122.124783" yMax="349.730880">primeira</word>
+          <word xMin="125.442342" yMin="339.768240" xMax="172.246825" yMax="349.730880">alternativa</word>
+          <word xMin="175.564384" yMin="339.768240" xMax="186.084932" yMax="349.730880">da</word>
+          <word xMin="189.402491" yMin="339.768240" xMax="222.388792" yMax="349.730880">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="351.784550" xMax="220.306600" yMax="361.747190">
+          <word xMin="70.867000" yMin="351.784550" xMax="81.796016" yMax="361.747190">B)</word>
+          <word xMin="85.113575" yMin="351.784550" xMax="120.042591" yMax="361.747190">segunda</word>
+          <word xMin="123.360150" yMin="351.784550" xMax="170.164633" yMax="361.747190">alternativa</word>
+          <word xMin="173.482192" yMin="351.784550" xMax="184.002740" yMax="361.747190">da</word>
+          <word xMin="187.320299" yMin="351.784550" xMax="220.306600" yMax="361.747190">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="363.800860" xMax="218.224408" yMax="373.763500">
+          <word xMin="70.867000" yMin="363.800860" xMax="81.935493" yMax="373.763500">C)</word>
+          <word xMin="85.253052" yMin="363.800860" xMax="117.960399" yMax="373.763500">terceira</word>
+          <word xMin="121.277958" yMin="363.800860" xMax="168.082441" yMax="373.763500">alternativa</word>
+          <word xMin="171.400000" yMin="363.800860" xMax="181.920548" yMax="373.763500">da</word>
+          <word xMin="185.238107" yMin="363.800860" xMax="218.224408" yMax="373.763500">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="375.817169" xMax="214.478456" yMax="385.779809">
+          <word xMin="70.867000" yMin="375.817169" xMax="82.353924" yMax="385.779809">D)</word>
+          <word xMin="85.671483" yMin="375.817169" xMax="114.214447" yMax="385.779809">quarta</word>
+          <word xMin="117.532006" yMin="375.817169" xMax="164.336488" yMax="385.779809">alternativa</word>
+          <word xMin="167.654048" yMin="375.817169" xMax="178.174595" yMax="385.779809">da</word>
+          <word xMin="181.492155" yMin="375.817169" xMax="214.478456" yMax="385.779809">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="387.833479" xMax="212.794769" yMax="397.796119">
+          <word xMin="70.867000" yMin="387.833479" xMax="81.527025" yMax="397.796119">E)</word>
+          <word xMin="84.844584" yMin="387.833479" xMax="112.530760" yMax="397.796119">quinta</word>
+          <word xMin="115.848320" yMin="387.833479" xMax="162.652802" yMax="397.796119">alternativa</word>
+          <word xMin="165.970361" yMin="387.833479" xMax="176.490909" yMax="397.796119">da</word>
+          <word xMin="179.808468" yMin="387.833479" xMax="212.794769" yMax="397.796119">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="408.862013" xMax="365.651555" yMax="490.922512">
+        <line xMin="70.867000" yMin="408.862013" xMax="141.422416" yMax="418.824653">
+          <word xMin="70.867000" yMin="408.862013" xMax="126.149689" yMax="418.824653">QUESTÃO</word>
+          <word xMin="129.965380" yMin="408.862013" xMax="141.422416" yMax="418.824653">04</word>
+        </line>
+        <line xMin="70.867000" yMin="420.878323" xMax="365.651555" yMax="430.840963">
+          <word xMin="70.867000" yMin="420.878323" xMax="116.685181" yMax="430.840963">Enunciado</word>
+          <word xMin="120.002740" yMin="420.878323" xMax="130.523288" yMax="430.840963">da</word>
+          <word xMin="133.840847" yMin="420.878323" xMax="166.827148" yMax="430.840963">questão</word>
+          <word xMin="170.144708" yMin="420.878323" xMax="201.457285" yMax="430.840963">quatro,</word>
+          <word xMin="204.774844" yMin="420.878323" xMax="222.478456" yMax="430.840963">com</word>
+          <word xMin="225.796015" yMin="420.878323" xMax="248.211955" yMax="430.840963">texto</word>
+          <word xMin="251.529514" yMin="420.878323" xMax="291.708841" yMax="430.840963">suficiente</word>
+          <word xMin="295.026400" yMin="420.878323" xMax="314.433623" yMax="430.840963">para</word>
+          <word xMin="317.751182" yMin="420.878323" xMax="322.732502" yMax="430.840963">a</word>
+          <word xMin="326.050061" yMin="420.878323" xMax="365.651555" yMax="430.840963">extração.</word>
+        </line>
+        <line xMin="70.867000" yMin="432.894633" xMax="222.388792" yMax="442.857273">
+          <word xMin="70.867000" yMin="432.894633" xMax="82.214447" yMax="442.857273">A)</word>
+          <word xMin="85.532006" yMin="432.894633" xMax="122.124783" yMax="442.857273">primeira</word>
+          <word xMin="125.442342" yMin="432.894633" xMax="172.246825" yMax="442.857273">alternativa</word>
+          <word xMin="175.564384" yMin="432.894633" xMax="186.084932" yMax="442.857273">da</word>
+          <word xMin="189.402491" yMin="432.894633" xMax="222.388792" yMax="442.857273">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="444.910943" xMax="220.306600" yMax="454.873583">
+          <word xMin="70.867000" yMin="444.910943" xMax="81.796016" yMax="454.873583">B)</word>
+          <word xMin="85.113575" yMin="444.910943" xMax="120.042591" yMax="454.873583">segunda</word>
+          <word xMin="123.360150" yMin="444.910943" xMax="170.164633" yMax="454.873583">alternativa</word>
+          <word xMin="173.482192" yMin="444.910943" xMax="184.002740" yMax="454.873583">da</word>
+          <word xMin="187.320299" yMin="444.910943" xMax="220.306600" yMax="454.873583">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="456.927252" xMax="218.224408" yMax="466.889892">
+          <word xMin="70.867000" yMin="456.927252" xMax="81.935493" yMax="466.889892">C)</word>
+          <word xMin="85.253052" yMin="456.927252" xMax="117.960399" yMax="466.889892">terceira</word>
+          <word xMin="121.277958" yMin="456.927252" xMax="168.082441" yMax="466.889892">alternativa</word>
+          <word xMin="171.400000" yMin="456.927252" xMax="181.920548" yMax="466.889892">da</word>
+          <word xMin="185.238107" yMin="456.927252" xMax="218.224408" yMax="466.889892">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="468.943562" xMax="214.478456" yMax="478.906202">
+          <word xMin="70.867000" yMin="468.943562" xMax="82.353924" yMax="478.906202">D)</word>
+          <word xMin="85.671483" yMin="468.943562" xMax="114.214447" yMax="478.906202">quarta</word>
+          <word xMin="117.532006" yMin="468.943562" xMax="164.336488" yMax="478.906202">alternativa</word>
+          <word xMin="167.654048" yMin="468.943562" xMax="178.174595" yMax="478.906202">da</word>
+          <word xMin="181.492155" yMin="468.943562" xMax="214.478456" yMax="478.906202">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="480.959872" xMax="212.794769" yMax="490.922512">
+          <word xMin="70.867000" yMin="480.959872" xMax="81.527025" yMax="490.922512">E)</word>
+          <word xMin="84.844584" yMin="480.959872" xMax="112.530760" yMax="490.922512">quinta</word>
+          <word xMin="115.848320" yMin="480.959872" xMax="162.652802" yMax="490.922512">alternativa</word>
+          <word xMin="165.970361" yMin="480.959872" xMax="176.490909" yMax="490.922512">da</word>
+          <word xMin="179.808468" yMin="480.959872" xMax="212.794769" yMax="490.922512">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="501.988406" xMax="365.392526" yMax="584.048904">
+        <line xMin="70.867000" yMin="501.988406" xMax="141.422416" yMax="511.951046">
+          <word xMin="70.867000" yMin="501.988406" xMax="126.149689" yMax="511.951046">QUESTÃO</word>
+          <word xMin="129.965380" yMin="501.988406" xMax="141.422416" yMax="511.951046">05</word>
+        </line>
+        <line xMin="70.867000" yMin="514.004716" xMax="365.392526" yMax="523.967356">
+          <word xMin="70.867000" yMin="514.004716" xMax="116.685181" yMax="523.967356">Enunciado</word>
+          <word xMin="120.002740" yMin="514.004716" xMax="130.523288" yMax="523.967356">da</word>
+          <word xMin="133.840847" yMin="514.004716" xMax="166.827148" yMax="523.967356">questão</word>
+          <word xMin="170.144708" yMin="514.004716" xMax="195.051308" yMax="523.967356">cinco,</word>
+          <word xMin="198.368867" yMin="514.004716" xMax="216.072478" yMax="523.967356">com</word>
+          <word xMin="219.390037" yMin="514.004716" xMax="237.651556" yMax="523.967356">50%</word>
+          <word xMin="240.969115" yMin="514.004716" xMax="250.931755" yMax="523.967356">de</word>
+          <word xMin="254.249314" yMin="514.004716" xMax="283.300373" yMax="523.967356">chance</word>
+          <word xMin="286.617932" yMin="514.004716" xMax="294.368866" yMax="523.967356">&amp;</word>
+          <word xMin="297.686425" yMin="514.004716" xMax="320.431132" yMax="523.967356">custo</word>
+          <word xMin="323.748691" yMin="514.004716" xMax="333.711331" yMax="523.967356">de</word>
+          <word xMin="337.028890" yMin="514.004716" xMax="349.342713" yMax="523.967356">R$</word>
+          <word xMin="352.660272" yMin="514.004716" xMax="365.392526" yMax="523.967356">10.</word>
+        </line>
+        <line xMin="70.867000" yMin="526.021025" xMax="222.388792" yMax="535.983665">
+          <word xMin="70.867000" yMin="526.021025" xMax="82.214447" yMax="535.983665">A)</word>
+          <word xMin="85.532006" yMin="526.021025" xMax="122.124783" yMax="535.983665">primeira</word>
+          <word xMin="125.442342" yMin="526.021025" xMax="172.246825" yMax="535.983665">alternativa</word>
+          <word xMin="175.564384" yMin="526.021025" xMax="186.084932" yMax="535.983665">da</word>
+          <word xMin="189.402491" yMin="526.021025" xMax="222.388792" yMax="535.983665">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="538.037335" xMax="220.306600" yMax="547.999975">
+          <word xMin="70.867000" yMin="538.037335" xMax="81.796016" yMax="547.999975">B)</word>
+          <word xMin="85.113575" yMin="538.037335" xMax="120.042591" yMax="547.999975">segunda</word>
+          <word xMin="123.360150" yMin="538.037335" xMax="170.164633" yMax="547.999975">alternativa</word>
+          <word xMin="173.482192" yMin="538.037335" xMax="184.002740" yMax="547.999975">da</word>
+          <word xMin="187.320299" yMin="538.037335" xMax="220.306600" yMax="547.999975">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="550.053645" xMax="218.224408" yMax="560.016285">
+          <word xMin="70.867000" yMin="550.053645" xMax="81.935493" yMax="560.016285">C)</word>
+          <word xMin="85.253052" yMin="550.053645" xMax="117.960399" yMax="560.016285">terceira</word>
+          <word xMin="121.277958" yMin="550.053645" xMax="168.082441" yMax="560.016285">alternativa</word>
+          <word xMin="171.400000" yMin="550.053645" xMax="181.920548" yMax="560.016285">da</word>
+          <word xMin="185.238107" yMin="550.053645" xMax="218.224408" yMax="560.016285">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="562.069954" xMax="214.478456" yMax="572.032594">
+          <word xMin="70.867000" yMin="562.069954" xMax="82.353924" yMax="572.032594">D)</word>
+          <word xMin="85.671483" yMin="562.069954" xMax="114.214447" yMax="572.032594">quarta</word>
+          <word xMin="117.532006" yMin="562.069954" xMax="164.336488" yMax="572.032594">alternativa</word>
+          <word xMin="167.654048" yMin="562.069954" xMax="178.174595" yMax="572.032594">da</word>
+          <word xMin="181.492155" yMin="562.069954" xMax="214.478456" yMax="572.032594">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="574.086264" xMax="212.794769" yMax="584.048904">
+          <word xMin="70.867000" yMin="574.086264" xMax="81.527025" yMax="584.048904">E)</word>
+          <word xMin="84.844584" yMin="574.086264" xMax="112.530760" yMax="584.048904">quinta</word>
+          <word xMin="115.848320" yMin="574.086264" xMax="162.652802" yMax="584.048904">alternativa</word>
+          <word xMin="165.970361" yMin="574.086264" xMax="176.490909" yMax="584.048904">da</word>
+          <word xMin="179.808468" yMin="574.086264" xMax="212.794769" yMax="584.048904">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="595.114798" xMax="231.255541" yMax="605.077438">
+        <line xMin="70.867000" yMin="595.114798" xMax="231.255541" yMax="605.077438">
+          <word xMin="70.867000" yMin="595.114798" xMax="99.360150" yMax="605.077438">Texto</word>
+          <word xMin="103.175842" yMin="595.114798" xMax="125.402491" yMax="605.077438">para</word>
+          <word xMin="129.218182" yMin="595.114798" xMax="139.310337" yMax="605.077438">as</word>
+          <word xMin="143.126028" yMin="595.114798" xMax="188.147198" yMax="605.077438">Questões</word>
+          <word xMin="191.962889" yMin="595.114798" xMax="203.419925" yMax="605.077438">06</word>
+          <word xMin="207.235616" yMin="595.114798" xMax="212.804732" yMax="605.077438">a</word>
+          <word xMin="216.620423" yMin="595.114798" xMax="231.255541" yMax="605.077438">10.</word>
+        </line>
+      </block>
+      <block xMin="146.149160" yMin="607.131108" xMax="420.928734" yMax="629.110058">
+        <line xMin="238.651246" yMin="607.131108" xMax="328.324969" yMax="617.093748">
+          <word xMin="238.651246" yMin="607.131108" xMax="252.688606" yMax="617.093748">De</word>
+          <word xMin="256.504297" yMin="607.131108" xMax="293.316252" yMax="617.093748">próprio</word>
+          <word xMin="297.131943" yMin="607.131108" xMax="328.324969" yMax="617.093748">punho</word>
+        </line>
+        <line xMin="146.149160" yMin="619.147418" xMax="420.928734" yMax="629.110058">
+          <word xMin="146.149160" yMin="619.147418" xMax="153.551402" yMax="629.110058">A</word>
+          <word xMin="157.118027" yMin="619.147418" xMax="186.019645" yMax="629.110058">escrita</word>
+          <word xMin="189.586270" yMin="619.147418" xMax="194.169085" yMax="629.110058">e</word>
+          <word xMin="197.735710" yMin="619.147418" xMax="216.325996" yMax="629.110058">suas</word>
+          <word xMin="219.892621" yMin="619.147418" xMax="266.487889" yMax="629.110058">tecnologias</word>
+          <word xMin="270.054514" yMin="619.147418" xMax="298.707066" yMax="629.110058">sofrem</word>
+          <word xMin="302.273691" yMin="619.147418" xMax="357.905073" yMax="629.110058">interessantes</word>
+          <word xMin="361.471698" yMin="619.147418" xMax="420.928734" yMax="629.110058">metamorfoses</word>
+        </line>
+      </block>
+      <block xMin="38.999200" yMin="640.175952" xMax="43.980520" yMax="698.203831">
+        <line xMin="38.999200" yMin="640.175952" xMax="43.980520" yMax="650.138592">
+          <word xMin="38.999200" yMin="640.175952" xMax="43.980520" yMax="650.138592">1</word>
+        </line>
+        <line xMin="38.999200" yMin="652.192262" xMax="43.980520" yMax="662.154902">
+          <word xMin="38.999200" yMin="652.192262" xMax="43.980520" yMax="662.154902">2</word>
+        </line>
+        <line xMin="38.999200" yMin="664.208572" xMax="43.980520" yMax="674.171212">
+          <word xMin="38.999200" yMin="664.208572" xMax="43.980520" yMax="674.171212">3</word>
+        </line>
+        <line xMin="38.999200" yMin="676.224881" xMax="43.980520" yMax="686.187521">
+          <word xMin="38.999200" yMin="676.224881" xMax="43.980520" yMax="686.187521">4</word>
+        </line>
+        <line xMin="38.999200" yMin="688.241191" xMax="43.980520" yMax="698.203831">
+          <word xMin="38.999200" yMin="688.241191" xMax="43.980520" yMax="698.203831">5</word>
+        </line>
+      </block>
+    </flow>
+    <flow>
+      <block xMin="70.867000" yMin="640.175952" xMax="405.691405" yMax="698.203831">
+        <line xMin="70.867000" yMin="640.175952" xMax="405.691405" yMax="650.138592">
+          <word xMin="70.867000" yMin="640.175952" xMax="112.610462" yMax="650.138592">Estranhei</word>
+          <word xMin="115.928021" yMin="640.175952" xMax="141.113575" yMax="650.138592">muito</word>
+          <word xMin="144.431134" yMin="640.175952" xMax="154.951682" yMax="650.138592">na</word>
+          <word xMin="158.269241" yMin="640.175952" xMax="194.862017" yMax="650.138592">primeira</word>
+          <word xMin="198.179577" yMin="640.175952" xMax="212.007721" yMax="650.138592">vez</word>
+          <word xMin="215.325280" yMin="640.175952" xMax="230.548194" yMax="650.138592">que</word>
+          <word xMin="233.865753" yMin="640.175952" xMax="263.245578" yMax="650.138592">escutei</word>
+          <word xMin="266.563138" yMin="640.175952" xMax="271.544458" yMax="650.138592">a</word>
+          <word xMin="274.862017" yMin="640.175952" xMax="316.226898" yMax="650.138592">expressão</word>
+          <word xMin="319.544457" yMin="640.175952" xMax="334.209463" yMax="650.138592">“de</word>
+          <word xMin="337.527022" yMin="640.175952" xMax="369.148442" yMax="650.138592">próprio</word>
+          <word xMin="372.466001" yMin="640.175952" xMax="405.691405" yMax="650.138592">punho”.</word>
+        </line>
+        <line xMin="70.867000" yMin="652.192262" xMax="401.995266" yMax="662.154902">
+          <word xMin="70.867000" yMin="652.192262" xMax="102.857037" yMax="662.154902">Parecia</word>
+          <word xMin="106.174596" yMin="652.192262" xMax="121.397510" yMax="662.154902">que</word>
+          <word xMin="124.715069" yMin="652.192262" xMax="134.677709" yMax="662.154902">eu</word>
+          <word xMin="137.995268" yMin="652.192262" xMax="145.746202" yMax="662.154902">ia</word>
+          <word xMin="149.063761" yMin="652.192262" xMax="171.788543" yMax="662.154902">bater</word>
+          <word xMin="175.106102" yMin="652.192262" xMax="187.828394" yMax="662.154902">em</word>
+          <word xMin="191.145953" yMin="652.192262" xMax="224.909340" yMax="662.154902">alguém.</word>
+          <word xMin="229.332752" yMin="652.192262" xMax="246.767372" yMax="662.154902">Não</word>
+          <word xMin="250.084931" yMin="652.192262" xMax="263.395018" yMax="662.154902">era</word>
+          <word xMin="266.712577" yMin="652.192262" xMax="285.253050" yMax="662.154902">bem</word>
+          <word xMin="288.570609" yMin="652.192262" xMax="293.551929" yMax="662.154902">o</word>
+          <word xMin="296.869488" yMin="652.192262" xMax="317.950435" yMax="662.154902">caso.</word>
+          <word xMin="322.373847" yMin="652.192262" xMax="335.803486" yMax="662.154902">Foi</word>
+          <word xMin="339.121045" yMin="652.192262" xMax="363.200746" yMax="662.154902">numa</word>
+          <word xMin="366.518305" yMin="652.192262" xMax="401.995266" yMax="662.154902">situação</word>
+        </line>
+        <line xMin="70.867000" yMin="664.208572" xMax="379.559400" yMax="674.171212">
+          <word xMin="70.867000" yMin="664.208572" xMax="110.757411" yMax="674.171212">bancária,</word>
+          <word xMin="114.074970" yMin="664.208572" xMax="140.794770" yMax="674.171212">dessas</word>
+          <word xMin="144.112329" yMin="664.208572" xMax="162.652802" yMax="674.171212">bem</word>
+          <word xMin="165.970361" yMin="664.208572" xMax="222.269240" yMax="674.171212">burocráticas,</word>
+          <word xMin="225.586799" yMin="664.208572" xMax="230.010211" yMax="674.171212">e</word>
+          <word xMin="233.327770" yMin="664.208572" xMax="243.290410" yMax="674.171212">eu</word>
+          <word xMin="246.607970" yMin="664.208572" xMax="269.581817" yMax="674.171212">devia</word>
+          <word xMin="272.899377" yMin="664.208572" xMax="307.310335" yMax="674.171212">escrever</word>
+          <word xMin="310.627894" yMin="664.208572" xMax="328.341468" yMax="674.171212">algo</word>
+          <word xMin="331.659027" yMin="664.208572" xMax="350.199500" yMax="674.171212">bem</word>
+          <word xMin="353.517059" yMin="664.208572" xMax="379.559400" yMax="674.171212">breve,</word>
+        </line>
+        <line xMin="70.867000" yMin="676.224881" xMax="389.332750" yMax="686.187521">
+          <word xMin="70.867000" yMin="676.224881" xMax="88.072479" yMax="686.187521">mas</word>
+          <word xMin="91.390038" yMin="676.224881" xMax="109.093650" yMax="686.187521">com</word>
+          <word xMin="112.411209" yMin="676.224881" xMax="143.464758" yMax="686.187521">minhas</word>
+          <word xMin="146.782317" yMin="676.224881" xMax="171.738730" yMax="686.187521">mãos.</word>
+          <word xMin="176.162142" yMin="676.224881" xMax="188.615442" yMax="686.187521">Na</word>
+          <word xMin="191.933001" yMin="676.224881" xMax="228.495890" yMax="686.187521">verdade,</word>
+          <word xMin="231.813449" yMin="676.224881" xMax="236.794769" yMax="686.187521">o</word>
+          <word xMin="240.112328" yMin="676.224881" xMax="255.335242" yMax="686.187521">que</word>
+          <word xMin="258.652801" yMin="676.224881" xMax="302.687670" yMax="686.187521">importava</word>
+          <word xMin="306.005229" yMin="676.224881" xMax="319.315316" yMax="686.187521">era</word>
+          <word xMin="322.632875" yMin="676.224881" xMax="327.614195" yMax="686.187521">a</word>
+          <word xMin="330.931755" yMin="676.224881" xMax="389.332750" yMax="686.187521">autenticidade</word>
+        </line>
+        <line xMin="70.867000" yMin="688.241191" xMax="347.738728" yMax="698.203831">
+          <word xMin="70.867000" yMin="688.241191" xMax="81.387548" yMax="698.203831">da</word>
+          <word xMin="84.705107" yMin="688.241191" xMax="111.833376" yMax="698.203831">minha</word>
+          <word xMin="115.150935" yMin="688.241191" xMax="157.253051" yMax="698.203831">caligrafia,</word>
+          <word xMin="160.570611" yMin="688.241191" xMax="175.793524" yMax="698.203831">que</word>
+          <word xMin="179.111084" yMin="688.241191" xMax="184.092404" yMax="698.203831">à</word>
+          <word xMin="187.409963" yMin="688.241191" xMax="212.316563" yMax="698.203831">época</word>
+          <word xMin="215.634122" yMin="688.241191" xMax="239.444831" yMax="698.203831">ainda</word>
+          <word xMin="242.762391" yMin="688.241191" xMax="256.072478" yMax="698.203831">era</word>
+          <word xMin="259.390037" yMin="688.241191" xMax="279.365130" yMax="698.203831">mais</word>
+          <word xMin="282.682689" yMin="688.241191" xMax="311.743710" yMax="698.203831">fluente</word>
+          <word xMin="315.061269" yMin="688.241191" xMax="319.484681" yMax="698.203831">e</word>
+          <word xMin="322.802240" yMin="688.241191" xMax="347.738728" yMax="698.203831">firme.</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="709.269725" xMax="141.422416" yMax="719.232365">
+        <line xMin="70.867000" yMin="709.269725" xMax="141.422416" yMax="719.232365">
+          <word xMin="70.867000" yMin="709.269725" xMax="126.149689" yMax="719.232365">QUESTÃO</word>
+          <word xMin="129.965380" yMin="709.269725" xMax="141.422416" yMax="719.232365">06</word>
+        </line>
+      </block>
+    </flow>
+  </page>
+  <page width="595.275590" height="841.889758">
+    <flow>
+      <block xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">
+        <line xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">
+          <word xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">2</word>
+        </line>
+      </block>
+    </flow>
+    <flow>
+      <block xMin="70.867000" yMin="129.482836" xMax="335.962888" yMax="199.527024">
+        <line xMin="70.867000" yMin="129.482836" xMax="335.962888" yMax="139.445476">
+          <word xMin="70.867000" yMin="129.482836" xMax="83.320300" yMax="139.445476">No</word>
+          <word xMin="86.637859" yMin="129.482836" xMax="101.860773" yMax="139.445476">que</word>
+          <word xMin="105.178332" yMin="129.482836" xMax="117.910586" yMax="139.445476">diz</word>
+          <word xMin="121.228145" yMin="129.482836" xMax="155.350187" yMax="139.445476">respeito</word>
+          <word xMin="158.667746" yMin="129.482836" xMax="168.630386" yMax="139.445476">ao</word>
+          <word xMin="171.947945" yMin="129.482836" xMax="200.201992" yMax="139.445476">gênero</word>
+          <word xMin="203.519552" yMin="129.482836" xMax="235.629140" yMax="139.445476">bilhete,</word>
+          <word xMin="238.946699" yMin="129.482836" xMax="243.928019" yMax="139.445476">a</word>
+          <word xMin="247.245579" yMin="129.482836" xMax="275.509588" yMax="139.445476">autora</word>
+          <word xMin="278.827147" yMin="129.482836" xMax="301.621668" yMax="139.445476">dessa</word>
+          <word xMin="304.939227" yMin="129.482836" xMax="335.962888" yMax="139.445476">crônica</word>
+        </line>
+        <line xMin="70.867000" yMin="141.499146" xMax="222.388792" yMax="151.461786">
+          <word xMin="70.867000" yMin="141.499146" xMax="82.214447" yMax="151.461786">A)</word>
+          <word xMin="85.532006" yMin="141.499146" xMax="122.124783" yMax="151.461786">primeira</word>
+          <word xMin="125.442342" yMin="141.499146" xMax="172.246825" yMax="151.461786">alternativa</word>
+          <word xMin="175.564384" yMin="141.499146" xMax="186.084932" yMax="151.461786">da</word>
+          <word xMin="189.402491" yMin="141.499146" xMax="222.388792" yMax="151.461786">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="153.515455" xMax="220.306600" yMax="163.478095">
+          <word xMin="70.867000" yMin="153.515455" xMax="81.796016" yMax="163.478095">B)</word>
+          <word xMin="85.113575" yMin="153.515455" xMax="120.042591" yMax="163.478095">segunda</word>
+          <word xMin="123.360150" yMin="153.515455" xMax="170.164633" yMax="163.478095">alternativa</word>
+          <word xMin="173.482192" yMin="153.515455" xMax="184.002740" yMax="163.478095">da</word>
+          <word xMin="187.320299" yMin="153.515455" xMax="220.306600" yMax="163.478095">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="165.531765" xMax="218.224408" yMax="175.494405">
+          <word xMin="70.867000" yMin="165.531765" xMax="81.935493" yMax="175.494405">C)</word>
+          <word xMin="85.253052" yMin="165.531765" xMax="117.960399" yMax="175.494405">terceira</word>
+          <word xMin="121.277958" yMin="165.531765" xMax="168.082441" yMax="175.494405">alternativa</word>
+          <word xMin="171.400000" yMin="165.531765" xMax="181.920548" yMax="175.494405">da</word>
+          <word xMin="185.238107" yMin="165.531765" xMax="218.224408" yMax="175.494405">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="177.548075" xMax="214.478456" yMax="187.510715">
+          <word xMin="70.867000" yMin="177.548075" xMax="82.353924" yMax="187.510715">D)</word>
+          <word xMin="85.671483" yMin="177.548075" xMax="114.214447" yMax="187.510715">quarta</word>
+          <word xMin="117.532006" yMin="177.548075" xMax="164.336488" yMax="187.510715">alternativa</word>
+          <word xMin="167.654048" yMin="177.548075" xMax="178.174595" yMax="187.510715">da</word>
+          <word xMin="181.492155" yMin="177.548075" xMax="214.478456" yMax="187.510715">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="189.564384" xMax="212.794769" yMax="199.527024">
+          <word xMin="70.867000" yMin="189.564384" xMax="81.527025" yMax="199.527024">E)</word>
+          <word xMin="84.844584" yMin="189.564384" xMax="112.530760" yMax="199.527024">quinta</word>
+          <word xMin="115.848320" yMin="189.564384" xMax="162.652802" yMax="199.527024">alternativa</word>
+          <word xMin="165.970361" yMin="189.564384" xMax="176.490909" yMax="199.527024">da</word>
+          <word xMin="179.808468" yMin="189.564384" xMax="212.794769" yMax="199.527024">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="210.592919" xMax="311.474719" yMax="292.653417">
+        <line xMin="70.867000" yMin="210.592919" xMax="141.422416" yMax="220.555559">
+          <word xMin="70.867000" yMin="210.592919" xMax="126.149689" yMax="220.555559">QUESTÃO</word>
+          <word xMin="129.965380" yMin="210.592919" xMax="141.422416" yMax="220.555559">07</word>
+        </line>
+        <line xMin="70.867000" yMin="222.609228" xMax="311.474719" yMax="232.571868">
+          <word xMin="70.867000" yMin="222.609228" xMax="78.617934" yMax="232.571868">O</word>
+          <word xMin="81.935493" yMin="222.609228" xMax="120.391283" yMax="232.571868">elemento</word>
+          <word xMin="123.708843" yMin="222.609228" xMax="138.931756" yMax="232.571868">que</word>
+          <word xMin="142.249316" yMin="222.609228" xMax="189.342715" yMax="232.571868">caracteriza</word>
+          <word xMin="192.660274" yMin="222.609228" xMax="209.357659" yMax="232.571868">esse</word>
+          <word xMin="212.675218" yMin="222.609228" xMax="235.091158" yMax="232.571868">texto</word>
+          <word xMin="238.408717" yMin="222.609228" xMax="261.093648" yMax="232.571868">como</word>
+          <word xMin="264.411207" yMin="222.609228" xMax="295.434868" yMax="232.571868">crônica</word>
+          <word xMin="298.752427" yMin="222.609228" xMax="303.175840" yMax="232.571868">é</word>
+          <word xMin="306.493399" yMin="222.609228" xMax="311.474719" yMax="232.571868">a</word>
+        </line>
+        <line xMin="70.867000" yMin="234.625538" xMax="222.388792" yMax="244.588178">
+          <word xMin="70.867000" yMin="234.625538" xMax="82.214447" yMax="244.588178">A)</word>
+          <word xMin="85.532006" yMin="234.625538" xMax="122.124783" yMax="244.588178">primeira</word>
+          <word xMin="125.442342" yMin="234.625538" xMax="172.246825" yMax="244.588178">alternativa</word>
+          <word xMin="175.564384" yMin="234.625538" xMax="186.084932" yMax="244.588178">da</word>
+          <word xMin="189.402491" yMin="234.625538" xMax="222.388792" yMax="244.588178">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="246.641848" xMax="220.306600" yMax="256.604488">
+          <word xMin="70.867000" yMin="246.641848" xMax="81.796016" yMax="256.604488">B)</word>
+          <word xMin="85.113575" yMin="246.641848" xMax="120.042591" yMax="256.604488">segunda</word>
+          <word xMin="123.360150" yMin="246.641848" xMax="170.164633" yMax="256.604488">alternativa</word>
+          <word xMin="173.482192" yMin="246.641848" xMax="184.002740" yMax="256.604488">da</word>
+          <word xMin="187.320299" yMin="246.641848" xMax="220.306600" yMax="256.604488">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="258.658158" xMax="218.224408" yMax="268.620798">
+          <word xMin="70.867000" yMin="258.658158" xMax="81.935493" yMax="268.620798">C)</word>
+          <word xMin="85.253052" yMin="258.658158" xMax="117.960399" yMax="268.620798">terceira</word>
+          <word xMin="121.277958" yMin="258.658158" xMax="168.082441" yMax="268.620798">alternativa</word>
+          <word xMin="171.400000" yMin="258.658158" xMax="181.920548" yMax="268.620798">da</word>
+          <word xMin="185.238107" yMin="258.658158" xMax="218.224408" yMax="268.620798">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="270.674467" xMax="214.478456" yMax="280.637107">
+          <word xMin="70.867000" yMin="270.674467" xMax="82.353924" yMax="280.637107">D)</word>
+          <word xMin="85.671483" yMin="270.674467" xMax="114.214447" yMax="280.637107">quarta</word>
+          <word xMin="117.532006" yMin="270.674467" xMax="164.336488" yMax="280.637107">alternativa</word>
+          <word xMin="167.654048" yMin="270.674467" xMax="178.174595" yMax="280.637107">da</word>
+          <word xMin="181.492155" yMin="270.674467" xMax="214.478456" yMax="280.637107">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="282.690777" xMax="212.794769" yMax="292.653417">
+          <word xMin="70.867000" yMin="282.690777" xMax="81.527025" yMax="292.653417">E)</word>
+          <word xMin="84.844584" yMin="282.690777" xMax="112.530760" yMax="292.653417">quinta</word>
+          <word xMin="115.848320" yMin="282.690777" xMax="162.652802" yMax="292.653417">alternativa</word>
+          <word xMin="165.970361" yMin="282.690777" xMax="176.490909" yMax="292.653417">da</word>
+          <word xMin="179.808468" yMin="282.690777" xMax="212.794769" yMax="292.653417">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="303.719311" xMax="277.850809" yMax="385.779809">
+        <line xMin="70.867000" yMin="303.719311" xMax="141.422416" yMax="313.681951">
+          <word xMin="70.867000" yMin="303.719311" xMax="126.149689" yMax="313.681951">QUESTÃO</word>
+          <word xMin="129.965380" yMin="303.719311" xMax="141.422416" yMax="313.681951">08</word>
+        </line>
+        <line xMin="70.867000" yMin="315.735621" xMax="277.850809" yMax="325.698261">
+          <word xMin="70.867000" yMin="315.735621" xMax="95.036365" yMax="325.698261">Nesse</word>
+          <word xMin="98.353924" yMin="315.735621" xMax="123.539478" yMax="325.698261">texto,</word>
+          <word xMin="126.857037" yMin="315.735621" xMax="131.838357" yMax="325.698261">a</word>
+          <word xMin="135.155916" yMin="315.735621" xMax="163.459776" yMax="325.698261">escrita</word>
+          <word xMin="166.777335" yMin="315.735621" xMax="194.463512" yMax="325.698261">digital</word>
+          <word xMin="197.781071" yMin="315.735621" xMax="202.204483" yMax="325.698261">é</word>
+          <word xMin="205.522042" yMin="315.735621" xMax="243.808468" yMax="325.698261">ilustrada</word>
+          <word xMin="247.126027" yMin="315.735621" xMax="277.850809" yMax="325.698261">pelo(a)</word>
+        </line>
+        <line xMin="70.867000" yMin="327.751931" xMax="222.388792" yMax="337.714571">
+          <word xMin="70.867000" yMin="327.751931" xMax="82.214447" yMax="337.714571">A)</word>
+          <word xMin="85.532006" yMin="327.751931" xMax="122.124783" yMax="337.714571">primeira</word>
+          <word xMin="125.442342" yMin="327.751931" xMax="172.246825" yMax="337.714571">alternativa</word>
+          <word xMin="175.564384" yMin="327.751931" xMax="186.084932" yMax="337.714571">da</word>
+          <word xMin="189.402491" yMin="327.751931" xMax="222.388792" yMax="337.714571">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="339.768240" xMax="220.306600" yMax="349.730880">
+          <word xMin="70.867000" yMin="339.768240" xMax="81.796016" yMax="349.730880">B)</word>
+          <word xMin="85.113575" yMin="339.768240" xMax="120.042591" yMax="349.730880">segunda</word>
+          <word xMin="123.360150" yMin="339.768240" xMax="170.164633" yMax="349.730880">alternativa</word>
+          <word xMin="173.482192" yMin="339.768240" xMax="184.002740" yMax="349.730880">da</word>
+          <word xMin="187.320299" yMin="339.768240" xMax="220.306600" yMax="349.730880">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="351.784550" xMax="218.224408" yMax="361.747190">
+          <word xMin="70.867000" yMin="351.784550" xMax="81.935493" yMax="361.747190">C)</word>
+          <word xMin="85.253052" yMin="351.784550" xMax="117.960399" yMax="361.747190">terceira</word>
+          <word xMin="121.277958" yMin="351.784550" xMax="168.082441" yMax="361.747190">alternativa</word>
+          <word xMin="171.400000" yMin="351.784550" xMax="181.920548" yMax="361.747190">da</word>
+          <word xMin="185.238107" yMin="351.784550" xMax="218.224408" yMax="361.747190">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="363.800860" xMax="214.478456" yMax="373.763500">
+          <word xMin="70.867000" yMin="363.800860" xMax="82.353924" yMax="373.763500">D)</word>
+          <word xMin="85.671483" yMin="363.800860" xMax="114.214447" yMax="373.763500">quarta</word>
+          <word xMin="117.532006" yMin="363.800860" xMax="164.336488" yMax="373.763500">alternativa</word>
+          <word xMin="167.654048" yMin="363.800860" xMax="178.174595" yMax="373.763500">da</word>
+          <word xMin="181.492155" yMin="363.800860" xMax="214.478456" yMax="373.763500">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="375.817169" xMax="212.794769" yMax="385.779809">
+          <word xMin="70.867000" yMin="375.817169" xMax="81.527025" yMax="385.779809">E)</word>
+          <word xMin="84.844584" yMin="375.817169" xMax="112.530760" yMax="385.779809">quinta</word>
+          <word xMin="115.848320" yMin="375.817169" xMax="162.652802" yMax="385.779809">alternativa</word>
+          <word xMin="165.970361" yMin="375.817169" xMax="176.490909" yMax="385.779809">da</word>
+          <word xMin="179.808468" yMin="375.817169" xMax="212.794769" yMax="385.779809">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="396.845704" xMax="297.487172" yMax="478.906202">
+        <line xMin="70.867000" yMin="396.845704" xMax="141.422416" yMax="406.808344">
+          <word xMin="70.867000" yMin="396.845704" xMax="126.149689" yMax="406.808344">QUESTÃO</word>
+          <word xMin="129.965380" yMin="396.845704" xMax="141.422416" yMax="406.808344">09</word>
+        </line>
+        <line xMin="70.867000" yMin="408.862013" xMax="297.487172" yMax="418.824653">
+          <word xMin="70.867000" yMin="408.862013" xMax="78.338980" yMax="418.824653">A</word>
+          <word xMin="81.656539" yMin="408.862013" xMax="109.920549" yMax="418.824653">autora</word>
+          <word xMin="113.238108" yMin="408.862013" xMax="143.683936" yMax="418.824653">conclui</word>
+          <word xMin="147.001495" yMin="408.862013" xMax="162.224409" yMax="418.824653">que</word>
+          <word xMin="165.541968" yMin="408.862013" xMax="174.448568" yMax="418.824653">as</word>
+          <word xMin="177.766127" yMin="408.862013" xMax="201.616687" yMax="418.824653">novas</word>
+          <word xMin="204.934246" yMin="408.862013" xMax="252.585554" yMax="418.824653">tecnologias</word>
+          <word xMin="255.903113" yMin="408.862013" xMax="265.865753" yMax="418.824653">de</word>
+          <word xMin="269.183312" yMin="408.862013" xMax="297.487172" yMax="418.824653">escrita</word>
+        </line>
+        <line xMin="70.867000" yMin="420.878323" xMax="222.388792" yMax="430.840963">
+          <word xMin="70.867000" yMin="420.878323" xMax="82.214447" yMax="430.840963">A)</word>
+          <word xMin="85.532006" yMin="420.878323" xMax="122.124783" yMax="430.840963">primeira</word>
+          <word xMin="125.442342" yMin="420.878323" xMax="172.246825" yMax="430.840963">alternativa</word>
+          <word xMin="175.564384" yMin="420.878323" xMax="186.084932" yMax="430.840963">da</word>
+          <word xMin="189.402491" yMin="420.878323" xMax="222.388792" yMax="430.840963">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="432.894633" xMax="220.306600" yMax="442.857273">
+          <word xMin="70.867000" yMin="432.894633" xMax="81.796016" yMax="442.857273">B)</word>
+          <word xMin="85.113575" yMin="432.894633" xMax="120.042591" yMax="442.857273">segunda</word>
+          <word xMin="123.360150" yMin="432.894633" xMax="170.164633" yMax="442.857273">alternativa</word>
+          <word xMin="173.482192" yMin="432.894633" xMax="184.002740" yMax="442.857273">da</word>
+          <word xMin="187.320299" yMin="432.894633" xMax="220.306600" yMax="442.857273">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="444.910943" xMax="218.224408" yMax="454.873583">
+          <word xMin="70.867000" yMin="444.910943" xMax="81.935493" yMax="454.873583">C)</word>
+          <word xMin="85.253052" yMin="444.910943" xMax="117.960399" yMax="454.873583">terceira</word>
+          <word xMin="121.277958" yMin="444.910943" xMax="168.082441" yMax="454.873583">alternativa</word>
+          <word xMin="171.400000" yMin="444.910943" xMax="181.920548" yMax="454.873583">da</word>
+          <word xMin="185.238107" yMin="444.910943" xMax="218.224408" yMax="454.873583">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="456.927252" xMax="214.478456" yMax="466.889892">
+          <word xMin="70.867000" yMin="456.927252" xMax="82.353924" yMax="466.889892">D)</word>
+          <word xMin="85.671483" yMin="456.927252" xMax="114.214447" yMax="466.889892">quarta</word>
+          <word xMin="117.532006" yMin="456.927252" xMax="164.336488" yMax="466.889892">alternativa</word>
+          <word xMin="167.654048" yMin="456.927252" xMax="178.174595" yMax="466.889892">da</word>
+          <word xMin="181.492155" yMin="456.927252" xMax="214.478456" yMax="466.889892">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="468.943562" xMax="212.794769" yMax="478.906202">
+          <word xMin="70.867000" yMin="468.943562" xMax="81.527025" yMax="478.906202">E)</word>
+          <word xMin="84.844584" yMin="468.943562" xMax="112.530760" yMax="478.906202">quinta</word>
+          <word xMin="115.848320" yMin="468.943562" xMax="162.652802" yMax="478.906202">alternativa</word>
+          <word xMin="165.970361" yMin="468.943562" xMax="176.490909" yMax="478.906202">da</word>
+          <word xMin="179.808468" yMin="468.943562" xMax="212.794769" yMax="478.906202">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="489.972096" xMax="352.919301" yMax="572.032594">
+        <line xMin="70.867000" yMin="489.972096" xMax="141.422416" yMax="499.934736">
+          <word xMin="70.867000" yMin="489.972096" xMax="126.149689" yMax="499.934736">QUESTÃO</word>
+          <word xMin="129.965380" yMin="489.972096" xMax="141.422416" yMax="499.934736">10</word>
+        </line>
+        <line xMin="70.867000" yMin="501.988406" xMax="352.919301" yMax="511.951046">
+          <word xMin="70.867000" yMin="501.988406" xMax="78.617934" yMax="511.951046">O</word>
+          <word xMin="81.935493" yMin="501.988406" xMax="113.038855" yMax="511.951046">recurso</word>
+          <word xMin="116.356414" yMin="501.988406" xMax="160.700125" yMax="511.951046">linguístico</word>
+          <word xMin="164.017684" yMin="501.988406" xMax="188.984060" yMax="511.951046">usado</word>
+          <word xMin="192.301619" yMin="501.988406" xMax="202.822167" yMax="511.951046">na</word>
+          <word xMin="206.139726" yMin="501.988406" xMax="234.742465" yMax="511.951046">síntese</word>
+          <word xMin="238.060024" yMin="501.988406" xMax="248.580572" yMax="511.951046">da</word>
+          <word xMin="251.898131" yMin="501.988406" xMax="283.459775" yMax="511.951046">opinião</word>
+          <word xMin="286.777334" yMin="501.988406" xMax="296.192029" yMax="511.951046">(l.</word>
+          <word xMin="300.615441" yMin="501.988406" xMax="317.771107" yMax="511.951046">3-4)</word>
+          <word xMin="321.088666" yMin="501.988406" xMax="331.888168" yMax="511.951046">foi</word>
+          <word xMin="335.205727" yMin="501.988406" xMax="352.919301" yMax="511.951046">o(a)</word>
+        </line>
+        <line xMin="70.867000" yMin="514.004716" xMax="222.388792" yMax="523.967356">
+          <word xMin="70.867000" yMin="514.004716" xMax="82.214447" yMax="523.967356">A)</word>
+          <word xMin="85.532006" yMin="514.004716" xMax="122.124783" yMax="523.967356">primeira</word>
+          <word xMin="125.442342" yMin="514.004716" xMax="172.246825" yMax="523.967356">alternativa</word>
+          <word xMin="175.564384" yMin="514.004716" xMax="186.084932" yMax="523.967356">da</word>
+          <word xMin="189.402491" yMin="514.004716" xMax="222.388792" yMax="523.967356">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="526.021025" xMax="220.306600" yMax="535.983665">
+          <word xMin="70.867000" yMin="526.021025" xMax="81.796016" yMax="535.983665">B)</word>
+          <word xMin="85.113575" yMin="526.021025" xMax="120.042591" yMax="535.983665">segunda</word>
+          <word xMin="123.360150" yMin="526.021025" xMax="170.164633" yMax="535.983665">alternativa</word>
+          <word xMin="173.482192" yMin="526.021025" xMax="184.002740" yMax="535.983665">da</word>
+          <word xMin="187.320299" yMin="526.021025" xMax="220.306600" yMax="535.983665">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="538.037335" xMax="218.224408" yMax="547.999975">
+          <word xMin="70.867000" yMin="538.037335" xMax="81.935493" yMax="547.999975">C)</word>
+          <word xMin="85.253052" yMin="538.037335" xMax="117.960399" yMax="547.999975">terceira</word>
+          <word xMin="121.277958" yMin="538.037335" xMax="168.082441" yMax="547.999975">alternativa</word>
+          <word xMin="171.400000" yMin="538.037335" xMax="181.920548" yMax="547.999975">da</word>
+          <word xMin="185.238107" yMin="538.037335" xMax="218.224408" yMax="547.999975">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="550.053645" xMax="214.478456" yMax="560.016285">
+          <word xMin="70.867000" yMin="550.053645" xMax="82.353924" yMax="560.016285">D)</word>
+          <word xMin="85.671483" yMin="550.053645" xMax="114.214447" yMax="560.016285">quarta</word>
+          <word xMin="117.532006" yMin="550.053645" xMax="164.336488" yMax="560.016285">alternativa</word>
+          <word xMin="167.654048" yMin="550.053645" xMax="178.174595" yMax="560.016285">da</word>
+          <word xMin="181.492155" yMin="550.053645" xMax="214.478456" yMax="560.016285">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="562.069954" xMax="212.794769" yMax="572.032594">
+          <word xMin="70.867000" yMin="562.069954" xMax="81.527025" yMax="572.032594">E)</word>
+          <word xMin="84.844584" yMin="562.069954" xMax="112.530760" yMax="572.032594">quinta</word>
+          <word xMin="115.848320" yMin="562.069954" xMax="162.652802" yMax="572.032594">alternativa</word>
+          <word xMin="165.970361" yMin="562.069954" xMax="176.490909" yMax="572.032594">da</word>
+          <word xMin="179.808468" yMin="562.069954" xMax="212.794769" yMax="572.032594">questão</word>
+        </line>
+      </block>
+    </flow>
+  </page>
+  <page width="595.275590" height="841.889758">
+    <flow>
+      <block xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">
+        <line xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">
+          <word xMin="280.974194" yMin="71.481591" xMax="285.955514" yMax="81.444231">3</word>
+        </line>
+      </block>
+    </flow>
+    <flow>
+      <block xMin="70.867000" yMin="128.171941" xMax="276.087421" yMax="222.248749">
+        <line xMin="70.867000" yMin="128.171941" xMax="141.422416" yMax="138.134581">
+          <word xMin="70.867000" yMin="128.171941" xMax="126.149689" yMax="138.134581">QUESTÃO</word>
+          <word xMin="129.965380" yMin="128.171941" xMax="141.422416" yMax="138.134581">11</word>
+        </line>
+        <line xMin="70.867000" yMin="140.188250" xMax="276.087421" yMax="150.150890">
+          <word xMin="70.867000" yMin="140.188250" xMax="106.343961" yMax="150.150890">Questão</word>
+          <word xMin="109.083687" yMin="140.188250" xMax="131.220673" yMax="150.150890">onze,</word>
+          <word xMin="134.079951" yMin="140.188250" xMax="156.545704" yMax="150.150890">antes</word>
+          <word xMin="159.285430" yMin="140.188250" xMax="169.805978" yMax="150.150890">do</word>
+          <word xMin="172.545704" yMin="140.188250" xMax="194.961644" yMax="150.150890">texto</word>
+          <word xMin="197.701370" yMin="140.188250" xMax="231.733748" yMax="150.150890">comum,</word>
+          <word xMin="234.593026" yMin="140.188250" xMax="245.113574" yMax="150.150890">na</word>
+          <word xMin="247.853300" yMin="140.188250" xMax="276.087421" yMax="150.150890">coluna</word>
+        </line>
+        <line xMin="70.867000" yMin="152.204560" xMax="125.472230" yMax="162.167200">
+          <word xMin="70.867000" yMin="152.204560" xMax="81.387548" yMax="162.167200">da</word>
+          <word xMin="84.705107" yMin="152.204560" xMax="125.472230" yMax="162.167200">esquerda.</word>
+        </line>
+        <line xMin="70.867000" yMin="164.220870" xMax="222.388792" yMax="174.183510">
+          <word xMin="70.867000" yMin="164.220870" xMax="82.214447" yMax="174.183510">A)</word>
+          <word xMin="85.532006" yMin="164.220870" xMax="122.124783" yMax="174.183510">primeira</word>
+          <word xMin="125.442342" yMin="164.220870" xMax="172.246825" yMax="174.183510">alternativa</word>
+          <word xMin="175.564384" yMin="164.220870" xMax="186.084932" yMax="174.183510">da</word>
+          <word xMin="189.402491" yMin="164.220870" xMax="222.388792" yMax="174.183510">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="176.237179" xMax="220.306600" yMax="186.199819">
+          <word xMin="70.867000" yMin="176.237179" xMax="81.796016" yMax="186.199819">B)</word>
+          <word xMin="85.113575" yMin="176.237179" xMax="120.042591" yMax="186.199819">segunda</word>
+          <word xMin="123.360150" yMin="176.237179" xMax="170.164633" yMax="186.199819">alternativa</word>
+          <word xMin="173.482192" yMin="176.237179" xMax="184.002740" yMax="186.199819">da</word>
+          <word xMin="187.320299" yMin="176.237179" xMax="220.306600" yMax="186.199819">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="188.253489" xMax="218.224408" yMax="198.216129">
+          <word xMin="70.867000" yMin="188.253489" xMax="81.935493" yMax="198.216129">C)</word>
+          <word xMin="85.253052" yMin="188.253489" xMax="117.960399" yMax="198.216129">terceira</word>
+          <word xMin="121.277958" yMin="188.253489" xMax="168.082441" yMax="198.216129">alternativa</word>
+          <word xMin="171.400000" yMin="188.253489" xMax="181.920548" yMax="198.216129">da</word>
+          <word xMin="185.238107" yMin="188.253489" xMax="218.224408" yMax="198.216129">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="200.269799" xMax="214.478456" yMax="210.232439">
+          <word xMin="70.867000" yMin="200.269799" xMax="82.353924" yMax="210.232439">D)</word>
+          <word xMin="85.671483" yMin="200.269799" xMax="114.214447" yMax="210.232439">quarta</word>
+          <word xMin="117.532006" yMin="200.269799" xMax="164.336488" yMax="210.232439">alternativa</word>
+          <word xMin="167.654048" yMin="200.269799" xMax="178.174595" yMax="210.232439">da</word>
+          <word xMin="181.492155" yMin="200.269799" xMax="214.478456" yMax="210.232439">questão</word>
+        </line>
+        <line xMin="70.867000" yMin="212.286109" xMax="212.794769" yMax="222.248749">
+          <word xMin="70.867000" yMin="212.286109" xMax="81.527025" yMax="222.248749">E)</word>
+          <word xMin="84.844584" yMin="212.286109" xMax="112.530760" yMax="222.248749">quinta</word>
+          <word xMin="115.848320" yMin="212.286109" xMax="162.652802" yMax="222.248749">alternativa</word>
+          <word xMin="165.970361" yMin="212.286109" xMax="176.490909" yMax="222.248749">da</word>
+          <word xMin="179.808468" yMin="212.286109" xMax="212.794769" yMax="222.248749">questão</word>
+        </line>
+      </block>
+      <block xMin="70.867000" yMin="236.318728" xMax="276.097384" yMax="258.297678">
+        <line xMin="70.867000" yMin="236.318728" xMax="206.667746" yMax="246.281368">
+          <word xMin="70.867000" yMin="236.318728" xMax="99.360150" yMax="246.281368">Texto</word>
+          <word xMin="103.175842" yMin="236.318728" xMax="125.402491" yMax="246.281368">para</word>
+          <word xMin="129.218182" yMin="236.318728" xMax="139.469739" yMax="246.281368">os</word>
+          <word xMin="143.285430" yMin="236.318728" xMax="167.056289" yMax="246.281368">itens</word>
+          <word xMin="170.871980" yMin="236.318728" xMax="182.329016" yMax="246.281368">12</word>
+          <word xMin="186.144707" yMin="236.318728" xMax="191.395019" yMax="246.281368">e</word>
+          <word xMin="195.210710" yMin="236.318728" xMax="206.667746" yMax="246.281368">13</word>
+        </line>
+        <line xMin="70.867000" yMin="248.335038" xMax="276.097384" yMax="258.297678">
+          <word xMin="70.867000" yMin="248.335038" xMax="98.832130" yMax="258.297678">Minha</word>
+          <word xMin="101.860773" yMin="248.335038" xMax="122.951682" yMax="258.297678">terra</word>
+          <word xMin="125.980324" yMin="248.335038" xMax="142.578083" yMax="258.297678">tem</word>
+          <word xMin="145.606725" yMin="248.335038" xMax="189.970361" yMax="258.297678">palmeiras,</word>
+          <word xMin="193.058780" yMin="248.335038" xMax="213.541967" yMax="258.297678">onde</word>
+          <word xMin="216.570610" yMin="248.335038" xMax="240.092403" yMax="258.297678">canta</word>
+          <word xMin="243.121046" yMin="248.335038" xMax="248.102366" yMax="258.297678">o</word>
+          <word xMin="251.131008" yMin="248.335038" xMax="276.097384" yMax="258.297678">sabiá;</word>
+        </line>
+      </block>
+    </flow>
+    <flow>
+      <block xMin="290.935451" yMin="128.171941" xMax="496.175798" yMax="162.167200">
+        <line xMin="290.935451" yMin="128.171941" xMax="496.175798" yMax="138.134581">
+          <word xMin="290.935451" yMin="128.171941" xMax="299.842051" yMax="138.134581">as</word>
+          <word xMin="302.472188" yMin="128.171941" xMax="320.504567" yMax="138.134581">aves</word>
+          <word xMin="323.134703" yMin="128.171941" xMax="338.357617" yMax="138.134581">que</word>
+          <word xMin="340.987754" yMin="128.171941" xMax="359.538190" yMax="138.134581">aqui</word>
+          <word xMin="362.168327" yMin="128.171941" xMax="399.558115" yMax="138.134581">gorjeiam</word>
+          <word xMin="402.188252" yMin="128.171941" xMax="417.690120" yMax="138.134581">não</word>
+          <word xMin="420.320257" yMin="128.171941" xMax="457.710045" yMax="138.134581">gorjeiam</word>
+          <word xMin="460.340182" yMin="128.171941" xMax="483.025113" yMax="138.134581">como</word>
+          <word xMin="485.655250" yMin="128.171941" xMax="496.175798" yMax="138.134581">lá.</word>
+        </line>
+        <line xMin="290.935451" yMin="140.188250" xMax="496.145910" yMax="150.150890">
+          <word xMin="290.935451" yMin="140.188250" xMax="316.220631" yMax="150.150890">Nosso</word>
+          <word xMin="318.880656" yMin="140.188250" xMax="333.266708" yMax="150.150890">céu</word>
+          <word xMin="335.926733" yMin="140.188250" xMax="352.524491" yMax="150.150890">tem</word>
+          <word xMin="355.184516" yMin="140.188250" xMax="375.159610" yMax="150.150890">mais</word>
+          <word xMin="377.819634" yMin="140.188250" xMax="412.818389" yMax="150.150890">estrelas,</word>
+          <word xMin="415.607928" yMin="140.188250" xMax="442.885636" yMax="150.150890">nossas</word>
+          <word xMin="445.545661" yMin="140.188250" xMax="476.888127" yMax="150.150890">várzeas</word>
+          <word xMin="479.548151" yMin="140.188250" xMax="496.145910" yMax="150.150890">têm</word>
+        </line>
+        <line xMin="290.935451" yMin="152.204560" xMax="339.772312" yMax="162.167200">
+          <word xMin="290.935451" yMin="152.204560" xMax="310.910544" yMax="162.167200">mais</word>
+          <word xMin="314.228103" yMin="152.204560" xMax="339.772312" yMax="162.167200">flores.</word>
+        </line>
+      </block>
+      <block xMin="290.935451" yMin="176.237179" xMax="496.185760" yMax="246.281368">
+        <line xMin="290.935451" yMin="176.237179" xMax="361.490867" yMax="186.199819">
+          <word xMin="290.935451" yMin="176.237179" xMax="346.218140" yMax="186.199819">QUESTÃO</word>
+          <word xMin="350.033831" yMin="176.237179" xMax="361.490867" yMax="186.199819">12</word>
+        </line>
+        <line xMin="290.935451" yMin="188.253489" xMax="496.145910" yMax="198.216129">
+          <word xMin="290.935451" yMin="188.253489" xMax="319.309050" yMax="198.216129">Julgue</word>
+          <word xMin="323.852014" yMin="188.253489" xMax="328.833334" yMax="198.216129">o</word>
+          <word xMin="333.376297" yMin="188.253489" xMax="355.513283" yMax="198.216129">item:</word>
+          <word xMin="362.387505" yMin="188.253489" xMax="367.368825" yMax="198.216129">o</word>
+          <word xMin="371.911789" yMin="188.253489" xMax="400.693856" yMax="198.216129">poema</word>
+          <word xMin="405.236820" yMin="188.253489" xMax="431.528227" yMax="198.216129">exalta</word>
+          <word xMin="436.071191" yMin="188.253489" xMax="441.052511" yMax="198.216129">a</word>
+          <word xMin="445.595474" yMin="188.253489" xMax="466.686383" yMax="198.216129">terra</word>
+          <word xMin="471.229347" yMin="188.253489" xMax="496.145910" yMax="198.216129">natal.</word>
+        </line>
+        <line xMin="290.935451" yMin="200.269799" xMax="362.975301" yMax="210.232439">
+          <word xMin="290.935451" yMin="200.269799" xMax="315.314031" yMax="210.232439">Certo</word>
+          <word xMin="318.631590" yMin="200.269799" xMax="329.152138" yMax="210.232439">ou</word>
+          <word xMin="332.469697" yMin="200.269799" xMax="362.975301" yMax="210.232439">errado.</word>
+        </line>
+        <line xMin="290.935451" yMin="212.286109" xMax="361.490867" yMax="222.248749">
+          <word xMin="290.935451" yMin="212.286109" xMax="346.218140" yMax="222.248749">QUESTÃO</word>
+          <word xMin="350.033831" yMin="212.286109" xMax="361.490867" yMax="222.248749">13</word>
+        </line>
+        <line xMin="290.935451" yMin="224.302418" xMax="496.185760" yMax="234.265058">
+          <word xMin="290.935451" yMin="224.302418" xMax="319.309050" yMax="234.265058">Julgue</word>
+          <word xMin="322.108552" yMin="224.302418" xMax="327.089872" yMax="234.265058">o</word>
+          <word xMin="329.889373" yMin="224.302418" xMax="352.026359" yMax="234.265058">item:</word>
+          <word xMin="356.190743" yMin="224.302418" xMax="361.172063" yMax="234.265058">o</word>
+          <word xMin="363.971565" yMin="224.302418" xMax="392.753632" yMax="234.265058">poema</word>
+          <word xMin="395.553134" yMin="224.302418" xMax="409.998962" yMax="234.265058">usa</word>
+          <word xMin="412.798463" yMin="224.302418" xMax="438.940431" yMax="234.265058">versos</word>
+          <word xMin="441.739933" yMin="224.302418" xMax="467.563096" yMax="234.265058">livres.</word>
+          <word xMin="471.807180" yMin="224.302418" xMax="496.185760" yMax="234.265058">Certo</word>
+        </line>
+        <line xMin="290.935451" yMin="236.318728" xMax="335.279162" yMax="246.281368">
+          <word xMin="290.935451" yMin="236.318728" xMax="301.455999" yMax="246.281368">ou</word>
+          <word xMin="304.773558" yMin="236.318728" xMax="335.279162" yMax="246.281368">errado.</word>
+        </line>
+      </block>
+    </flow>
+  </page>
+</doc>
+</body>
+</html>

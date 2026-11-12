@@ -2416,6 +2416,15 @@ GABARITO: B`}
                                         : group.keepLineBreaks
                                           ? ' · linhas do original'
                                           : ''}
+                                      {item.candidates.some(
+                                        (entry) =>
+                                          group.candidateIds.includes(
+                                            entry.id,
+                                          ) &&
+                                          entry.sharedTextDetection === 'text',
+                                      )
+                                        ? ' · detectado no texto do PDF, sem IA'
+                                        : ''}
                                       {group.sharedTextId
                                         ? ' · já criado no banco'
                                         : ' · será criado no primeiro cadastro'}

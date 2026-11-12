@@ -1,0 +1,44 @@
+\setupbodyfont[10pt]
+\setuppapersize[A4]
+\definelinenumbering[ln][step=1,location=left]
+\def\Q#1#2{\blank\noindent{\bf QUESTÃO #1}\par #2\par
+\noindent A) primeira alternativa da questão\par
+\noindent B) segunda alternativa da questão\par
+\noindent C) terceira alternativa da questão\par
+\noindent D) quarta alternativa da questão\par
+\noindent E) quinta alternativa da questão\par}
+\starttext
+\Q{01}{Enunciado da questão um, com texto suficiente para a extração.}
+\Q{02}{Enunciado da questão dois, com texto suficiente para a extração.}
+\Q{03}{Enunciado da questão três, com texto suficiente para a extração.}
+\Q{04}{Enunciado da questão quatro, com texto suficiente para a extração.}
+\Q{05}{Enunciado da questão cinco, com 50\% de chance & custo de R\$ 10.}
+\blank
+\noindent{\bf Texto para as Questões 06 a 10.}\par
+\midaligned{\bf De próprio punho}
+\midaligned{\it A escrita e suas tecnologias sofrem interessantes metamorfoses}
+\startlinenumbering[ln]
+\startlines
+Estranhei muito na primeira vez que escutei a expressão “de próprio punho”.
+Parecia que eu ia bater em alguém. Não era bem o caso. Foi numa situação
+bancária, dessas bem burocráticas, e eu devia escrever algo bem breve,
+mas com minhas mãos. Na verdade, o que importava era a autenticidade
+da minha caligrafia, que à época ainda era mais fluente e firme.
+\stoplines
+\stoplinenumbering
+\Q{06}{No que diz respeito ao gênero bilhete, a autora dessa crônica}
+\Q{07}{O elemento que caracteriza esse texto como crônica é a}
+\Q{08}{Nesse texto, a escrita digital é ilustrada pelo(a)}
+\Q{09}{A autora conclui que as novas tecnologias de escrita}
+\Q{10}{O recurso linguístico usado na síntese da opinião (l. 3-4) foi o(a)}
+\page
+\startcolumns[n=2]
+\Q{11}{Questão onze, antes do texto comum, na coluna da esquerda.}
+\blank
+\noindent{\bf Texto para os itens 12 e 13}\par
+Minha terra tem palmeiras, onde canta o sabiá; as aves que aqui gorjeiam não gorjeiam como lá. Nosso céu tem mais estrelas, nossas várzeas têm mais flores.
+\blank
+\noindent{\bf QUESTÃO 12}\par Julgue o item: o poema exalta a terra natal. Certo ou errado.\par
+\noindent{\bf QUESTÃO 13}\par Julgue o item: o poema usa versos livres. Certo ou errado.\par
+\stopcolumns
+\stoptext
