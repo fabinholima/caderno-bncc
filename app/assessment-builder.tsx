@@ -5,6 +5,10 @@ import {
 } from '@/lib/compact-assessment.mjs';
 import { assertAssessmentQuestionStyle } from '@/lib/render-templates.mjs';
 import { supportsScienceAppendix } from '@/lib/periodic-table.mjs';
+import {
+  addKeepingSharedTexts,
+  moveKeepingSharedTexts,
+} from '@/lib/shared-texts.mjs';
 import type { EducatorData, School } from './educator-profile';
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
@@ -72,6 +76,8 @@ export type BuilderQuestion = {
   sourceInstitution: string;
   sourceYear: number;
   difficulty: string;
+  sharedTextId?: string | null;
+  sharedTextTitle?: string | null;
 };
 
 export function AssessmentBuilder({
@@ -645,11 +651,13 @@ export function AssessmentBuilder({
     setSections((current) =>
       current.map((s) => {
         if (s.id !== sectionId) return s;
-        const ids = [...s.selected],
-          index = ids.indexOf(id),
-          target = index + direction;
-        if (target < 0 || target >= ids.length) return s;
-        [ids[index], ids[target]] = [ids[target], ids[index]];
+        // Itens do mesmo texto-base andam juntos (ver lib/shared-texts.mjs).
+        const ids = moveKeepingSharedTexts(
+          [...s.selected],
+          id,
+          direction,
+          sharedTextOf,
+        );
         return { ...s, selected: new Set(ids) };
       }),
     );
@@ -938,24 +946,59 @@ export function AssessmentBuilder({
     };
   }, [apiUrl, generated, generatedVersions]);
 
+  function sharedTextOf(id: string) {
+    return questions.find((question) => question.id === id)?.sharedTextId;
+  }
+
   function toggle(id: string) {
+    const adding = !chosen.some((question) => question.id === id);
+    const question = questions.find((item) => item.id === id);
+    const active = sections.find((section) => section.id === activeSectionId);
+    // Outros itens do mesmo texto-base ainda fora da prova: oferece incluí-los.
+    const usedElsewhere = new Set(
+      sections
+        .filter((section) => section.id !== activeSectionId)
+        .flatMap((section) => [...section.selected]),
+    );
+    const missingSiblings =
+      adding && question?.sharedTextId && active
+        ? questions
+            .filter(
+              (item) =>
+                item.id !== id &&
+                item.sharedTextId === question.sharedTextId &&
+                item.subject === active.subject &&
+                !active.selected.has(item.id) &&
+                !usedElsewhere.has(item.id),
+            )
+            .map((item) => item.id)
+        : [];
+    const siblings =
+      missingSiblings.length &&
+      window.confirm(
+        `Este item usa o texto-base "${question?.sharedTextTitle || 'sem título'}". Adicionar também ${missingSiblings.length === 1 ? 'o outro item' : `os outros ${missingSiblings.length} itens`} deste texto? Eles ficam juntos na prova, com o texto impresso uma vez.`,
+      )
+        ? missingSiblings
+        : [];
     if (
       isCompactTemplate(template) &&
-      chosen.length >= 10 &&
-      !chosen.some((question) => question.id === id)
+      adding &&
+      chosen.length + 1 + siblings.length > 10
     )
       return setMessage('O modelo compacto aceita no máximo 10 questões.');
     setGenerated(false);
     setSections((current) =>
       current.map((section) => {
         if (section.id !== activeSectionId) return section;
-        const selected = new Set(section.selected);
+        let selected = new Set(section.selected);
         const fullWidth = new Set(section.fullWidth);
         if (selected.has(id)) {
           selected.delete(id);
           fullWidth.delete(id);
         } else {
-          selected.add(id);
+          selected = new Set(
+            addKeepingSharedTexts([...selected], id, siblings, sharedTextOf),
+          );
         }
         return { ...section, selected, fullWidth };
       }),
@@ -2391,6 +2434,9 @@ export function AssessmentBuilder({
                         </p>
                         <p className="text-xs text-slate-500">
                           {q?.difficulty} · {q?.skill}
+                          {q?.sharedTextId
+                            ? ` · Texto-base: ${q.sharedTextTitle || 'sem título'}`
+                            : ''}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <Button

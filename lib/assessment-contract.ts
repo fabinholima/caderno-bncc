@@ -47,6 +47,8 @@ export type AssessmentQuestionSnapshot = {
     | 'essay';
   source: { institution: string; year: number };
   difficulty: 'easy' | 'medium' | 'hard';
+  /** Texto-base impresso uma vez antes do grupo (ver `sharedTexts`). */
+  sharedTextId?: string;
   statement: RichTextNode[];
   alternatives: Array<{
     stableKey: string;
@@ -99,6 +101,12 @@ export type AssessmentRenderContract = {
     questions: AssessmentQuestionSnapshot[];
   }>;
   questions: AssessmentQuestionSnapshot[];
+  sharedTexts?: Array<{
+    id: string;
+    title: string;
+    source: string;
+    content: RichTextNode[];
+  }>;
   totals: { points: number; questions: number };
   render: {
     locale: 'pt-BR';

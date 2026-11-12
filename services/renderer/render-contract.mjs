@@ -1,4 +1,11 @@
-import { isCompactTemplate } from '../../lib/compact-assessment.mjs';
+import {
+  isCompactTemplate,
+  isJudgmentTemplate,
+} from '../../lib/compact-assessment.mjs';
+import {
+  groupBySharedText,
+  sharedTextHeading,
+} from '../../lib/shared-texts.mjs';
 import { getRenderTemplate } from './template-registry.mjs';
 import { renderScienceAppendix } from './science-appendix.mjs';
 import {
@@ -557,15 +564,60 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
             questions: snapshot.questions,
           },
         ];
+  const sharedTexts = new Map(
+    (snapshot.sharedTexts ?? []).map((text) => [text.id, text]),
+  );
+  const judgment = isJudgmentTemplate(snapshot.render?.template);
+  // Texto-base: impresso uma vez, fora de \startquestion (não consome número),
+  // com o título calculado pela numeração final das questões do grupo.
+  const renderSharedText = (group) => {
+    const text = sharedTexts.get(group.sharedTextId);
+    if (!text)
+      throw new Error(
+        'Texto-base da questão ausente no snapshot da avaliação.',
+      );
+    const heading = sharedTextHeading(
+      group.questions.map((question) => Number(question.number)),
+      { judgment },
+    );
+    const title = text.title
+      ? `\\midaligned{\\bf ${escapeContext(text.title)}}\n\\blank[small]\n`
+      : '';
+    const source = text.source
+      ? `\n\\startalignment[flushright,nothyphenated]\n{\\tfx ${escapeContext(text.source)}}\n\\stopalignment`
+      : '';
+    return `\\testpage[6]\n\\blank[medium]\n\\noindent{\\bf ${escapeContext(heading)}}\n\\blank[small]\n${title}${richText(text.content)}${source}\n\\blank[medium]`;
+  };
+  // Cada item é um texto-base ou uma questão, na ordem de impressão.
+  const sectionItems = (questions) =>
+    groupBySharedText(questions).flatMap((group) => [
+      ...(group.sharedTextId
+        ? [
+            {
+              kind: 'text',
+              group,
+              fullWidth:
+                group.questions[0].fullWidth ||
+                group.questions[0].recommendSingleColumn,
+            },
+          ]
+        : []),
+      ...group.questions.map((question) => ({ kind: 'question', question })),
+    ]);
+  const renderItem = (item, addGap = true) =>
+    item.kind === 'text'
+      ? renderSharedText(item.group)
+      : renderQuestion(item.question, addGap);
   const studentQuestions = sections
     .map((section, index) => {
       const questions = section.questions ?? [];
+      const items = sectionItems(questions);
       const pageBreak = index > 0 && section.startOnNewPage ? '\\page\n' : '';
       const heading = section.title
         ? `\\subject{${escapeContext(section.title)}}\n\\blank[small]\n`
         : '';
       if (Number(section.columns) !== 2) {
-        return `${pageBreak}${heading}${questions.map(renderQuestion).join('\n\n')}`;
+        return `${pageBreak}${heading}${items.map((item) => renderItem(item)).join('\n\n')}`;
       }
       const compactColumns = [
         'simulado-v1',
@@ -573,23 +625,28 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
       ].includes(snapshot.render?.template);
       const columnOptions = `n=2,balance=yes,distance=${compactColumns ? '8mm' : '10mm'},separator=rule,rulethickness=.5pt,rulecolor=${snapshot.render?.template === 'simulado-v1' ? 'simuladocolumnrule' : snapshot.render?.template === 'caderno-duas-colunas-v1' ? 'modelthreerule' : 'middlegray'}`;
       const blocks = [];
-      let columnQuestions = [];
+      let columnItems = [];
       const flushColumns = () => {
-        if (!columnQuestions.length) return;
+        if (!columnItems.length) return;
         blocks.push(
-          `\\startmixedcolumns[${columnOptions}]\n${columnQuestions.map(renderQuestion).join('\n\n')}\n\\stopmixedcolumns`,
+          `\\startmixedcolumns[${columnOptions}]\n${columnItems.map((item) => renderItem(item)).join('\n\n')}\n\\stopmixedcolumns`,
         );
-        columnQuestions = [];
+        columnItems = [];
       };
-      questions.forEach((question) => {
-        // Largura total: escolhida na montagem ou definida no cadastro da questão.
-        if (!question.fullWidth && !question.recommendSingleColumn) {
-          columnQuestions.push(question);
+      items.forEach((item) => {
+        // Largura total: escolhida na montagem ou definida no cadastro da
+        // questão. O texto-base acompanha a largura da primeira questão.
+        const fullWidth =
+          item.kind === 'text'
+            ? item.fullWidth
+            : item.question.fullWidth || item.question.recommendSingleColumn;
+        if (!fullWidth) {
+          columnItems.push(item);
           return;
         }
         flushColumns();
         blocks.push(
-          `\\blank[medium]\n${renderQuestion(question, false)}\n\\blank[medium]`,
+          `\\blank[medium]\n${renderItem(item, false)}\n\\blank[medium]`,
         );
       });
       flushColumns();

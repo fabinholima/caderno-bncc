@@ -33,6 +33,8 @@ export type Question = {
   createdBy?: string;
   revision?: number;
   alternatives: number;
+  sharedTextId?: string | null;
+  sharedTextTitle?: string | null;
   updatedAt: string;
 };
 
@@ -51,6 +53,7 @@ export type QuestionDraftInput = {
   knowledgeTopic?: string;
   skill?: string;
   difficulty?: string;
+  sharedTextId?: string;
   metapostCode?: string;
   answerBlocks?: RichContentBlock[];
   statementBlocks?: RichContentBlock[];

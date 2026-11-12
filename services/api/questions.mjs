@@ -387,7 +387,7 @@ const richContentNodeSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
-const richContentSchema = z.array(richContentNodeSchema).min(1).max(50);
+export const richContentSchema = z.array(richContentNodeSchema).min(1).max(50);
 
 const richParagraph = (text) => [{ type: 'paragraph', text }];
 
@@ -423,8 +423,16 @@ export function normalizeQuestionContent(value) {
     .toLowerCase();
 }
 
-export function questionContentFingerprint({ statementBlocks, alternatives }) {
-  const statement = (statementBlocks || []).map(duplicateNodeText).join(' ');
+export function questionContentFingerprint({
+  statementBlocks,
+  alternatives,
+  sharedTextId,
+}) {
+  // Itens de textos-base diferentes podem repetir a mesma afirmação.
+  const statement = [
+    ...(sharedTextId ? [`texto-base:${sharedTextId}`] : []),
+    ...(statementBlocks || []).map(duplicateNodeText),
+  ].join(' ');
   const answers = [...(alternatives || [])]
     .sort((left, right) => (left.position || 0) - (right.position || 0))
     .map((alternative) =>
@@ -480,6 +488,7 @@ export const createQuestionSchema = z
       .optional()
       .or(z.literal('')),
     difficulty: z.enum(['Fácil', 'Média', 'Difícil']),
+    sharedTextId: z.uuid().optional().or(z.literal('')),
     alternatives: z
       .array(
         z.object({
@@ -622,6 +631,7 @@ export async function listQuestions({
              qr.statement, qr.type, qr.subject, qr.grade, qr.difficulty, qr.recommend_single_column,
              (jsonb_array_length(COALESCE(qr.explanation,'[]'::jsonb)) > 0) AS has_resolution,
              qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
+             qr.shared_text_id, st_text.title AS shared_text_title,
              COALESCE(cs.stage,
                CASE WHEN qr.grade ILIKE '%médio%' OR qr.grade ILIKE '%série%'
                  THEN 'Ensino Médio' ELSE 'Ensino Fundamental' END) AS stage,
@@ -652,6 +662,7 @@ export async function listQuestions({
         ON qsd.question_id = qr.question_id AND qsd.revision = qr.revision AND qsd.is_primary
       LEFT JOIN saeb_descriptors sd ON sd.id = qsd.descriptor_id
       LEFT JOIN alternatives a ON a.question_id = qr.question_id AND a.revision = qr.revision
+      LEFT JOIN question_shared_texts st_text ON st_text.id = qr.shared_text_id
       WHERE ($1::uuid IS NULL OR q.institution_id = $1
              OR q.institution_id = (SELECT question_bank_id FROM portal_settings WHERE id = 1))
         AND q.status <> 'archived'
@@ -678,7 +689,7 @@ export async function listQuestions({
           CASE WHEN qr.grade ILIKE '%médio%' OR qr.grade ILIKE '%série%'
             THEN 'Ensino Médio' ELSE 'Ensino Fundamental' END) = $10)
       GROUP BY q.id, qr.question_id, qr.revision, cs.code, cs.stage, ko.id, ko.name,
-               cc.id, cc.number, sd.id, sd.code, sd.description
+               cc.id, cc.number, sd.id, sd.code, sd.description, st_text.title
       ORDER BY q.updated_at DESC`,
     values: [
       allInstitutions ? null : institutionId,
@@ -702,6 +713,8 @@ export async function listQuestions({
       .filter(Boolean)
       .join(' '),
     type: row.type,
+    sharedTextId: row.shared_text_id || null,
+    sharedTextTitle: row.shared_text_id ? row.shared_text_title || '' : null,
     hasResolution: row.has_resolution === true,
     subject: row.subject,
     grade: row.grade,
@@ -776,6 +789,7 @@ export async function getQuestion({
                   qr.type, qr.statement, qr.explanation, qr.difficulty, qr.recommend_single_column,
                   qr.default_points, qr.subject, qr.grade,
                   qr.source_institution, qr.source_year, qr.knowledge_topic, qr.pedagogical_topic_id,
+                  qr.shared_text_id,
                   COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
                     'stableKey', a.stable_key,
                     'content', a.content,
@@ -840,6 +854,7 @@ export async function getQuestion({
     sourceYear: row.source_year,
     knowledgeTopic: row.knowledge_topic,
     pedagogicalTopicId: row.pedagogical_topic_id,
+    sharedTextId: row.shared_text_id || null,
     // The editor reads contentBlocks; the bank drawer still reads content.
     alternatives: [...row.alternatives]
       .sort((a, b) => a.position - b.position)
@@ -906,10 +921,23 @@ async function insertRevision({
     pedagogicalTopicId = topic.rows[0].id;
     value.knowledgeTopic = topic.rows[0].path;
   }
+  if (value.sharedTextId) {
+    const sharedText = await client.query(
+      'SELECT 1 FROM question_shared_texts WHERE id = $1 AND institution_id = $2',
+      [value.sharedTextId, institutionId],
+    );
+    if (!sharedText.rowCount)
+      throw Object.assign(
+        new Error(
+          'O texto-base selecionado não pertence a este banco de questões.',
+        ),
+        { statusCode: 422 },
+      );
+  }
   await client.query(
     `INSERT INTO question_revisions
-       (question_id, revision, type, statement, explanation, difficulty, subject, grade, source_institution, source_year, authored_by, knowledge_topic, pedagogical_topic_id, recommend_single_column)
-     VALUES ($1, $2, $3, $4::jsonb, NULLIF($5, '')::jsonb, $6, $7, $8, $9, $10, $11, NULLIF($12, ''), $13, $14)`,
+       (question_id, revision, type, statement, explanation, difficulty, subject, grade, source_institution, source_year, authored_by, knowledge_topic, pedagogical_topic_id, recommend_single_column, shared_text_id)
+     VALUES ($1, $2, $3, $4::jsonb, NULLIF($5, '')::jsonb, $6, $7, $8, $9, $10, $11, NULLIF($12, ''), $13, $14, $15)`,
     [
       questionId,
       revision,
@@ -925,6 +953,7 @@ async function insertRevision({
       value.knowledgeTopic || '',
       pedagogicalTopicId,
       value.recommendSingleColumn,
+      value.sharedTextId || null,
     ],
   );
   for (const alternative of value.alternatives) {
@@ -1025,6 +1054,7 @@ export async function createQuestion({ institutionId, userId, input }) {
       institutionId,
     ]);
     const candidateFingerprint = questionContentFingerprint({
+      sharedTextId: value.sharedTextId || null,
       statementBlocks:
         value.statementBlocks ||
         richStatement(
@@ -1040,7 +1070,7 @@ export async function createQuestion({ institutionId, userId, input }) {
       })),
     });
     const currentQuestions = await client.query(
-      `SELECT q.id, q.public_code, qr.statement,
+      `SELECT q.id, q.public_code, qr.statement, qr.shared_text_id,
               COALESCE((
                 SELECT jsonb_agg(
                   jsonb_build_object(
@@ -1061,6 +1091,7 @@ export async function createQuestion({ institutionId, userId, input }) {
     const duplicate = currentQuestions.rows.find(
       (question) =>
         questionContentFingerprint({
+          sharedTextId: question.shared_text_id,
           statementBlocks: question.statement,
           alternatives: question.alternatives,
         }) === candidateFingerprint,

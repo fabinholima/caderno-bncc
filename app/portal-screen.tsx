@@ -66,6 +66,7 @@ import {
   type RichContentBlock,
 } from './rich-content-editor';
 import { AcademicManager } from './academic-manager';
+import { SharedTextPicker, type SharedTextSummary } from './shared-text-picker';
 import { apiFetch } from '@/lib/api-client';
 import { AuthScreen, type AuthIdentity } from './auth-screen';
 import { StudentPortal } from './student-portal';
@@ -141,6 +142,14 @@ export default function Home() {
   const [importedQuestion, setImportedQuestion] =
     useState<ParsedQuestion | null>(null);
   const [importRevision, setImportRevision] = useState(0);
+  // Texto-base comum (itens Certo/Errado) e o último usado, para cadastrar o
+  // próximo item do mesmo grupo sem refazer a classificação.
+  const [sharedText, setSharedText] = useState<SharedTextSummary | null>(null);
+  const [lastSharedText, setLastSharedText] = useState<{
+    text: SharedTextSummary;
+    sourceInstitution: string;
+    sourceYear: string;
+  } | null>(null);
   const [draftMetapostCode, setDraftMetapostCode] = useState('');
   const [recommendSingleColumn, setRecommendSingleColumn] = useState(false);
   const [importCandidateSource, setImportCandidateSource] = useState<{
@@ -654,6 +663,52 @@ export default function Home() {
       },
     };
   }
+  async function loadSharedText(id?: string | null) {
+    if (!id) {
+      setSharedText(null);
+      return;
+    }
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/questions/shared-texts/${id}`,
+        { cache: 'no-store' },
+      );
+      if (!response.ok) throw new Error();
+      setSharedText(
+        ((await response.json()) as { data: SharedTextSummary }).data,
+      );
+    } catch {
+      setSharedText(null);
+      setNotice(
+        'O texto-base vinculado não foi encontrado; vincule-o novamente.',
+      );
+    }
+  }
+  function newItemWithSharedText() {
+    if (!lastSharedText) return;
+    setEditingQuestionId('');
+    setImportCandidateSource(null);
+    setQuestionType('true_false');
+    setSharedText(lastSharedText.text);
+    setImportedQuestion({
+      sourceInstitution: lastSharedText.sourceInstitution,
+      sourceYear: lastSharedText.sourceYear,
+      statementBlocks: [],
+      adoteNote: '',
+      alternatives: {},
+      warnings: [],
+    });
+    setImportedCorrect([]);
+    setImportedAnswerBlocks([]);
+    setImportRevision((value) => value + 1);
+    setQuestionPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return '';
+    });
+    setQuestionPreviewVerified(false);
+    setNotice('');
+    setOpen(true);
+  }
   function restoreQuestionDraft(payload: DraftPayload) {
     const v = payload.input as QuestionDraftInput,
       e = payload.editor as QuestionDraftEditor;
@@ -665,6 +720,7 @@ export default function Home() {
     setImportCandidateSource(e.importCandidateSource || null);
     setRecommendSingleColumn(Boolean(v.recommendSingleColumn));
     setQuestionType(v.type || 'single_choice');
+    void loadSharedText(v.type === 'true_false' ? v.sharedTextId : null);
     setDiscipline(v.subject || 'Química');
     setFundamentalGrade(e.fundamentalGrade || '6º ano');
     setPedagogicalGrade(e.pedagogicalGrade || '1ª série');
@@ -803,6 +859,19 @@ export default function Home() {
             ? 'Nova revisão da questão salva.'
             : 'Questão salva no PostgreSQL.',
         );
+        setLastSharedText(
+          input.sharedTextId && sharedText
+            ? {
+                text: {
+                  ...sharedText,
+                  questionCount:
+                    sharedText.questionCount + (editingQuestionId ? 0 : 1),
+                },
+                sourceInstitution: input.sourceInstitution,
+                sourceYear: String(input.sourceYear || ''),
+              }
+            : null,
+        );
       } else {
         setNotice('A API precisa estar ativa para salvar a questão.');
       }
@@ -900,6 +969,8 @@ export default function Home() {
       knowledgeTopic: formString('knowledgeTopic'),
       skill: formString('skill'),
       difficulty: formString('difficulty'),
+      sharedTextId:
+        questionType === 'true_false' ? formString('sharedTextId') : '',
       alternatives:
         questionType === 'essay'
           ? []
@@ -1027,6 +1098,9 @@ export default function Home() {
       setEditingQuestionId(question.id);
       setImportCandidateSource(null);
       setQuestionType(question.type);
+      await loadSharedText(
+        question.type === 'true_false' ? question.sharedTextId : null,
+      );
       setDiscipline(question.subject);
       setKnowledgeObjectId(restored.knowledgeObjectId);
       setCompetencyId(competency?.competency_id || '');
@@ -1119,6 +1193,7 @@ export default function Home() {
   }
 
   function openNewQuestion() {
+    setSharedText(null);
     setDraftMetapostCode('');
     setRecommendSingleColumn(false);
     setEditingQuestionId('');
@@ -1549,6 +1624,16 @@ export default function Home() {
                   className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900"
                 >
                   {notice}
+                  {lastSharedText && !open && (
+                    <button
+                      type="button"
+                      onClick={newItemWithSharedText}
+                      className="ml-3 rounded-md border border-blue-300 bg-white px-2 py-1 text-xs font-semibold text-blue-700"
+                    >
+                      + Novo item com o texto “
+                      {lastSharedText.text.title || 'sem título'}”
+                    </button>
+                  )}
                 </div>
               )}
               <section
@@ -2177,6 +2262,15 @@ export default function Home() {
                                     <span className="ml-2 mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
                                       <BookOpenCheck className="size-3" /> Com
                                       resolução
+                                    </span>
+                                  )}
+                                  {q.sharedTextId && (
+                                    <span
+                                      className="ml-2 mt-1 inline-flex items-center rounded bg-amber-50 px-1.5 text-xs text-amber-800"
+                                      title="Item de um grupo com texto-base comum"
+                                    >
+                                      Texto-base:{' '}
+                                      {q.sharedTextTitle || 'sem título'}
                                     </span>
                                   )}
                                 </div>
@@ -3341,6 +3435,14 @@ export default function Home() {
                           : 'Escreva o conteúdo principal e acrescente fórmulas, imagens ou ilustrações somente quando necessário.'}
                       </p>
                     </div>
+                    {questionType === 'true_false' && (
+                      <SharedTextPicker
+                        apiUrl={apiUrl}
+                        value={sharedText}
+                        onChange={setSharedText}
+                        linkedQuestionId={editingQuestionId}
+                      />
+                    )}
                     {questionType === 'true_false' && (
                       <RichContentEditor
                         apiUrl={apiUrl}

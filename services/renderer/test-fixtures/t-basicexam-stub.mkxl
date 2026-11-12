@@ -1,0 +1,24 @@
+%D Substituto mínimo do módulo t-basicexam, só para testes locais de
+%D compilação (o original vem de modules.contextgarden.net no Docker).
+\startmodule[basicexam]
+\unprotect
+\definecounter[examquestion]
+\def\setupquestion[#1][#2]{}
+\def\setupchoice[#1]{}
+\newconditional\c_exam_showanswer
+\def\startquestion{\dosingleempty\exam_start_question}
+\def\exam_start_question[#1]{%
+  \getrawparameters[examq][point=1,showanswer=false,#1]%
+  \doifelse\examqshowanswer{true}{\settrue\c_exam_showanswer}{\setfalse\c_exam_showanswer}%
+  \incrementcounter[examquestion]%
+  \blank[small]\noindent\hbox to 2em{\bf\rawcountervalue[examquestion].\hss}}
+\def\stopquestion{\par}
+\definecounter[examchoice]
+\def\startchoice{\resetcounter[examchoice]\par\startnarrower[left]}
+\def\stopchoice{\stopnarrower\par}
+\def\startcitem{\dosingleempty\exam_start_citem}
+\def\exam_start_citem[#1]{\incrementcounter[examchoice]\par\noindent{\it\characters{\rawcountervalue[examchoice]})}\space}
+\def\stopcitem{\par}
+\def\startanswer#1\stopanswer{\ifconditional\c_exam_showanswer\par{\it Resposta:} #1\par\fi}
+\protect
+\stopmodule

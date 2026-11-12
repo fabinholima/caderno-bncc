@@ -133,6 +133,13 @@ import {
   setQuestionStatus,
 } from './questions.mjs';
 import {
+  createSharedText,
+  getSharedText,
+  listSharedTexts,
+  loadSharedTexts,
+  updateSharedText,
+} from './shared-texts.mjs';
+import {
   createAssessment,
   deleteAssessment,
   getAssessment,
@@ -2334,6 +2341,44 @@ const server = createServer(async (request, response) => {
           difficulty: url.searchParams.get('difficulty') || '',
         }),
       });
+    if (url.pathname === '/api/questions/shared-texts') {
+      if (request.method === 'GET')
+        return json(response, 200, {
+          data: await listSharedTexts({
+            institutionId,
+            query: url.searchParams.get('q') || '',
+          }),
+        });
+      if (request.method === 'POST')
+        return json(response, 201, {
+          data: await createSharedText({
+            institutionId,
+            userId,
+            input: await readJson(request),
+          }),
+        });
+    }
+    const sharedTextMatch = url.pathname.match(
+      /^\/api\/questions\/shared-texts\/([0-9a-f-]{36})$/i,
+    );
+    if (sharedTextMatch && request.method === 'GET') {
+      const sharedText = await getSharedText({
+        institutionId,
+        id: sharedTextMatch[1],
+      });
+      if (!sharedText)
+        return json(response, 404, { error: 'Texto-base não encontrado.' });
+      return json(response, 200, { data: sharedText });
+    }
+    if (sharedTextMatch && request.method === 'PUT')
+      return json(response, 200, {
+        data: await updateSharedText({
+          institutionId,
+          userId,
+          id: sharedTextMatch[1],
+          input: await readJson(request),
+        }),
+      });
     if (request.method === 'GET' && url.pathname === '/api/question-filters')
       return json(response, 200, {
         data: await getQuestionFilterOptions({ institutionId }),
@@ -2690,7 +2735,20 @@ const server = createServer(async (request, response) => {
       activePreviewUsers.add(userId);
       activePreviewCount += 1;
       try {
-        const pdf = await createQuestionPdfPreview(await readJson(request));
+        const previewInput = await readJson(request);
+        // O texto-base vem do banco: a prévia mostra o texto como sairá na prova.
+        const [sharedText] =
+          typeof previewInput?.sharedTextId === 'string' &&
+          /^[0-9a-f-]{36}$/i.test(previewInput.sharedTextId)
+            ? await loadSharedTexts(
+                pool,
+                [previewInput.sharedTextId],
+                [institutionId],
+              )
+            : [];
+        const pdf = await createQuestionPdfPreview(previewInput, {
+          sharedText: sharedText || null,
+        });
         response.writeHead(200, {
           'content-type': 'application/pdf',
           'content-disposition': 'inline; filename="previa-questao.pdf"',

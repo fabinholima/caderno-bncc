@@ -16,6 +16,11 @@ import { pool, transaction } from './db.mjs';
 import { ownsAssessment } from './ownership.mjs';
 import { schoolHeader } from './educator-profile.mjs';
 import { dataUrlMatchesSignature } from './file-signature.mjs';
+import { loadSharedTexts } from './shared-texts.mjs';
+import {
+  groupBySharedText,
+  shuffleKeepingSharedTexts,
+} from '../../lib/shared-texts.mjs';
 
 export const logoDataUrlSchema = z
   .string()
@@ -187,7 +192,7 @@ export async function createAssessment({
       text: `SELECT q.id, q.current_revision, qr.type, qr.statement, qr.explanation, qr.default_points,
                     qr.subject, qr.grade,
                     qr.source_institution, qr.source_year, qr.difficulty, qr.knowledge_topic,
-                    qr.recommend_single_column,
+                    qr.recommend_single_column, qr.shared_text_id,
                     COALESCE(jsonb_agg(jsonb_build_object('stableKey', a.stable_key, 'content', a.content, 'isCorrect', a.is_correct) ORDER BY a.position) FILTER (WHERE a.id IS NOT NULL), '[]') AS alternatives,
                     COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', cs.code, 'primary', qs.is_primary)) FILTER (WHERE cs.id IS NOT NULL), '[]') AS skills,
                     COALESCE(jsonb_agg(DISTINCT jsonb_build_object('code', sd.code, 'description', sd.description, 'topic', st.name, 'primary', qsd.is_primary)) FILTER (WHERE sd.id IS NOT NULL), '[]') AS saeb_descriptors
@@ -227,6 +232,17 @@ export async function createAssessment({
         );
       }
     }
+    // Questões do mesmo texto-base precisam vir juntas na seleção da seção.
+    for (const section of value.sections)
+      groupBySharedText(
+        section.questionIds.map((id) => ({
+          sharedTextId: questionById.get(id)?.shared_text_id,
+        })),
+      );
+    const sharedTexts = await loadSharedTexts(
+      client,
+      questions.rows.map((question) => question.shared_text_id),
+    );
     const assessment = await client.query(
       `INSERT INTO assessments (institution_id, title, subject, grade, instructions, status, created_by)
        VALUES ($1, $2, $3, $4, $5, 'frozen', $6) RETURNING id`,
@@ -247,11 +263,15 @@ export async function createAssessment({
       let questionNumber = 0;
       const snapshotSections = value.sections.map((section, sectionIndex) => {
         const fullWidthQuestionIds = new Set(section.fullWidthQuestionIds);
-        const sectionQuestions = section.questionIds.map((id) =>
-          questionById.get(id),
-        );
+        const sectionQuestions = section.questionIds.map((id) => ({
+          ...questionById.get(id),
+          sharedTextId: questionById.get(id).shared_text_id || null,
+        }));
+        // O grupo de um texto-base é embaralhado como um bloco só.
         const ordered = value.shuffleQuestions
-          ? seededShuffle(sectionQuestions, seed + sectionIndex * 997)
+          ? shuffleKeepingSharedTexts(sectionQuestions, (items) =>
+              seededShuffle(items, seed + sectionIndex * 997),
+            )
           : sectionQuestions;
         const snapshotQuestions = ordered.map((question, position) => {
           const alternatives =
@@ -268,6 +288,9 @@ export async function createAssessment({
             sourceRevision: question.current_revision,
             number: questionNumber,
             type: question.type,
+            ...(question.sharedTextId
+              ? { sharedTextId: question.sharedTextId }
+              : {}),
             statement: question.statement,
             source: {
               institution: question.source_institution,
@@ -349,6 +372,7 @@ export async function createAssessment({
         candidateFields: ['name', 'class', 'number', 'date'],
         sections: snapshotSections,
         questions: snapshotQuestions,
+        ...(sharedTexts.length ? { sharedTexts } : {}),
         totals: {
           points: snapshotQuestions.reduce(
             (sum, question) => sum + question.points,

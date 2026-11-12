@@ -409,10 +409,17 @@ export async function materializeQuestionImages(snapshot, directory) {
     }
     sections.push({ ...section, questions });
   }
+  const sharedTexts = [];
+  for (const text of snapshot.sharedTexts ?? [])
+    sharedTexts.push({
+      ...text,
+      content: await materializeNodes(text.content),
+    });
   return {
     ...snapshot,
     sections,
     questions: sections.flatMap((section) => section.questions),
+    ...(snapshot.sharedTexts ? { sharedTexts } : {}),
   };
 }
 
