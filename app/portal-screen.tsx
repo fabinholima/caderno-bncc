@@ -649,7 +649,18 @@ export default function Home() {
 
   async function closeQuestionEditor() {
     if (saving) return;
-    if (draftActions.current && !(await draftActions.current.save())) return;
+    // O rascunho é salvo antes de fechar (espera um salvamento em andamento).
+    // Se falhar, a pessoa decide: antes o formulário simplesmente não fechava.
+    const actions = draftActions.current;
+    if (actions && !(await actions.save())) {
+      const reason = actions.lastError() || 'motivo desconhecido';
+      if (
+        !window.confirm(
+          `Não foi possível salvar o rascunho (${reason}).\n\nFechar mesmo assim? As alterações desde o último salvamento serão perdidas.`,
+        )
+      )
+        return;
+    }
     setOpen(false);
   }
   function captureQuestionDraft(form: HTMLFormElement): DraftPayload {
