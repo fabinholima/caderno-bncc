@@ -49,6 +49,8 @@ import {
   X,
   ScanLine,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -194,6 +196,22 @@ export default function Home() {
   const [sharedTextFilter, setSharedTextFilter] = useState('');
   const [active, setActive] = useState('Início');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(() => {
+    try {
+      return (
+        typeof window !== 'undefined' &&
+        localStorage.getItem('ufaprova:sidebar-hidden') === '1'
+      );
+    } catch {
+      return false;
+    }
+  });
+  const toggleSidebar = (hidden: boolean) => {
+    setSidebarHidden(hidden);
+    try {
+      localStorage.setItem('ufaprova:sidebar-hidden', hidden ? '1' : '0');
+    } catch {}
+  };
   useEffect(() => {
     const requestedView = new URLSearchParams(window.location.search).get(
       'view',
@@ -1265,8 +1283,10 @@ export default function Home() {
       <a href="#conteudo" className="skip-link">
         Pular para o conteúdo
       </a>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
-        <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6">
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white ${sidebarHidden ? '' : 'lg:flex'} lg:flex-col`}
+      >
+        <div className="flex h-[76px] items-center gap-3 border-b border-white/10 pl-6 pr-3">
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]">
             <BrandMark />
           </span>
@@ -1278,6 +1298,15 @@ export default function Home() {
               AVALIAÇÕES BNCC
             </p>
           </div>
+          <button
+            type="button"
+            aria-label="Esconder menu lateral"
+            title="Esconder menu lateral"
+            className="ml-auto grid size-9 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white"
+            onClick={() => toggleSidebar(true)}
+          >
+            <PanelLeftClose className="size-[18px]" aria-hidden="true" />
+          </button>
         </div>
         <nav
           aria-label="Navegação principal"
@@ -1343,8 +1372,21 @@ export default function Home() {
         </div>
       </aside>
 
-      <section className="pb-24 lg:pb-0 lg:pl-[252px]">
+      <section
+        className={`pb-24 lg:pb-0 ${sidebarHidden ? '' : 'lg:pl-[252px]'}`}
+      >
         <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/90 px-5 backdrop-blur-xl sm:px-8">
+          {sidebarHidden && (
+            <button
+              type="button"
+              aria-label="Mostrar menu lateral"
+              title="Mostrar menu lateral"
+              className="hidden size-10 place-items-center rounded-lg border border-slate-200 text-slate-700 transition hover:bg-slate-50 lg:grid"
+              onClick={() => toggleSidebar(false)}
+            >
+              <PanelLeftOpen className="size-[18px]" aria-hidden="true" />
+            </button>
+          )}
           <div className="lg:hidden">
             <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-[var(--lime)]">
               <BrandMark />
