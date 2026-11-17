@@ -365,6 +365,16 @@ def read_card(file_name, profile=None, qr_only=False):
             for index, ratio in enumerate(ratios)
             if ratio > 0.45
         ]
+        if len(labels) == 2:
+            # Certo/Errado: scanner exposure makes a filled bubble anywhere
+            # from ~0.45 to 1.0 and an empty one ~0.2, so an absolute cut-off
+            # misreads faint or dark scans. Compare the two bubbles instead.
+            best = max(range(2), key=lambda index: ratios[index])
+            rival = ratios[1 - best]
+            if ratios[best] >= 0.3 and ratios[best] - rival >= 0.15:
+                marked = [labels[best]]
+            elif max(ratios) < 0.3:
+                marked = []
         status = (
             "recognized"
             if len(marked) == 1
