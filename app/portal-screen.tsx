@@ -51,6 +51,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  RectangleHorizontal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -2335,6 +2336,15 @@ export default function Home() {
                                     <span className="ml-2 mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
                                       <BookOpenCheck className="size-3" /> Com
                                       resolução
+                                    </span>
+                                  )}
+                                  {q.recommendSingleColumn && (
+                                    <span
+                                      className="ml-2 mt-1 inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 text-xs font-medium text-blue-700"
+                                      title="Ocupa a largura total da página, mesmo em provas de 2 colunas"
+                                    >
+                                      <RectangleHorizontal className="size-3" />{' '}
+                                      1 coluna
                                     </span>
                                   )}
                                   {q.sharedTextId && (
