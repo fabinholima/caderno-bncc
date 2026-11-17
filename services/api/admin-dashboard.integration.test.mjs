@@ -12,7 +12,7 @@ test('monthly report, tenant subscribers, soft deletion and revocation',{skip:!p
   const admin={userId:randomUUID(),sessionId:randomUUID(),portalAdmin:true};
   const userId=randomUUID(),institution=randomUUID(),contract=randomUUID(),session=randomUUID();
   try {
-    await pool.query(`CREATE TABLE users(id uuid PRIMARY KEY,email text,display_name text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false,deleted_at timestamptz,created_at timestamptz DEFAULT now(),account_type text NOT NULL DEFAULT 'educator');
+    await pool.query(`CREATE TABLE users(id uuid PRIMARY KEY,email text,display_name text,active boolean DEFAULT true,portal_admin boolean DEFAULT false,portal_editor boolean DEFAULT false,deleted_at timestamptz,anonymized_at timestamptz,created_at timestamptz DEFAULT now(),account_type text NOT NULL DEFAULT 'educator');
       CREATE TABLE institutions(id uuid PRIMARY KEY,name text);
       CREATE TABLE memberships(user_id uuid,institution_id uuid);
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text);

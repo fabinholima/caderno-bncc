@@ -114,7 +114,7 @@ export async function manageSubscriber(identity,input) {
   requirePortalAdmin(identity);
   const v=z.object({userId:z.uuid(),action:z.enum(['block','unblock','delete','restore','revoke-session','revoke-all-sessions']),sessionId:z.uuid().optional()}).parse(input);
   return transaction(async db=>{
-    const found=await db.query('SELECT id,portal_admin,deleted_at FROM users WHERE id=$1 FOR UPDATE',[v.userId]);
+    const found=await db.query('SELECT id,portal_admin,deleted_at,anonymized_at FROM users WHERE id=$1 FOR UPDATE',[v.userId]);
     if(!found.rowCount) throw Object.assign(new Error('Conta não encontrada.'),{statusCode:404});
     if(v.userId===identity.userId || found.rows[0].portal_admin) throw Object.assign(new Error('Não é permitido bloquear ou excluir administradores por esta tela.'),{statusCode:403});
     if(v.action==='revoke-session') {
@@ -124,6 +124,8 @@ export async function manageSubscriber(identity,input) {
     } else if(v.action==='revoke-all-sessions') {
       await db.query('DELETE FROM user_sessions WHERE user_id=$1',[v.userId]);
     } else {
+      // Conta excluída pelo próprio usuário já não tem dados pessoais nem forma de entrar.
+      if(['unblock','restore'].includes(v.action) && found.rows[0].anonymized_at) throw Object.assign(new Error('A pessoa excluiu a própria conta; ela não pode ser restaurada.'),{statusCode:422});
       if(v.action==='unblock' && found.rows[0].deleted_at) throw Object.assign(new Error('Restaure a conta excluída primeiro.'),{statusCode:422});
       await db.query(`UPDATE users SET active=$2,deleted_at=CASE WHEN $3='delete' THEN now() WHEN $3='restore' THEN NULL ELSE deleted_at END WHERE id=$1`,[v.userId,['unblock','restore'].includes(v.action),v.action]);
       if(['block','delete'].includes(v.action)) await db.query('DELETE FROM user_sessions WHERE user_id=$1',[v.userId]);

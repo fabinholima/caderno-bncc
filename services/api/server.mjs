@@ -294,6 +294,7 @@ import {
   allowCodeAttempt,
   renewAccessCode,
 } from './student-access-code.mjs';
+import { deleteOwnAccount } from './account-deletion.mjs';
 import {
   createExamImport,
   cropExamImportCandidateImage,
@@ -1127,6 +1128,17 @@ const server = createServer(async (request, response) => {
       await logout(identity.sessionId);
       clearSessionCookie(response);
       return json(response, 200, { data: { loggedOut: true } });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/account/delete') {
+      if (
+        requestOrigin
+          ? !allowedOrigins.has(requestOrigin)
+          : request.headers['x-client'] !== 'mobile'
+      )
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      const data = await deleteOwnAccount(identity, await readJson(request, 4096));
+      clearSessionCookie(response);
+      return json(response, 200, { data });
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/logout-all') {
       if (

@@ -25,6 +25,8 @@ test('professor sem CPF ou sem perfil é parado, exceto nas rotas liberadas', ()
   const noCpf = { ...teacher, cpfComplete: false };
   assert.equal(gates.cpf(noCpf, '/api/classes').status, 428);
   assert.equal(gates.cpf(noCpf, '/api/auth/logout-all'), null);
+  assert.equal(gates.cpf(noCpf, '/api/account/delete'), null);
+  assert.equal(gates.studentArea({ role: 'student' }, '/api/account/delete'), null);
   assert.equal(gates.cpf(noCpf, '/api/invitations/accept').status, 428);
   assert.equal(
     gates.cpf({ ...noCpf, portalAdmin: true }, '/api/classes'),

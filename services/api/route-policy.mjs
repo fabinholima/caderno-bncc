@@ -8,6 +8,7 @@ export const ACCOUNT_PATHS = Object.freeze([
   '/api/auth/me',
   '/api/auth/logout',
   '/api/auth/logout-all',
+  '/api/account/delete',
 ]);
 
 /** Também liberadas antes do perfil completo: entrar numa equipe e trocar de instituição. */
