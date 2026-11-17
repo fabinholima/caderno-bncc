@@ -121,6 +121,13 @@ export function AcademicManager({
     applicationIds: string[];
   } | null>(null);
   const [scanReview, setScanReview] = useState<ScanReview | null>(null);
+  // Foto do cartão baixada com a sessão (como nas redações): uma tag <img>
+  // sem erro tratado deixava a caixa vazia sem explicação.
+  const [scanPhoto, setScanPhoto] = useState<{
+    scanId: string;
+    url?: string;
+    error?: string;
+  } | null>(null);
   const [reviewCandidateId, setReviewCandidateId] = useState('');
   const [reviewAnswers, setReviewAnswers] = useState<Record<number, string[]>>(
     {},
@@ -597,6 +604,34 @@ export function AcademicManager({
   useEffect(() => {
     submitReviewRef.current = submitReview;
   });
+  const reviewScanId = scanReview?.id;
+  const reviewScanHasImage = Boolean(scanReview?.imageAvailable);
+  useEffect(() => {
+    if (!reviewScanId || !reviewScanHasImage) return;
+    let active = true;
+    let created = '';
+    apiFetch(`${apiUrl}/api/card-scans/${reviewScanId}/image`)
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error(
+            `A foto não pôde ser carregada (erro ${response.status}).`,
+          );
+        created = URL.createObjectURL(await response.blob());
+        if (active) setScanPhoto({ scanId: reviewScanId, url: created });
+        else URL.revokeObjectURL(created);
+      })
+      .catch((error: Error) => {
+        if (active)
+          setScanPhoto({
+            scanId: reviewScanId,
+            error: error.message || 'Não foi possível carregar a foto.',
+          });
+      });
+    return () => {
+      active = false;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [apiUrl, reviewScanId, reviewScanHasImage]);
   useEffect(() => {
     if (!reviewedScanId) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2572,12 +2607,14 @@ export function AcademicManager({
               <div
                 className={`rounded-xl border bg-slate-100 ${photoZoom ? 'max-h-[calc(100vh-9rem)] overflow-auto' : 'overflow-hidden'}`}
               >
-                {scanReview.imageAvailable ? (
+                {scanPhoto?.scanId === scanReview.id && scanPhoto.error ? (
+                  <p className="p-6 text-sm text-red-600">{scanPhoto.error}</p>
+                ) : scanPhoto?.scanId === scanReview.id && scanPhoto.url ? (
                   <Image
                     unoptimized
                     width={1200}
                     height={1600}
-                    src={`${apiUrl}/api/card-scans/${scanReview.id}/image`}
+                    src={scanPhoto.url}
                     alt="Página original do cartão-resposta"
                     title={
                       photoZoom ? 'Clique para reduzir' : 'Clique para ampliar'
@@ -2588,6 +2625,10 @@ export function AcademicManager({
                     }}
                     className={`mx-auto transition-transform ${photoZoom ? 'max-w-none w-[200%] cursor-zoom-out' : 'max-h-[50vh] w-full cursor-zoom-in object-contain lg:max-h-[calc(100vh-9rem)]'}`}
                   />
+                ) : scanReview.imageAvailable ? (
+                  <p className="p-6 text-sm text-slate-500">
+                    Carregando a foto do cartão…
+                  </p>
                 ) : (
                   <p className="p-6 text-sm text-slate-500">
                     A imagem original não está disponível.
