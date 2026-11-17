@@ -179,6 +179,23 @@ else
   echo "Serviço volume-permissions ausente; nada a fazer."
 fi
 
+step "Containers órfãos"
+# Um "up" interrompido deixa o container novo com nome temporário
+# (<id de 12 hex>_<projeto>-<serviço>-N); o próximo "up" falha com
+# "container name ... is already in use". O compose apagaria esse container
+# ao terminar a troca, então removê-lo aqui é seguro.
+project="$(compose config 2>/dev/null | sed -n 's/^name: *//p' | head -1)"
+stale=()
+if [[ -n "$project" ]]; then
+  while read -r id name; do
+    if [[ "$name" =~ ^[0-9a-f]{12}_ ]]; then
+      stale+=("$id")
+      echo "Órfão: $name ($id)"
+    fi
+  done < <(docker ps -a --filter "label=com.docker.compose.project=$project" --format '{{.ID}} {{.Names}}')
+fi
+if [[ ${#stale[@]} -gt 0 ]]; then run docker rm -f "${stale[@]}"; else echo "Nenhum."; fi
+
 step "API"
 run compose up -d --no-deps "$API_SERVICE"
 if [[ $DRY_RUN -eq 0 ]]; then
