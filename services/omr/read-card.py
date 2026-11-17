@@ -120,7 +120,15 @@ def snap_to_grid(columns, radius, slope, restore_leading=True):
         # Constant along a printed row whatever the photo's tilt.
         return sum(circle[1] - slope * circle[0] for circle in group) / len(group)
 
-    columns = [sorted(groups, key=row_of) for groups in columns]
+    def distinct_rows(groups):
+        # Repeated detections of one bubble land on the same row; keep one.
+        kept = []
+        for group in sorted(groups, key=row_of):
+            if not kept or row_of(group) - row_of(kept[-1]) > radius:
+                kept.append(group)
+        return kept
+
+    columns = [distinct_rows(groups) for groups in columns]
     steps = [b - a for groups in columns for a, b in zip(map(row_of, groups), map(row_of, groups[1:]))]
     if len(steps) < 2:
         return [group for groups in columns for group in groups]
@@ -377,7 +385,7 @@ def read_card(file_name, profile=None, qr_only=False):
             # misreads faint or dark scans. Compare the two bubbles instead.
             best = max(range(2), key=lambda index: ratios[index])
             rival = ratios[1 - best]
-            if ratios[best] >= 0.3 and ratios[best] - rival >= 0.15:
+            if ratios[best] >= 0.3 and ratios[best] - rival >= 0.10:
                 marked = [labels[best]]
             elif max(ratios) < 0.3:
                 marked = []
