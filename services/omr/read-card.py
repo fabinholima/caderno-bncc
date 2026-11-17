@@ -72,7 +72,7 @@ def detect_answer_groups(image, gray, option_count=5):
     return groups
 
 
-def order_groups_by_column(groups):
+def order_groups_by_column(groups, restore_leading=True):
     if not groups:
         return []
     radius = float(np.median([circle[2] for group in groups for circle in group]))
@@ -106,10 +106,10 @@ def order_groups_by_column(groups):
             column["center_x"] = float(np.median([column_x(item) for item in column["groups"]]))
 
     columns.sort(key=lambda column: column["center_x"])
-    return snap_to_grid([column["groups"] for column in columns], radius, slope)
+    return snap_to_grid([column["groups"] for column in columns], radius, slope, restore_leading)
 
 
-def snap_to_grid(columns, radius, slope):
+def snap_to_grid(columns, radius, slope, restore_leading=True):
     """Rebuild each column as an evenly spaced grid of bubble positions.
 
     Low-resolution scans give noisy Hough circles: text far below the grid
@@ -156,7 +156,7 @@ def snap_to_grid(columns, radius, slope):
                 rows.extend([previous + (row - previous) * step / missing for step in range(1, missing)])
             rows.append(row)
         # Columns share the first printed row; restore leading rows missed here.
-        while rows[0] - pitch >= first - pitch * .4:
+        while restore_leading and rows[0] - pitch >= first - pitch * .4:
             rows.insert(0, rows[0] - pitch)
         for row in rows:
             ordered.append([(*(round(float(value)) for value in fit(row)), radius) for fit in fits])
@@ -352,7 +352,13 @@ def read_card(file_name, profile=None, qr_only=False):
     if profile and profile.get('id') in ('compacto-10-v1', 'certo-errado-10-v1'):
         return with_quality(read_compact(gray, qr_points, payload, profile), issues)
     labels = profile.get('labels', list('ABCDE')) if profile else list('ABCDE')
-    groups = order_groups_by_column(detect_answer_groups(image, gray, len(labels)))
+    # Certo/errado: a coluna da direita começa uma linha abaixo da esquerda
+    # (o cabeçalho "ITEM RESPOSTA" fica na primeira linha), então não se
+    # deve recuperar linhas iniciais.
+    groups = order_groups_by_column(
+        detect_answer_groups(image, gray, len(labels)),
+        restore_leading=len(labels) != 2,
+    )
     answers = []
     for number, group in enumerate(groups, 1):
         ratios = []
