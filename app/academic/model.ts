@@ -173,8 +173,9 @@ export const canDiscardScan = (
     ? !['discarded', 'processing'].includes(scan.status)
     : ['review', 'failed'].includes(scan.status) && !scan.studentName;
 
-export const canReviewScan = (scan: CardScan) =>
-  scanTabOf(scan) === 'review' && Boolean(scan.imageAvailable);
+// Cartões sem imagem também entram na fila: a tela de revisão avisa que a
+// foto não está disponível, para o professor não perder o cartão.
+export const canReviewScan = (scan: CardScan) => scanTabOf(scan) === 'review';
 
 // Uma questão de múltiplas respostas pode ter várias bolhas marcadas.
 export function readWithCertainty(
