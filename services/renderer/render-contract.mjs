@@ -482,6 +482,18 @@ function sharedTextLines(nodes = []) {
     .map((line) => line.trim());
 }
 
+// Data de hoje no fuso de Campo Grande/MS, no formato dd/mm/aaaa.
+export function todayInBrazil(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Campo_Grande',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(now);
+  const value = (type) => parts.find((part) => part.type === type)?.value;
+  return `${value('day')}/${value('month')}/${value('year')}`;
+}
+
 export function renderAssessment(snapshot) {
   if (snapshot?.schemaVersion !== '1.0' || !Array.isArray(snapshot.questions)) {
     throw new Error('Snapshot de avaliação inválido ou incompatível.');
@@ -771,7 +783,10 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
       teacherName: escapeContext(header.teacherName),
       className: escapeContext(header.className),
       term: escapeContext(header.term),
-      assessmentDate: escapeContext(header.date),
+      // Prova do aluno sem data no cabeçalho recebe a data de impressão.
+      assessmentDate: escapeContext(
+        header.date || (mode === 'student' ? todayInBrazil() : ''),
+      ),
       transcriptionPhrase: escapeContext(header.transcriptionPhrase),
       instructions: (snapshot.assessment?.instructions ?? []).map(
         (instruction) => escapeContext(instruction),
