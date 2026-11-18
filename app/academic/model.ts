@@ -53,7 +53,19 @@ export type Application = {
   status: string;
   classId?: string;
   corrected?: number;
+  // Layout de impressão da aplicação (ex.: compacto-10-v1).
+  template?: string;
 };
+
+// Layouts compactos (cartão dentro da prova): o lote é a prova completa.
+export const COMPACT_TEMPLATE_IDS: readonly string[] = [
+  'compacto-10-v1',
+  'certo-errado-10-v1',
+];
+
+export function isCompactTemplateId(template?: string) {
+  return COMPACT_TEMPLATE_IDS.includes(template ?? '');
+}
 
 export type Assignment = {
   id: string;

@@ -53,6 +53,7 @@ import {
   type Student,
   type Assessment,
   type Application,
+  isCompactTemplateId,
   type Assignment,
   type ApplicationDetail,
   type CardScan,
@@ -279,12 +280,19 @@ export function AcademicManager({
     },
     [apiUrl],
   );
-  const downloadApplicationBatch = async (application: Application) => {
+  // 'exams': provas completas em um PDF só (layout compacto, com o cartão na
+  // primeira página). 'answer-cards': cartão-resposta separado.
+  const downloadApplicationBatch = async (
+    application: Application,
+    kind: 'answer-cards' | 'exams' = 'answer-cards',
+  ) => {
     setBatchDownloadingId(application.id);
     setMessage('');
+    const path = kind === 'exams' ? 'pdf' : 'answer-cards.pdf';
+    const label = kind === 'exams' ? 'provas' : 'cartões-resposta';
     try {
       const response = await apiFetch(
-        `${apiUrl}/api/assessment-applications/${application.id}/answer-cards.pdf`,
+        `${apiUrl}/api/assessment-applications/${application.id}/${path}`,
       );
       if (!response.ok) {
         const body = (await response
@@ -300,12 +308,15 @@ export function AcademicManager({
       const objectUrl = URL.createObjectURL(file);
       const link = document.createElement('a');
       link.href = objectUrl;
-      link.download = 'cartoes-resposta-da-turma.pdf';
+      link.download =
+        kind === 'exams'
+          ? 'provas-da-turma.pdf'
+          : 'cartoes-resposta-da-turma.pdf';
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-      setMessage('Lote de cartões-resposta baixado.');
+      setMessage(`Lote de ${label} baixado.`);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -1235,17 +1246,41 @@ export function AcademicManager({
                     Ver relatório
                   </Button>
                   {x.students > 0 && x.completed === x.students && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={batchDownloadingId === x.id}
-                      onClick={() => void downloadApplicationBatch(x)}
-                    >
-                      <Download />
-                      {batchDownloadingId === x.id
-                        ? 'Preparando cartões…'
-                        : 'Baixar cartões-resposta'}
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={batchDownloadingId === x.id}
+                        onClick={() =>
+                          void downloadApplicationBatch(x, 'exams')
+                        }
+                      >
+                        <Download />
+                        {batchDownloadingId === x.id
+                          ? 'Preparando provas…'
+                          : 'Baixar provas em lote'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          batchDownloadingId === x.id ||
+                          isCompactTemplateId(x.template)
+                        }
+                        title={
+                          isCompactTemplateId(x.template)
+                            ? 'No layout compacto o cartão fica na primeira página da prova.'
+                            : undefined
+                        }
+                        onClick={() => void downloadApplicationBatch(x)}
+                      >
+                        <Download />
+                        {batchDownloadingId === x.id
+                          ? 'Preparando cartões…'
+                          : 'Baixar cartões-resposta em lote'}
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

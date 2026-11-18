@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
+import { isCompactTemplateId } from './academic/model';
 type Assignment = {
   id: string;
   studentName: string;
@@ -36,6 +37,7 @@ export function AssessmentApplicationStep({
   const [application, setApplication] = useState<{
       id: string;
       reused?: boolean;
+      template?: string | null;
       assignments: Assignment[];
     } | null>(null),
     [busy, setBusy] = useState(false),
@@ -121,12 +123,13 @@ export function AssessmentApplicationStep({
       setBusy(false);
     }
   }
-  async function download() {
+  // Layout compacto: a prova completa vira um PDF único da turma.
+  async function download(kind: 'answer-cards' | 'exams' = 'answer-cards') {
     if (!application) return;
     setDownloading(true);
     try {
       const r = await apiFetch(
-        `${apiUrl}/api/assessment-applications/${application.id}/answer-cards.pdf`,
+        `${apiUrl}/api/assessment-applications/${application.id}/${kind === 'exams' ? 'pdf' : 'answer-cards.pdf'}`,
       );
       if (!r.ok) {
         const body = (await r.json().catch(() => null)) as {
@@ -142,7 +145,10 @@ export function AssessmentApplicationStep({
       const url = URL.createObjectURL(file);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'cartoes-resposta-da-turma.pdf';
+      a.download =
+        kind === 'exams'
+          ? 'provas-da-turma.pdf'
+          : 'cartoes-resposta-da-turma.pdf';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -301,19 +307,36 @@ export function AssessmentApplicationStep({
               {a.renderStatus || a.status}
             </p>
           ))}
-          <Button
-            disabled={
-              downloading ||
-              !application.assignments.every(
-                (a) => a.renderStatus === 'completed',
-              )
-            }
-            onClick={download}
-          >
-            {downloading
-              ? 'Preparando cartões-resposta…'
-              : 'Baixar cartões-resposta em lote'}
-          </Button>
+          {(() => {
+            const ready = application.assignments.every(
+              (a) => a.renderStatus === 'completed',
+            );
+            const compact = isCompactTemplateId(
+              application.template ?? undefined,
+            );
+            return (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={downloading || !ready}
+                  onClick={() => void download('exams')}
+                >
+                  {downloading ? 'Preparando…' : 'Baixar provas em lote'}
+                </Button>
+                <Button
+                  disabled={downloading || !ready || compact}
+                  onClick={() => void download('answer-cards')}
+                >
+                  Baixar cartões-resposta em lote
+                </Button>
+                {compact && (
+                  <p className="w-full text-sm text-slate-500">
+                    No layout compacto o cartão fica na primeira página da
+                    prova, então o lote de provas já o inclui.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
           <p>
             Abra a área de correção pelo celular e selecione esta aplicação para
             fotografar os cartões.

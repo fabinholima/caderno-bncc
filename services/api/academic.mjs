@@ -240,6 +240,14 @@ export async function createApplication({ institutionId, userId, input }) {
        ORDER BY av.code`,
       [v.assessmentId, institutionId],
     );
+    // Layout de impressão da prova: a tela escolhe entre cartão e prova completa.
+    const templateRow = versions.rowCount
+      ? await client.query(
+          'SELECT template_version FROM render_jobs WHERE assessment_version_id=$1 ORDER BY created_at LIMIT 1',
+          [versions.rows[0].id],
+        )
+      : null;
+    const template = templateRow?.rows[0]?.template_version ?? null;
     if (!versions.rowCount)
       throw Object.assign(
         new Error('Avaliação não encontrada ou sem versões.'),
@@ -323,6 +331,7 @@ export async function createApplication({ institutionId, userId, input }) {
         status:
           application.status === 'cancelled' ? 'scheduled' : application.status,
         assignments,
+        template,
         reused: true,
       };
     }
@@ -353,7 +362,7 @@ export async function createApplication({ institutionId, userId, input }) {
         status: 'queued',
       });
     }
-    return { ...application, assignments, reused: false };
+    return { ...application, assignments, template, reused: false };
   });
 }
 
@@ -391,7 +400,7 @@ async function listApplicationAssignments(client, applicationId) {
 
 export async function listApplications({ institutionId, ownerId = null }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL AND cs.status<>'discarded'))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,(SELECT rj0.template_version FROM render_jobs rj0 JOIN application_students aps0 ON aps0.id=rj0.application_student_id WHERE aps0.application_id=aa.id LIMIT 1) template,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL AND cs.status<>'discarded'))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
     values: [institutionId, ownerId],
   });
   // Versões e gabarito de cada avaliação, para o professor conferir antes de corrigir.
@@ -425,6 +434,7 @@ export async function listApplications({ institutionId, ownerId = null }) {
     assessmentId: x.assessment_id,
     classId: x.class_id,
     className: x.class_name,
+    template: x.template,
     scheduledAt: x.scheduled_at,
     status: x.status,
     students: x.students,
