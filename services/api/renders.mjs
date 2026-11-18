@@ -22,6 +22,10 @@ import {
   parsePdfPageCount,
   selectFinalAnswerCardPage,
 } from './answer-card-batches.mjs';
+import {
+  blankPagesToEvenCount,
+  blankPdfBuffer,
+} from './duplex-batches.mjs';
 
 const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -184,6 +188,8 @@ export async function getApplicationBatchFile({
   const batchDirectory = await mkdtemp(path.join(tmpdir(), 'caderno-batch-'));
   try {
     const sources = [];
+    const blankPath = path.join(batchDirectory, 'blank-page.pdf');
+    await writeFile(blankPath, blankPdfBuffer());
     for (const [index, job] of jobs.rows.entries()) {
       const contents = await readRenderArtifact({
         entry: job.output_manifest?.studentPdf,
@@ -191,15 +197,17 @@ export async function getApplicationBatchFile({
       });
       const source = path.join(batchDirectory, `${index + 1}.pdf`);
       await writeFile(source, contents);
+      const info = await execFileAsync('pdfinfo', [source], {
+        timeout: 30_000,
+        maxBuffer: 1_000_000,
+      });
+      const pageCount = parsePdfPageCount(info.stdout);
+      if (!pageCount)
+        throw new Error('Não foi possível identificar as páginas da prova.');
+      // Frente e verso: cada aluno termina em folha completa.
+      let sheetPages = pageCount;
       if (kind === 'answer-card') {
         const pagePrefix = `${index + 1}-page-`;
-        const info = await execFileAsync('pdfinfo', [source], {
-          timeout: 30_000,
-          maxBuffer: 1_000_000,
-        });
-        const pageCount = parsePdfPageCount(info.stdout);
-        if (!pageCount)
-          throw new Error('Não foi possível identificar as páginas da prova.');
         await execFileAsync(
           'pdfseparate',
           [
@@ -221,9 +229,12 @@ export async function getApplicationBatchFile({
             'Não foi possível localizar a página do cartão-resposta.',
           );
         sources.push(path.join(batchDirectory, pageFile));
+        sheetPages = 1;
       } else {
         sources.push(source);
       }
+      if (blankPagesToEvenCount(sheetPages))
+        sources.push(blankPath);
     }
     const destination = path.join(
       batchDirectory,
