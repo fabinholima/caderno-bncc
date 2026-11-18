@@ -248,7 +248,7 @@ export async function createApplication({ institutionId, userId, input }) {
         },
       );
     const students = await client.query(
-      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
+      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
       [v.classId, institutionId, v.studentIds || null],
     );
     if (v.studentIds && students.rowCount !== v.studentIds.length)
@@ -543,7 +543,7 @@ export async function cancelApplication({ institutionId, applicationId }) {
 
 export async function listClassStudents({ institutionId, classId }) {
   const r = await pool.query(
-    `SELECT s.id,s.name,s.registration FROM class_enrollments ce JOIN classes c ON c.id=ce.class_id JOIN students s ON s.id=ce.student_id WHERE c.id=$1 AND c.institution_id=$2 AND s.institution_id=$2 AND s.active ORDER BY ce.number NULLS LAST,s.name`,
+    `SELECT s.id,s.name,s.registration FROM class_enrollments ce JOIN classes c ON c.id=ce.class_id JOIN students s ON s.id=ce.student_id WHERE c.id=$1 AND c.institution_id=$2 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') ORDER BY ce.number NULLS LAST,s.name`,
     [classId, institutionId],
   );
   return r.rows;
