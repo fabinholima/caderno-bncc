@@ -5,8 +5,22 @@ import { Readable } from 'node:stream';
 import {
   applicationBatchState,
   formatRenderJob,
+  missingNumberWarning,
   streamApplicationBatchFile,
 } from './renders.mjs';
+
+test('avisa quando algum aluno do lote está sem número na turma', () => {
+  assert.equal(
+    missingNumberWarning([{ student_number: 1 }, { student_number: 2 }]),
+    null,
+  );
+  const warning = missingNumberWarning([
+    { student_number: 1 },
+    { student_number: null },
+    { student_number: null },
+  ]);
+  assert.match(warning, /^2 aluno\(s\) sem número na turma/);
+});
 
 const baseRow = {
   id: '10000000-0000-4000-8000-000000000001',

@@ -22,10 +22,7 @@ import {
   parsePdfPageCount,
   selectFinalAnswerCardPage,
 } from './answer-card-batches.mjs';
-import {
-  blankPagesToEvenCount,
-  blankPdfBuffer,
-} from './duplex-batches.mjs';
+import { blankPagesToEvenCount, blankPdfBuffer } from './duplex-batches.mjs';
 
 const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -135,6 +132,15 @@ export function applicationBatchState(rows) {
   return { status: 200 };
 }
 
+// Alunos sem número na turma saem com o campo "Nº" em branco na prova.
+export function missingNumberWarning(rows) {
+  const missing = rows.filter(
+    (row) => row.student_number === null || row.student_number === undefined,
+  ).length;
+  if (!missing) return null;
+  return `${missing} aluno(s) sem número na turma: o Nº sai em branco na prova. Cadastre o número na turma antes de imprimir.`;
+}
+
 export async function getApplicationBatchFile({
   institutionId,
   applicationId,
@@ -154,7 +160,7 @@ export async function getApplicationBatchFile({
   // Transferidos e remanejados não recebem cartão-resposta; a prova completa
   // continua no lote, como cadastrada na aplicação.
   const jobs = await pool.query({
-    text: `SELECT rj.status, rj.output_manifest, rj.template_version
+    text: `SELECT rj.status, rj.output_manifest, rj.template_version, ce.number AS student_number
            FROM application_students aps
            JOIN students s ON s.id = aps.student_id
            LEFT JOIN class_enrollments ce
@@ -233,8 +239,7 @@ export async function getApplicationBatchFile({
       } else {
         sources.push(source);
       }
-      if (blankPagesToEvenCount(sheetPages))
-        sources.push(blankPath);
+      if (blankPagesToEvenCount(sheetPages)) sources.push(blankPath);
     }
     const destination = path.join(
       batchDirectory,
@@ -251,6 +256,7 @@ export async function getApplicationBatchFile({
     return {
       status: 200,
       size: file.size,
+      warning: missingNumberWarning(jobs.rows),
       stream: createReadStream(destination),
       cleanup: () =>
         (cleanupPromise ??= rm(batchDirectory, {
@@ -279,6 +285,9 @@ export async function streamApplicationBatchFile(
     'content-type': 'application/pdf',
     'content-length': file.size,
     'content-disposition': `attachment; filename="${filename}"`,
+    ...(file.warning
+      ? { 'x-batch-warning': encodeURIComponent(file.warning) }
+      : {}),
     ...corsHeaders(response),
   });
   try {

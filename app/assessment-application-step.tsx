@@ -137,6 +137,8 @@ export function AssessmentApplicationStep({
       const file = await r.blob();
       if (!file.size)
         throw new Error('O arquivo do lote veio vazio. Tente novamente.');
+      const warning = r.headers.get('x-batch-warning');
+      if (warning) setNotice(decodeURIComponent(warning));
       const url = URL.createObjectURL(file);
       const a = document.createElement('a');
       a.href = url;

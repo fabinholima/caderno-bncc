@@ -295,6 +295,8 @@ export function AcademicManager({
       const file = await response.blob();
       if (!file.size)
         throw new Error('O arquivo do lote veio vazio. Tente novamente.');
+      const warning = response.headers.get('x-batch-warning');
+      if (warning) setMessage(decodeURIComponent(warning));
       const objectUrl = URL.createObjectURL(file);
       const link = document.createElement('a');
       link.href = objectUrl;

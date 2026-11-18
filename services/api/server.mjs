@@ -333,7 +333,7 @@ function corsHeaders(response) {
     ? {
         'access-control-allow-origin': response.corsOrigin,
         'access-control-allow-credentials': 'true',
-        'access-control-expose-headers': 'x-request-id',
+        'access-control-expose-headers': 'x-request-id, x-batch-warning',
         vary: 'Origin',
       }
     : {};
@@ -1136,7 +1136,10 @@ const server = createServer(async (request, response) => {
           : request.headers['x-client'] !== 'mobile'
       )
         return json(response, 403, { error: 'Origem não autorizada.' });
-      const data = await deleteOwnAccount(identity, await readJson(request, 4096));
+      const data = await deleteOwnAccount(
+        identity,
+        await readJson(request, 4096),
+      );
       clearSessionCookie(response);
       return json(response, 200, { data });
     }
