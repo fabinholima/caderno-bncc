@@ -12,9 +12,10 @@ export function renderInstitutionalHeader({
   subjects,
   headerQr = true,
 }) {
-  const qrGraphic = headerQr && qrFileName
-    ? `picture q; q := externalfigure "${qrFileName}" scaled 0.65; draw q shifted (15.0cm,1.35cm);`
-    : '';
+  const qrGraphic =
+    headerQr && qrFileName
+      ? `picture q; q := externalfigure "${qrFileName}" scaled 0.65; draw q shifted (15.0cm,1.35cm);`
+      : '';
   const logoGraphic = logoFileName
     ? `draw externalfigure "${logoFileName}" scaled 0.45 shifted (0.2cm,0.2cm);`
     : '';
@@ -84,29 +85,41 @@ export function renderCompactExamHeader({
   const logo = logoFileName
     ? `\\externalfigure[${logoFileName}][width=22mm,height=14mm,factor=fit]`
     : '';
-  const qr = headerQr && qrFileName
-    ? `\\externalfigure[${qrFileName}][width=15mm,height=15mm]`
-    : '';
+  const qr =
+    headerQr && qrFileName
+      ? `\\externalfigure[${qrFileName}][width=15mm,height=15mm]`
+      : '';
   const examTitle = title || 'PROVA';
-  const versionText = version ? `\\quad{\\switchtobodyfont[7pt]Versão ${version}}` : '';
+  const versionText = version
+    ? `\\quad{\\switchtobodyfont[7pt]Versão ${version}}`
+    : '';
   // Linha para escrever à mão (ou o valor impresso, quando já existe).
-  const line = (value, width) => value
-    ? `\\hbox to ${width}{${value}\\hss}`
-    : `\\hbox to ${width}{\\leaders\\hrule height .4pt\\hfill}`;
+  const line = (value, width) =>
+    value
+      ? `\\hbox to ${width}{${value}\\hss}`
+      : `\\hbox to ${width}{\\leaders\\hrule height .4pt\\hfill}`;
   const details = [
     subjects,
     grade,
     className ? `Turma ${className}` : '',
     term,
     teacherName ? `Professor(a): ${teacherName}` : '',
-  ].filter(Boolean).join(' \\enspace·\\enspace ');
+  ]
+    .filter(Boolean)
+    .join(' \\enspace·\\enspace ');
   const date = `Data: ${assessmentDate || '\\hbox to 22mm{\\leaders\\hrule height .4pt\\hfill}'}`;
   // Aluno vinculado (prova gerada pela aplicação da turma): nome e número
   // impressos e só a assinatura para preencher. Sem aluno (PDF da versão),
   // ficam as linhas para nome e número.
-  const studentRow = candidateName
-    ? `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}${candidateNumber ? `\\hskip 3mm Nº ${candidateNumber}` : ''}\\hskip 6mm\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}`
-    : `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}`;
+  // Nome longo não cabe ao lado do Nº e da assinatura: o nome vai numa linha
+  // própria (com quebra de texto) e o Nº com a assinatura ficam embaixo.
+  const longCandidateName = candidateName && candidateName.length > 34;
+  const studentRow = longCandidateName
+    ? `\\vbox{\\hsize=${contentWidth}\\relax\\noindent\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}\\par}\\blank[1mm]
+\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]${candidateNumber ? `\\bold{Nº} ${candidateNumber}` : ''}\\hfill\\hbox to 95mm{\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}}`
+    : candidateName
+      ? `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}${candidateNumber ? `\\hskip 3mm Nº ${candidateNumber}` : ''}\\hskip 6mm\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}`
+      : `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}`;
   const logoWidth = logo ? '25mm' : '0mm';
   const qrWidth = qr ? '18mm' : '0mm';
 
