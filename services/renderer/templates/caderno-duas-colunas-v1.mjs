@@ -1,4 +1,7 @@
-import { fiveOptionAnswerBlock, fiveOptionAnswerSheet } from './five-option-answer-grid.mjs';
+import {
+  fiveOptionAnswerBlock,
+  fiveOptionAnswerSheet,
+} from './five-option-answer-grid.mjs';
 import { renderCompactExamHeader } from './institutional-header.mjs';
 import { renderAnswerCardStudent } from './answer-card-header.mjs';
 
@@ -49,6 +52,7 @@ export const twoColumnExamV1 = Object.freeze({
       qrFileName,
       candidateName,
       candidateNumber,
+      singleLineName: true,
       subjects,
       title,
       version,

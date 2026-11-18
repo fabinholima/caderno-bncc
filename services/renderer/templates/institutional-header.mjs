@@ -20,6 +20,10 @@ export function renderInstitutionalHeader({
     ? `draw externalfigure "${logoFileName}" scaled 0.45 shifted (0.2cm,0.2cm);`
     : '';
 
+  // Rótulo fixo do MetaPost não quebra linha: nome longo sai daqui e aparece
+  // completo na linha "Aluno(a)" do rodapé do simulado.
+  const headerName =
+    candidateName && candidateName.length > 45 ? '' : candidateName || '';
   return `\\startMPcode
 prologues := 3;
 numeric W,H,x; W := 16.5cm; H := 2.8cm; x := 5.1cm;
@@ -32,7 +36,7 @@ label.top(btex \\switchtobodyfont[10pt]\\bold \\WORD \\ss ${institution} etex, (
 
 label.lft(btex \\switchtobodyfont[8pt]\\ss ALUNO(A): etex, (x,1.85cm));
 draw (x+0.1cm,1.70cm)--(12.4cm,1.70cm);
-label.rt(btex \\switchtobodyfont[8pt]\\ss ${candidateName || ''} etex, (x+0.2cm,1.85cm));
+label.rt(btex \\switchtobodyfont[8pt]\\ss ${headerName} etex, (x+0.2cm,1.85cm));
 label.lft(btex \\switchtobodyfont[8pt]\\ss Nº etex, (13.35cm,1.85cm));
 draw (13.45cm,1.70cm)--(14.75cm,1.70cm);
 label.rt(btex \\switchtobodyfont[8pt]\\ss ${candidateNumber || ''} etex, (13.55cm,1.85cm));
@@ -80,6 +84,9 @@ export function renderCompactExamHeader({
   title,
   version,
   headerQr = true,
+  // Cabeçalho de altura fixa (modelo 3): o nome longo fica na mesma faixa do
+  // Nº e da assinatura, com o texto quebrando dentro de uma coluna.
+  singleLineName = false,
 }) {
   const contentWidth = '\\dimexpr\\textwidth-4mm\\relax';
   const logo = logoFileName
@@ -114,12 +121,21 @@ export function renderCompactExamHeader({
   // Nome longo não cabe ao lado do Nº e da assinatura: o nome vai numa linha
   // própria (com quebra de texto) e o Nº com a assinatura ficam embaixo.
   const longCandidateName = candidateName && candidateName.length > 34;
-  const studentRow = longCandidateName
-    ? `\\vbox{\\hsize=${contentWidth}\\relax\\noindent\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}\\par}\\blank[1mm]
+  const nameSize =
+    candidateName && candidateName.length > 85
+      ? '6pt'
+      : candidateName && candidateName.length > 60
+        ? '7pt'
+        : '8pt';
+  const studentRow =
+    singleLineName && longCandidateName
+      ? `\\hbox to ${contentWidth}{\\vtop{\\hsize=\\dimexpr${contentWidth}-100mm\\relax\\noindent\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[${nameSize}]\\bold{${candidateName}}}}\\hfill${candidateNumber ? `\\switchtobodyfont[8pt]\\bold{Nº} ${candidateNumber}\\hskip 4mm` : ''}\\hbox to 60mm{\\switchtobodyfont[8pt]\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}}`
+      : longCandidateName
+        ? `\\vbox{\\hsize=${contentWidth}\\relax\\noindent\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}\\par}\\blank[1mm]
 \\hbox to ${contentWidth}{\\switchtobodyfont[8pt]${candidateNumber ? `\\bold{Nº} ${candidateNumber}` : ''}\\hfill\\hbox to 95mm{\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}}`
-    : candidateName
-      ? `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}${candidateNumber ? `\\hskip 3mm Nº ${candidateNumber}` : ''}\\hskip 6mm\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}`
-      : `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}`;
+        : candidateName
+          ? `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm{\\switchtobodyfont[9pt]\\bold{${candidateName}}}${candidateNumber ? `\\hskip 3mm Nº ${candidateNumber}` : ''}\\hskip 6mm\\bold{Assinatura:}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill}`
+          : `\\hbox to ${contentWidth}{\\switchtobodyfont[8pt]\\bold{Aluno(a):}\\hskip 1.5mm\\leaders\\hrule height .4pt\\hfill\\hskip 4mm\\bold{Nº}\\hskip 1.5mm${line(candidateNumber, '16mm')}}`;
   const logoWidth = logo ? '25mm' : '0mm';
   const qrWidth = qr ? '18mm' : '0mm';
 

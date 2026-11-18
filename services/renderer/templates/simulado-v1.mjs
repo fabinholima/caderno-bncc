@@ -105,7 +105,7 @@ ${instructionItems}
 \\vfill
 \\framed[width=\\textwidth,align=flushleft,framecolor=simuladoaccent,offset=3mm]{
 Instituição: ${institution}\\par
-Aluno(a): \\thinrules[n=1,width=10cm]\\par
+Aluno(a): ${candidateName && candidateName.length > 45 ? candidateName : '\\thinrules[n=1,width=10cm]'}\\par
 Turma: ${className || '\\thinrules[n=1,width=35mm]'} \\quad Data: ${assessmentDate || '\\thinrules[n=1,width=30mm]'}}
 \\page`
         : '';
