@@ -157,8 +157,8 @@ export async function getApplicationBatchFile({
   if (application.rows[0].status === 'cancelled')
     return { status: 409, error: 'A aplicação foi cancelada.' };
 
-  // Transferidos e remanejados não recebem cartão-resposta; a prova completa
-  // continua no lote, como cadastrada na aplicação.
+  // Transferidos e remanejados saem do lote de provas e de cartões: não
+  // recebem material impresso da turma.
   const jobs = await pool.query({
     text: `SELECT rj.status, rj.output_manifest, rj.template_version, ce.number AS student_number
            FROM application_students aps
@@ -170,9 +170,9 @@ export async function getApplicationBatchFile({
             )
            LEFT JOIN render_jobs rj ON rj.application_student_id = aps.id
            WHERE aps.application_id = $1
-             AND ($2 <> 'answer-card' OR COALESCE(s.status, '') NOT IN ('transferido', 'remanejado'))
+             AND COALESCE(s.status, '') NOT IN ('transferido', 'remanejado')
            ORDER BY ce.number NULLS LAST, s.name, aps.id`,
-    values: [applicationId, kind],
+    values: [applicationId],
   });
   if (kind === 'answer-card' && !jobs.rowCount)
     return {
