@@ -3,12 +3,18 @@ import path from 'node:path';
 import { pool } from './db.mjs';
 import { storeRenderArtifact } from './render-artifact-storage.mjs';
 import { reescreverQuestoesComIA } from './adapted-exam-ai.mjs';
+import { gerarImagemComGemini } from './adapted-exam-image.mjs';
 import { montarPdfsAdaptados } from './adapted-exam-pdf.mjs';
 import {
   montarSnapshotAdaptado,
   questoesParaReescrita,
   validarQuestoesReescritas,
 } from '../../lib/prova-adaptada.mjs';
+
+export function limiteDeImagens(env = process.env) {
+  const valor = Number(env.ADAPTED_EXAM_MAX_IMAGES);
+  return Number.isInteger(valor) && valor >= 0 && valor <= 30 ? valor : 5;
+}
 
 export function tamanhoDoLote(env = process.env) {
   const valor = Number(env.ADAPTED_EXAM_BATCH_SIZE);
@@ -103,7 +109,35 @@ export async function executarProvaAdaptada(
         'A IA não devolveu nenhuma questão válida para a prova adaptada.',
       );
 
-    const snapshot = montarSnapshotAdaptado(base, validas, originais);
+    // Imagens geradas pela IA: uma por questão que pediu figura, até o limite configurado.
+    // Falha de imagem não derruba a prova: a questão sai só com texto e o motivo fica no manifesto.
+    const imagens = new Map();
+    const imagensFalharam = [];
+    const limiteImagens = limiteDeImagens(env);
+    for (const item of validas
+      .filter((v) => v.imagePrompt)
+      .slice(0, limiteImagens)) {
+      try {
+        const imagem = await gerarImagemComGemini({
+          descricao: item.imagePrompt,
+          fetchImpl,
+          env,
+        });
+        imagens.set(item.sourceNumber, imagem.dataUrl);
+      } catch (error) {
+        imagensFalharam.push({
+          sourceNumber: item.sourceNumber,
+          motivo: error.message,
+        });
+      }
+    }
+    const snapshot = montarSnapshotAdaptado(
+      base,
+      validas,
+      originais,
+      {},
+      imagens,
+    );
     const finalSnapshot = {
       ...snapshot,
       version: { ...base.version, id: versionId, code: 'ADAPTADA' },
@@ -158,6 +192,7 @@ export async function executarProvaAdaptada(
             usage: ia.usage,
             questoesAdaptadas: validas.length,
             descartadas,
+            imagens: { geradas: imagens.size, falharam: imagensFalharam },
           },
         }),
       ],

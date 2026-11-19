@@ -15,7 +15,13 @@ export const adaptedExamJsonSchema = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['sourceNumber', 'statement', 'alternatives', 'correctIndex'],
+        required: [
+          'sourceNumber',
+          'statement',
+          'alternatives',
+          'correctIndex',
+          'imagePrompt',
+        ],
         properties: {
           sourceNumber: { type: 'integer' },
           statement: { type: 'string' },
@@ -26,6 +32,8 @@ export const adaptedExamJsonSchema = {
             items: { type: 'string' },
           },
           correctIndex: { type: 'integer', minimum: 0, maximum: 2 },
+          // Vazio quando a questão não precisa de figura; senão, descreve a ilustração simples.
+          imagePrompt: { type: 'string' },
         },
       },
     },
@@ -42,6 +50,7 @@ export const adaptedExamInstructions = [
   'Use texto simples, sem fórmulas em LaTeX nem marcação.',
   'Adeque o vocabulário e a extensão das frases ao ano escolar informado no contexto.',
   'Devolva o sourceNumber de cada questão original e o índice (0, 1 ou 2) da alternativa correta.',
+  'Se uma figura ajudar a compreender a questão, descreva em imagePrompt uma ilustração simples, sem texto escrito. Caso contrário, deixe imagePrompt vazio.',
 ].join('\n');
 
 /** Extrai o JSON do corpo de resposta da API de respostas. */

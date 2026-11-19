@@ -440,93 +440,277 @@ test(
   },
 );
 
-test('lotes: 12 questões viram duas chamadas, com série na entrada e descarte registrado', { skip: !databaseUrl }, async () => {
-  const banco = await preparar();
-  const { pool } = banco;
-  const saida = await mkdtemp(path.join(os.tmpdir(), 'adaptada-lote-'));
-  try {
-    const { ensureAdaptedExamVersion } = await import('./adapted-exam.mjs');
-    const { executarProvaAdaptada } = await import('./adapted-exam-job.mjs');
-    const assessmentId = randomUUID();
-    const base = snapshotBase(assessmentId, 7);
-    base.questions = Array.from({ length: 12 }, (_, i) => ({ ...base.questions[0], id: `q${i + 1}`, number: i + 1, statement: [{ type: 'paragraph', text: `Pergunta ${i + 1}?` }] }));
-    base.totals = { points: 12, questions: 12 };
-    await pool.query('INSERT INTO assessments(id,institution_id,title,subject) VALUES($1,$2,$3,$4)', [assessmentId, randomUUID(), 'Prova', 'Matemática']);
-    await pool.query('INSERT INTO assessment_versions(id,assessment_id,code,seed,snapshot) VALUES($1,$2,$3,$4,$5)', [randomUUID(), assessmentId, 'A', 7, base]);
-    const garantida = await ensureAdaptedExamVersion(pool, assessmentId);
-
-    const entradas = [];
-    const fetchImpl = async (url, options) => {
-      const corpo = JSON.parse(options.body);
-      const entrada = JSON.parse(corpo.input);
-      entradas.push(entrada);
-      const questions = entrada.questions.map((q) => ({
-        sourceNumber: q.sourceNumber,
-        statement: `Reescrita ${q.sourceNumber}`,
-        alternatives: ['um', 'dois', 'três'],
-        correctIndex: 0,
+test(
+  'lotes: 12 questões viram duas chamadas, com série na entrada e descarte registrado',
+  { skip: !databaseUrl },
+  async () => {
+    const banco = await preparar();
+    const { pool } = banco;
+    const saida = await mkdtemp(path.join(os.tmpdir(), 'adaptada-lote-'));
+    try {
+      const { ensureAdaptedExamVersion } = await import('./adapted-exam.mjs');
+      const { executarProvaAdaptada } = await import('./adapted-exam-job.mjs');
+      const assessmentId = randomUUID();
+      const base = snapshotBase(assessmentId, 7);
+      base.questions = Array.from({ length: 12 }, (_, i) => ({
+        ...base.questions[0],
+        id: `q${i + 1}`,
+        number: i + 1,
+        statement: [{ type: 'paragraph', text: `Pergunta ${i + 1}?` }],
       }));
-      // A última questão do segundo lote vem com alternativa repetida e é descartada.
-      if (entradas.length === 2) questions[questions.length - 1].alternatives = ['x', 'x', 'y'];
-      return { ok: true, json: async () => ({ id: `resp_${entradas.length}`, model: 'gpt-5-mini', usage: {}, output_text: JSON.stringify({ questions }) }) };
-    };
+      base.totals = { points: 12, questions: 12 };
+      await pool.query(
+        'INSERT INTO assessments(id,institution_id,title,subject) VALUES($1,$2,$3,$4)',
+        [assessmentId, randomUUID(), 'Prova', 'Matemática'],
+      );
+      await pool.query(
+        'INSERT INTO assessment_versions(id,assessment_id,code,seed,snapshot) VALUES($1,$2,$3,$4,$5)',
+        [randomUUID(), assessmentId, 'A', 7, base],
+      );
+      const garantida = await ensureAdaptedExamVersion(pool, assessmentId);
 
-    const resultado = await executarProvaAdaptada(garantida.renderJobId, {
-      fetchImpl,
-      env: { OPENAI_API_KEY: 'chave-de-teste' },
-      outputRoot: saida,
-    });
-    assert.equal(resultado.status, 'completed');
-    assert.equal(entradas.length, 2, 'doze questões em lotes de dez');
-    assert.equal(entradas[0].contexto.serie, '7º ano');
-    assert.equal(entradas[0].contexto.disciplina, 'Matemática');
-    assert.equal(entradas[0].questions.length, 10);
-    assert.equal(entradas[1].questions.length, 2);
+      const entradas = [];
+      const fetchImpl = async (url, options) => {
+        const corpo = JSON.parse(options.body);
+        const entrada = JSON.parse(corpo.input);
+        entradas.push(entrada);
+        const questions = entrada.questions.map((q) => ({
+          sourceNumber: q.sourceNumber,
+          statement: `Reescrita ${q.sourceNumber}`,
+          alternatives: ['um', 'dois', 'três'],
+          correctIndex: 0,
+        }));
+        // A última questão do segundo lote vem com alternativa repetida e é descartada.
+        if (entradas.length === 2)
+          questions[questions.length - 1].alternatives = ['x', 'x', 'y'];
+        return {
+          ok: true,
+          json: async () => ({
+            id: `resp_${entradas.length}`,
+            model: 'gpt-5-mini',
+            usage: {},
+            output_text: JSON.stringify({ questions }),
+          }),
+        };
+      };
 
-    const job = await esperarJob(pool, garantida.renderJobId);
-    assert.equal(job.status, 'completed');
-    assert.equal(job.output_manifest.ia.questoesAdaptadas, 11);
-    assert.equal(job.output_manifest.ia.descartadas.length, 1, 'a questão inválida fica registrada');
-  } finally {
-    await rm(saida, { recursive: true, force: true });
-  }
-});
+      const resultado = await executarProvaAdaptada(garantida.renderJobId, {
+        fetchImpl,
+        env: { OPENAI_API_KEY: 'chave-de-teste' },
+        outputRoot: saida,
+      });
+      assert.equal(resultado.status, 'completed');
+      assert.equal(entradas.length, 2, 'doze questões em lotes de dez');
+      assert.equal(entradas[0].contexto.serie, '7º ano');
+      assert.equal(entradas[0].contexto.disciplina, 'Matemática');
+      assert.equal(entradas[0].questions.length, 10);
+      assert.equal(entradas[1].questions.length, 2);
 
-test('turma com um único aluno de laudo cria a aplicação só para o PDF adaptado isolado', { skip: !databaseUrl }, async () => {
-  const banco = await preparar();
-  const { pool } = banco;
-  const anterior = process.env.ADAPTED_EXAM_PROVIDER;
-  process.env.ADAPTED_EXAM_PROVIDER = 'desativado';
-  try {
-    const { createApplication, listApplications } = await import('./academic.mjs');
-    const institutionId = randomUUID();
-    const assessmentId = randomUUID();
-    const classId = randomUUID();
-    const aluno = randomUUID();
-    await pool.query('INSERT INTO assessments(id,institution_id,title,subject) VALUES($1,$2,$3,$4)', [assessmentId, institutionId, 'Prova de frações', 'Matemática']);
-    await pool.query('INSERT INTO classes(id,institution_id,name,grade,school_year) VALUES($1,$2,$3,$4,$5)', [classId, institutionId, '6º B', '6º ano', 2026]);
-    await pool.query('INSERT INTO assessment_versions(id,assessment_id,code,seed,snapshot) VALUES($1,$2,$3,$4,$5)', [randomUUID(), assessmentId, 'A', 7, snapshotBase(assessmentId, 7)]);
-    await pool.query('INSERT INTO students(id,institution_id,name,registration,adapted_exam) VALUES($1,$2,$3,$4,true)', [aluno, institutionId, 'Carla', '010']);
-    await pool.query('INSERT INTO class_enrollments(class_id,student_id,number) VALUES($1,$2,1)', [classId, aluno]);
+      const job = await esperarJob(pool, garantida.renderJobId);
+      assert.equal(job.status, 'completed');
+      assert.equal(job.output_manifest.ia.questoesAdaptadas, 11);
+      assert.equal(
+        job.output_manifest.ia.descartadas.length,
+        1,
+        'a questão inválida fica registrada',
+      );
+    } finally {
+      await rm(saida, { recursive: true, force: true });
+    }
+  },
+);
 
-    const resultado = await createApplication({
-      institutionId,
-      userId: randomUUID(),
-      input: { assessmentId, classId, scheduledAt: '2026-10-28T16:00:00.000Z' },
-    });
-    assert.equal(resultado.assignments.length, 0, 'nenhum cartão para o aluno de laudo');
-    assert.equal(resultado.adaptedExam.excludedStudents, 1);
-    assert.equal(resultado.adaptedExam.status, 'queued');
+test(
+  'turma com um único aluno de laudo cria a aplicação só para o PDF adaptado isolado',
+  { skip: !databaseUrl },
+  async () => {
+    const banco = await preparar();
+    const { pool } = banco;
+    const anterior = process.env.ADAPTED_EXAM_PROVIDER;
+    process.env.ADAPTED_EXAM_PROVIDER = 'desativado';
+    try {
+      const { createApplication, listApplications } =
+        await import('./academic.mjs');
+      const institutionId = randomUUID();
+      const assessmentId = randomUUID();
+      const classId = randomUUID();
+      const aluno = randomUUID();
+      await pool.query(
+        'INSERT INTO assessments(id,institution_id,title,subject) VALUES($1,$2,$3,$4)',
+        [assessmentId, institutionId, 'Prova de frações', 'Matemática'],
+      );
+      await pool.query(
+        'INSERT INTO classes(id,institution_id,name,grade,school_year) VALUES($1,$2,$3,$4,$5)',
+        [classId, institutionId, '6º B', '6º ano', 2026],
+      );
+      await pool.query(
+        'INSERT INTO assessment_versions(id,assessment_id,code,seed,snapshot) VALUES($1,$2,$3,$4,$5)',
+        [randomUUID(), assessmentId, 'A', 7, snapshotBase(assessmentId, 7)],
+      );
+      await pool.query(
+        'INSERT INTO students(id,institution_id,name,registration,adapted_exam) VALUES($1,$2,$3,$4,true)',
+        [aluno, institutionId, 'Carla', '010'],
+      );
+      await pool.query(
+        'INSERT INTO class_enrollments(class_id,student_id,number) VALUES($1,$2,1)',
+        [classId, aluno],
+      );
 
-    const fim = await esperarJob(pool, resultado.adaptedExam.renderJobId);
-    assert.equal(fim.status, 'failed', 'sem IA o PDF não é gerado, com motivo');
+      const resultado = await createApplication({
+        institutionId,
+        userId: randomUUID(),
+        input: {
+          assessmentId,
+          classId,
+          scheduledAt: '2026-10-28T16:00:00.000Z',
+        },
+      });
+      assert.equal(
+        resultado.assignments.length,
+        0,
+        'nenhum cartão para o aluno de laudo',
+      );
+      assert.equal(resultado.adaptedExam.excludedStudents, 1);
+      assert.equal(resultado.adaptedExam.status, 'queued');
 
-    const lista = await listApplications({ institutionId, ownerId: null });
-    const item = lista.find((x) => x.id === resultado.id);
-    assert.equal(item.students, 0);
-    assert.equal(item.adaptedExam.students, 1, 'a tela mostra o aluno de laudo');
-  } finally {
-    if (anterior === undefined) delete process.env.ADAPTED_EXAM_PROVIDER;
-    else process.env.ADAPTED_EXAM_PROVIDER = anterior;
-  }
-});
+      const fim = await esperarJob(pool, resultado.adaptedExam.renderJobId);
+      assert.equal(
+        fim.status,
+        'failed',
+        'sem IA o PDF não é gerado, com motivo',
+      );
+
+      const lista = await listApplications({ institutionId, ownerId: null });
+      const item = lista.find((x) => x.id === resultado.id);
+      assert.equal(item.students, 0);
+      assert.equal(
+        item.adaptedExam.students,
+        1,
+        'a tela mostra o aluno de laudo',
+      );
+    } finally {
+      if (anterior === undefined) delete process.env.ADAPTED_EXAM_PROVIDER;
+      else process.env.ADAPTED_EXAM_PROVIDER = anterior;
+    }
+  },
+);
+
+test(
+  'geração inclui imagem da IA na questão e registra falhas de imagem no manifesto',
+  { skip: !databaseUrl },
+  async () => {
+    const banco = await preparar();
+    const { pool } = banco;
+    const saida = await mkdtemp(path.join(os.tmpdir(), 'adaptada-img-'));
+    try {
+      const { ensureAdaptedExamVersion } = await import('./adapted-exam.mjs');
+      const { executarProvaAdaptada } = await import('./adapted-exam-job.mjs');
+      const PNG =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+      const assessmentId = randomUUID();
+      const base = snapshotBase(assessmentId, 7);
+      base.questions = [1, 2].map((n) => ({
+        ...base.questions[0],
+        id: `q${n}`,
+        number: n,
+        statement: [{ type: 'paragraph', text: `Pergunta ${n}?` }],
+      }));
+      base.totals = { points: 2, questions: 2 };
+      await pool.query(
+        'INSERT INTO assessments(id,institution_id,title,subject) VALUES($1,$2,$3,$4)',
+        [assessmentId, randomUUID(), 'Prova', 'Ciências'],
+      );
+      await pool.query(
+        'INSERT INTO assessment_versions(id,assessment_id,code,seed,snapshot) VALUES($1,$2,$3,$4,$5)',
+        [randomUUID(), assessmentId, 'A', 7, base],
+      );
+      const garantida = await ensureAdaptedExamVersion(pool, assessmentId);
+
+      const imagensPedidas = [];
+      const fetchImpl = async (url, options) => {
+        if (url.includes('generateContent') && url.includes('image')) {
+          imagensPedidas.push(JSON.parse(options.body));
+          // A segunda imagem falha: a questão sai só com texto.
+          if (imagensPedidas.length === 2)
+            return {
+              ok: false,
+              status: 500,
+              json: async () => ({ error: { message: 'indisponível' } }),
+            };
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      { inlineData: { mimeType: 'image/png', data: PNG } },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        }
+        const entrada = JSON.parse(JSON.parse(options.body).input);
+        return {
+          ok: true,
+          json: async () => ({
+            id: 'resp_img',
+            model: 'gpt-5-mini',
+            usage: {},
+            output_text: JSON.stringify({
+              questions: entrada.questions.map((q) => ({
+                sourceNumber: q.sourceNumber,
+                statement: `Reescrita ${q.sourceNumber}`,
+                alternatives: ['um', 'dois', 'três'],
+                correctIndex: 0,
+                imagePrompt: `uma figura para ${q.sourceNumber}`,
+              })),
+            }),
+          }),
+        };
+      };
+
+      const resultado = await executarProvaAdaptada(garantida.renderJobId, {
+        fetchImpl,
+        env: { OPENAI_API_KEY: 'chave', GEMINI_API_KEY: 'chave-g' },
+        outputRoot: saida,
+      });
+      assert.equal(resultado.status, 'completed');
+      assert.equal(
+        imagensPedidas.length,
+        2,
+        'uma imagem por questão que pediu figura',
+      );
+
+      const job = await esperarJob(pool, garantida.renderJobId);
+      assert.equal(job.status, 'completed');
+      assert.equal(job.output_manifest.ia.imagens.geradas, 1);
+      assert.equal(job.output_manifest.ia.imagens.falharam.length, 1);
+      assert.equal(job.output_manifest.ia.imagens.falharam[0].sourceNumber, 2);
+
+      const versao = await pool.query(
+        'SELECT snapshot FROM assessment_versions WHERE id=$1',
+        [garantida.versionId],
+      );
+      const [primeira, segunda] = versao.rows[0].snapshot.questions;
+      assert.equal(
+        primeira.statement.filter((no) => no.type === 'image').length,
+        1,
+        'a primeira questão recebe a figura',
+      );
+      assert.equal(
+        segunda.statement.filter((no) => no.type === 'image').length,
+        0,
+        'a segunda sai só com texto',
+      );
+      const pdf = await readFile(
+        path.join(saida, garantida.renderJobId, 'prova-adaptada.pdf'),
+      );
+      assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
+    } finally {
+      await rm(saida, { recursive: true, force: true });
+    }
+  },
+);
