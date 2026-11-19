@@ -24,7 +24,7 @@ test(
         CREATE TABLE assessments(id uuid PRIMARY KEY,institution_id uuid);
         CREATE TABLE classes(id uuid PRIMARY KEY,institution_id uuid,name text,grade text,school_year integer);
         CREATE TABLE assessment_versions(id uuid PRIMARY KEY,assessment_id uuid,code text);
-        CREATE TABLE students(id uuid PRIMARY KEY,institution_id uuid,name text,registration text,active boolean DEFAULT true);
+        CREATE TABLE students(id uuid PRIMARY KEY,institution_id uuid,name text,registration text,active boolean DEFAULT true,status text DEFAULT 'ativo',adapted_exam boolean NOT NULL DEFAULT false);
         CREATE TABLE class_enrollments(class_id uuid,student_id uuid,number integer,PRIMARY KEY(class_id,student_id));
         CREATE TABLE assessment_applications(
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),institution_id uuid,assessment_id uuid,class_id uuid,

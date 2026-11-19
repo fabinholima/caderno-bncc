@@ -31,7 +31,8 @@ export async function executarProvaAdaptada(
   { fetchImpl = fetch, env = process.env, outputRoot = RENDER_OUTPUT_DIR } = {},
 ) {
   const claimed = await pool.query(
-    `UPDATE render_jobs SET status='running', error_message=NULL
+    `UPDATE render_jobs
+     SET status='running', error_message=NULL, started_at=now(), attempts=attempts+1
      WHERE id=$1 AND status='queued' AND renderer='ia-adaptada'
      RETURNING assessment_version_id`,
     [jobId],
@@ -147,4 +148,67 @@ export function agendarProvaAdaptada(jobId, options) {
       console.error('Falha ao gerar prova adaptada', jobId, error?.message),
     );
   });
+}
+
+export const PRAZO_GERACAO_MINUTOS = 15;
+export const TENTATIVAS_MAXIMAS = 3;
+export const INTERVALO_RECUPERACAO_MS = 5 * 60 * 1000;
+
+/**
+ * Recupera jobs `ia-adaptada` interrompidos (reinício do servidor) e reenfileira
+ * os que ficaram parados na fila. Um job que já falhou tentativas demais vira
+ * `failed` com motivo. As consultas são atômicas: vários servidores não executam
+ * o mesmo job duas vezes.
+ * @returns {Promise<{reenfileirados: string[], falhados: string[], agendados: string[]}>}
+ */
+export async function recuperarProvasAdaptadasPendentes({
+  db = pool,
+  agendar = agendarProvaAdaptada,
+  limite = 10,
+} = {}) {
+  const parados = `renderer='ia-adaptada' AND status='running'
+    AND started_at < now() - make_interval(mins => $1)`;
+  const reenfileirados = await db.query(
+    `UPDATE render_jobs
+     SET status='queued', error_message='Reenfileirada após interrupção do servidor.', started_at=NULL
+     WHERE ${parados} AND attempts < $2
+     RETURNING id`,
+    [PRAZO_GERACAO_MINUTOS, TENTATIVAS_MAXIMAS],
+  );
+  const falhados = await db.query(
+    `UPDATE render_jobs
+     SET status='failed', completed_at=now(),
+         error_message='A geração foi interrompida em todas as tentativas.'
+     WHERE ${parados} AND attempts >= $2
+     RETURNING id`,
+    [PRAZO_GERACAO_MINUTOS, TENTATIVAS_MAXIMAS],
+  );
+  const filaSemExecucao = await db.query(
+    `SELECT id FROM render_jobs
+     WHERE renderer='ia-adaptada' AND status='queued'
+     ORDER BY created_at LIMIT $1`,
+    [limite],
+  );
+  const agendados = filaSemExecucao.rows.map((row) => row.id);
+  for (const id of agendados) agendar(id);
+  return {
+    reenfileirados: reenfileirados.rows.map((row) => row.id),
+    falhados: falhados.rows.map((row) => row.id),
+    agendados,
+  };
+}
+
+/**
+ * Liga a recuperação ao boot do servidor e a repete periodicamente.
+ * Retorna uma função que cancela o intervalo.
+ */
+export function iniciarRecuperacaoProvasAdaptadas(options = {}) {
+  const executar = () =>
+    recuperarProvasAdaptadasPendentes(options).catch((error) =>
+      console.error('Falha ao recuperar provas adaptadas', error?.message),
+    );
+  void executar();
+  const temporizador = setInterval(executar, INTERVALO_RECUPERACAO_MS);
+  temporizador.unref();
+  return () => clearInterval(temporizador);
 }

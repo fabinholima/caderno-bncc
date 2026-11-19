@@ -1,3 +1,4 @@
+import { iniciarRecuperacaoProvasAdaptadas } from './adapted-exam-job.mjs';
 import {
   importClassStudents,
   previewClassStudentImport,
@@ -3033,6 +3034,8 @@ const server = createServer(async (request, response) => {
 server.listen(port, () =>
   console.log(`Caderno API em http://localhost:${port}`),
 );
+// Retoma gerações de prova adaptada interrompidas por reinício do servidor.
+iniciarRecuperacaoProvasAdaptadas();
 
 process.on('unhandledRejection', (error) =>
   log('error', 'process.unhandled_rejection', errorFields(error)),

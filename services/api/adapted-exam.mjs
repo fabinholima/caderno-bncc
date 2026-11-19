@@ -29,7 +29,7 @@ export async function ensureAdaptedExamVersion(client, assessmentId) {
       const { id, status } = job.rows[0];
       if (status === 'failed') {
         await client.query(
-          `UPDATE render_jobs SET status='queued', error_message=NULL, completed_at=NULL WHERE id=$1`,
+          `UPDATE render_jobs SET status='queued', error_message=NULL, completed_at=NULL, attempts=0 WHERE id=$1`,
           [id],
         );
         return {
