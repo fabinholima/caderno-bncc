@@ -10,6 +10,7 @@ import {
   ADAPTED_VERSION_CODE,
   ensureAdaptedExamVersion,
 } from './adapted-exam.mjs';
+import { agendarProvaAdaptada } from './adapted-exam-job.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -234,7 +235,7 @@ export async function enrollStudent({
 }
 export async function createApplication({ institutionId, userId, input }) {
   const v = applicationSchema.parse(input);
-  return transaction(async (client) => {
+  const result = await transaction(async (client) => {
     const versions = await client.query(
       `SELECT av.id,av.code
        FROM assessment_versions av
@@ -395,6 +396,10 @@ export async function createApplication({ institutionId, userId, input }) {
       adaptedExam,
     };
   });
+  // A IA roda depois do commit: uma falha fica registrada no render job, sem desfazer a aplicação.
+  if (result.adaptedExam?.status === 'queued' && result.adaptedExam.renderJobId)
+    agendarProvaAdaptada(result.adaptedExam.renderJobId);
+  return result;
 }
 
 async function listApplicationAssignments(client, applicationId) {

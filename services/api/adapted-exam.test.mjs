@@ -1,55 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  ADAPTED_VERSION_CODE,
+  ADAPTED_RENDERER,
+  ADAPTED_TEMPLATE,
   ensureAdaptedExamVersion,
 } from './adapted-exam.mjs';
 
-const question = (number) => ({
-  id: `q${number}`,
-  number,
-  type: 'single_choice',
-  difficulty: 'easy',
-  statement: [{ type: 'paragraph', text: `Questão ${number}` }],
-  alternatives: ['alt-a', 'alt-b', 'alt-c', 'alt-d', 'alt-e'].map(
-    (stableKey, i) => ({
-      stableKey,
-      label: 'ABCDE'[i],
-      content: [{ type: 'paragraph', text: stableKey }],
-    }),
-  ),
-  answer: { correctStableKeys: ['alt-c'] },
-  points: 1,
-  skills: [],
-});
-
 const baseSnapshot = {
   schemaVersion: '1.0',
-  assessment: {
-    id: 'a1',
-    title: 'Prova',
-    subject: 'Matemática',
-    grade: '7º',
-    instructions: ['Leia.'],
-  },
-  institution: { id: 'i1', name: 'Escola' },
-  version: {
-    id: 'base-v',
-    code: 'A',
-    seed: 9,
-    generatedAt: '2026-01-01T00:00:00Z',
-  },
-  candidateFields: ['name'],
-  questions: [question(1), question(2)],
-  totals: { points: 2, questions: 2 },
-  render: {
-    locale: 'pt-BR',
-    paper: 'A4',
-    mode: 'student',
-    template: 'basicexam-v1',
-    font: 'plex',
-    fontSize: 11,
-  },
+  questions: [],
+  version: { id: 'base-v', code: 'A' },
 };
 
 // Cliente falso: responde às consultas usadas por ensureAdaptedExamVersion.
@@ -63,26 +23,17 @@ function fakeClient({
     calls,
     async query(text, values = []) {
       calls.push({ text, values });
-      if (
-        text.includes('code=$2') &&
-        text.startsWith('SELECT id FROM assessment_versions')
-      )
+      if (text.startsWith('SELECT id FROM assessment_versions'))
         return {
           rowCount: existingVersion ? 1 : 0,
           rows: existingVersion ? [{ id: existingVersion }] : [],
         };
-      if (
-        text.includes('FROM render_jobs') &&
-        text.includes('application_student_id IS NULL')
-      )
+      if (text.includes('FROM render_jobs') && text.includes('renderer=$2'))
         return {
           rowCount: existingJob ? 1 : 0,
-          rows: existingJob ? [{ id: existingJob, status: 'queued' }] : [],
+          rows: existingJob ? [existingJob] : [],
         };
-      if (
-        text.includes('code<>$2') &&
-        text.startsWith('SELECT id,seed,snapshot')
-      )
+      if (text.startsWith('SELECT id,seed,snapshot'))
         return {
           rowCount: base ? 1 : 0,
           rows: base ? [{ id: 'base-v', seed: 9, snapshot: baseSnapshot }] : [],
@@ -91,47 +42,55 @@ function fakeClient({
         return { rowCount: 1, rows: [] };
       if (text.startsWith('INSERT INTO render_jobs'))
         return { rowCount: 1, rows: [{ id: 'job-new' }] };
+      if (text.startsWith('UPDATE render_jobs'))
+        return { rowCount: 1, rows: [] };
       throw new Error(`Consulta inesperada: ${text}`);
     },
   };
 }
 
-test('cria a versão ADAPTADA com snapshot próprio, sem reutilizar o id nem o QR da base', async () => {
+test('cria a versão ADAPTADA com o snapshot da base e um job ia-adaptada sem aluno', async () => {
   const client = fakeClient();
   const result = await ensureAdaptedExamVersion(client, 'a1');
   assert.equal(result.status, 'queued');
   assert.equal(result.renderJobId, 'job-new');
-  const insert = client.calls.find((call) =>
+  const version = client.calls.find((call) =>
     call.text.startsWith('INSERT INTO assessment_versions'),
   );
-  const [id, , code, seed, snapshotJson, answerKeyJson] = insert.values;
-  assert.equal(code, ADAPTED_VERSION_CODE);
-  assert.equal(seed, 9);
-  const snapshot = JSON.parse(snapshotJson);
-  assert.equal(snapshot.version.id, id);
-  assert.notEqual(id, 'base-v');
-  assert.equal(snapshot.version.code, ADAPTED_VERSION_CODE);
-  assert.deepEqual(
-    snapshot.questions.map((q) => q.alternatives.length),
-    [3, 3],
-  );
-  assert.equal(JSON.parse(answerKeyJson).length, 2);
-});
-
-test('o render job da versão adaptada não tem aluno vinculado', async () => {
-  const client = fakeClient();
-  await ensureAdaptedExamVersion(client, 'a1');
+  assert.equal(version.values[2], 'ADAPTADA');
+  assert.equal(version.values[3], 9);
   const job = client.calls.find((call) =>
     call.text.startsWith('INSERT INTO render_jobs'),
   );
   assert.doesNotMatch(job.text, /application_student_id/);
-  assert.equal(job.values[1], 'basicexam-v1');
+  assert.deepEqual(job.values, [
+    result.versionId,
+    ADAPTED_TEMPLATE,
+    ADAPTED_RENDERER,
+  ]);
 });
 
-test('reaproveita a versão e o job já existentes', async () => {
+test('reaproveita um job concluído sem gerar de novo', async () => {
   const client = fakeClient({
     existingVersion: 'adapt-v',
-    existingJob: 'job-old',
+    existingJob: { id: 'job-old', status: 'completed' },
+  });
+  const result = await ensureAdaptedExamVersion(client, 'a1');
+  assert.deepEqual(result, {
+    status: 'completed',
+    versionId: 'adapt-v',
+    renderJobId: 'job-old',
+  });
+  assert.equal(
+    client.calls.some((call) => call.text.startsWith('INSERT')),
+    false,
+  );
+});
+
+test('reabre um job que falhou, sem criar outra versão', async () => {
+  const client = fakeClient({
+    existingVersion: 'adapt-v',
+    existingJob: { id: 'job-old', status: 'failed' },
   });
   const result = await ensureAdaptedExamVersion(client, 'a1');
   assert.deepEqual(result, {
@@ -139,6 +98,10 @@ test('reaproveita a versão e o job já existentes', async () => {
     versionId: 'adapt-v',
     renderJobId: 'job-old',
   });
+  const reopen = client.calls.find((call) =>
+    call.text.startsWith('UPDATE render_jobs'),
+  );
+  assert.match(reopen.text, /status='queued'/);
   assert.equal(
     client.calls.some((call) => call.text.startsWith('INSERT')),
     false,

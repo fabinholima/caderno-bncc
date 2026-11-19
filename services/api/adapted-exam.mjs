@@ -1,14 +1,17 @@
 import crypto from 'node:crypto';
-import { adaptarProva } from '../../lib/prova-adaptada.mjs';
 
 // Código reservado da versão adaptada. Ela não entra no sorteio das versões
-// comuns nem recebe cartão-resposta: é impressa à parte para alunos com laudo.
+// comuns nem recebe cartão-resposta: é gerada pela IA e impressa à parte para
+// alunos com laudo.
 export const ADAPTED_VERSION_CODE = 'ADAPTADA';
+export const ADAPTED_RENDERER = 'ia-adaptada';
+export const ADAPTED_TEMPLATE = 'ia-adaptada-v1';
 
 /**
- * Garante a versão adaptada da avaliação e o render job sem aluno vinculado.
- * Reutiliza o que já existe; não cria cartão nem QR individual.
- * @returns {Promise<{status: 'queued'|'unavailable', versionId?: string, renderJobId?: string, reason?: string, questions?: number}>}
+ * Garante a versão ADAPTADA e o render job `ia-adaptada` da avaliação, dentro da
+ * transação da aplicação. A geração pela IA roda depois do commit
+ * (ver adapted-exam-job.mjs). Não cria cartão nem QR individual.
+ * @returns {Promise<{status: 'queued'|'completed'|'unavailable', versionId?: string, renderJobId?: string, reason?: string}>}
  */
 export async function ensureAdaptedExamVersion(client, assessmentId) {
   const existing = await client.query(
@@ -18,16 +21,29 @@ export async function ensureAdaptedExamVersion(client, assessmentId) {
   if (existing.rowCount) {
     const job = await client.query(
       `SELECT id,status FROM render_jobs
-       WHERE assessment_version_id=$1 AND application_student_id IS NULL
+       WHERE assessment_version_id=$1 AND renderer=$2 AND application_student_id IS NULL
        ORDER BY created_at DESC LIMIT 1`,
-      [existing.rows[0].id],
+      [existing.rows[0].id, ADAPTED_RENDERER],
     );
-    if (job.rowCount)
+    if (job.rowCount) {
+      const { id, status } = job.rows[0];
+      if (status === 'failed') {
+        await client.query(
+          `UPDATE render_jobs SET status='queued', error_message=NULL, completed_at=NULL WHERE id=$1`,
+          [id],
+        );
+        return {
+          status: 'queued',
+          versionId: existing.rows[0].id,
+          renderJobId: id,
+        };
+      }
       return {
-        status: 'queued',
+        status: status === 'completed' ? 'completed' : 'queued',
         versionId: existing.rows[0].id,
-        renderJobId: job.rows[0].id,
+        renderJobId: id,
       };
+    }
   }
 
   const base = await client.query(
@@ -42,56 +58,26 @@ export async function ensureAdaptedExamVersion(client, assessmentId) {
       reason: 'A avaliação não possui versão base.',
     };
 
+  // A versão nasce com o snapshot da base; a geração pela IA o substitui.
   const versionId = existing.rowCount
     ? existing.rows[0].id
     : crypto.randomUUID();
-  const { snapshot: adaptada, relatorio } = adaptarProva(
-    base.rows[0].snapshot,
-    {
-      seed: base.rows[0].seed,
-    },
-  );
-  if (!adaptada.questions.length)
-    return {
-      status: 'unavailable',
-      reason: 'Nenhuma questão atende ao perfil simples da prova adaptada.',
-    };
-
-  // O snapshot carrega id e código próprios: o QR da versão base não pode
-  // apontar para a versão adaptada, nem o contrário.
-  const snapshot = {
-    ...adaptada,
-    version: { ...adaptada.version, id: versionId, code: ADAPTED_VERSION_CODE },
-  };
-  const answerKey = snapshot.questions.map((question) => ({
-    number: question.number,
-    type: question.type,
-    correctStableKeys: question.answer.correctStableKeys,
-    manualReview: question.type === 'essay',
-  }));
-
   if (!existing.rowCount)
     await client.query(
       `INSERT INTO assessment_versions (id, assessment_id, code, seed, snapshot, answer_key)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)`,
+       VALUES ($1, $2, $3, $4, $5::jsonb, '[]'::jsonb)`,
       [
         versionId,
         assessmentId,
         ADAPTED_VERSION_CODE,
         base.rows[0].seed,
-        JSON.stringify(snapshot),
-        JSON.stringify(answerKey),
+        JSON.stringify(base.rows[0].snapshot),
       ],
     );
   const job = await client.query(
-    `INSERT INTO render_jobs (assessment_version_id, template_version)
-     VALUES ($1, $2) RETURNING id`,
-    [versionId, snapshot.render.template],
+    `INSERT INTO render_jobs (assessment_version_id, template_version, renderer)
+     VALUES ($1, $2, $3) RETURNING id`,
+    [versionId, ADAPTED_TEMPLATE, ADAPTED_RENDERER],
   );
-  return {
-    status: 'queued',
-    versionId,
-    renderJobId: job.rows[0].id,
-    questions: relatorio.questoesMantidas,
-  };
+  return { status: 'queued', versionId, renderJobId: job.rows[0].id };
 }
