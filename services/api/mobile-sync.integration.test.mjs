@@ -25,11 +25,11 @@ test('mobile upload, correction receipts, tenant isolation and optimistic concur
       CREATE TABLE institution_subscriptions(institution_id uuid,plan_id text,status text,period_started_at timestamptz,period_ends_at timestamptz);
       CREATE TABLE classes(id uuid PRIMARY KEY,name text,institution_id uuid,created_by uuid);
       CREATE TABLE class_subjects(class_id uuid,teacher_id uuid,subject text);
-      CREATE TABLE students(id uuid PRIMARY KEY,name text,registration text);
+      CREATE TABLE students(id uuid PRIMARY KEY,name text,registration text,institution_id uuid,active boolean DEFAULT true,status text DEFAULT 'ativo',adapted_exam boolean NOT NULL DEFAULT false);
       CREATE TABLE assessment_applications(id uuid PRIMARY KEY,institution_id uuid,assessment_id uuid,class_id uuid,status text,scheduled_at timestamptz,created_at timestamptz DEFAULT now(),created_by uuid);
       CREATE TABLE application_students(id uuid PRIMARY KEY,application_id uuid,student_id uuid,assessment_version_id uuid);
       CREATE TABLE class_enrollments(class_id uuid,student_id uuid,number integer);
-      CREATE TABLE render_jobs(id uuid PRIMARY KEY,application_student_id uuid,status text,template_version text,created_at timestamptz DEFAULT now());
+      CREATE TABLE render_jobs(id uuid PRIMARY KEY,application_student_id uuid,assessment_version_id uuid,status text,template_version text,renderer text NOT NULL DEFAULT 'context-lmtx',error_message text,created_at timestamptz DEFAULT now());
       CREATE TABLE usage_events(institution_id uuid,user_id uuid,kind text,quantity integer,metadata jsonb);
       CREATE TABLE audit_log(institution_id uuid,user_id uuid,action text,entity_type text,entity_id text,metadata jsonb);`;
     for(const statement of schemaSql.split(';').filter(s=>s.trim()))await client.query(statement);

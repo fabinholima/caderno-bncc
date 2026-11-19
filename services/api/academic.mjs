@@ -436,12 +436,12 @@ async function listApplicationAssignments(client, applicationId) {
 
 export async function listApplications({ institutionId, ownerId = null }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,(SELECT rj0.template_version FROM render_jobs rj0 JOIN application_students aps0 ON aps0.id=rj0.application_student_id WHERE aps0.application_id=aa.id LIMIT 1) template,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL AND cs.status<>'discarded'))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,(SELECT rj0.template_version FROM render_jobs rj0 JOIN application_students aps0 ON aps0.id=rj0.application_student_id WHERE aps0.application_id=aa.id LIMIT 1) template,(SELECT rj1.id FROM render_jobs rj1 JOIN assessment_versions av1 ON av1.id=rj1.assessment_version_id WHERE av1.assessment_id=aa.assessment_id AND av1.code='ADAPTADA' AND rj1.renderer='ia-adaptada' ORDER BY rj1.created_at DESC LIMIT 1) adapted_job_id,(SELECT rj2.status FROM render_jobs rj2 JOIN assessment_versions av2 ON av2.id=rj2.assessment_version_id WHERE av2.assessment_id=aa.assessment_id AND av2.code='ADAPTADA' AND rj2.renderer='ia-adaptada' ORDER BY rj2.created_at DESC LIMIT 1) adapted_status,(SELECT rj3.error_message FROM render_jobs rj3 JOIN assessment_versions av3 ON av3.id=rj3.assessment_version_id WHERE av3.assessment_id=aa.assessment_id AND av3.code='ADAPTADA' AND rj3.renderer='ia-adaptada' ORDER BY rj3.created_at DESC LIMIT 1) adapted_error,(SELECT COUNT(*)::int FROM class_enrollments ce2 JOIN students s2 ON s2.id=ce2.student_id WHERE ce2.class_id=aa.class_id AND s2.active AND s2.adapted_exam AND COALESCE(s2.status,'')<>'transferido' AND COALESCE(s2.status,'')<>'remanejado') adapted_students,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL AND cs.status<>'discarded'))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
     values: [institutionId, ownerId],
   });
   // Versões e gabarito de cada avaliação, para o professor conferir antes de corrigir.
   const versions = await pool.query(
-    'SELECT assessment_id,code,snapshot FROM assessment_versions WHERE assessment_id=ANY($1::uuid[]) ORDER BY code',
+    "SELECT assessment_id,code,snapshot FROM assessment_versions WHERE assessment_id=ANY($1::uuid[]) AND code<>'ADAPTADA' ORDER BY code",
     [[...new Set(result.rows.map((x) => x.assessment_id))]],
   );
   const keys = new Map();
@@ -476,6 +476,15 @@ export async function listApplications({ institutionId, ownerId = null }) {
     students: x.students,
     completed: x.completed,
     corrected: x.corrected,
+    // Alunos com laudo fora da aplicação e a prova adaptada gerada pela IA.
+    adaptedExam: x.adapted_students
+      ? {
+          students: x.adapted_students,
+          jobId: x.adapted_job_id ?? null,
+          status: x.adapted_status ?? 'none',
+          error: x.adapted_error ?? null,
+        }
+      : null,
   }));
 }
 

@@ -55,6 +55,14 @@ export type Application = {
   corrected?: number;
   // Layout de impressão da aplicação (ex.: compacto-10-v1).
   template?: string;
+  assessmentId?: string;
+  // Alunos com laudo (fora da aplicação) e a prova adaptada gerada pela IA.
+  adaptedExam?: {
+    students: number;
+    jobId: string | null;
+    status: 'none' | 'queued' | 'running' | 'completed' | 'failed';
+    error: string | null;
+  } | null;
 };
 
 // Layouts compactos (cartão dentro da prova): o lote é a prova completa.

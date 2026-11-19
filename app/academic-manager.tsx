@@ -282,6 +282,72 @@ export function AcademicManager({
   );
   // 'exams': provas completas em um PDF só (layout compacto, com o cartão na
   // primeira página). 'answer-cards': cartão-resposta separado.
+  const downloadAdaptedExam = async (
+    application: Application,
+    kind: 'prova' | 'gabarito',
+  ) => {
+    const jobId = application.adaptedExam?.jobId;
+    if (!jobId) return;
+    setMessage('');
+    try {
+      const response = await apiFetch(
+        `${apiUrl}/api/render-jobs/${jobId}/${kind}`,
+      );
+      if (!response.ok) {
+        const body = (await response
+          .json()
+          .catch(() => null)) as ApiBody<unknown> | null;
+        throw new Error(
+          body?.error || 'Não foi possível baixar a prova adaptada.',
+        );
+      }
+      const file = await response.blob();
+      if (!file.size) throw new Error('O arquivo veio vazio. Tente novamente.');
+      const objectUrl = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download =
+        kind === 'prova' ? 'prova-adaptada.pdf' : 'gabarito-adaptado.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível baixar a prova adaptada.',
+      );
+    }
+  };
+  // Reenvia a aplicação: a criação reabre o job da prova adaptada que falhou.
+  const retryAdaptedExam = async (application: Application) => {
+    setMessage('');
+    try {
+      const response = await apiFetch(`${apiUrl}/api/assessment-applications`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          assessmentId: application.assessmentId,
+          classId: application.classId,
+          scheduledAt: application.scheduledAt,
+        }),
+      });
+      const body = (await response.json()) as ApiBody<unknown>;
+      if (!response.ok)
+        throw new Error(
+          body.error || 'Não foi possível gerar a prova adaptada de novo.',
+        );
+      setMessage('Geração da prova adaptada reenviada.');
+      await refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível gerar a prova adaptada de novo.',
+      );
+    }
+  };
   const downloadApplicationBatch = async (
     application: Application,
     kind: 'answer-cards' | 'exams' = 'answer-cards',
@@ -1283,6 +1349,61 @@ export function AcademicManager({
                     </>
                   )}
                 </div>
+                {x.adaptedExam && x.adaptedExam.students > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-slate-50 p-3 text-sm">
+                    <span className="text-slate-700">
+                      {x.adaptedExam.students}{' '}
+                      {x.adaptedExam.students === 1 ? 'aluno' : 'alunos'} com
+                      prova adaptada (laudo), fora da aplicação e sem
+                      cartão-resposta.
+                    </span>
+                    {x.adaptedExam.status === 'completed' &&
+                    x.adaptedExam.jobId ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void downloadAdaptedExam(x, 'prova')}
+                        >
+                          <Download />
+                          Baixar prova adaptada
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void downloadAdaptedExam(x, 'gabarito')
+                          }
+                        >
+                          <Download />
+                          Baixar gabarito adaptado
+                        </Button>
+                      </>
+                    ) : x.adaptedExam.status === 'queued' ||
+                      x.adaptedExam.status === 'running' ? (
+                      <span className="text-slate-500">
+                        Gerando prova adaptada…
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-red-700">
+                          {x.adaptedExam.error
+                            ? `Falha na geração: ${x.adaptedExam.error}`
+                            : 'A prova adaptada ainda não foi gerada.'}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void retryAdaptedExam(x)}
+                        >
+                          Tentar de novo
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           ) : (
