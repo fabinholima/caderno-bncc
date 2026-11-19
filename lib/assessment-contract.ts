@@ -121,8 +121,6 @@ export type AssessmentRenderContract = {
     template: string;
     font: 'plex' | 'heros' | 'bonum' | 'schola' | 'libertinus';
     fontSize: number;
-    /** Prova adaptada (laudo): não imprime o cartão-resposta. */
-    omitAnswerSheet?: boolean;
     showBnccSkills?: boolean;
     showSaebDescriptors?: boolean;
     showStudentPhoto?: boolean;

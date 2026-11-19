@@ -6,11 +6,6 @@ import { assertInstitutionLimit } from './auth.mjs';
 import { signQrId } from './qr-signing.mjs';
 import { answerKeyStatus } from './assessment-results.mjs';
 import { dataUrlMatchesSignature } from './file-signature.mjs';
-import {
-  ADAPTED_VERSION_CODE,
-  ensureAdaptedExamVersion,
-} from './adapted-exam.mjs';
-import { agendarProvaAdaptada } from './adapted-exam-job.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -213,9 +208,10 @@ export async function enrollStudent({
   try {
     return await transaction(async (client) => {
       // O trigger de histórico (migração 111) registra quem matriculou.
-      await client.query("SELECT set_config('ufaprova.actor_id',$1,true)", [
-        userId ?? '',
-      ]);
+      await client.query(
+        "SELECT set_config('ufaprova.actor_id',$1,true)",
+        [userId ?? ''],
+      );
       const r = await client.query({
         text: `INSERT INTO class_enrollments(class_id,student_id,number) SELECT c.id,s.id,$4 FROM classes c JOIN students s ON s.id=$3 AND s.institution_id=$1 WHERE c.id=$2 AND c.institution_id=$1 RETURNING class_id,student_id,number`,
         values: [institutionId, classId, v.studentId, v.number || null],
@@ -235,14 +231,14 @@ export async function enrollStudent({
 }
 export async function createApplication({ institutionId, userId, input }) {
   const v = applicationSchema.parse(input);
-  const result = await transaction(async (client) => {
+  return transaction(async (client) => {
     const versions = await client.query(
       `SELECT av.id,av.code
        FROM assessment_versions av
        JOIN assessments a ON a.id=av.assessment_id
-       WHERE av.assessment_id=$1 AND a.institution_id=$2 AND av.code<>$3
+       WHERE av.assessment_id=$1 AND a.institution_id=$2
        ORDER BY av.code`,
-      [v.assessmentId, institutionId, ADAPTED_VERSION_CODE],
+      [v.assessmentId, institutionId],
     );
     // Layout de impressão da prova: a tela escolhe entre cartão e prova completa.
     const templateRow = versions.rowCount
@@ -259,21 +255,8 @@ export async function createApplication({ institutionId, userId, input }) {
           statusCode: 404,
         },
       );
-    // Alunos com prova adaptada (laudo) ficam fora da aplicação: não recebem
-    // QR nem cartão-resposta. A prova deles é gerada à parte, na versão ADAPTADA.
-    const adaptedStudents = await client.query(
-      `SELECT s.id FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') AND s.adapted_exam AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[]))`,
-      [v.classId, institutionId, v.studentIds || null],
-    );
-    if (v.studentIds && adaptedStudents.rowCount)
-      throw Object.assign(
-        new Error(
-          'Alunos com prova adaptada (laudo) não entram na aplicação. A prova deles é gerada à parte.',
-        ),
-        { statusCode: 422 },
-      );
     const students = await client.query(
-      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') AND NOT s.adapted_exam AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
+      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
       [v.classId, institutionId, v.studentIds || null],
     );
     if (v.studentIds && students.rowCount !== v.studentIds.length)
@@ -285,20 +268,11 @@ export async function createApplication({ institutionId, userId, input }) {
       throw Object.assign(new Error('A avaliação não possui versões.'), {
         statusCode: 422,
       });
-    // Turma só com alunos de laudo: a aplicação existe só para o PDF adaptado (sem cartões).
-    if (!students.rowCount && !adaptedStudents.rowCount)
+    if (!students.rowCount)
       throw Object.assign(
         new Error('A turma não possui alunos matriculados.'),
         { statusCode: 422 },
       );
-
-    const adaptedExamCount = adaptedStudents.rowCount;
-    const adaptedExam = adaptedExamCount
-      ? {
-          excludedStudents: adaptedExamCount,
-          ...(await ensureAdaptedExamVersion(client, v.assessmentId)),
-        }
-      : { excludedStudents: 0, status: 'none' };
 
     const created = await client.query({
       text: `INSERT INTO assessment_applications(institution_id,assessment_id,class_id,scheduled_at,created_by)
@@ -359,7 +333,6 @@ export async function createApplication({ institutionId, userId, input }) {
         assignments,
         template,
         reused: true,
-        adaptedExam,
       };
     }
 
@@ -389,18 +362,8 @@ export async function createApplication({ institutionId, userId, input }) {
         status: 'queued',
       });
     }
-    return {
-      ...application,
-      assignments,
-      template,
-      reused: false,
-      adaptedExam,
-    };
+    return { ...application, assignments, template, reused: false };
   });
-  // A IA roda depois do commit: uma falha fica registrada no render job, sem desfazer a aplicação.
-  if (result.adaptedExam?.status === 'queued' && result.adaptedExam.renderJobId)
-    agendarProvaAdaptada(result.adaptedExam.renderJobId);
-  return result;
 }
 
 async function listApplicationAssignments(client, applicationId) {
@@ -437,12 +400,12 @@ async function listApplicationAssignments(client, applicationId) {
 
 export async function listApplications({ institutionId, ownerId = null }) {
   const result = await pool.query({
-    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,(SELECT rj0.template_version FROM render_jobs rj0 JOIN application_students aps0 ON aps0.id=rj0.application_student_id WHERE aps0.application_id=aa.id LIMIT 1) template,(SELECT rj1.id FROM render_jobs rj1 JOIN assessment_versions av1 ON av1.id=rj1.assessment_version_id WHERE av1.assessment_id=aa.assessment_id AND av1.code='ADAPTADA' AND rj1.renderer='ia-adaptada' ORDER BY rj1.created_at DESC LIMIT 1) adapted_job_id,(SELECT rj2.status FROM render_jobs rj2 JOIN assessment_versions av2 ON av2.id=rj2.assessment_version_id WHERE av2.assessment_id=aa.assessment_id AND av2.code='ADAPTADA' AND rj2.renderer='ia-adaptada' ORDER BY rj2.created_at DESC LIMIT 1) adapted_status,(SELECT jsonb_array_length(COALESCE(rj4.output_manifest->'ia'->'descartadas','[]'::jsonb)) FROM render_jobs rj4 JOIN assessment_versions av4 ON av4.id=rj4.assessment_version_id WHERE av4.assessment_id=aa.assessment_id AND av4.code='ADAPTADA' AND rj4.renderer='ia-adaptada' AND rj4.status='completed' ORDER BY rj4.created_at DESC LIMIT 1) adapted_discarded,(SELECT rj3.error_message FROM render_jobs rj3 JOIN assessment_versions av3 ON av3.id=rj3.assessment_version_id WHERE av3.assessment_id=aa.assessment_id AND av3.code='ADAPTADA' AND rj3.renderer='ia-adaptada' ORDER BY rj3.created_at DESC LIMIT 1) adapted_error,(SELECT COUNT(*)::int FROM class_enrollments ce2 JOIN students s2 ON s2.id=ce2.student_id WHERE ce2.class_id=aa.class_id AND s2.active AND s2.adapted_exam AND COALESCE(s2.status,'')<>'transferido' AND COALESCE(s2.status,'')<>'remanejado') adapted_students,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL AND cs.status<>'discarded'))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
+    text: `SELECT aa.id,aa.assessment_id,aa.class_id,aa.scheduled_at,aa.status,a.title,a.subject,c.name class_name,(SELECT rj0.template_version FROM render_jobs rj0 JOIN application_students aps0 ON aps0.id=rj0.application_student_id WHERE aps0.application_id=aa.id LIMIT 1) template,COUNT(ast.id)::int students,COUNT(rj.id) FILTER(WHERE rj.status='completed')::int completed,COUNT(DISTINCT ast.id) FILTER(WHERE EXISTS(SELECT 1 FROM card_scans cs WHERE cs.application_student_id=ast.id AND cs.submission_id IS NOT NULL AND cs.status<>'discarded'))::int corrected FROM assessment_applications aa JOIN assessments a ON a.id=aa.assessment_id JOIN classes c ON c.id=aa.class_id LEFT JOIN application_students ast ON ast.application_id=aa.id LEFT JOIN render_jobs rj ON rj.application_student_id=ast.id WHERE aa.institution_id=$1 AND ${ownsApplication('aa', '$2')} GROUP BY aa.id,a.title,a.subject,c.name ORDER BY aa.created_at DESC`,
     values: [institutionId, ownerId],
   });
   // Versões e gabarito de cada avaliação, para o professor conferir antes de corrigir.
   const versions = await pool.query(
-    "SELECT assessment_id,code,snapshot FROM assessment_versions WHERE assessment_id=ANY($1::uuid[]) AND code<>'ADAPTADA' ORDER BY code",
+    'SELECT assessment_id,code,snapshot FROM assessment_versions WHERE assessment_id=ANY($1::uuid[]) ORDER BY code',
     [[...new Set(result.rows.map((x) => x.assessment_id))]],
   );
   const keys = new Map();
@@ -477,16 +440,6 @@ export async function listApplications({ institutionId, ownerId = null }) {
     students: x.students,
     completed: x.completed,
     corrected: x.corrected,
-    // Alunos com laudo fora da aplicação e a prova adaptada gerada pela IA.
-    adaptedExam: x.adapted_students
-      ? {
-          students: x.adapted_students,
-          jobId: x.adapted_job_id ?? null,
-          status: x.adapted_status ?? 'none',
-          error: x.adapted_error ?? null,
-          discarded: x.adapted_discarded ?? 0,
-        }
-      : null,
   }));
 }
 

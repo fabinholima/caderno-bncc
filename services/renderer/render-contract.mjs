@@ -791,8 +791,6 @@ setbounds currentpicture to unitsquare xscaled 40mm yscaled 4.6mm;
       instructions: (snapshot.assessment?.instructions ?? []).map(
         (instruction) => escapeContext(instruction),
       ),
-      // Prova adaptada (laudo) não tem cartão-resposta impresso.
-      omitAnswerSheet: snapshot.render?.omitAnswerSheet === true,
       font: requestedFont,
       fontSize: requestedFontSize,
       title: escapeContext(title),
