@@ -29,6 +29,7 @@ test(
  CREATE TABLE memberships(institution_id uuid REFERENCES institutions(id),user_id uuid REFERENCES users(id),role text,PRIMARY KEY(institution_id,user_id));
  CREATE TABLE class_memberships(class_id uuid,user_id uuid REFERENCES users(id),access_role text);
  CREATE TABLE educator_profiles(user_id uuid PRIMARY KEY REFERENCES users(id),phone text,selfie_data_url text);
+ CREATE TABLE push_devices(token text PRIMARY KEY,user_id uuid NOT NULL REFERENCES users(id));
  CREATE TABLE user_sessions(id uuid DEFAULT gen_random_uuid(),user_id uuid REFERENCES users(id),token_hash text);
  CREATE TABLE password_reset_tokens(user_id uuid REFERENCES users(id),token_hash text);
  CREATE TABLE email_verification_tokens(user_id uuid REFERENCES users(id),token_hash text);
@@ -70,6 +71,7 @@ test(
       await pool.query("UPDATE memberships SET role='admin' WHERE user_id=$1", [beto]);
       await pool.query('INSERT INTO educator_profiles VALUES($1,$2,$3)', [ana, '67 99999-0000', 'data:image/jpeg;base64,AAA']);
       await pool.query('INSERT INTO user_sessions(user_id,token_hash) VALUES($1,$2)', [ana, 'h1']);
+      await pool.query('INSERT INTO push_devices(token,user_id) VALUES($1,$2)', ['ExponentPushToken[ana]', ana]);
       await pool.query('INSERT INTO password_reset_tokens VALUES($1,$2)', [ana, 'h2']);
       await pool.query('INSERT INTO email_verification_tokens VALUES($1,$2)', [ana, 'h3']);
       await pool.query('INSERT INTO class_memberships VALUES($1,$2,$3)', [randomUUID(), ana, 'owner']);
@@ -81,7 +83,7 @@ test(
       assert.equal(gone.cpf_hash, null);
       assert.equal(gone.active, false);
       assert.ok(gone.deleted_at && gone.anonymized_at);
-      for (const table of ['user_sessions', 'password_reset_tokens', 'email_verification_tokens', 'class_memberships', 'memberships', 'educator_profiles'])
+      for (const table of ['user_sessions', 'push_devices', 'password_reset_tokens', 'email_verification_tokens', 'class_memberships', 'memberships', 'educator_profiles'])
         assert.equal((await pool.query(`SELECT 1 FROM ${table} WHERE user_id=$1`, [ana])).rowCount, 0, table);
       assert.equal((await pool.query("SELECT 1 FROM memberships WHERE user_id=$1 AND role='admin'", [beto])).rowCount, 1);
       assert.equal((await pool.query("SELECT 1 FROM audit_log WHERE user_id=$1 AND action='account.self_deleted'", [ana])).rowCount, 1);

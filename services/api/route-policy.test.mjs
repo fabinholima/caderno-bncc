@@ -26,7 +26,10 @@ test('professor sem CPF ou sem perfil é parado, exceto nas rotas liberadas', ()
   assert.equal(gates.cpf(noCpf, '/api/classes').status, 428);
   assert.equal(gates.cpf(noCpf, '/api/auth/logout-all'), null);
   assert.equal(gates.cpf(noCpf, '/api/account/delete'), null);
-  assert.equal(gates.studentArea({ role: 'student' }, '/api/account/delete'), null);
+  assert.equal(
+    gates.studentArea({ role: 'student' }, '/api/account/delete'),
+    null,
+  );
   assert.equal(gates.cpf(noCpf, '/api/invitations/accept').status, 428);
   assert.equal(
     gates.cpf({ ...noCpf, portalAdmin: true }, '/api/classes'),
@@ -77,10 +80,16 @@ test('rotas da área do aluno: método, IDs e exigências declaradas', () => {
     ).route.responseType,
     'pdf',
   );
-  // Todas as rotas desta tabela são da área do aluno ou de convites de turma.
+  const device = findRoute(
+    studentAreaRoutes,
+    'POST',
+    '/api/push/devices',
+  ).route;
+  assert.deepEqual([device.originOrMobile, device.maxBytes], [true, 4096]);
+  // Todas as rotas desta tabela são da área do aluno, de convites de turma ou do aviso no celular.
   for (const route of studentAreaRoutes)
     assert.match(
       String(route.path),
-      /\/api\\?\/(student|class-invites|class-join-requests|classes)/,
+      /\/api\\?\/(student|class-invites|class-join-requests|classes|push)/,
     );
 });

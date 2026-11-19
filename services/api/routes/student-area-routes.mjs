@@ -30,6 +30,10 @@ import {
 } from '../student-profile.mjs';
 import { myResultDetail, mySkillPerformance } from '../student-results.mjs';
 import { myAcademicHistory } from '../academic-insights.mjs';
+import {
+  registerPushDevice,
+  removePushDevice,
+} from '../push-notifications.mjs';
 
 const id = '([0-9a-f-]{36})';
 const inviteLimit = (identity) => `invite:${identity.userId}`;
@@ -132,6 +136,21 @@ export const studentAreaRoutes = [
     originOrMobile: true,
     maxBytes: 150000,
     handler: ({ identity, body }) => updateMyStudentPhoto(identity, body),
+  },
+  // Aviso de nota nova no celular (token do serviço de push do Expo).
+  {
+    method: 'POST',
+    path: '/api/push/devices',
+    originOrMobile: true,
+    maxBytes: 4096,
+    handler: ({ identity, body }) => registerPushDevice(identity, body),
+  },
+  {
+    method: 'POST',
+    path: '/api/push/devices/remove',
+    originOrMobile: true,
+    maxBytes: 4096,
+    handler: ({ identity, body }) => removePushDevice(identity, body),
   },
   // Propostas de redação liberadas pelo professor para a turma do aluno.
   {

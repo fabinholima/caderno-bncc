@@ -26,10 +26,16 @@ export async function deleteOwnAccount(identity, input) {
     const user = found.rows[0];
     if (!user || user.anonymized_at) throw fail('Conta não encontrada.', 404);
     if (user.portal_admin)
-      throw fail('Administradores do portal não podem excluir a própria conta por aqui.', 409);
+      throw fail(
+        'Administradores do portal não podem excluir a própria conta por aqui.',
+        409,
+      );
     // Conta com senha confirma a senha. Conta só com Google não tem senha: a
     // sessão ativa e a confirmação bastam.
-    if (user.password_hash && !(await verifyPassword(v.password || '', user.password_hash)))
+    if (
+      user.password_hash &&
+      !(await verifyPassword(v.password || '', user.password_hash))
+    )
       throw fail('Senha incorreta.', 422);
     // Escola com outras pessoas ou assinatura ativa não pode ficar sem administrador.
     const blocked = await db.query(
@@ -60,6 +66,7 @@ export async function deleteOwnAccount(identity, input) {
       );
     for (const sql of [
       'DELETE FROM user_sessions WHERE user_id=$1',
+      'DELETE FROM push_devices WHERE user_id=$1',
       'DELETE FROM password_reset_tokens WHERE user_id=$1',
       'DELETE FROM email_verification_tokens WHERE user_id=$1',
       'DELETE FROM class_memberships WHERE user_id=$1',

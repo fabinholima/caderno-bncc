@@ -457,6 +457,10 @@ export async function logoutAll(identity) {
     'DELETE FROM user_sessions WHERE user_id=$1',
     [identity.userId],
   );
+  // Sem sessão em nenhum aparelho, nenhum deles deve receber aviso de nota.
+  await pool.query('DELETE FROM push_devices WHERE user_id=$1', [
+    identity.userId,
+  ]);
   await pool.query(
     "INSERT INTO audit_log(institution_id,user_id,action) VALUES($1,$2,'auth.logout_all')",
     [identity.institutionId || null, identity.userId],

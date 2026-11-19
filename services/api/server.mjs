@@ -295,6 +295,7 @@ import {
   renewAccessCode,
 } from './student-access-code.mjs';
 import { deleteOwnAccount } from './account-deletion.mjs';
+import { notifyInBackground } from './push-notifications.mjs';
 import {
   createExamImport,
   cropExamImportCandidateImage,
@@ -2234,20 +2235,22 @@ const server = createServer(async (request, response) => {
     if (
       request.method === 'POST' &&
       url.pathname === '/api/assessment-results/authorize'
-    )
-      return json(response, 200, {
-        data: await authorizeResults({
-          institutionId,
-          userId,
-          input: await ownedInput(await readJson(request, 65536), {
-            applicationId: 'application',
-            items: (items) => [
-              'result',
-              items?.map?.((item) => item?.resultId),
-            ],
-          }),
+    ) {
+      const data = await authorizeResults({
+        institutionId,
+        userId,
+        input: await ownedInput(await readJson(request, 65536), {
+          applicationId: 'application',
+          items: (items) => ['result', items?.map?.((item) => item?.resultId)],
         }),
       });
+      notifyInBackground(
+        data.items
+          .filter((item) => item.outcome === 'published')
+          .map((item) => item.resultId),
+      );
+      return json(response, 200, { data });
+    }
     const followupMatch = url.pathname.match(
       /^\/api\/assessment-results\/([0-9a-f-]{36})\/followups$/i,
     );

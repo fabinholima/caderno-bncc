@@ -235,3 +235,17 @@ A PWA do professor e do aluno está documentada em `docs/pwa-subdominios.md`.
 ## Limitações conhecidas
 
 - O acesso segue o modelo atual: a instituição da sessão e o papel de professor, coordenador ou administrador. A tabela `class_memberships` existe, mas ainda não é aplicada nas rotas da API. Restringir por turma depende de populá-la para as turmas existentes.
+
+## Aviso de nota nova no celular
+
+Quando o professor autoriza um resultado, a API avisa o aluno pelo serviço de push do Expo, que é gratuito e não exige conta paga.
+
+- O aplicativo do aluno registra o aparelho em `POST /api/push/devices`, com `{ token, platform }`, e o remove em `POST /api/push/devices/remove` ao sair. "Sair de todos os aparelhos" e a exclusão da conta apagam todos os aparelhos do usuário.
+- Recebem o aviso só os alunos que veem a nota no aplicativo, pelas mesmas condições de `/api/student/activities`.
+- A mensagem traz só a disciplina e o nome da avaliação. A nota não aparece na tela bloqueada.
+- Cada publicação avisa uma vez (`assessment_result_publications.notified_at`), inclusive quando o aplicativo reenvia a mesma autorização. Uma nova versão autorizada depois de anulação avisa de novo.
+- Tokens que o Expo recusa (`DeviceNotRegistered`) são apagados. Uma falha no envio só vai para o log e nunca desfaz a autorização.
+- `PUSH_NOTIFICATIONS=off` desliga o envio, por exemplo em homologação. `EXPO_ACCESS_TOKEN` é opcional; só é necessário se a segurança reforçada de push for ligada no projeto Expo.
+- Migração `119_push_devices.sql`, só aditiva.
+
+Teste: `PUSH_TEST_DATABASE_URL=postgres://... node --test services/api/push-notifications.integration.test.mjs`.
