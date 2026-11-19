@@ -195,10 +195,7 @@ test('chama a API de respostas com JSON estrito e lê o texto de saída', async 
   assert.equal(enviado.auth, 'Bearer chave');
   assert.equal(enviado.body.text.format.type, 'json_schema');
   assert.equal(enviado.body.store, false);
-  assert.ok(
-    enviado.signal instanceof AbortSignal,
-    'a chamada tem tempo limite',
-  );
+  assert.ok(enviado.signal instanceof AbortSignal, 'a chamada tem tempo limite');
   assert.deepEqual(resultado.questions, []);
   assert.equal(resultado.responseId, 'resp_1');
 });
@@ -263,70 +260,4 @@ test('gera os dois PDFs do snapshot adaptado', async () => {
   assert.equal(Buffer.from(studentPdf).subarray(0, 5).toString(), '%PDF-');
   assert.equal(Buffer.from(answerKeyPdf).subarray(0, 5).toString(), '%PDF-');
   assert.ok(studentPdf.length > answerKeyPdf.length);
-});
-
-test('reescrita pelo Gemini envia contexto e schema, e lê o JSON da resposta', async () => {
-  const { reescreverQuestoesComGemini } = await import('./adapted-exam-ai.mjs');
-  let enviado;
-  const fetchImpl = async (url, options) => {
-    enviado = {
-      url,
-      body: JSON.parse(options.body),
-      chave: options.headers['x-goog-api-key'],
-    };
-    return {
-      ok: true,
-      json: async () => ({
-        candidates: [
-          {
-            content: {
-              parts: [
-                {
-                  text: JSON.stringify({
-                    questions: [
-                      {
-                        sourceNumber: 3,
-                        statement: 'Nova',
-                        alternatives: ['a', 'b', 'c'],
-                        correctIndex: 2,
-                        imagePrompt: '',
-                      },
-                    ],
-                  }),
-                },
-              ],
-            },
-          },
-        ],
-        usageMetadata: { totalTokenCount: 9 },
-      }),
-    };
-  };
-  const resultado = await reescreverQuestoesComGemini({
-    contexto: { serie: '6º ano', disciplina: 'Matemática' },
-    questions: [
-      {
-        sourceNumber: 3,
-        tema: 'Matemática > Frações',
-        statement: 'x',
-        alternatives: ['a', 'b', 'c'],
-      },
-    ],
-    fetchImpl,
-    env: { GEMINI_API_KEY: 'g' },
-  });
-  assert.match(enviado.url, /models\/gemini-2\.5-flash:generateContent$/);
-  assert.equal(enviado.chave, 'g');
-  assert.equal(
-    enviado.body.generationConfig.responseMimeType,
-    'application/json',
-  );
-  assert.equal(enviado.body.generationConfig.responseSchema.type, 'OBJECT');
-  assert.match(enviado.body.contents[0].parts[0].text, /6º ano/);
-  assert.match(enviado.body.contents[0].parts[0].text, /Matemática > Frações/);
-  assert.equal(resultado.questions[0].correctIndex, 2);
-  await assert.rejects(
-    reescreverQuestoesComGemini({ questions: [], env: {} }),
-    /GEMINI_API_KEY/,
-  );
 });

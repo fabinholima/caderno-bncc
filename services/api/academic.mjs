@@ -6,7 +6,11 @@ import { assertInstitutionLimit } from './auth.mjs';
 import { signQrId } from './qr-signing.mjs';
 import { answerKeyStatus } from './assessment-results.mjs';
 import { dataUrlMatchesSignature } from './file-signature.mjs';
-import { ADAPTED_VERSION_CODE } from './adapted-exam.mjs';
+import {
+  ADAPTED_VERSION_CODE,
+  ensureAdaptedExamVersion,
+} from './adapted-exam.mjs';
+import { agendarProvaAdaptada } from './adapted-exam-job.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -289,8 +293,12 @@ export async function createApplication({ institutionId, userId, input }) {
       );
 
     const adaptedExamCount = adaptedStudents.rowCount;
-    // A prova adaptada não é gerada aqui: o professor gera pelo botão da prova.
-    const adaptedExam = { excludedStudents: adaptedExamCount, status: 'none' };
+    const adaptedExam = adaptedExamCount
+      ? {
+          excludedStudents: adaptedExamCount,
+          ...(await ensureAdaptedExamVersion(client, v.assessmentId)),
+        }
+      : { excludedStudents: 0, status: 'none' };
 
     const created = await client.query({
       text: `INSERT INTO assessment_applications(institution_id,assessment_id,class_id,scheduled_at,created_by)
@@ -389,6 +397,9 @@ export async function createApplication({ institutionId, userId, input }) {
       adaptedExam,
     };
   });
+  // A IA roda depois do commit: uma falha fica registrada no render job, sem desfazer a aplicação.
+  if (result.adaptedExam?.status === 'queued' && result.adaptedExam.renderJobId)
+    agendarProvaAdaptada(result.adaptedExam.renderJobId);
   return result;
 }
 

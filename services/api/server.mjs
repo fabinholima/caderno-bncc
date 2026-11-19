@@ -1,5 +1,4 @@
 import { iniciarRecuperacaoProvasAdaptadas } from './adapted-exam-job.mjs';
-import { solicitarProvaAdaptada } from './adapted-exam-request.mjs';
 import {
   importClassStudents,
   previewClassStudentImport,
@@ -1877,18 +1876,6 @@ const server = createServer(async (request, response) => {
           input: await ownedInput(await readJson(request), {
             studentId: 'student',
           }),
-        }),
-      });
-    const adaptedExamMatch =
-      request.method === 'POST' &&
-      url.pathname.match(
-        /^\/api\/assessments\/([0-9a-f-]{36})\/adapted-exam$/i,
-      );
-    if (adaptedExamMatch)
-      return json(response, 202, {
-        data: await solicitarProvaAdaptada({
-          institutionId,
-          assessmentId: adaptedExamMatch[1],
         }),
       });
     if (

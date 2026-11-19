@@ -35,8 +35,6 @@ async function isolarSchema() {
     CREATE TABLE assessments(id uuid PRIMARY KEY,institution_id uuid,title text,subject text);
     CREATE TABLE classes(id uuid PRIMARY KEY,institution_id uuid,name text,grade text,school_year integer,created_by uuid);
     CREATE TABLE class_subjects(class_id uuid,teacher_id uuid);
-    CREATE TABLE pedagogical_topics(id uuid PRIMARY KEY,name text,parent_id uuid);
-    CREATE TABLE questions(id uuid PRIMARY KEY,pedagogical_topic_id uuid);
     CREATE TABLE assessment_versions(
       id uuid PRIMARY KEY,assessment_id uuid,code text,seed integer,
       snapshot jsonb NOT NULL,answer_key jsonb NOT NULL DEFAULT '[]',
@@ -145,7 +143,6 @@ test(
     process.env.ADAPTED_EXAM_PROVIDER = 'desativado';
     try {
       const { createApplication } = await import('./academic.mjs');
-      const { solicitarProvaAdaptada } = await import('./adapted-exam-request.mjs');
       const institutionId = randomUUID();
       const assessmentId = randomUUID();
       const classId = randomUUID();
@@ -199,11 +196,7 @@ test(
         'a versão ADAPTADA não entra no sorteio',
       );
       assert.equal(resultado.adaptedExam.excludedStudents, 1);
-      assert.equal(resultado.adaptedExam.status, 'none', 'a criação não gera a prova adaptada');
-      // O botão da prova é que enfileira a geração.
-      const pedido = await solicitarProvaAdaptada({ institutionId, assessmentId });
-      assert.equal(pedido.status, 'queued');
-      resultado.adaptedExam = { ...resultado.adaptedExam, renderJobId: pedido.renderJobId };
+      assert.equal(resultado.adaptedExam.status, 'queued');
 
       const job = await pool.query(
         'SELECT renderer,application_student_id,template_version FROM render_jobs WHERE id=$1',
@@ -293,7 +286,7 @@ test(
 
       const resultado = await executarProvaAdaptada(garantida.renderJobId, {
         fetchImpl,
-        env: { ADAPTED_EXAM_TEXT_PROVIDER: 'openai', OPENAI_API_KEY: 'chave-de-teste' },
+        env: { OPENAI_API_KEY: 'chave-de-teste' },
         outputRoot: saida,
       });
       assert.equal(resultado.status, 'completed');
@@ -378,7 +371,7 @@ test(
             }),
           }),
         }),
-        env: { ADAPTED_EXAM_TEXT_PROVIDER: 'openai', OPENAI_API_KEY: 'chave-de-teste' },
+        env: { OPENAI_API_KEY: 'chave-de-teste' },
         outputRoot: saida,
       });
       assert.equal(resultado.status, 'failed');
@@ -503,7 +496,7 @@ test(
 
       const resultado = await executarProvaAdaptada(garantida.renderJobId, {
         fetchImpl,
-        env: { ADAPTED_EXAM_TEXT_PROVIDER: 'openai', OPENAI_API_KEY: 'chave-de-teste' },
+        env: { OPENAI_API_KEY: 'chave-de-teste' },
         outputRoot: saida,
       });
       assert.equal(resultado.status, 'completed');
@@ -536,7 +529,6 @@ test(
     const anterior = process.env.ADAPTED_EXAM_PROVIDER;
     process.env.ADAPTED_EXAM_PROVIDER = 'desativado';
     try {
-      const { solicitarProvaAdaptada } = await import('./adapted-exam-request.mjs');
       const { createApplication, listApplications } =
         await import('./academic.mjs');
       const institutionId = randomUUID();
@@ -579,10 +571,7 @@ test(
         'nenhum cartão para o aluno de laudo',
       );
       assert.equal(resultado.adaptedExam.excludedStudents, 1);
-      assert.equal(resultado.adaptedExam.status, 'none');
-    const pedido = await solicitarProvaAdaptada({ institutionId, assessmentId });
-    assert.equal(pedido.status, 'queued');
-    resultado.adaptedExam = { ...resultado.adaptedExam, renderJobId: pedido.renderJobId };
+      assert.equal(resultado.adaptedExam.status, 'queued');
 
       const fim = await esperarJob(pool, resultado.adaptedExam.renderJobId);
       assert.equal(
@@ -685,7 +674,7 @@ test(
 
       const resultado = await executarProvaAdaptada(garantida.renderJobId, {
         fetchImpl,
-        env: { ADAPTED_EXAM_TEXT_PROVIDER: 'openai', OPENAI_API_KEY: 'chave', GEMINI_API_KEY: 'chave-g' },
+        env: { OPENAI_API_KEY: 'chave', GEMINI_API_KEY: 'chave-g' },
         outputRoot: saida,
       });
       assert.equal(resultado.status, 'completed');
@@ -725,58 +714,3 @@ test(
     }
   },
 );
-
-test('solicitar prova adaptada exige prova da instituição e aluno com laudo', { skip: !databaseUrl }, async () => {
-  const banco = await preparar();
-  const { pool } = banco;
-  const { solicitarProvaAdaptada } = await import('./adapted-exam-request.mjs');
-  const institutionId = randomUUID();
-  const assessmentId = randomUUID();
-  await pool.query('INSERT INTO assessments(id,institution_id,title,subject) VALUES($1,$2,$3,$4)', [assessmentId, institutionId, 'Prova', 'Matemática']);
-  await pool.query('INSERT INTO assessment_versions(id,assessment_id,code,seed,snapshot) VALUES($1,$2,$3,$4,$5)', [randomUUID(), assessmentId, 'A', 7, snapshotBase(assessmentId, 7)]);
-  await pool.query('INSERT INTO students(id,institution_id,name,registration,adapted_exam) VALUES($1,$2,$3,$4,false)', [randomUUID(), institutionId, 'Dani', '020']);
-
-  await assert.rejects(solicitarProvaAdaptada({ institutionId, assessmentId }), (erro) => erro.statusCode === 422 && /Marque um aluno com laudo/.test(erro.message));
-  await pool.query('UPDATE students SET adapted_exam=true');
-  await assert.rejects(solicitarProvaAdaptada({ institutionId, assessmentId: randomUUID() }), (erro) => erro.statusCode === 404);
-  await assert.rejects(solicitarProvaAdaptada({ institutionId: randomUUID(), assessmentId }), (erro) => erro.statusCode === 404, 'outra instituição não vê a prova');
-
-  const primeira = await solicitarProvaAdaptada({ institutionId, assessmentId });
-  assert.equal(primeira.status, 'queued');
-  const segunda = await solicitarProvaAdaptada({ institutionId, assessmentId });
-  assert.equal(segunda.renderJobId, primeira.renderJobId, 'pedido repetido reaproveita o job');
-  await esperarJob(pool, primeira.renderJobId);
-});
-
-test('o tema da questão (tópico > subtópico > detalhe) chega à IA a cada pedido', { skip: !databaseUrl }, async () => {
-  const banco = await preparar();
-  const { pool } = banco;
-  const saida = await mkdtemp(path.join(os.tmpdir(), 'adaptada-tema-'));
-  try {
-    const { ensureAdaptedExamVersion } = await import('./adapted-exam.mjs');
-    const { executarProvaAdaptada } = await import('./adapted-exam-job.mjs');
-    const raiz = randomUUID();
-    const meio = randomUUID();
-    const folha = randomUUID();
-    await pool.query('INSERT INTO pedagogical_topics(id,name,parent_id) VALUES($1,$2,NULL),($3,$4,$1),($5,$6,$3)', [raiz, 'Matemática', meio, 'Frações', folha, 'Equivalência']);
-    const questaoBanco = randomUUID();
-    await pool.query('INSERT INTO questions(id,pedagogical_topic_id) VALUES($1,$2)', [questaoBanco, folha]);
-    const assessmentId = randomUUID();
-    const base = snapshotBase(assessmentId, 7);
-    base.questions[0].sourceQuestionId = questaoBanco;
-    await pool.query('INSERT INTO assessments(id,institution_id,title,subject) VALUES($1,$2,$3,$4)', [assessmentId, randomUUID(), 'Prova', 'Matemática']);
-    await pool.query('INSERT INTO assessment_versions(id,assessment_id,code,seed,snapshot) VALUES($1,$2,$3,$4,$5)', [randomUUID(), assessmentId, 'A', 7, base]);
-    const garantida = await ensureAdaptedExamVersion(pool, assessmentId);
-
-    let entradaEnviada;
-    const fetchImpl = async (url, options) => {
-      entradaEnviada = JSON.parse(JSON.parse(options.body).input);
-      return { ok: true, json: async () => ({ id: 'r', model: 'gpt-5-mini', usage: {}, output_text: JSON.stringify({ questions: [{ sourceNumber: 1, statement: 'Nova', alternatives: ['a', 'b', 'c'], correctIndex: 0, imagePrompt: '' }] }) }) };
-    };
-    const resultado = await executarProvaAdaptada(garantida.renderJobId, { fetchImpl, env: { ADAPTED_EXAM_TEXT_PROVIDER: 'openai', OPENAI_API_KEY: 'k' }, outputRoot: saida });
-    assert.equal(resultado.status, 'completed');
-    assert.equal(entradaEnviada.questions[0].tema, 'Matemática > Frações > Equivalência');
-  } finally {
-    await rm(saida, { recursive: true, force: true });
-  }
-});
