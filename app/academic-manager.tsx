@@ -320,31 +320,27 @@ export function AcademicManager({
       );
     }
   };
-  // Reenvia a aplicação: a criação reabre o job da prova adaptada que falhou.
+  // Gera (ou gera de novo) a prova adaptada da prova desta aplicação.
   const retryAdaptedExam = async (application: Application) => {
     setMessage('');
+    if (!application.assessmentId) return;
     try {
-      const response = await apiFetch(`${apiUrl}/api/assessment-applications`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          assessmentId: application.assessmentId,
-          classId: application.classId,
-          scheduledAt: application.scheduledAt,
-        }),
-      });
+      const response = await apiFetch(
+        `${apiUrl}/api/assessments/${application.assessmentId}/adapted-exam`,
+        { method: 'POST' },
+      );
       const body = (await response.json()) as ApiBody<unknown>;
       if (!response.ok)
         throw new Error(
-          body.error || 'Não foi possível gerar a prova adaptada de novo.',
+          body.error || 'Não foi possível gerar a prova adaptada.',
         );
-      setMessage('Geração da prova adaptada reenviada.');
+      setMessage('Geração da prova adaptada solicitada.');
       await refresh();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Não foi possível gerar a prova adaptada de novo.',
+          : 'Não foi possível gerar a prova adaptada.',
       );
     }
   };
@@ -1408,7 +1404,7 @@ export function AcademicManager({
                           variant="outline"
                           onClick={() => void retryAdaptedExam(x)}
                         >
-                          Tentar de novo
+                          Gerar prova adaptada
                         </Button>
                       </>
                     )}

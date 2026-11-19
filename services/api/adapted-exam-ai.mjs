@@ -42,7 +42,8 @@ export const adaptedExamJsonSchema = {
 
 export const adaptedExamInstructions = [
   'Você adapta questões de múltipla escolha para estudantes com laudo.',
-  'Reescreva cada enunciado em linguagem simples, com frases curtas e uma única ideia por frase.',
+  'Quando houver um tema (tópico > subtópico), crie uma questão nova sobre esse conteúdo, em linguagem simples, com frases curtas e uma única ideia por frase, e sem copiar o enunciado de referência.',
+  'Quando não houver tema, reescreva o enunciado de referência em linguagem simples, com frases curtas e uma única ideia por frase.',
   'Mantenha exatamente o conceito e a resposta correta da questão original.',
   'Cada questão deve ter exatamente três alternativas: a correta e duas incorretas plausíveis.',
   'Escreva as alternativas curtas e no mesmo formato uma da outra.',
@@ -121,5 +122,94 @@ export async function reescreverQuestoesComIA({
     model: body.model || model,
     responseId: body.id,
     usage: body.usage || {},
+  };
+}
+
+// Mesmo contrato da OpenAI, pela API generateContent do Gemini com saída em JSON estrito.
+export const adaptedExamGeminiSchema = {
+  type: 'OBJECT',
+  required: ['questions'],
+  properties: {
+    questions: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        required: [
+          'sourceNumber',
+          'statement',
+          'alternatives',
+          'correctIndex',
+          'imagePrompt',
+        ],
+        properties: {
+          sourceNumber: { type: 'INTEGER' },
+          statement: { type: 'STRING' },
+          alternatives: { type: 'ARRAY', items: { type: 'STRING' } },
+          correctIndex: { type: 'INTEGER' },
+          imagePrompt: { type: 'STRING' },
+        },
+      },
+    },
+  },
+};
+
+export async function reescreverQuestoesComGemini({
+  questions,
+  contexto = {},
+  fetchImpl = fetch,
+  env = process.env,
+}) {
+  if (env.ADAPTED_EXAM_PROVIDER === 'desativado')
+    throw new Error('A geração de prova adaptada com IA está desativada.');
+  if (!env.GEMINI_API_KEY)
+    throw new Error(
+      'GEMINI_API_KEY não configurada para gerar a prova adaptada.',
+    );
+  const model = env.GEMINI_ADAPTED_EXAM_MODEL || 'gemini-2.5-flash';
+  if (!/^[a-zA-Z0-9._-]+$/.test(model))
+    throw new Error('Modelo Gemini inválido.');
+  const response = await fetchImpl(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': env.GEMINI_API_KEY,
+        'content-type': 'application/json',
+      },
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: adaptedExamInstructions }] },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: JSON.stringify({ contexto, questions }) }],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: adaptedExamGeminiSchema,
+        },
+      }),
+    },
+  );
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(
+      body?.error?.message || `A API Gemini respondeu ${response.status}.`,
+    );
+  const texto = (body?.candidates?.[0]?.content?.parts ?? [])
+    .map((parte) => parte.text ?? '')
+    .join('');
+  let parsed;
+  try {
+    parsed = JSON.parse(texto);
+  } catch {
+    throw new Error('A resposta da IA não é um JSON válido.');
+  }
+  return {
+    questions: Array.isArray(parsed?.questions) ? parsed.questions : [],
+    model,
+    responseId: body.responseId ?? '',
+    usage: body.usageMetadata ?? {},
   };
 }

@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/dialog';
 import { AssessmentApplicationStep } from './assessment-application-step';
 import { AssessmentPdfPreview } from './assessment-pdf-preview';
+import { AdaptedExamButton } from './adapted-exam-button';
 import { apiFetch } from '@/lib/api-client';
 import {
   fallbackTemplates,
@@ -2454,6 +2455,12 @@ export function AssessmentBuilder({
                         code={v.code}
                       />
                     ))}
+                  {assessmentId && (
+                    <AdaptedExamButton
+                      apiUrl={apiUrl}
+                      assessmentId={assessmentId}
+                    />
+                  )}
                   <div className="flex flex-wrap gap-3">
                     <Button
                       variant="outline"

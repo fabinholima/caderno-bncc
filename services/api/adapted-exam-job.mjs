@@ -2,8 +2,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pool } from './db.mjs';
 import { storeRenderArtifact } from './render-artifact-storage.mjs';
-import { reescreverQuestoesComIA } from './adapted-exam-ai.mjs';
+import {
+  reescreverQuestoesComGemini,
+  reescreverQuestoesComIA,
+} from './adapted-exam-ai.mjs';
 import { gerarImagemComGemini } from './adapted-exam-image.mjs';
+import { temasPorQuestao } from './adapted-exam-topics.mjs';
 import { montarPdfsAdaptados } from './adapted-exam-pdf.mjs';
 import {
   montarSnapshotAdaptado,
@@ -72,13 +76,24 @@ export async function executarProvaAdaptada(
     const lotes = [];
     for (let i = 0; i < originais.length; i += tamanhoLote)
       lotes.push(originais.slice(i, i + tamanhoLote));
+    // Tema de cada questão (tópico > subtópico) orienta a IA a criar questões sobre o mesmo conteúdo.
+    const temas = await temasPorQuestao(
+      pool,
+      originais.map((q) => q.sourceQuestionId),
+    );
     const respostas = [];
     const usos = [];
     for (const lote of lotes) {
-      const ia = await reescreverQuestoesComIA({
+      // Texto pelo Gemini por padrão (gratuito); ADAPTED_EXAM_TEXT_PROVIDER=openai usa a OpenAI.
+      const reescrever =
+        env.ADAPTED_EXAM_TEXT_PROVIDER === 'openai'
+          ? reescreverQuestoesComIA
+          : reescreverQuestoesComGemini;
+      const ia = await reescrever({
         contexto,
         questions: lote.map((questao) => ({
           sourceNumber: questao.number,
+          tema: temas.get(questao.sourceQuestionId) ?? null,
           statement: textoDoEnunciado(questao.statement),
           alternatives: questao.alternatives.map((alt) =>
             textoDaAlternativa(alt.content),
