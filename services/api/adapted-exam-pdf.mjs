@@ -1,6 +1,8 @@
 // PDFs da prova adaptada e do gabarito, montados sem ConTeXt (pdf-lib, JavaScript puro).
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
+const pontosTexto = (valor) => `${valor} ${valor === 1 ? 'ponto' : 'pontos'}`;
+
 const PAGINA = { largura: 595.28, altura: 841.89 };
 const MARGEM = 56;
 const LARGURA_UTIL = PAGINA.largura - 2 * MARGEM;
@@ -123,7 +125,7 @@ export async function montarPdfsAdaptados(snapshot) {
     centralizado: true,
   });
   prova.linhas(
-    `${snapshot.assessment?.grade ?? ''} — Prova adaptada — ${snapshot.totals?.points ?? 0} pontos`,
+    `${snapshot.assessment?.grade ?? ''} — Prova adaptada — ${pontosTexto(snapshot.totals?.points ?? 0)}`,
     { tamanho: 11, centralizado: true },
   );
   prova.espaco(12);
