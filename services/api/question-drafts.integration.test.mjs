@@ -15,7 +15,7 @@ test('rascunhos persistem, isolam proprietários e detectam conflitos e retries'
   await admin.query(await fs.readFile(new URL('../../database/075_question_editor_drafts.sql',import.meta.url),'utf8'));
   process.env.DATABASE_URL=url;process.env.PGOPTIONS=`-c search_path=${schema}`;
   const db=await import('./db.mjs');pool=db.pool;
-  const {saveDraft,getDraft,listDrafts,completeDraft}=await import('./question-drafts.mjs');
+  const {saveDraft,getDraft,listDrafts,completeDraft,completeAllDrafts}=await import('./question-drafts.mjs');
   const institutionId=randomUUID(),userId=randomUUID(),otherUser=randomUUID(),id=randomUUID();
   await admin.query('INSERT INTO institutions VALUES($1)',[institutionId]);await admin.query('INSERT INTO users VALUES($1),($2)',[userId,otherUser]);
   const owner={institutionId,userId,id};
@@ -32,5 +32,10 @@ test('rascunhos persistem, isolam proprietários e detectam conflitos e retries'
   await assert.rejects(saveDraft({...owner,input:{version:1,payload}}),{statusCode:409});
   await completeDraft(owner);assert.equal((await listDrafts({institutionId,userId})).length,0);
   await assert.rejects(saveDraft({...owner,input:{version:2,payload:next}}),{statusCode:409});
+  const a={institutionId,userId,id:randomUUID()},b={institutionId,userId,id:randomUUID()},other={institutionId,userId:otherUser,id:randomUUID()};
+  for(const o of [a,b,other])await saveDraft({...o,input:{version:0,payload}});
+  assert.equal((await completeAllDrafts({institutionId,userId})).completed,2);
+  assert.equal((await listDrafts({institutionId,userId})).length,0);
+  assert.equal((await listDrafts({institutionId,userId:otherUser})).length,1);
  }finally{if(pool)await pool.end();await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await admin.end()}
 });

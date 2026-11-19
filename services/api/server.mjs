@@ -35,6 +35,7 @@ import {
   getDraft,
   saveDraft,
   completeDraft,
+  completeAllDrafts,
 } from './question-drafts.mjs';
 import { requirePortalAdmin } from './portal-admin.mjs';
 import {
@@ -2796,6 +2797,21 @@ const server = createServer(async (request, response) => {
       response.setHeader('cache-control', 'no-store');
       return json(response, 200, {
         data: await listDrafts({ institutionId, userId }),
+      });
+    }
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/api/questions/drafts/complete-all'
+    ) {
+      if (!canEditCatalog)
+        return json(response, 403, {
+          error: 'Rascunhos são exclusivos de editores e administradores.',
+        });
+      if (!requestOrigin || !allowedOrigins.has(requestOrigin))
+        return json(response, 403, { error: 'Origem não autorizada.' });
+      response.setHeader('cache-control', 'no-store');
+      return json(response, 200, {
+        data: await completeAllDrafts({ institutionId, userId }),
       });
     }
     const draftMatch =

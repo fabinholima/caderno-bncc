@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 export type DraftPayload = {
   input: Record<string, unknown>;
@@ -205,6 +206,41 @@ export function QuestionDraftControls({
       setBusy(false);
     }
   }
+  async function discardAll() {
+    if (
+      !drafts.length ||
+      !window.confirm(
+        `Limpar todos os ${drafts.length} rascunho(s) salvos? As questões cadastradas não serão alteradas.`,
+      )
+    )
+      return;
+    state.current.busy = true;
+    setBusy(true);
+    try {
+      const r = await apiFetch(`${apiUrl}/api/questions/drafts/complete-all`, {
+        method: 'POST',
+      });
+      if (!r.ok) throw new Error('Não foi possível limpar os rascunhos.');
+      // O formulário atual passa a usar um novo rascunho.
+      state.current = {
+        id: crypto.randomUUID(),
+        version: 0,
+        saved: '',
+        baseline: JSON.stringify(snapshot()),
+        busy: false,
+        conflict: false,
+        error: '',
+      };
+      setSelected('');
+      setStatus('Todos os rascunhos foram limpos.');
+      await list();
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : 'Falha ao limpar.');
+    } finally {
+      state.current.busy = false;
+      setBusy(false);
+    }
+  }
   async function resume() {
     if (!selected || state.current.busy) return;
     if (
@@ -292,6 +328,18 @@ export function QuestionDraftControls({
         onClick={() => void discard()}
       >
         Descartar rascunho
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Limpar todos os rascunhos"
+        title="Limpar todos os rascunhos"
+        disabled={!drafts.length || busy || paused}
+        onClick={() => void discardAll()}
+        className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+      >
+        <Trash2 aria-hidden="true" />
       </Button>
     </div>
   );

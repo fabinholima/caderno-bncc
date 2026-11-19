@@ -30,3 +30,6 @@ export async function saveDraft({institutionId,userId,id,input}) {
 export async function completeDraft({institutionId,userId,id}) {
  const r=await pool.query('UPDATE question_editor_drafts SET completed_at=now() WHERE id=$1 AND institution_id=$2 AND user_id=$3 RETURNING id',[draftIdSchema.parse(id),institutionId,userId]);if(!r.rowCount)throw notFound();return {completed:true};
 }
+export async function completeAllDrafts({institutionId,userId}) {
+ const r=await pool.query('UPDATE question_editor_drafts SET completed_at=now() WHERE institution_id=$1 AND user_id=$2 AND completed_at IS NULL',[institutionId,userId]);return {completed:r.rowCount};
+}
