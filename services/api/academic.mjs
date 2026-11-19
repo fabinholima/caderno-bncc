@@ -6,6 +6,10 @@ import { assertInstitutionLimit } from './auth.mjs';
 import { signQrId } from './qr-signing.mjs';
 import { answerKeyStatus } from './assessment-results.mjs';
 import { dataUrlMatchesSignature } from './file-signature.mjs';
+import {
+  ADAPTED_VERSION_CODE,
+  ensureAdaptedExamVersion,
+} from './adapted-exam.mjs';
 export const classSchema = z.object({
   name: z.string().trim().min(1).max(80),
   grade: z.string().trim().min(2).max(40),
@@ -208,10 +212,9 @@ export async function enrollStudent({
   try {
     return await transaction(async (client) => {
       // O trigger de histórico (migração 111) registra quem matriculou.
-      await client.query(
-        "SELECT set_config('ufaprova.actor_id',$1,true)",
-        [userId ?? ''],
-      );
+      await client.query("SELECT set_config('ufaprova.actor_id',$1,true)", [
+        userId ?? '',
+      ]);
       const r = await client.query({
         text: `INSERT INTO class_enrollments(class_id,student_id,number) SELECT c.id,s.id,$4 FROM classes c JOIN students s ON s.id=$3 AND s.institution_id=$1 WHERE c.id=$2 AND c.institution_id=$1 RETURNING class_id,student_id,number`,
         values: [institutionId, classId, v.studentId, v.number || null],
@@ -236,9 +239,9 @@ export async function createApplication({ institutionId, userId, input }) {
       `SELECT av.id,av.code
        FROM assessment_versions av
        JOIN assessments a ON a.id=av.assessment_id
-       WHERE av.assessment_id=$1 AND a.institution_id=$2
+       WHERE av.assessment_id=$1 AND a.institution_id=$2 AND av.code<>$3
        ORDER BY av.code`,
-      [v.assessmentId, institutionId],
+      [v.assessmentId, institutionId, ADAPTED_VERSION_CODE],
     );
     // Layout de impressão da prova: a tela escolhe entre cartão e prova completa.
     const templateRow = versions.rowCount
@@ -255,8 +258,21 @@ export async function createApplication({ institutionId, userId, input }) {
           statusCode: 404,
         },
       );
+    // Alunos com prova adaptada (laudo) ficam fora da aplicação: não recebem
+    // QR nem cartão-resposta. A prova deles é gerada à parte, na versão ADAPTADA.
+    const adaptedStudents = await client.query(
+      `SELECT s.id FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') AND s.adapted_exam AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[]))`,
+      [v.classId, institutionId, v.studentIds || null],
+    );
+    if (v.studentIds && adaptedStudents.rowCount)
+      throw Object.assign(
+        new Error(
+          'Alunos com prova adaptada (laudo) não entram na aplicação. A prova deles é gerada à parte.',
+        ),
+        { statusCode: 422 },
+      );
     const students = await client.query(
-      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
+      `SELECT s.id,s.name,s.registration,ce.number FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=$1 AND s.institution_id=$2 AND s.active AND COALESCE(s.status,'') NOT IN ('transferido','remanejado') AND NOT s.adapted_exam AND ($3::uuid[] IS NULL OR s.id=ANY($3::uuid[])) ORDER BY ce.number NULLS LAST,s.name`,
       [v.classId, institutionId, v.studentIds || null],
     );
     if (v.studentIds && students.rowCount !== v.studentIds.length)
@@ -273,6 +289,14 @@ export async function createApplication({ institutionId, userId, input }) {
         new Error('A turma não possui alunos matriculados.'),
         { statusCode: 422 },
       );
+
+    const adaptedExamCount = adaptedStudents.rowCount;
+    const adaptedExam = adaptedExamCount
+      ? {
+          excludedStudents: adaptedExamCount,
+          ...(await ensureAdaptedExamVersion(client, v.assessmentId)),
+        }
+      : { excludedStudents: 0, status: 'none' };
 
     const created = await client.query({
       text: `INSERT INTO assessment_applications(institution_id,assessment_id,class_id,scheduled_at,created_by)
@@ -333,6 +357,7 @@ export async function createApplication({ institutionId, userId, input }) {
         assignments,
         template,
         reused: true,
+        adaptedExam,
       };
     }
 
@@ -362,7 +387,13 @@ export async function createApplication({ institutionId, userId, input }) {
         status: 'queued',
       });
     }
-    return { ...application, assignments, template, reused: false };
+    return {
+      ...application,
+      assignments,
+      template,
+      reused: false,
+      adaptedExam,
+    };
   });
 }
 
