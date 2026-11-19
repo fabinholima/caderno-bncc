@@ -166,6 +166,7 @@ test('chama a API de respostas com JSON estrito e lê o texto de saída', async 
       url,
       body: JSON.parse(options.body),
       auth: options.headers.authorization,
+      signal: options.signal,
     };
     return {
       ok: true,
@@ -194,6 +195,7 @@ test('chama a API de respostas com JSON estrito e lê o texto de saída', async 
   assert.equal(enviado.auth, 'Bearer chave');
   assert.equal(enviado.body.text.format.type, 'json_schema');
   assert.equal(enviado.body.store, false);
+  assert.ok(enviado.signal instanceof AbortSignal, 'a chamada tem tempo limite');
   assert.deepEqual(resultado.questions, []);
   assert.equal(resultado.responseId, 'resp_1');
 });

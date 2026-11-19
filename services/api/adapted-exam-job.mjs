@@ -10,6 +10,11 @@ import {
   validarQuestoesReescritas,
 } from '../../lib/prova-adaptada.mjs';
 
+export function tamanhoDoLote(env = process.env) {
+  const valor = Number(env.ADAPTED_EXAM_BATCH_SIZE);
+  return Number.isInteger(valor) && valor >= 1 && valor <= 50 ? valor : 10;
+}
+
 const RENDER_OUTPUT_DIR = process.env.RENDER_OUTPUT_DIR || 'outputs/renders';
 
 const textoDoEnunciado = (nos = []) =>
@@ -52,19 +57,45 @@ export async function executarProvaAdaptada(
         'Nenhuma questão atende ao perfil simples da prova adaptada.',
       );
 
-    const ia = await reescreverQuestoesComIA({
-      questions: originais.map((questao) => ({
-        sourceNumber: questao.number,
-        statement: textoDoEnunciado(questao.statement),
-        alternatives: questao.alternatives.map((alt) =>
-          textoDaAlternativa(alt.content),
-        ),
-      })),
-      fetchImpl,
-      env,
-    });
+    // Lotes pequenos: uma falha de resposta afeta só um lote, e o pedido cabe no tempo limite.
+    const tamanhoLote = tamanhoDoLote(env);
+    const contexto = {
+      serie: base.assessment?.grade ?? '',
+      disciplina: base.assessment?.subject ?? '',
+    };
+    const lotes = [];
+    for (let i = 0; i < originais.length; i += tamanhoLote)
+      lotes.push(originais.slice(i, i + tamanhoLote));
+    const respostas = [];
+    const usos = [];
+    for (const lote of lotes) {
+      const ia = await reescreverQuestoesComIA({
+        contexto,
+        questions: lote.map((questao) => ({
+          sourceNumber: questao.number,
+          statement: textoDoEnunciado(questao.statement),
+          alternatives: questao.alternatives.map((alt) =>
+            textoDaAlternativa(alt.content),
+          ),
+        })),
+        fetchImpl,
+        env,
+      });
+      respostas.push(...ia.questions);
+      usos.push({
+        responseId: ia.responseId,
+        model: ia.model,
+        usage: ia.usage,
+      });
+    }
+    const ia = {
+      model: usos[0]?.model,
+      responseId: usos.map((u) => u.responseId).join(','),
+      usage: usos.map((u) => u.usage),
+      lotes: lotes.length,
+    };
     const { validas, descartadas } = validarQuestoesReescritas(
-      { questions: ia.questions },
+      { questions: respostas },
       originais,
     );
     if (!validas.length)

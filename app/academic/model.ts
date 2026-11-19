@@ -62,6 +62,8 @@ export type Application = {
     jobId: string | null;
     status: 'none' | 'queued' | 'running' | 'completed' | 'failed';
     error: string | null;
+    // Questões da IA que não passaram na validação e ficaram de fora da prova.
+    discarded: number;
   } | null;
 };
 

@@ -2,6 +2,9 @@
 // A IA escreve somente o texto: enunciado, três alternativas e a posição da correta.
 // Caixa alta, imagens e validação ficam no código (lib/prova-adaptada.mjs).
 
+// Uma chamada pode levar bastante com lotes grandes; acima disso a geração falha com motivo.
+export const TEMPO_LIMITE_MS = 120_000;
+
 export const adaptedExamJsonSchema = {
   type: 'object',
   additionalProperties: false,
@@ -37,6 +40,7 @@ export const adaptedExamInstructions = [
   'Escreva as alternativas curtas e no mesmo formato uma da outra.',
   'Não mencione imagens, figuras ou tabelas que não estejam no texto.',
   'Use texto simples, sem fórmulas em LaTeX nem marcação.',
+  'Adeque o vocabulário e a extensão das frases ao ano escolar informado no contexto.',
   'Devolva o sourceNumber de cada questão original e o índice (0, 1 ou 2) da alternativa correta.',
 ].join('\n');
 
@@ -57,6 +61,7 @@ export function extrairSaidaTexto(body) {
  */
 export async function reescreverQuestoesComIA({
   questions,
+  contexto = {},
   fetchImpl = fetch,
   env = process.env,
 }) {
@@ -78,7 +83,7 @@ export async function reescreverQuestoesComIA({
         model,
         store: false,
         instructions: adaptedExamInstructions,
-        input: JSON.stringify({ questions }),
+        input: JSON.stringify({ contexto, questions }),
         text: {
           format: {
             type: 'json_schema',
@@ -88,6 +93,7 @@ export async function reescreverQuestoesComIA({
           },
         },
       }),
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
     },
   );
   const body = await response.json().catch(() => ({}));

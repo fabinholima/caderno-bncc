@@ -1360,6 +1360,16 @@ export function AcademicManager({
                     {x.adaptedExam.status === 'completed' &&
                     x.adaptedExam.jobId ? (
                       <>
+                        {x.adaptedExam.discarded > 0 && (
+                          <span className="w-full text-amber-800">
+                            {x.adaptedExam.discarded}{' '}
+                            {x.adaptedExam.discarded === 1
+                              ? 'questão foi descartada'
+                              : 'questões foram descartadas'}{' '}
+                            pela validação: a prova adaptada tem menos questões
+                            que a original.
+                          </span>
+                        )}
                         <Button
                           type="button"
                           size="sm"
