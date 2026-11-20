@@ -115,3 +115,13 @@ export async function deleteWorkspace({ institutionId, userId, id }) {
     assessmentPreserved: Boolean(r.rows[0].assessmentId),
   };
 }
+
+// Rascunhos são montagens que ainda não geraram prova; provas geradas ficam.
+export async function deleteDraftWorkspaces({ institutionId, userId }) {
+  const r = await pool.query(
+    `DELETE FROM assessment_workspaces
+     WHERE institution_id=$1 AND created_by=$2 AND assessment_id IS NULL`,
+    [institutionId, userId],
+  );
+  return { deleted: r.rowCount };
+}

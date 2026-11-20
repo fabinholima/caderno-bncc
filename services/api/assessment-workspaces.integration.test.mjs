@@ -37,6 +37,7 @@ test(
         listWorkspaces,
         pinWorkspace,
         deleteWorkspace,
+        deleteDraftWorkspaces,
       } = await import('./assessment-workspaces.mjs');
       const institutionId = randomUUID(),
         userId = randomUUID(),
@@ -120,6 +121,42 @@ test(
         {
           statusCode: 404,
         },
+      );
+      const otherDraft = await createWorkspace({
+        institutionId,
+        userId: other,
+        input: { configuration },
+      });
+      const generated = await createWorkspace({
+        ...owner,
+        input: { configuration },
+      });
+      const assessmentId = randomUUID();
+      await admin.query('INSERT INTO assessments VALUES($1,$2,$3)', [
+        assessmentId,
+        institutionId,
+        userId,
+      ]);
+      await admin.query(
+        'UPDATE assessment_workspaces SET assessment_id=$1 WHERE id=$2',
+        [assessmentId, generated.id],
+      );
+      const { deleted } = await deleteDraftWorkspaces(owner);
+      assert.ok(deleted > 0);
+      const remaining = await listWorkspaces(owner);
+      assert.deepEqual(
+        remaining.map((item) => item.id),
+        [generated.id],
+      );
+      assert.equal(
+        (
+          await getWorkspace({
+            institutionId,
+            userId: other,
+            id: otherDraft.id,
+          })
+        ).id,
+        otherDraft.id,
       );
     } finally {
       if (pool) await pool.end();

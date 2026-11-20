@@ -18,6 +18,7 @@ import {
   CircleAlert,
   Columns2,
   CopyPlus,
+  Eraser,
   FileOutput,
   FolderOpen,
   ImagePlus,
@@ -226,7 +227,7 @@ export function AssessmentBuilder({
     () => new Set(),
   );
   const [deletingSelected, setDeletingSelected] = useState<
-    false | 'delete' | 'unlink' | 'purge'
+    false | 'delete' | 'unlink' | 'purge' | 'drafts'
   >(false);
   // Tabela periódica e constantes só aparecem em provas de Química ou Física.
   const scienceAppendixAvailable = supportsScienceAppendix(
@@ -388,6 +389,34 @@ export function AssessmentBuilder({
     },
     [deleteRecentItem, offset, workspaceRequest],
   );
+  const deleteAllDrafts = useCallback(async () => {
+    if (
+      !window.confirm(
+        'Limpar todos os rascunhos? Serão excluídas todas as provas ainda não geradas, inclusive as de outras páginas e as fixadas. Provas geradas não são afetadas.',
+      )
+    )
+      return;
+    setDeletingSelected('drafts');
+    try {
+      const { deleted } = await workspaceRequest<{ deleted: number }>(
+        '/drafts',
+        { method: 'DELETE' },
+      );
+      // A montagem aberta era um rascunho: deixa de existir no servidor.
+      if (!assessmentId) setWorkspaceId('');
+      setSelectedRecentIds(new Set());
+      setRecent(await workspaceRequest<typeof recent>(`?offset=${offset}`));
+      setMessage(
+        deleted
+          ? `${deleted} rascunho(s) excluído(s).`
+          : 'Não havia rascunhos para limpar.',
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeletingSelected(false);
+    }
+  }, [assessmentId, offset, workspaceRequest]);
   const deleteSelectedRecent = useCallback(
     async (unlinkApplications: boolean, purge = false) => {
       const selected = recent.filter((item) => selectedRecentIds.has(item.id));
@@ -1663,6 +1692,24 @@ export function AssessmentBuilder({
               {deletingSelected === 'unlink'
                 ? 'Desvinculando…'
                 : 'Desvincular e excluir'}
+            </Button>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              aria-label="Limpar todos os rascunhos"
+              title="Limpar todos os rascunhos (provas ainda não geradas, em todas as páginas)"
+              disabled={
+                Boolean(deletingSelected) || (!offset && !recent.length)
+              }
+              className="border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+              onClick={() => void deleteAllDrafts()}
+            >
+              {deletingSelected === 'drafts' ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Eraser aria-hidden="true" />
+              )}
             </Button>
             {canPurge && (
               <Button

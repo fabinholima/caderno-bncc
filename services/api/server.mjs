@@ -24,6 +24,7 @@ import {
   saveWorkspace,
   pinWorkspace,
   deleteWorkspace,
+  deleteDraftWorkspaces,
 } from './assessment-workspaces.mjs';
 import {
   questionStatusHistory,
@@ -2873,6 +2874,13 @@ const server = createServer(async (request, response) => {
           }),
         });
     }
+    if (
+      request.method === 'DELETE' &&
+      url.pathname === '/api/assessment-workspaces/drafts'
+    )
+      return json(response, 200, {
+        data: await deleteDraftWorkspaces({ institutionId, userId }),
+      });
     const workspaceMatch = url.pathname.match(
       /^\/api\/assessment-workspaces\/([0-9a-f-]{36})(\/pin)?$/i,
     );
