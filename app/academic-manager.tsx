@@ -69,6 +69,7 @@ import {
   ReportPerformance,
   Select,
 } from './academic/report-tables';
+import { confirmAction } from '@/lib/confirm';
 
 export function AcademicManager({
   apiUrl,
@@ -493,7 +494,8 @@ export function AcademicManager({
     await Promise.all([refresh(), loadApplication(applicationId)]);
   };
   const cancelScheduled = async (applicationId: string) => {
-    if (!window.confirm('Cancelar esta aplicação antes da impressão?')) return;
+    if (!(await confirmAction('Cancelar esta aplicação antes da impressão?')))
+      return;
     const response = await apiFetch(
       `${apiUrl}/api/assessment-applications/${applicationId}/cancel`,
       { method: 'POST' },
@@ -705,11 +707,11 @@ export function AcademicManager({
   };
   const discardCard = async (scanId: string, graded = false) => {
     if (
-      !window.confirm(
+      !(await confirmAction(
         graded
           ? 'Descartar este cartão já corrigido? A nota do aluno será apagada (inclusive se já publicada) e o cartão poderá ser reenviado. A ação fica registrada na auditoria.'
           : 'Remover este cartão da fila? Ele não identificou nenhum aluno, então nenhuma nota será alterada.',
-      )
+      ))
     )
       return;
     const response = await apiFetch(
@@ -761,9 +763,9 @@ export function AcademicManager({
       student.linkedAccountEmail ||
       'a conta vinculada';
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Desvincular ${account} do cadastro de ${student.name}? A conta perde o acesso às turmas e atividades deste cadastro, e um novo código será gerado (o código atual deixa de valer).`,
-      )
+      ))
     )
       return;
     setSavingStudent(student.id);
@@ -804,9 +806,9 @@ export function AcademicManager({
   const removeClass = async (schoolClass: SchoolClass) => {
     const studentCount = schoolClass.students || 0;
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Excluir a turma “${schoolClass.name}” do ano ${schoolClass.schoolYear}? As matrículas e convites serão removidos, mas os cadastros dos ${studentCount} alunos serão preservados. Turmas com provas aplicadas não podem ser excluídas.`,
-      )
+      ))
     )
       return;
     setDeletingClass(schoolClass.id);
@@ -890,8 +892,6 @@ export function AcademicManager({
       label: 'Aplicações',
       icon: <CalendarCheck />,
     },
-    { id: 'correction', label: 'Correção', icon: <Download /> },
-    { id: 'results', label: 'Resultados', icon: <BarChart3 /> },
   ];
   const studentReportPanel = studentReport ? (
     <section
@@ -955,9 +955,7 @@ export function AcademicManager({
           ['Em branco', studentReport.summary.unanswered],
         ].map(([label, value]) => (
           <div key={label} className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs font-semibold uppercase text-slate-500">
-              {label}
-            </p>
+            <p className="text-xs font-semibold text-slate-500">{label}</p>
             <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
               {value}
             </p>
@@ -1008,7 +1006,7 @@ export function AcademicManager({
       </div>
       <div className="mt-5 overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b text-xs uppercase text-slate-500">
+          <thead className="border-b text-xs text-slate-500">
             <tr>
               <th className="py-2">Questão</th>
               <th>Situação</th>
@@ -1060,10 +1058,7 @@ export function AcademicManager({
       aria-labelledby="academic-title"
       className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9"
     >
-      <h1
-        id="academic-title"
-        className="font-display text-3xl font-bold text-[var(--navy)]"
-      >
+      <h1 id="academic-title" className="page-title">
         {initialSection === 'reports'
           ? 'Diagnóstico da turma'
           : initialSection === 'correction'
@@ -1341,7 +1336,7 @@ export function AcademicManager({
           </div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase text-slate-500">
+              <thead className="border-b text-xs text-slate-500">
                 <tr>
                   <th className="py-2">Aluno</th>
                   <th>Matrícula</th>
@@ -1737,7 +1732,7 @@ export function AcademicManager({
               <div className="grid gap-3 p-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                 <div className="rounded-xl border border-slate-200 p-4">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <h3 className="text-xs font-semibold text-slate-500">
                       Progresso da correção
                     </h3>
                     <p className="text-sm tabular-nums text-slate-600">
@@ -1788,7 +1783,7 @@ export function AcademicManager({
                     ] as const
                   ).map(([label, value]) => (
                     <div key={label} className="rounded-xl bg-slate-50 p-3">
-                      <dt className="text-xs font-semibold uppercase text-slate-500">
+                      <dt className="text-xs font-semibold text-slate-500">
                         {label}
                       </dt>
                       <dd className="mt-1 text-2xl font-bold tabular-nums text-[var(--navy)]">
@@ -1869,7 +1864,7 @@ export function AcademicManager({
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <p className="text-xs font-bold uppercase text-amber-700">
+                                <p className="text-xs font-bold text-amber-700">
                                   {item.dimension} · prioridade {item.priority}
                                 </p>
                                 <p className="mt-1 font-semibold text-slate-900">
@@ -1933,7 +1928,7 @@ export function AcademicManager({
                   </p>
                   <div className="mt-3 overflow-x-auto">
                     <table className="w-full min-w-[760px] text-left text-sm">
-                      <thead className="border-b text-xs uppercase text-slate-500">
+                      <thead className="border-b text-xs text-slate-500">
                         <tr>
                           <th className="py-2">Questão</th>
                           <th>Acertos</th>
@@ -2174,7 +2169,7 @@ export function AcademicManager({
                   ],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl bg-violet-50 p-3">
-                    <p className="text-xs font-semibold uppercase text-violet-700">
+                    <p className="text-xs font-semibold text-violet-700">
                       {label}
                     </p>
                     <p className="mt-1 text-2xl font-bold text-[var(--navy)]">
@@ -2278,7 +2273,7 @@ export function AcademicManager({
             cartão por página. Cada página é corrigida separadamente; leituras
             duvidosas não interrompem as demais.
           </p>
-          <label className="mt-4 inline-flex cursor-pointer rounded-lg bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--navy)]/90 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--blue)]">
+          <label className="mt-4 inline-flex cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition bg-primary text-primary-foreground hover:bg-primary/90 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--blue)]">
             Enviar cartões
             <input
               className="sr-only"

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { EducatorProfile } from '../../educator-profile';
 import { useSettingsApiUrl } from '../settings-layout';
+import { confirmAction } from '@/lib/confirm';
 
 const outline =
   'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:opacity-60';
@@ -14,9 +15,9 @@ function SessionSecurity({ apiUrl }: { apiUrl: string }) {
   const [error, setError] = useState('');
   async function logoutAll() {
     if (
-      !window.confirm(
+      !(await confirmAction(
         'Sair de todos os dispositivos, inclusive deste? Será preciso entrar de novo em cada um.',
-      )
+      ))
     )
       return;
     setBusy(true);

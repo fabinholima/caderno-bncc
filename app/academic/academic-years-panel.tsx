@@ -16,6 +16,7 @@ import { apiFetch } from '@/lib/api-client';
 import { formString } from '@/lib/form-data';
 import type { ApiBody } from './model';
 import { YearClosingWizard, type ClosingTarget } from './year-closing-wizard';
+import { confirmAction } from '@/lib/confirm';
 
 type AcademicYear = {
   id: string;
@@ -151,11 +152,11 @@ export function AcademicYearsPanel({
     );
   };
 
-  const remove = (item: AcademicYear) => {
+  const remove = async (item: AcademicYear) => {
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Excluir o ano letivo ${item.year}? Só é possível quando ele não tem turmas nem matrículas.`,
-      )
+      ))
     )
       return;
     void run(

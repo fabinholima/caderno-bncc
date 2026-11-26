@@ -184,10 +184,7 @@ export function AdminDashboard({
           <PageIcon aria-hidden="true" className="size-6" />
         </span>
         <div>
-          <h1
-            id="admin-title"
-            className="font-display text-3xl font-bold tracking-tight text-[var(--navy)]"
-          >
+          <h1 id="admin-title" className="page-title">
             {view === 'revenue' ? 'Receitas' : 'Assinantes'}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
@@ -628,7 +625,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
                   Receita de {year} por mês: pagamentos, receita bruta,
                   estornos, receita líquida e assinantes pagantes
                 </caption>
-                <thead className="border-y border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+                <thead className="border-y border-slate-200 bg-slate-50 text-xs text-slate-600">
                   <tr>
                     <th scope="col" className="px-5 py-3 text-left">
                       Mês
@@ -1248,7 +1245,7 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
                 <caption className="sr-only">
                   Contas, escolas, planos, situação e último acesso
                 </caption>
-                <thead className="border-y border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+                <thead className="border-y border-slate-200 bg-slate-50 text-xs text-slate-600">
                   <tr>
                     <th scope="col" className="px-5 py-3">
                       Conta

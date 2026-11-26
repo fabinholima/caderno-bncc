@@ -2,7 +2,10 @@
 import { normalizeRawContextBlocks } from '@/lib/raw-context-blocks.mjs';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { nextImageReference, assignImageReferences } from '@/lib/context-image-references.mjs';
+import {
+  nextImageReference,
+  assignImageReferences,
+} from '@/lib/context-image-references.mjs';
 import type { ClipboardEvent } from 'react';
 import type { ReactNode } from 'react';
 import Image from 'next/image';
@@ -21,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
+import { notify } from '@/lib/confirm';
 
 const contextSymbolSnippets: Record<string, string> = {
   '∈': '\\in',
@@ -98,7 +102,13 @@ export type RichContentBlock =
       originalDataUrl?: string;
       svgDataUrl?: string;
     }
-  | { type: 'image'; dataUrl: string; alt: string; caption: string; referenceId?: string };
+  | {
+      type: 'image';
+      dataUrl: string;
+      alt: string;
+      caption: string;
+      referenceId?: string;
+    };
 
 export function RichContentEditor({
   name,
@@ -121,16 +131,26 @@ export function RichContentEditor({
   resetKey?: number;
   apiUrl: string;
 }) {
-  const emptyBlocks = useMemo(() => rawOnly
-    ? ([{ type: 'contextRaw', code: '' }] as RichContentBlock[])
-    : ([{ type: 'paragraph', text: '' }] as RichContentBlock[]), [rawOnly]);
+  const emptyBlocks = useMemo(
+    () =>
+      rawOnly
+        ? ([{ type: 'contextRaw', code: '' }] as RichContentBlock[])
+        : ([{ type: 'paragraph', text: '' }] as RichContentBlock[]),
+    [rawOnly],
+  );
   const [blocks, setBlocks] = useState<RichContentBlock[]>(emptyBlocks);
   const rawEditors = useRef<Record<number, HTMLTextAreaElement | null>>({});
   const activeRawIndex = useRef<number | null>(null);
   const [structureLoading, setStructureLoading] = useState<number | null>(null);
   useEffect(() => {
     // oxlint-disable-next-line react-compiler -- This uncontrolled editor mirrors newly loaded question content.
-    setBlocks(initialBlocks?.length ? assignImageReferences(rawOnly ? normalizeRawContextBlocks(initialBlocks) : initialBlocks) as RichContentBlock[] : emptyBlocks);
+    setBlocks(
+      initialBlocks?.length
+        ? (assignImageReferences(
+            rawOnly ? normalizeRawContextBlocks(initialBlocks) : initialBlocks,
+          ) as RichContentBlock[])
+        : emptyBlocks,
+    );
   }, [initialBlocks, resetKey, rawOnly, emptyBlocks]);
   const update = (index: number, patch: Partial<RichContentBlock>) =>
     setBlocks((current) =>
@@ -162,24 +182,24 @@ export function RichContentEditor({
                   ? { type, code: '' }
                   : type === 'metapost'
                     ? { type, code: '' }
-                  : type === 'math'
-                    ? { type, tex: '', display: true }
-                    : type === 'chemical'
-                      ? {
-                          type,
-                          formula: '',
-                          display: true,
-                          conditionAbove: '',
-                          conditionBelow: '',
-                        }
-                      : type === 'chemicalStructure'
+                    : type === 'math'
+                      ? { type, tex: '', display: true }
+                      : type === 'chemical'
                         ? {
                             type,
-                            smiles: 'c1ccccc1',
-                            caption: '',
-                            approved: false,
+                            formula: '',
+                            display: true,
+                            conditionAbove: '',
+                            conditionBelow: '',
                           }
-                        : { type, dataUrl: '', alt: '', caption: '' },
+                        : type === 'chemicalStructure'
+                          ? {
+                              type,
+                              smiles: 'c1ccccc1',
+                              caption: '',
+                              approved: false,
+                            }
+                          : { type, dataUrl: '', alt: '', caption: '' },
     ]);
 
   const previewStructure = async (index: number, smiles: string) => {
@@ -205,7 +225,7 @@ export function RichContentEditor({
         approved: false,
       });
     } catch (error) {
-      window.alert(
+      void notify(
         error instanceof Error ? error.message : 'Estrutura química inválida.',
       );
     } finally {
@@ -216,11 +236,11 @@ export function RichContentEditor({
   const selectImage = (index: number, file?: File) => {
     if (!file) return;
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      window.alert('Escolha uma imagem PNG ou JPEG.');
+      void notify('Escolha uma imagem PNG ou JPEG.');
       return;
     }
     if (file.size > 400_000) {
-      window.alert('A imagem deve ter no máximo 400 KB.');
+      void notify('A imagem deve ter no máximo 400 KB.');
       return;
     }
     const reader = new FileReader();
@@ -247,7 +267,7 @@ export function RichContentEditor({
       !['image/png', 'image/jpeg'].includes(file.type) ||
       file.size > 400_000
     ) {
-      window.alert('Escolha uma imagem PNG ou JPEG de até 400 KB.');
+      void notify('Escolha uma imagem PNG ou JPEG de até 400 KB.');
       return;
     }
     const reader = new FileReader();
@@ -264,8 +284,13 @@ export function RichContentEditor({
     const target = rawEditors.current[index];
     const start = target?.selectionStart ?? block.code.length;
     const end = target?.selectionEnd ?? start;
-    update(index,{code:block.code.slice(0,start)+snippet+block.code.slice(end)});
-    requestAnimationFrame(()=>{target?.focus();target?.setSelectionRange(start+snippet.length,start+snippet.length);});
+    update(index, {
+      code: block.code.slice(0, start) + snippet + block.code.slice(end),
+    });
+    requestAnimationFrame(() => {
+      target?.focus();
+      target?.setSelectionRange(start + snippet.length, start + snippet.length);
+    });
   };
 
   const uploadRawImage = (file?: File, index?: number) => {
@@ -274,33 +299,52 @@ export function RichContentEditor({
       !['image/png', 'image/jpeg'].includes(file.type) ||
       file.size > 400_000
     ) {
-      window.alert('Escolha uma imagem PNG ou JPEG de até 400 KB.');
+      void notify('Escolha uma imagem PNG ou JPEG de até 400 KB.');
       return;
     }
     const target = index === undefined ? null : rawEditors.current[index];
     const start = target?.selectionStart;
     const end = target?.selectionEnd;
     const reader = new FileReader();
-    reader.onload = () => setBlocks(current => {
-      const referenceId = nextImageReference(current);
-      const snippet = `\n\\externalfigure[${referenceId}][width=8cm]\n`;
-      const next = current.map((block,position) => {
-        if (position !== index || block.type !== 'contextRaw') return block;
-        const cursor = start ?? block.code.length;
-        return {...block,code:block.code.slice(0,cursor)+snippet+block.code.slice(end ?? cursor)};
+    reader.onload = () =>
+      setBlocks((current) => {
+        const referenceId = nextImageReference(current);
+        const snippet = `\n\\externalfigure[${referenceId}][width=8cm]\n`;
+        const next = current.map((block, position) => {
+          if (position !== index || block.type !== 'contextRaw') return block;
+          const cursor = start ?? block.code.length;
+          return {
+            ...block,
+            code:
+              block.code.slice(0, cursor) +
+              snippet +
+              block.code.slice(end ?? cursor),
+          };
+        });
+        return [
+          ...next,
+          {
+            type: 'image',
+            referenceId,
+            dataUrl: typeof reader.result === 'string' ? reader.result : '',
+            alt: file.name.replace(/\.[^.]+$/, ''),
+            caption: '',
+          },
+        ];
       });
-      return [...next,{type:'image',referenceId,dataUrl:typeof reader.result === 'string' ? reader.result : '',alt:file.name.replace(/\.[^.]+$/,''),caption:''}];
-    });
     reader.readAsDataURL(file);
   };
 
-  const pasteRawImage = (index: number, event: ClipboardEvent<HTMLTextAreaElement>) => {
+  const pasteRawImage = (
+    index: number,
+    event: ClipboardEvent<HTMLTextAreaElement>,
+  ) => {
     const file = Array.from(event.clipboardData.files).find((item) =>
       ['image/png', 'image/jpeg'].includes(item.type),
     );
     if (!file) return;
     event.preventDefault();
-    uploadRawImage(file,index);
+    uploadRawImage(file, index);
   };
 
   return (
@@ -313,7 +357,7 @@ export function RichContentEditor({
           className="rounded-xl border border-slate-200 bg-white p-2"
         >
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-sm font-semibold text-slate-500">
               {block.type === 'paragraph'
                 ? 'Texto'
                 : block.type === 'romanList'
@@ -327,14 +371,14 @@ export function RichContentEditor({
                         : block.type === 'metapost'
                           ? 'Figura MetaPost'
                           : block.type === 'contextRaw'
-                          ? 'ConTeXt puro'
-                          : block.type === 'math'
-                            ? 'Matemática'
-                            : block.type === 'chemical'
-                              ? 'Química'
-                              : block.type === 'chemicalStructure'
-                                ? 'Estrutura orgânica'
-                                : 'Imagem'}
+                            ? 'ConTeXt puro'
+                            : block.type === 'math'
+                              ? 'Matemática'
+                              : block.type === 'chemical'
+                                ? 'Química'
+                                : block.type === 'chemicalStructure'
+                                  ? 'Estrutura orgânica'
+                                  : 'Imagem'}
             </span>
             {blocks.length > 1 && (
               <button
@@ -459,7 +503,9 @@ export function RichContentEditor({
               <textarea
                 required
                 value={block.code}
-                onChange={(event) => update(index, { code: event.target.value })}
+                onChange={(event) =>
+                  update(index, { code: event.target.value })
+                }
                 rows={compact ? 8 : 12}
                 spellCheck={false}
                 className="min-h-48 w-full rounded-lg bg-slate-950 p-3 font-mono text-xs leading-6 text-cyan-100 outline-none ring-1 ring-slate-700 focus:ring-blue-400"
@@ -467,7 +513,10 @@ export function RichContentEditor({
 draw fullcircle scaled 2cm;
 \stopMPcode"
               />
-              <p className="text-xs text-slate-500">Cole o código da figura MetaPost, com ou sem os delimitadores startMPcode/stopMPcode.</p>
+              <p className="text-xs text-slate-500">
+                Cole o código da figura MetaPost, com ou sem os delimitadores
+                startMPcode/stopMPcode.
+              </p>
             </div>
           )}
           {block.type === 'contextRaw' && (
@@ -489,8 +538,7 @@ draw fullcircle scaled 2cm;
                   {
                     label: 'Imagem',
                     icon: ImageIcon,
-                    snippet:
-                      '\\externalfigure[imagem1][width=8cm]',
+                    snippet: '\\externalfigure[imagem1][width=8cm]',
                   },
                   {
                     label: 'Lista I, II',
@@ -594,7 +642,7 @@ draw fullcircle scaled 2cm;
                     accept="image/png,image/jpeg"
                     className="sr-only"
                     onChange={(event) => {
-                      uploadRawImage(event.target.files?.[0],index);
+                      uploadRawImage(event.target.files?.[0], index);
                       event.currentTarget.value = '';
                     }}
                   />
@@ -602,9 +650,13 @@ draw fullcircle scaled 2cm;
               </div>
               <textarea
                 value={block.code}
-                ref={element => {rawEditors.current[index]=element;}}
-                onFocus={() => {activeRawIndex.current=index;}}
-                onPaste={event => pasteRawImage(index,event)}
+                ref={(element) => {
+                  rawEditors.current[index] = element;
+                }}
+                onFocus={() => {
+                  activeRawIndex.current = index;
+                }}
+                onPaste={(event) => pasteRawImage(index, event)}
                 onChange={(event) =>
                   update(index, {
                     code: event.target.value
@@ -793,12 +845,29 @@ draw fullcircle scaled 2cm;
             >
               <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-950">
                 <p className="font-semibold">Posicionar no ConTeXt</p>
-                <code className="mt-1 block break-all font-mono text-xs">{`\\externalfigure[${block.referenceId || `imagem${blocks.slice(0,index+1).filter(b=>b.type==='image').length}`}][width=8cm]`}</code>
-                <p className="mt-2 text-xs">Use esta referência na posição desejada e ajuste a largura. Quando referenciada, a imagem não será repetida no final.</p>
-                <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => {
-                  const rawIndex=activeRawIndex.current ?? blocks.findIndex(b=>b.type==='contextRaw');
-                  if(rawIndex>=0) insertRawSnippet(rawIndex,`\n\\externalfigure[${block.referenceId || `imagem${blocks.slice(0,index+1).filter(b=>b.type==='image').length}`}][width=8cm]\n`);
-                }}>Inserir referência no texto</Button>
+                <code className="mt-1 block break-all font-mono text-xs">{`\\externalfigure[${block.referenceId || `imagem${blocks.slice(0, index + 1).filter((b) => b.type === 'image').length}`}][width=8cm]`}</code>
+                <p className="mt-2 text-xs">
+                  Use esta referência na posição desejada e ajuste a largura.
+                  Quando referenciada, a imagem não será repetida no final.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => {
+                    const rawIndex =
+                      activeRawIndex.current ??
+                      blocks.findIndex((b) => b.type === 'contextRaw');
+                    if (rawIndex >= 0)
+                      insertRawSnippet(
+                        rawIndex,
+                        `\n\\externalfigure[${block.referenceId || `imagem${blocks.slice(0, index + 1).filter((b) => b.type === 'image').length}`}][width=8cm]\n`,
+                      );
+                  }}
+                >
+                  Inserir referência no texto
+                </Button>
               </div>
               {block.dataUrl && (
                 <Image
@@ -935,9 +1004,7 @@ function StructurePreview({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-        {title}
-      </p>
+      <p className="text-sm font-semibold text-slate-500">{title}</p>
       <div className="mt-2 grid min-h-40 place-items-center rounded-lg bg-white p-2">
         {source ? (
           <Image

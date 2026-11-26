@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { confirmAction } from '@/lib/confirm';
 export type DraftPayload = {
   input: Record<string, unknown>;
   editor: Record<string, unknown>;
@@ -173,9 +174,9 @@ export function QuestionDraftControls({
   async function discard() {
     if (
       !selected ||
-      !window.confirm(
+      !(await confirmAction(
         'Descartar este rascunho? A questão cadastrada não será alterada.',
-      )
+      ))
     )
       return;
     state.current.busy = true;
@@ -209,9 +210,9 @@ export function QuestionDraftControls({
   async function discardAll() {
     if (
       !drafts.length ||
-      !window.confirm(
+      !(await confirmAction(
         `Limpar todos os ${drafts.length} rascunho(s) salvos? As questões cadastradas não serão alteradas.`,
-      )
+      ))
     )
       return;
     state.current.busy = true;
@@ -244,9 +245,9 @@ export function QuestionDraftControls({
   async function resume() {
     if (!selected || state.current.busy) return;
     if (
-      !window.confirm(
+      !(await confirmAction(
         'Retomar este rascunho e substituir o conteúdo atual do formulário?',
-      )
+      ))
     )
       return;
     state.current.busy = true;

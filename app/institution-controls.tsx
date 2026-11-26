@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { notify } from '@/lib/confirm';
 
 const inviteKey = 'ufaprova:convite';
 
@@ -95,7 +96,7 @@ export function PendingInvitation({ apiUrl }: { apiUrl: string }) {
           type="button"
           disabled={busy}
           onClick={accept}
-          className="rounded-lg bg-blue-700 px-3 py-2 font-medium text-white disabled:opacity-60"
+          className="rounded-lg px-3 py-2 font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
           {busy ? 'Aceitando…' : 'Aceitar convite'}
         </button>
@@ -141,7 +142,7 @@ export function InstitutionSwitcher({
     }).catch(() => null);
     if (response?.ok) window.location.reload();
     else {
-      window.alert('Não foi possível trocar de instituição.');
+      void notify('Não foi possível trocar de instituição.');
       setBusy(false);
     }
   }

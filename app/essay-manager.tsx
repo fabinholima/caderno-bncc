@@ -33,6 +33,7 @@ import {
 } from './essay-content-editor';
 import { EssayDashboard, EssayGradingQueue } from './essay-grading';
 import { essayStatusLabels, type EssayEntryStatus } from '@/lib/essay-status';
+import { confirmAction } from '@/lib/confirm';
 
 export const essayViews = [
   'Banco de Temas',
@@ -364,9 +365,7 @@ function Header({
 }) {
   return (
     <header className="mb-6">
-      <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-        {title}
-      </h1>
+      <h1 className="page-title">{title}</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-500">{description}</p>
     </header>
   );
@@ -553,24 +552,28 @@ function PromptLibrary({
       setBusyId('');
     }
   }
+  // Filtros com rótulo visível acima de cada campo.
+  const filterLabel = 'grid gap-1 text-xs font-medium text-slate-600';
   const select = (
     key: keyof typeof query,
     label: string,
     options: Array<string | number>,
   ) => (
-    <select
-      aria-label={label}
-      value={query[key]}
-      onChange={(event) => setQuery({ ...query, [key]: event.target.value })}
-      className={fieldClass}
-    >
-      <option value="">{label}</option>
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
+    <label className={filterLabel}>
+      {label}
+      <select
+        value={query[key]}
+        onChange={(event) => setQuery({ ...query, [key]: event.target.value })}
+        className={fieldClass}
+      >
+        <option value="">Todas</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
   return (
     <div>
@@ -589,47 +592,60 @@ function PromptLibrary({
       </div>
       <section
         aria-label="Filtros"
-        className="mb-4 grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6"
+        className="mb-4 grid items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6"
       >
-        <div className="relative lg:col-span-2">
-          <Search
-            className="absolute top-2.5 left-2.5 size-4 text-slate-400"
-            aria-hidden="true"
-          />
+        <label
+          htmlFor="essay-filter-q"
+          className={`${filterLabel} lg:col-span-2`}
+        >
+          Título ou tema
+          <span className="relative">
+            <Search
+              className="absolute top-2.5 left-2.5 size-4 text-slate-400"
+              aria-hidden="true"
+            />
+            <Input
+              id="essay-filter-q"
+              value={query.q}
+              onChange={(event) =>
+                setQuery({ ...query, q: event.target.value })
+              }
+              placeholder="Buscar"
+              className="h-9 pl-8"
+            />
+          </span>
+        </label>
+        <label htmlFor="essay-filter-keyword" className={filterLabel}>
+          Palavra-chave
           <Input
-            aria-label="Pesquisar por título ou tema"
-            value={query.q}
-            onChange={(event) => setQuery({ ...query, q: event.target.value })}
-            placeholder="Título ou tema"
-            className="h-9 pl-8"
+            id="essay-filter-keyword"
+            value={query.keyword}
+            onChange={(event) =>
+              setQuery({ ...query, keyword: event.target.value })
+            }
+            placeholder="Ex.: meio ambiente"
+            className="h-9"
           />
-        </div>
-        <Input
-          aria-label="Palavra-chave"
-          value={query.keyword}
-          onChange={(event) =>
-            setQuery({ ...query, keyword: event.target.value })
-          }
-          placeholder="Palavra-chave"
-          className="h-9"
-        />
+        </label>
         {select('category', 'Categoria', filters?.categories || [])}
         {select('institution', 'Instituição', filters?.institutions || [])}
         {select('year', 'Ano', filters?.years || [])}
         {scope === 'mine' && (
-          <select
-            aria-label="Situação"
-            value={query.status}
-            onChange={(event) =>
-              setQuery({ ...query, status: event.target.value })
-            }
-            className={fieldClass}
-          >
-            <option value="">Ativos (rascunho e publicados)</option>
-            <option value="draft">Rascunhos</option>
-            <option value="published">Publicados</option>
-            <option value="archived">Arquivados</option>
-          </select>
+          <label className={filterLabel}>
+            Situação
+            <select
+              value={query.status}
+              onChange={(event) =>
+                setQuery({ ...query, status: event.target.value })
+              }
+              className={fieldClass}
+            >
+              <option value="">Ativos (rascunho e publicados)</option>
+              <option value="draft">Rascunhos</option>
+              <option value="published">Publicados</option>
+              <option value="archived">Arquivados</option>
+            </select>
+          </label>
         )}
       </section>
       <Alert message={error} />
@@ -2042,9 +2058,9 @@ function ApplicationHistory({
   ) {
     if (
       body.status === 'cancelled' &&
-      !window.confirm(
+      !(await confirmAction(
         'Cancelar esta aplicação? As folhas deixam de ser geradas e o aluno não verá mais a proposta.',
-      )
+      ))
     )
       return;
     setBusy(item.id);
@@ -2064,9 +2080,9 @@ function ApplicationHistory({
   }
   async function publishAll(item: EssayApplication) {
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Publicar as ${item.awaitingApprovalCount} correção(ões) finalizadas desta aplicação? Os alunos passam a ver nota e comentários.`,
-      )
+      ))
     )
       return;
     setBusy(item.id);

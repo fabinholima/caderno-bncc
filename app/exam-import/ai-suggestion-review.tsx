@@ -131,7 +131,7 @@ export function AiSuggestionReview({
     <section className="mt-3 rounded-lg border border-blue-200 bg-white p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-blue-900">
+          <p className="text-sm font-semibold text-blue-900">
             {suggestion.provider === 'local_demo'
               ? 'Sugestão local de demonstração'
               : 'Sugestão da IA'}{' '}
@@ -167,7 +167,7 @@ export function AiSuggestionReview({
         </p>
       )}
       <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
-        <div className="grid min-w-[720px] grid-cols-[42px_150px_1fr_1fr_96px] bg-slate-100 px-2 py-2 text-xs font-bold uppercase tracking-wide text-slate-600">
+        <div className="grid min-w-[720px] grid-cols-[42px_150px_1fr_1fr_96px] bg-slate-100 px-2 py-2 text-sm font-semibold text-slate-600">
           <span />
           <span>Campo</span>
           <span>Atual</span>

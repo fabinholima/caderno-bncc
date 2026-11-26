@@ -6,6 +6,7 @@ import {
   RichContentEditor,
   type RichContentBlock,
 } from './rich-content-editor';
+import { confirmAction } from '@/lib/confirm';
 
 export type SharedTextSummary = {
   id: string;
@@ -213,9 +214,9 @@ export function SharedTextPicker({
     if (
       editor.id &&
       editor.otherQuestions > 0 &&
-      !window.confirm(
+      !(await confirmAction(
         `Esta alteração aparece também em ${editor.otherQuestions} ${editor.otherQuestions === 1 ? words.other : words.others} que usam este texto-base. Provas já geradas não mudam. Continuar?`,
-      )
+      ))
     )
       return;
     setSaving(true);
@@ -402,7 +403,7 @@ export function SharedTextPicker({
               type="button"
               disabled={saving}
               onClick={saveEditor}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="rounded-lg px-3 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
               {saving ? 'Salvando…' : 'Salvar texto-base'}
             </button>

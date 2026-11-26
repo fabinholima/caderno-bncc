@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { displayPreferencesScript } from '@/lib/display-preferences';
+import { ConfirmHost } from '@/components/confirm-host';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,14 +16,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'UfaProva — Avaliações alinhadas à BNCC',
-  description: 'Organize questões, prepare avaliações alinhadas à BNCC e gere provas prontas para imprimir.',
+  description:
+    'Organize questões, prepare avaliações alinhadas à BNCC e gere provas prontas para imprimir.',
   icons: { icon: '/favicon.svg' },
   openGraph: {
     siteName: 'UfaProva',
     locale: 'pt_BR',
     type: 'website',
     title: 'UfaProva — Mais tempo para ensinar. E para você.',
-    description: 'Organize questões, prepare avaliações alinhadas à BNCC e gere provas prontas para imprimir.',
+    description:
+      'Organize questões, prepare avaliações alinhadas à BNCC e gere provas prontas para imprimir.',
   },
 };
 
@@ -35,12 +38,21 @@ export default function RootLayout({
   return (
     // suppressHydrationWarning: o script abaixo pode adicionar a classe .dark e o
     // tamanho da fonte ao <html> antes da hidratação.
-    <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html
+      lang="pt-BR"
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/* oxlint-disable-next-line react/no-danger -- Script fixo, sem dados do usuário: evita o piscar do tema claro. */}
-        <script dangerouslySetInnerHTML={{ __html: displayPreferencesScript }} />
+        <script
+          dangerouslySetInnerHTML={{ __html: displayPreferencesScript }}
+        />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <ConfirmHost />
+      </body>
     </html>
   );
 }

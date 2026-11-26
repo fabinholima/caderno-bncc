@@ -26,7 +26,7 @@ export function StudentResultsTable({
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="border-b text-xs uppercase text-slate-500">
+        <thead className="border-b text-xs text-slate-500">
           <tr>
             <th className="py-2">Aluno</th>
             <th>Versão</th>

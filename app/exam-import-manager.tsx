@@ -63,6 +63,7 @@ import {
 } from './exam-import/candidate-fields';
 import { ImportedQuestionTextEditor } from './exam-import/question-text-editor';
 import { AiSuggestionReview } from './exam-import/ai-suggestion-review';
+import { confirmAction } from '@/lib/confirm';
 
 export function ExamImportManager({
   apiUrl,
@@ -228,9 +229,9 @@ export function ExamImportManager({
 
   const clearDuplicate = async (duplicate: DuplicateQuestion) => {
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Desfazer a duplicidade de ${duplicate.code}? A questão voltará como rascunho independente.`,
-      )
+      ))
     )
       return;
     const response = await apiFetch(
@@ -246,9 +247,9 @@ export function ExamImportManager({
 
   const deleteDuplicate = async (duplicate: DuplicateQuestion) => {
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Excluir definitivamente ${duplicate.code}? Esta ação não pode ser desfeita. A questão original ${duplicate.duplicateOfCode} será mantida.`,
-      )
+      ))
     )
       return;
     const response = await apiFetch(
@@ -304,9 +305,9 @@ export function ExamImportManager({
     // Descartar em massa pede confirmação (as questões podem ser restauradas na aba Descartadas).
     if (
       action === 'ignore' &&
-      !window.confirm(
+      !(await confirmAction(
         `Descartar ${actionable.length} questão(ões) visível(is)? Elas podem ser restauradas na aba Descartadas.`,
-      )
+      ))
     )
       return;
     setBatchActionBusy(true);
@@ -504,9 +505,9 @@ export function ExamImportManager({
 
   const removeFailedImport = async (item: ExamImport) => {
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Remover ${item.sourceInstitution} ${item.sourceYear} da fila? Os PDFs e candidatos desta importação serão excluídos.`,
-      )
+      ))
     )
       return;
     const response = await apiFetch(`${apiUrl}/api/exam-imports/${item.id}`, {
@@ -1098,14 +1099,8 @@ export function ExamImportManager({
   return (
     <section className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-          Importar provas
-        </h1>
-        <Button
-          type="button"
-          onClick={onNewQuestion}
-          className="bg-[var(--blue)] text-white hover:bg-blue-700"
-        >
+        <h1 className="page-title">Importar provas</h1>
+        <Button type="button" onClick={onNewQuestion}>
           <Plus /> Inserir questão
         </Button>
       </div>
@@ -1969,7 +1964,7 @@ GABARITO: B`}
                       <section className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-sky-900">
+                            <p className="text-sm font-semibold text-sky-900">
                               Processamento ·{' '}
                               {item.processingJob.stage.replaceAll('_', ' ')}
                             </p>
@@ -2030,7 +2025,7 @@ GABARITO: B`}
                       <section className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-blue-900">
+                            <p className="text-sm font-semibold text-blue-900">
                               Análise assistida ·{' '}
                               {item.aiJob.stage === 'waiting_quota'
                                 ? 'Aguardando cota da IA · retomada automática'

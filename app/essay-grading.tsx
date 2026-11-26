@@ -309,9 +309,7 @@ function Header({
 }) {
   return (
     <header className="mb-6">
-      <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-        {title}
-      </h1>
+      <h1 className="page-title">{title}</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-500">{description}</p>
     </header>
   );

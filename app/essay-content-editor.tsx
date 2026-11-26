@@ -449,7 +449,7 @@ export function EssayContentEditor({
           className="rounded-xl border border-slate-200 bg-white p-3"
         >
           <div className="mb-2 flex items-center gap-1">
-            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            <span className="text-sm font-semibold text-slate-500">
               {blockLabels[block.type]}
             </span>
             <Button

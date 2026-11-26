@@ -111,7 +111,7 @@ export function CandidateClassificationFields({
 
   return (
     <section className="mt-3 rounded-lg border border-blue-200 bg-blue-50/60 p-3">
-      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-900">
+      <p className="mb-2 text-sm font-semibold text-blue-900">
         Classificação desta questão
       </p>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">

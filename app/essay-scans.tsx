@@ -381,9 +381,7 @@ export function EssayScanUpload({
         <ArrowLeft /> Voltar
       </Button>
       <header className="mb-6">
-        <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
-          Enviar redações escaneadas
-        </h1>
+        <h1 className="page-title">Enviar redações escaneadas</h1>
         {state && (
           <p className="mt-1 text-sm font-semibold text-slate-600">
             {state.application.promptTitle} · {state.application.classGrade} —{' '}

@@ -251,9 +251,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur lg:grid-cols-[.9fr_1.1fr]">
         <div className="hidden flex-col justify-between bg-[var(--navy)] p-10 text-white lg:flex">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--lime)]">
-              UfaProva
-            </p>
+            <p className="text-sm font-semibold text-[var(--lime)]">UfaProva</p>
             <h2 className="mt-5 font-display text-4xl font-bold leading-tight">
               Avaliações mais claras para ensinar melhor.
             </h2>
@@ -282,7 +280,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
               </p>
             </div>
           </div>
-          <div className="mt-8 flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-blue-700">
+          <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-blue-700">
             <ShieldCheck size={15} strokeWidth={2.5} aria-hidden="true" />
             <span>Acesso seguro</span>
           </div>

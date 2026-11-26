@@ -32,9 +32,16 @@ import {
   Sparkles,
   Trash2,
   Unlink,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -57,6 +64,7 @@ import {
   type RenderFont,
   type AssessmentPreset,
 } from './assessment-builder-model';
+import { confirmAction } from '@/lib/confirm';
 
 export type BuilderQuestion = {
   type?: string;
@@ -355,9 +363,9 @@ export function AssessmentBuilder({
     ) => {
       if (
         purge &&
-        !window.confirm(
+        !(await confirmAction(
           `Excluir DEFINITIVAMENTE “${item.title || 'Prova sem título'}”? Serão apagados aplicações, cartões-resposta, respostas e notas dos alunos. Não é possível desfazer.`,
-        )
+        ))
       )
         return;
       setDeletingWorkspaceId(item.id);
@@ -391,9 +399,9 @@ export function AssessmentBuilder({
   );
   const deleteAllDrafts = useCallback(async () => {
     if (
-      !window.confirm(
+      !(await confirmAction(
         'Limpar todos os rascunhos? Serão excluídas todas as provas ainda não geradas, inclusive as de outras páginas e as fixadas. Provas geradas não são afetadas.',
-      )
+      ))
     )
       return;
     setDeletingSelected('drafts');
@@ -422,13 +430,13 @@ export function AssessmentBuilder({
       const selected = recent.filter((item) => selectedRecentIds.has(item.id));
       if (!selected.length) return;
       if (
-        !window.confirm(
+        !(await confirmAction(
           purge
             ? `Excluir DEFINITIVAMENTE ${selected.length} prova(s) selecionada(s)? Serão apagados aplicações, cartões-resposta, respostas e notas dos alunos. Não é possível desfazer.`
             : unlinkApplications
               ? `Desvincular aplicações não aplicadas e excluir ${selected.length} prova(s) selecionada(s)? Cartões-resposta já gerados dessas aplicações serão descartados e, se já foram impressos, deixarão de ser lidos. Provas com aplicações abertas/encerradas, cartões enviados ou respostas serão preservadas.`
               : `Excluir ${selected.length} prova(s) selecionada(s)? Provas com aplicações ou respostas vinculadas serão preservadas.`,
-        )
+        ))
       )
         return;
 
@@ -472,7 +480,7 @@ export function AssessmentBuilder({
       setSelectedRecentIds(new Set(failed.map((item) => item.id)));
       setMessage(
         failed.length
-          ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}${unlinkApplications || purge ? '' : canPurge ? ' As provas não excluídas continuam selecionadas: use “Excluir tudo (admin)” para apagar também respostas e notas.' : ' As provas não excluídas continuam selecionadas: use “Desvincular e excluir” para remover as vinculadas a aplicações ainda não aplicadas.'}`
+          ? `${deleted} prova(s) excluída(s). ${failed.length} não foi(ram) excluída(s): ${failed.map((item) => `${item.title}: ${item.reason}`).join(' ')}${unlinkApplications || purge ? '' : canPurge ? ' As provas não excluídas continuam selecionadas: use “Excluir selecionadas com respostas e notas” em Mais ações para apagar também respostas e notas.' : ' As provas não excluídas continuam selecionadas: use “Desvincular e excluir selecionadas” em Mais ações para remover as vinculadas a aplicações ainda não aplicadas.'}`
           : `${deleted} prova(s) excluída(s).`,
       );
       setDeletingSelected(false);
@@ -992,7 +1000,7 @@ export function AssessmentBuilder({
     return questions.find((question) => question.id === id)?.sharedTextId;
   }
 
-  function toggle(id: string) {
+  async function toggle(id: string) {
     const adding = !chosen.some((question) => question.id === id);
     const question = questions.find((item) => item.id === id);
     const active = sections.find((section) => section.id === activeSectionId);
@@ -1017,9 +1025,9 @@ export function AssessmentBuilder({
         : [];
     const siblings =
       missingSiblings.length &&
-      window.confirm(
+      (await confirmAction(
         `Este item usa o texto-base "${question?.sharedTextTitle || 'sem título'}". Adicionar também ${missingSiblings.length === 1 ? 'o outro item' : `os outros ${missingSiblings.length} itens`} deste texto? Eles ficam juntos na prova, com o texto impresso uma vez.`,
-      )
+      ))
         ? missingSiblings
         : [];
     if (
@@ -1400,9 +1408,7 @@ export function AssessmentBuilder({
     <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
-            Elaborar prova
-          </h1>
+          <h1 className="page-title">Avaliações</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
             Configure a prova, escolha as questões, organize as seções e revise
             os PDFs antes da aplicação.
@@ -1416,74 +1422,77 @@ export function AssessmentBuilder({
           BNCC vinculada
         </Badge>
       </div>
-      <nav
-        aria-label="Etapas da elaboração"
-        className="my-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
-      >
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <button
-            type="button"
-            disabled={!!workspaceId && saveStatus !== 'Rascunho salvo'}
-            onClick={() => {
-              setMessage('');
-              setStep(0);
-            }}
-            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${step === 0 ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-          >
-            <FolderOpen className="size-4" /> Provas recentes
-          </button>
-          {workspaceId && (
-            <span className="text-xs font-medium text-slate-500">
-              {saveStatus || 'Salvando rascunho…'}
-            </span>
-          )}
-        </div>
-        <ol className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
-          {[
-            'Identificação',
-            'Questões',
-            'Organização',
-            'Prévia e revisão',
-            'Aplicação',
-          ].map((label, position) => {
-            const index = position + 1;
-            const disabled =
-              !workspaceId ||
-              (index >= 2 && !setupReady) ||
-              (index >= 3 && !chosen.length) ||
-              (index === 5 &&
-                (!generated ||
-                  !assessmentId ||
-                  generatedVersions.some((v) => v.status !== 'completed')));
-            return (
-              <li key={label} className="min-w-[155px] flex-1 lg:min-w-0">
-                <button
-                  type="button"
-                  aria-current={step === index ? 'step' : undefined}
-                  disabled={disabled}
-                  onClick={() => {
-                    setMessage('');
-                    setStep(index);
-                  }}
-                  className={`flex min-h-16 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${step === index ? 'border-blue-500 bg-blue-50 text-blue-950 shadow-sm' : index < step ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900 hover:bg-emerald-50' : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-blue-200 hover:bg-blue-50/50'}`}
-                >
-                  <span
-                    className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold ${step === index ? 'bg-blue-600 text-white' : index < step ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}
+      {/* As etapas só aparecem com uma prova aberta; na lista de provas ficariam todas desativadas. */}
+      {(workspaceId || step !== 0) && (
+        <nav
+          aria-label="Etapas da elaboração"
+          className="my-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <button
+              type="button"
+              disabled={!!workspaceId && saveStatus !== 'Rascunho salvo'}
+              onClick={() => {
+                setMessage('');
+                setStep(0);
+              }}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${step === 0 ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              <FolderOpen className="size-4" /> Provas recentes
+            </button>
+            {workspaceId && (
+              <span className="text-xs font-medium text-slate-500">
+                {saveStatus || 'Salvando rascunho…'}
+              </span>
+            )}
+          </div>
+          <ol className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
+            {[
+              'Identificação',
+              'Questões',
+              'Organização',
+              'Prévia e revisão',
+              'Aplicação',
+            ].map((label, position) => {
+              const index = position + 1;
+              const disabled =
+                !workspaceId ||
+                (index >= 2 && !setupReady) ||
+                (index >= 3 && !chosen.length) ||
+                (index === 5 &&
+                  (!generated ||
+                    !assessmentId ||
+                    generatedVersions.some((v) => v.status !== 'completed')));
+              return (
+                <li key={label} className="min-w-[155px] flex-1 lg:min-w-0">
+                  <button
+                    type="button"
+                    aria-current={step === index ? 'step' : undefined}
+                    disabled={disabled}
+                    onClick={() => {
+                      setMessage('');
+                      setStep(index);
+                    }}
+                    className={`flex min-h-16 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${step === index ? 'border-blue-500 bg-blue-50 text-blue-950 shadow-sm' : index < step ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900 hover:bg-emerald-50' : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-blue-200 hover:bg-blue-50/50'}`}
                   >
-                    {index < step ? <Check className="size-4" /> : index}
-                  </span>
-                  <span className="text-sm font-semibold leading-tight">
-                    {label}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="mt-2 text-xs text-slate-500 lg:hidden">
-          Deslize para acompanhar as próximas etapas.
-        </p>
-      </nav>
+                    <span
+                      className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold ${step === index ? 'bg-blue-600 text-white' : index < step ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}
+                    >
+                      {index < step ? <Check className="size-4" /> : index}
+                    </span>
+                    <span className="text-sm font-semibold leading-tight">
+                      {label}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-2 text-xs text-slate-500 lg:hidden">
+            Deslize para acompanhar as próximas etapas.
+          </p>
+        </nav>
+      )}
       {workspaceId && (
         <div className="mb-3 text-sm">
           <output>{saveStatus}</output>
@@ -1603,7 +1612,9 @@ export function AssessmentBuilder({
         </DialogContent>
       </Dialog>
       {step === 0 && (
-        <section className="space-y-4 rounded-xl border bg-white p-5">
+        <section
+          className={`space-y-4 rounded-xl border bg-white p-5 ${workspaceId ? '' : 'mt-6'}`}
+        >
           <div className="flex gap-3">
             <Button onClick={() => openWorkspace()}>Nova prova</Button>
             <Button
@@ -1629,105 +1640,115 @@ export function AssessmentBuilder({
             </div>
             <Badge variant="secondary">{recent.length} nesta página</Badge>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                aria-label="Selecionar todas as provas desta página"
-                checked={
-                  recent.length > 0 &&
-                  recent.every((item) => selectedRecentIds.has(item.id))
-                }
-                disabled={!recent.length || Boolean(deletingSelected)}
-                onChange={(event) =>
-                  setSelectedRecentIds(
-                    event.target.checked
-                      ? new Set(recent.map((item) => item.id))
-                      : new Set(),
-                  )
-                }
-                className="size-4 rounded border-slate-300 accent-indigo-600"
-              />
-              Selecionar todas desta página
+          {(recent.length > 0 || offset > 0) && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  aria-label="Selecionar todas as provas desta página"
+                  checked={
+                    recent.length > 0 &&
+                    recent.every((item) => selectedRecentIds.has(item.id))
+                  }
+                  disabled={!recent.length || Boolean(deletingSelected)}
+                  onChange={(event) =>
+                    setSelectedRecentIds(
+                      event.target.checked
+                        ? new Set(recent.map((item) => item.id))
+                        : new Set(),
+                    )
+                  }
+                  className="size-4 rounded border-slate-300 accent-indigo-600"
+                />
+                Selecionar todas desta página
+                {selectedRecentIds.size > 0 && (
+                  <span className="text-slate-500">
+                    {selectedRecentIds.size} selecionada(s)
+                  </span>
+                )}
+              </label>
+              {/* Exclusões só aparecem com algo selecionado; as demais ficam em "Mais ações". */}
               {selectedRecentIds.size > 0 && (
-                <span className="text-slate-500">
-                  {selectedRecentIds.size} selecionada(s)
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={Boolean(deletingSelected)}
+                  className="ml-auto border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+                  onClick={() => void deleteSelectedRecent(false)}
+                >
+                  {deletingSelected === 'delete' ? (
+                    <LoaderCircle className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Trash2 aria-hidden="true" />
+                  )}
+                  {deletingSelected === 'delete'
+                    ? 'Excluindo…'
+                    : 'Excluir selecionadas'}
+                </Button>
+              )}
+              {deletingSelected && deletingSelected !== 'delete' && (
+                <span
+                  className="flex items-center gap-2 text-sm text-slate-600"
+                  aria-live="polite"
+                >
+                  <LoaderCircle
+                    className="size-4 animate-spin"
+                    aria-hidden="true"
+                  />
+                  {deletingSelected === 'unlink'
+                    ? 'Desvinculando…'
+                    : deletingSelected === 'drafts'
+                      ? 'Limpando rascunhos…'
+                      : 'Excluindo tudo…'}
                 </span>
               )}
-            </label>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!selectedRecentIds.size || Boolean(deletingSelected)}
-              className="border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
-              onClick={() => void deleteSelectedRecent(false)}
-            >
-              {deletingSelected === 'delete' ? (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Trash2 aria-hidden="true" />
-              )}
-              {deletingSelected === 'delete'
-                ? 'Excluindo…'
-                : 'Excluir selecionadas'}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!selectedRecentIds.size || Boolean(deletingSelected)}
-              title="Desvincula aplicações ainda não aplicadas (sem cartões enviados nem respostas), descarta os cartões gerados e exclui as provas selecionadas."
-              className="border-amber-200 bg-white text-amber-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
-              onClick={() => void deleteSelectedRecent(true)}
-            >
-              {deletingSelected === 'unlink' ? (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Unlink aria-hidden="true" />
-              )}
-              {deletingSelected === 'unlink'
-                ? 'Desvinculando…'
-                : 'Desvincular e excluir'}
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              aria-label="Limpar todos os rascunhos"
-              title="Limpar todos os rascunhos (provas ainda não geradas, em todas as páginas)"
-              disabled={
-                Boolean(deletingSelected) || (!offset && !recent.length)
-              }
-              className="border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
-              onClick={() => void deleteAllDrafts()}
-            >
-              {deletingSelected === 'drafts' ? (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Eraser aria-hidden="true" />
-              )}
-            </Button>
-            {canPurge && (
-              <Button
-                type="button"
-                size="sm"
-                disabled={!selectedRecentIds.size || Boolean(deletingSelected)}
-                title="Administrador: exclui as provas selecionadas com aplicações, cartões-resposta, respostas e notas. Não pode ser desfeito."
-                className="bg-rose-700 text-white hover:bg-rose-800"
-                onClick={() => void deleteSelectedRecent(false, true)}
-              >
-                {deletingSelected === 'purge' ? (
-                  <LoaderCircle className="animate-spin" aria-hidden="true" />
-                ) : (
-                  <Trash2 aria-hidden="true" />
-                )}
-                {deletingSelected === 'purge'
-                  ? 'Excluindo tudo…'
-                  : 'Excluir tudo (admin)'}
-              </Button>
-            )}
-          </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className={`bg-white ${selectedRecentIds.size ? '' : 'ml-auto'}`}
+                      disabled={Boolean(deletingSelected)}
+                    />
+                  }
+                >
+                  <MoreHorizontal aria-hidden="true" />
+                  Mais ações
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-64">
+                  <DropdownMenuItem
+                    disabled={!selectedRecentIds.size}
+                    title="Desvincula aplicações ainda não aplicadas (sem cartões enviados nem respostas), descarta os cartões gerados e exclui as provas selecionadas."
+                    onClick={() => void deleteSelectedRecent(true)}
+                  >
+                    <Unlink />
+                    Desvincular e excluir selecionadas
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!offset && !recent.length}
+                    onClick={() => void deleteAllDrafts()}
+                  >
+                    <Eraser />
+                    Limpar todos os rascunhos
+                  </DropdownMenuItem>
+                  {canPurge && (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={!selectedRecentIds.size}
+                      title="Exclui as provas selecionadas com aplicações, cartões-resposta, respostas e notas. Não pode ser desfeito."
+                      onClick={() => void deleteSelectedRecent(false, true)}
+                    >
+                      <Trash2 />
+                      Excluir selecionadas com respostas e notas (administrador)
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
           <div className="grid gap-3">
             {recent.map((r) => (
               <article
@@ -1843,7 +1864,7 @@ export function AssessmentBuilder({
                         return;
                       }
                       if (
-                        window.confirm(
+                        await confirmAction(
                           `Excluir “${r.title || 'Prova sem título'}” da lista? Esta ação remove o rascunho salvo.`,
                         )
                       )
@@ -2106,7 +2127,7 @@ export function AssessmentBuilder({
               <select
                 aria-label="Formato das questões"
                 value={effectiveQuestionTypeFilter}
-                onChange={(event) => {
+                onChange={async (event) => {
                   const nextType = event.target.value;
                   const wantsJudgment = nextType === 'true_false';
                   const requiresStandardTemplate = nextType === 'essay';
@@ -2138,9 +2159,9 @@ export function AssessmentBuilder({
                         : 'múltipla escolha';
                   if (
                     incompatibleIds.size > 0 &&
-                    !window.confirm(
+                    !(await confirmAction(
                       `O formato selecionado não aceita ${incompatibleIds.size} questão(ões) já escolhida(s). Deseja removê-las e trocar para ${nextTypeLabel}?`,
-                    )
+                    ))
                   )
                     return;
                   if (incompatibleIds.size > 0) {
@@ -2432,7 +2453,7 @@ export function AssessmentBuilder({
           {step === 4 && (
             <section className="space-y-5">
               <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 sm:p-6">
-                <p className="text-xs font-bold uppercase tracking-[.14em] text-blue-700">
+                <p className="text-sm font-semibold text-blue-700">
                   Etapa final antes da aplicação
                 </p>
                 <h2 className="mt-2 text-xl font-bold text-[var(--navy)]">
@@ -2465,7 +2486,7 @@ export function AssessmentBuilder({
                 </div>
                 {!generated && (
                   <Button
-                    className="mt-5 bg-[var(--blue)] text-white hover:bg-blue-700"
+                    className="mt-5"
                     disabled={saving || !chosen.length}
                     onClick={generate}
                   >

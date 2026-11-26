@@ -30,6 +30,7 @@ import {
 import { apiFetch } from '@/lib/api-client';
 import { questionBankSummary } from '@/lib/question-bank-summary.mjs';
 import { AssessmentPdfPreview } from './assessment-pdf-preview';
+import { confirmAction } from '@/lib/confirm';
 
 const steps = [
   {
@@ -144,9 +145,9 @@ export function WorkspaceHome({
   const [deletingId, setDeletingId] = useState('');
   async function deleteSavedAssessment(assessment: Assessment) {
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Excluir a prova “${assessment.title}”? Os PDFs e as versões dela serão removidos.`,
-      )
+      ))
     )
       return;
     setDeletingId(assessment.id);
@@ -161,9 +162,9 @@ export function WorkspaceHome({
       if (
         response.status === 409 &&
         canPurge &&
-        window.confirm(
+        (await confirmAction(
           `${body.error || 'A prova tem aplicações ou respostas.'}\n\nComo administrador, você pode excluir DEFINITIVAMENTE a prova com aplicações, cartões-resposta e notas. Não é possível desfazer. Continuar?`,
-        )
+        ))
       ) {
         response = await remove('?purge=true');
         body = (await response.json()) as { error?: string };
@@ -376,7 +377,7 @@ export function WorkspaceHome({
     <div className="mx-auto max-w-[1450px] space-y-6 px-5 py-7 sm:px-8 sm:py-9">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--navy)] sm:text-4xl">
+          <h1 className="page-title">
             {recovery
               ? 'Da dificuldade à intervenção'
               : preparing
@@ -425,7 +426,7 @@ export function WorkspaceHome({
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${view === label ? 'border-[var(--navy)] bg-[var(--navy)] text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'}`}
             >
               <Icon className="size-4" aria-hidden="true" />
-              <span className="text-xs opacity-70">0{index + 1}</span>
+              <span className="text-xs">0{index + 1}</span>
               {label}
             </button>
           ))}
@@ -864,7 +865,7 @@ export function WorkspaceHome({
                     aria-labelledby="home-next"
                     className="rounded-2xl bg-[var(--navy)] p-5 text-white sm:p-6"
                   >
-                    <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--lime)]">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-[var(--lime)]">
                       <ChartNoAxesCombined
                         className="size-4"
                         aria-hidden="true"

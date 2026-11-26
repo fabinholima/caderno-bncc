@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { confirmAction } from '@/lib/confirm';
 
 type Billing = {
   enabled: boolean;
@@ -51,7 +52,7 @@ const planLabels: Record<string, string> = {
 
 async function loadBilling(apiUrl: string) {
   const response = await apiFetch(`${apiUrl}/api/billing`);
-  const body = await response.json() as { error?: string; data?: Billing };
+  const body = (await response.json()) as { error?: string; data?: Billing };
   if (!response.ok || !body.data)
     throw new Error(body.error || 'Não foi possível consultar a assinatura.');
   return body.data;
@@ -69,7 +70,9 @@ export function BillingManager({
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [couponCode, setCouponCode] = useState('');
-  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(
+    null,
+  );
   async function refresh() {
     try {
       setData(await loadBilling(apiUrl));
@@ -79,12 +82,19 @@ export function BillingManager({
   }
   useEffect(() => {
     let active = true;
-    loadBilling(apiUrl).then((value) => {
-      if (active) setData(value);
-    }).catch((error: unknown) => {
-      if (active) setMessage(error instanceof Error ? error.message : 'Falha na conexão.');
-    });
-    return () => { active = false; };
+    loadBilling(apiUrl)
+      .then((value) => {
+        if (active) setData(value);
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setMessage(
+            error instanceof Error ? error.message : 'Falha na conexão.',
+          );
+      });
+    return () => {
+      active = false;
+    };
   }, [apiUrl]);
   async function validateCoupon(plan: string) {
     setBusy(true);
@@ -92,32 +102,48 @@ export function BillingManager({
     setCouponPreview(null);
     try {
       const response = await apiFetch(`${apiUrl}/api/billing/coupon/validate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan, cycle, couponCode }),
       });
-      const body = await response.json() as { error?: string; data?: CouponPreview };
-      if (!response.ok || !body.data) throw new Error(body.error || 'Não foi possível validar o cupom.');
+      const body = (await response.json()) as {
+        error?: string;
+        data?: CouponPreview;
+      };
+      if (!response.ok || !body.data)
+        throw new Error(body.error || 'Não foi possível validar o cupom.');
       setCouponPreview(body.data);
-      setMessage(`Cupom ${body.data.couponCode} aplicado: desconto de ${money(body.data.discountCents)}.`);
+      setMessage(
+        `Cupom ${body.data.couponCode} aplicado: desconto de ${money(body.data.discountCents)}.`,
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Falha ao validar o cupom.');
-    } finally { setBusy(false); }
+      setMessage(
+        error instanceof Error ? error.message : 'Falha ao validar o cupom.',
+      );
+    } finally {
+      setBusy(false);
+    }
   }
   async function action(kind: 'checkout' | 'cancel', plan?: string) {
-    const appliedCoupon = kind === 'checkout' && couponPreview && couponPreview.planId === plan &&
-      couponPreview.months === (cycle === 'annual' ? 12 : 1) ? couponPreview : null;
+    const appliedCoupon =
+      kind === 'checkout' &&
+      couponPreview &&
+      couponPreview.planId === plan &&
+      couponPreview.months === (cycle === 'annual' ? 12 : 1)
+        ? couponPreview
+        : null;
     if (
       kind === 'cancel' &&
-      !window.confirm(
+      !(await confirmAction(
         'Cancelar as próximas cobranças? O acesso já pago será mantido até o fim do período. Isso não solicita reembolso.',
-      )
+      ))
     )
       return;
     if (
       kind === 'checkout' &&
-      !window.confirm(
+      !(await confirmAction(
         `Continuar para contratar ${plan === 'professor' ? 'Professor' : 'Escola'} com renovação ${cycle === 'annual' ? 'anual' : 'mensal'}${appliedCoupon ? ` por ${money(appliedCoupon.amountCents)} (cupom ${appliedCoupon.couponCode})` : ''} no Mercado Pago?`,
-      )
+      ))
     )
       return;
     setBusy(true);
@@ -126,9 +152,16 @@ export function BillingManager({
       const response = await apiFetch(`${apiUrl}/api/billing/${kind}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, cycle, couponCode: appliedCoupon?.couponCode || undefined }),
+        body: JSON.stringify({
+          plan,
+          cycle,
+          couponCode: appliedCoupon?.couponCode || undefined,
+        }),
       });
-      const body = await response.json() as { error?: string; data?: { url?: string; cancelled?: boolean } };
+      const body = (await response.json()) as {
+        error?: string;
+        data?: { url?: string; cancelled?: boolean };
+      };
       if (!response.ok)
         throw new Error(body.error || 'Operação não confirmada.');
       if (body.data?.url) {
@@ -174,18 +207,24 @@ export function BillingManager({
           )}
           {data.contract && (
             <p className="mt-3 text-sm">
-              Plano {planLabels[data.contract.plan_id] || data.contract.plan_id} ·{' '}
-              {labels[data.contract.status] || data.contract.status} ·{' '}
+              Plano {planLabels[data.contract.plan_id] || data.contract.plan_id}{' '}
+              · {labels[data.contract.status] || data.contract.status} ·{' '}
               {money(data.contract.amount_cents)} /{' '}
               {data.contract.months === 12 ? 'ano' : 'mês'}
-              {data.contract.coupon_code && data.contract.discount_cents ? ` · cupom ${data.contract.coupon_code} (${money(data.contract.discount_cents)} de desconto)` : ''}
+              {data.contract.coupon_code && data.contract.discount_cents
+                ? ` · cupom ${data.contract.coupon_code} (${money(data.contract.discount_cents)} de desconto)`
+                : ''}
             </p>
           )}
-          {data.contract?.status === 'pending' && data.contract.checkout_url && (
-            <a className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" href={data.contract.checkout_url}>
-              Continuar pagamento
-            </a>
-          )}
+          {data.contract?.status === 'pending' &&
+            data.contract.checkout_url && (
+              <a
+                className="mt-3 inline-flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+                href={data.contract.checkout_url}
+              >
+                Continuar pagamento
+              </a>
+            )}
           {role === 'admin' ? (
             <>
               <label className="mt-4 block text-sm">
@@ -193,18 +232,37 @@ export function BillingManager({
                 <select
                   className="ml-3 rounded-lg border p-2"
                   value={cycle}
-                  onChange={(e) =>
-                    { setCycle(e.target.value as 'monthly' | 'annual'); setCouponPreview(null); }
-                  }
+                  onChange={(e) => {
+                    setCycle(e.target.value as 'monthly' | 'annual');
+                    setCouponPreview(null);
+                  }}
                 >
                   <option value="monthly">Mensal</option>
                   <option value="annual">Anual (cobrança única por ano)</option>
                 </select>
               </label>
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <label className="block text-sm font-medium" htmlFor="subscription-coupon">Cupom de desconto</label>
-                <input id="subscription-coupon" value={couponCode} onChange={(event) => { setCouponCode(event.target.value.toUpperCase()); setCouponPreview(null); }} className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" placeholder="Digite o código" maxLength={24} />
-                <p className="mt-2 text-xs text-slate-500">Depois, selecione “Validar cupom neste plano” no cartão da assinatura.</p>
+                <label
+                  className="block text-sm font-medium"
+                  htmlFor="subscription-coupon"
+                >
+                  Cupom de desconto
+                </label>
+                <input
+                  id="subscription-coupon"
+                  value={couponCode}
+                  onChange={(event) => {
+                    setCouponCode(event.target.value.toUpperCase());
+                    setCouponPreview(null);
+                  }}
+                  className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  placeholder="Digite o código"
+                  maxLength={24}
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  Depois, selecione “Validar cupom neste plano” no cartão da
+                  assinatura.
+                </p>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {data.plans.map((plan) => (
@@ -218,7 +276,7 @@ export function BillingManager({
                       </span>
                     </p>
                     <button
-                      className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-40"
+                      className="rounded-lg px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
                       disabled={
                         busy ||
                         !data.enabled ||
@@ -233,8 +291,24 @@ export function BillingManager({
                     >
                       Continuar no Mercado Pago
                     </button>
-                    {couponCode.trim() && <button type="button" className="ml-2 mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50" disabled={busy} onClick={() => void validateCoupon(plan.id)}>Validar cupom neste plano</button>}
-                    {couponPreview?.planId === plan.id && couponPreview.months === (cycle === 'annual' ? 12 : 1) && <p className="mt-2 text-sm text-emerald-700">Com cupom: <b>{money(couponPreview.amountCents)}</b> · desconto de {money(couponPreview.discountCents)}</p>}
+                    {couponCode.trim() && (
+                      <button
+                        type="button"
+                        className="ml-2 mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+                        disabled={busy}
+                        onClick={() => void validateCoupon(plan.id)}
+                      >
+                        Validar cupom neste plano
+                      </button>
+                    )}
+                    {couponPreview?.planId === plan.id &&
+                      couponPreview.months ===
+                        (cycle === 'annual' ? 12 : 1) && (
+                        <p className="mt-2 text-sm text-emerald-700">
+                          Com cupom: <b>{money(couponPreview.amountCents)}</b> ·
+                          desconto de {money(couponPreview.discountCents)}
+                        </p>
+                      )}
                   </article>
                 ))}
               </div>

@@ -51,7 +51,7 @@ const workflow: ReadonlyArray<readonly [string, LucideIcon]> = [
 
 // Nomes exibidos no menu. As chaves continuam sendo os nomes internos das
 // telas (usados por portal-screen e essay-manager); só o rótulo muda.
-const displayLabel: Readonly<Record<string, string>> = {
+export const displayLabel: Readonly<Record<string, string>> = {
   'Banco de Temas': 'Banco de temas',
   'Cadastrar Tema': 'Cadastrar tema',
   'Gerar Folha': 'Gerar folha',

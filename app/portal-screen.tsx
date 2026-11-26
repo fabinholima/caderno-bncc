@@ -19,7 +19,7 @@ import {
   QuestionApprovalTableCell,
 } from './question-batch-approval';
 import { WorkspaceHome } from './workspace-home';
-import { WorkspaceNavigation } from './workspace-navigation';
+import { displayLabel, WorkspaceNavigation } from './workspace-navigation';
 import { QuestionPasteExample } from './question-paste-example';
 import {
   QuestionDraftControls,
@@ -106,6 +106,7 @@ import {
   type SaebMatrix,
   type SaebDescriptor,
 } from './portal-screen-model';
+import { confirmAction } from '@/lib/confirm';
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -679,9 +680,9 @@ export default function Home() {
     if (actions && !(await actions.save())) {
       const reason = actions.lastError() || 'motivo desconhecido';
       if (
-        !window.confirm(
+        !(await confirmAction(
           `Não foi possível salvar o rascunho (${reason}).\n\nFechar mesmo assim? As alterações desde o último salvamento serão perdidas.`,
-        )
+        ))
       )
         return;
     }
@@ -1207,9 +1208,9 @@ export default function Home() {
 
   async function removeQuestion(question: Question) {
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Excluir ${question.code}? Ela sairá do acervo, mas o histórico de provas será preservado.`,
-      )
+      ))
     )
       return;
     try {
@@ -1378,9 +1379,12 @@ export default function Home() {
               <PanelLeftOpen className="size-[18px]" aria-hidden="true" />
             </button>
           )}
-          <div className="lg:hidden">
-            <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-[var(--lime)]">
+          <div className="flex min-w-0 items-center gap-3 lg:hidden">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--navy)] text-[var(--lime)]">
               <BrandMark />
+            </span>
+            <span className="truncate font-semibold text-[var(--navy)]">
+              {displayLabel[active] ?? active}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
@@ -1478,9 +1482,11 @@ export default function Home() {
               onNavigate={setActive}
             />
           ) : active === 'Minhas escolas' ? (
-            <div className="mx-auto max-w-5xl p-6">
+            <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
               <EducatorProfile
                 apiUrl={apiUrl}
+                section="schools"
+                embedded
                 onContinueToClasses={() => setActive('Turmas e alunos')}
               />
             </div>
@@ -1638,9 +1644,7 @@ export default function Home() {
             <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
               <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
                 <div>
-                  <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
-                    Banco de questões
-                  </h1>
+                  <h1 className="page-title">Banco de questões</h1>
                   <p className="mt-2 max-w-2xl text-sm text-slate-500">
                     Cadastre unidades reutilizáveis, relacione habilidades da
                     BNCC e prepare questões para qualquer formato de avaliação.
@@ -1658,7 +1662,7 @@ export default function Home() {
                     onClick={openNewQuestion}
                     disabled={!canEditCatalog}
                     size="lg"
-                    className="h-11 bg-[var(--blue)] px-4 text-white shadow-sm hover:bg-blue-700"
+                    className="h-11 px-4"
                   >
                     <Plus />
                     Nova questão
@@ -1689,7 +1693,7 @@ export default function Home() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[.14em] text-blue-700">
+                    <p className="text-sm font-semibold text-blue-700">
                       Fluxo de preparação
                     </p>
                     <h2 className="mt-1 font-display text-xl font-bold text-[var(--navy)]">
@@ -2246,7 +2250,7 @@ export default function Home() {
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[920px] border-collapse text-left">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold uppercase tracking-[.08em] text-slate-500">
+                        <tr className="border-b border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-500">
                           {identity.portalAdmin && (
                             <th className="w-12 px-3 py-3">
                               <QuestionApprovalSelection />
@@ -2477,7 +2481,7 @@ export default function Home() {
             className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs font-semibold ${active === label || (label === 'Menu' && mobileMenuOpen) ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}
           >
             <Icon className="size-5" aria-hidden="true" />
-            {label === 'Diagnosticar' ? 'Diagnóstico' : label}
+            {label}
           </button>
         ))}
       </nav>
@@ -2498,7 +2502,7 @@ export default function Home() {
           >
             <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[.13em] text-[var(--blue)]">
+                <p className="text-sm font-semibold text-[var(--blue)]">
                   Cadastro estruturado
                 </p>
                 <h2
@@ -2544,7 +2548,7 @@ export default function Home() {
             >
               <div className="grid items-start lg:grid-cols-[260px_minmax(0,1fr)]">
                 <aside className="hidden border-r border-slate-200 bg-white p-6 lg:sticky lg:top-[93px] lg:block lg:h-[calc(100vh-127px)]">
-                  <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">
+                  <p className="text-sm font-semibold text-slate-500">
                     Etapas do cadastro
                   </p>
                   <nav
@@ -2676,7 +2680,7 @@ export default function Home() {
                     className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div className="mb-3">
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                      <p className="text-sm font-semibold text-blue-600">
                         Etapa 1
                       </p>
                       <p className="mt-1 text-base font-semibold">
@@ -2719,7 +2723,7 @@ export default function Home() {
                     className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div className="mb-3">
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                      <p className="text-sm font-semibold text-blue-600">
                         Etapa 2
                       </p>
                       <p className="mt-1 text-base font-semibold">
@@ -3417,7 +3421,7 @@ export default function Home() {
                     className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div className="mb-3">
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                      <p className="text-sm font-semibold text-blue-600">
                         Etapa 3
                       </p>
                       <p className="mt-1 text-base font-semibold">
@@ -3491,7 +3495,7 @@ export default function Home() {
                     className="scroll-mt-28 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                      <p className="text-sm font-semibold text-blue-600">
                         Etapa 4
                       </p>
                       <p className="mt-1 text-base font-semibold">
@@ -3591,7 +3595,7 @@ export default function Home() {
                     >
                       <div className="mb-3 flex items-center justify-between">
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                          <p className="text-sm font-semibold text-blue-600">
                             Etapa 5
                           </p>
                           <p className="mt-1 text-base font-semibold">
@@ -3677,7 +3681,7 @@ export default function Home() {
                     id="question-resolution"
                     className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
-                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-600">
+                    <p className="mb-3 text-sm font-semibold text-blue-600">
                       {questionType === 'essay' ? 'Etapa 5' : 'Etapa 6'}
                     </p>
                     <RichContentEditor
@@ -3755,7 +3759,6 @@ export default function Home() {
                       Boolean(importCandidateSource && !questionPreviewVerified)
                     }
                     type="submit"
-                    className="bg-[var(--blue)] text-white hover:bg-blue-700"
                   >
                     {saving
                       ? 'Salvando...'

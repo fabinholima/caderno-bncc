@@ -50,3 +50,8 @@ html[data-font-scale="2"] { font-size: 125%; }
   .print-sheet .print-page { box-shadow: none !important; border: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }
   .print-sheet .print-avoid-break { break-inside: avoid; }
 }
+
+/* Título das telas do portal: mesmo tamanho, peso e cor em todas. */
+.page-title { font-family: var(--font-geist-sans), Arial, sans-serif; font-size: 1.875rem; line-height: 1.15; font-weight: 700; letter-spacing: -.025em; color: var(--navy); }
+@media (min-width: 640px) { .page-title { font-size: 2.25rem; } }
+html.dark .page-title { color: var(--color-slate-950); }

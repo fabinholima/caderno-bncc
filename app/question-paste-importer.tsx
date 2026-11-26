@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RichContentBlock } from './rich-content-editor';
+import { notify } from '@/lib/confirm';
 
 export type ParsedQuestion = {
   sourceInstitution: string;
@@ -539,7 +540,7 @@ export function QuestionPasteImporter({
       !['image/png', 'image/jpeg'].includes(file.type) ||
       file.size > 400_000
     ) {
-      window.alert('Escolha uma imagem PNG ou JPEG de até 400 KB.');
+      void notify('Escolha uma imagem PNG ou JPEG de até 400 KB.');
       return;
     }
     const reader = new FileReader();
@@ -593,7 +594,7 @@ export function QuestionPasteImporter({
           if (!file) return;
           event.preventDefault();
           if (!preview) {
-            window.alert(
+            void notify(
               'Analise o texto da questão antes de colar uma imagem.',
             );
             return;
@@ -612,7 +613,7 @@ export function QuestionPasteImporter({
               setPreview(parsePastedQuestion(text));
             } catch (error) {
               setPreview(null);
-              window.alert(
+              void notify(
                 error instanceof Error
                   ? error.message
                   : 'Confira o texto da questão.',

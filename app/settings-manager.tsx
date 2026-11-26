@@ -165,7 +165,7 @@ export function SettingsManager({
   }
   return (
     <main className="mx-auto max-w-[1100px] px-5 py-7 sm:px-8 sm:py-9">
-      <h1 className="font-display mt-1 text-3xl font-bold">Configurações</h1>
+      <h1 className="page-title">Configurações</h1>
       {portalAdmin && <MaintenanceManager apiUrl={apiUrl} />}
       {portalAdmin && <PortalEditorManager apiUrl={apiUrl} />}
       {portalAdmin && <SubscriptionAdmin apiUrl={apiUrl} />}

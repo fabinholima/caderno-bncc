@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
+import { confirmAction } from '@/lib/confirm';
 
 export type CurriculumOption = {
   skill_years?: number[] | null;
@@ -421,9 +422,9 @@ export function CurriculumManager({
     }
     const descendants = expectedTopicIds.size - 1;
     if (
-      !window.confirm(
+      !(await confirmAction(
         `Excluir definitivamente “${topic.name}”${descendants ? ` e seus ${descendants} subtópico(s)/detalhamento(s)` : ''}? Esta ação não pode ser desfeita. Itens vinculados a questões não serão excluídos.`,
-      )
+      ))
     )
       return;
     setCatalogSaving(true);
@@ -714,9 +715,7 @@ export function CurriculumManager({
     <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
-            Estrutura BNCC
-          </h1>
+          <h1 className="page-title">Estrutura BNCC</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
             Organize a taxonomia usada no banco de questões. Uma habilidade
             pertence a um objeto, e o objeto pertence a uma disciplina.
@@ -814,7 +813,7 @@ export function CurriculumManager({
                     key={item.subject_id}
                     className="rounded-xl border border-slate-200 p-4"
                   >
-                    <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                    <p className="text-sm font-semibold text-blue-600">
                       {fundamentalAreaBySubject[item.subject] ||
                         'Componente curricular'}
                     </p>
@@ -925,7 +924,7 @@ export function CurriculumManager({
                   key={competency.competency_id}
                   className="rounded-xl border border-violet-100 bg-white p-4"
                 >
-                  <p className="text-xs font-bold uppercase tracking-wider text-violet-700">
+                  <p className="text-sm font-semibold text-violet-700">
                     {competency.area} · Competência{' '}
                     {competency.competency_number}
                   </p>
@@ -1354,7 +1353,7 @@ export function CurriculumManager({
               <div>
                 <label
                   htmlFor="saeb-matrix"
-                  className="text-xs font-bold uppercase tracking-wider text-slate-500"
+                  className="text-sm font-semibold text-slate-500"
                 >
                   Matriz e ano escolar
                 </label>
@@ -1414,7 +1413,7 @@ export function CurriculumManager({
                         {descriptor.code}
                       </Badge>
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-cyan-800">
+                        <p className="text-sm font-semibold text-cyan-800">
                           {descriptor.topic}
                         </p>
                         <p className="mt-1 text-sm leading-5 text-slate-700">
@@ -1657,7 +1656,7 @@ export function CurriculumManager({
                 (mode === 'object' && !subjects.length) ||
                 (mode === 'skill' && !objects.length)
               }
-              className="w-full bg-[var(--blue)] text-white hover:bg-blue-700"
+              className="w-full"
             >
               <Plus />
               {saving ? 'Salvando...' : 'Adicionar'}

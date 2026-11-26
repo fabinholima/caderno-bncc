@@ -129,7 +129,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
             Esta área é exclusiva para professores e gestores.
           </p>
           <a
-            className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-4 font-semibold text-white"
+            className="mt-5 inline-flex min-h-11 items-center rounded-lg px-4 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             href="/portal"
           >
             Ir ao portal
@@ -147,7 +147,9 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 lg:pl-[252px]">
-      <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
+      <a href="#conteudo" className="skip-link">
+        Pular para o conteúdo
+      </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] border-r border-slate-200 bg-[var(--navy)] text-white lg:flex lg:flex-col">
         <a
           href="/portal"
@@ -247,7 +249,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
                 <ChevronLeft aria-hidden="true" className="size-4" />
                 Voltar ao portal
               </a>
-              <p className="mt-2 text-xs font-bold uppercase tracking-[.14em] text-blue-700">
+              <p className="mt-2 text-sm font-semibold text-blue-700">
                 UfaProva · Conta
               </p>
               <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
@@ -285,51 +287,55 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
       </header>
 
       <SettingsApiUrlContext.Provider value={apiUrl}>
-       <SettingsRoleContext.Provider value={identity.role}>
-        <div id="conteudo" tabIndex={-1} className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 outline-none sm:px-6 sm:py-7 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-8">
-          <nav
-            aria-label="Seções de configurações"
-            className="h-fit rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"
+        <SettingsRoleContext.Provider value={identity.role}>
+          <div
+            id="conteudo"
+            tabIndex={-1}
+            className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 outline-none sm:px-6 sm:py-7 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-8"
           >
-            <p className="hidden px-3 pb-2 pt-2 text-xs font-bold uppercase tracking-wider text-slate-500 lg:block">
-              Conta, escola e plano
-            </p>
-            <ul className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-              {sections.map(({ href, label, description, Icon }) => {
-                const active = pathname === href;
-                return (
-                  <li key={href}>
-                    <a
-                      href={href}
-                      aria-current={active ? 'page' : undefined}
-                      className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-700 ${active ? 'bg-blue-50 text-blue-950 ring-1 ring-blue-200' : 'text-slate-700 hover:bg-slate-50'}`}
-                    >
-                      <Icon
-                        aria-hidden="true"
-                        className={`size-5 shrink-0 ${active ? 'text-blue-700' : 'text-slate-500'}`}
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold">
-                          {label}
+            <nav
+              aria-label="Seções de configurações"
+              className="h-fit rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"
+            >
+              <p className="hidden px-3 pb-2 pt-2 text-sm font-semibold text-slate-500 lg:block">
+                Conta, escola e plano
+              </p>
+              <ul className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+                {sections.map(({ href, label, description, Icon }) => {
+                  const active = pathname === href;
+                  return (
+                    <li key={href}>
+                      <a
+                        href={href}
+                        aria-current={active ? 'page' : undefined}
+                        className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-700 ${active ? 'bg-blue-50 text-blue-950 ring-1 ring-blue-200' : 'text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        <Icon
+                          aria-hidden="true"
+                          className={`size-5 shrink-0 ${active ? 'text-blue-700' : 'text-slate-500'}`}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold">
+                            {label}
+                          </span>
+                          <span className="hidden text-xs text-slate-500 lg:block">
+                            {description}
+                          </span>
                         </span>
-                        <span className="hidden text-xs text-slate-500 lg:block">
-                          {description}
-                        </span>
-                      </span>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-          <section
-            aria-label="Conteúdo das configurações"
-            className="min-w-0"
-          >
-            {children}
-          </section>
-        </div>
-       </SettingsRoleContext.Provider>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+            <section
+              aria-label="Conteúdo das configurações"
+              className="min-w-0"
+            >
+              {children}
+            </section>
+          </div>
+        </SettingsRoleContext.Provider>
       </SettingsApiUrlContext.Provider>
     </main>
   );
