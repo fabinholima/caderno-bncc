@@ -340,10 +340,7 @@ export function WorkspaceHome({
     <div className="mx-auto max-w-[1450px] space-y-6 px-5 py-7 sm:px-8 sm:py-9">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--blue)]">
-            Seu espaço de trabalho
-          </p>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-[var(--navy)] sm:text-4xl">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--navy)] sm:text-4xl">
             {recovery
               ? 'Da dificuldade à intervenção'
               : preparing
@@ -353,7 +350,9 @@ export function WorkspaceHome({
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             {recovery
               ? 'Use as prioridades dos relatórios para planejar atividades e acompanhar a aprendizagem.'
-              : 'Prepare, corrija, acompanhe as dificuldades e reavalie sua turma.'}
+              : preparing
+                ? 'Escolha por onde começar: as questões do banco, a montagem da prova ou o planejamento.'
+                : 'Prepare, corrija, acompanhe as dificuldades e reavalie sua turma.'}
           </p>
         </div>
         {home && (

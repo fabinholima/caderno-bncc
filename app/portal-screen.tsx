@@ -197,6 +197,11 @@ export default function Home() {
   const [sharedTextFilter, setSharedTextFilter] = useState('');
   const [active, setActive] = useState('Início');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  function logout() {
+    void apiFetch(`${apiUrl}/api/auth/logout`, { method: 'POST' }).then(() =>
+      window.location.reload(),
+    );
+  }
   const [sidebarHidden, setSidebarHidden] = useState(() => {
     try {
       return (
@@ -1291,13 +1296,11 @@ export default function Home() {
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--lime)] text-[var(--navy)]">
             <BrandMark />
           </span>
-          <div>
-            <p className="font-display text-[17px] font-bold leading-tight">
-              UfaProva
+          <div className="min-w-0">
+            <p className="font-display text-lg font-bold leading-tight tracking-[-.02em]">
+              ufaprova
             </p>
-            <p className="text-xs font-medium tracking-[.12em] text-slate-300">
-              AVALIAÇÕES BNCC
-            </p>
+            <p className="text-xs text-slate-300">Avaliações BNCC</p>
           </div>
           <button
             type="button"
@@ -1329,13 +1332,10 @@ export default function Home() {
           {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
           <a
             href="/configuracoes/perfil"
-            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-300 hover:bg-white/7 hover:text-white"
+            title="Configurações da conta"
+            className="group flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-white/7"
           >
-            <Settings className="size-[18px]" />
-            Configurações
-          </a>
-          <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/6 p-3">
-            <span className="grid size-9 place-items-center rounded-full bg-blue-200 text-xs font-bold text-blue-950">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-blue-200 text-xs font-bold text-blue-950">
               {identity.user.displayName
                 .split(/\s+/)
                 .slice(0, 2)
@@ -1343,33 +1343,23 @@ export default function Home() {
                 .join('')
                 .toUpperCase()}
             </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">
                 {identity.user.displayName}
-              </p>
-              <p className="truncate text-xs text-slate-300">
+              </span>
+              <span className="block truncate text-xs text-slate-300">
                 {identity.portalAdmin
-                  ? 'Administrador do portal'
+                  ? 'Administrador'
                   : identity.portalEditor
                     ? 'Editor'
                     : 'Professor'}
-              </p>
-            </div>
-            <button
-              type="button"
-              aria-label="Sair"
-              title="Sair da conta"
-              className="ml-auto flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
-              onClick={() =>
-                apiFetch(`${apiUrl}/api/auth/logout`, { method: 'POST' }).then(
-                  () => window.location.reload(),
-                )
-              }
-            >
-              <LogOut className="size-4" />
-              <span>Sair</span>
-            </button>
-          </div>
+              </span>
+            </span>
+            <Settings
+              className="ml-auto size-[18px] shrink-0 text-slate-400 transition group-hover:text-white"
+              aria-label="Configurações"
+            />
+          </a>
         </div>
       </aside>
 
@@ -1394,29 +1384,26 @@ export default function Home() {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            {identity.portalAdmin && (
-              <span className="hidden text-sm font-semibold xl:inline">
-                Administração geral · painel único
-              </span>
-            )}
-            <DisplayPreferences className="sm:mr-1" />
+            <DisplayPreferences compact />
             <button
               type="button"
               aria-label="Sair da conta"
               title="Sair da conta"
-              className="flex size-10 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 sm:w-auto sm:px-3"
-              onClick={() =>
-                apiFetch(`${apiUrl}/api/auth/logout`, { method: 'POST' }).then(
-                  () => window.location.reload(),
-                )
-              }
+              className="hidden h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 sm:flex"
+              onClick={logout}
             >
               <LogOut className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Sair</span>
+              <span>Sair</span>
             </button>
-            <Button variant="ghost" size="icon" aria-label="Ajuda">
-              <CircleHelp />
-            </Button>
+            {/* oxlint-disable-next-line next/no-html-link-for-pages -- Full page navigation avoids the broken client-side route transition on the deployed app. */}
+            <a
+              href="/contato"
+              aria-label="Ajuda e contato"
+              title="Ajuda e contato"
+              className="grid size-10 place-items-center rounded-lg text-slate-700 transition hover:bg-slate-100"
+            >
+              <CircleHelp className="size-[18px]" aria-hidden="true" />
+            </a>
             <div className="ml-2 hidden border-l border-slate-200 pl-4 sm:block">
               <InstitutionSwitcher
                 apiUrl={apiUrl}
@@ -1434,6 +1421,7 @@ export default function Home() {
         >
           <WorkspaceNavigation
             mobile
+            onLogout={logout}
             active={active}
             canEditCatalog={canEditCatalog}
             portalAdmin={Boolean(identity.portalAdmin)}
