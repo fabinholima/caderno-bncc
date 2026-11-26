@@ -62,7 +62,7 @@ function Stat({
   hint?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <span aria-hidden="true" className="text-blue-600 [&>svg]:size-4">
           {icon}
@@ -234,7 +234,7 @@ export function AcademicDashboardPanel({
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="font-display flex items-center gap-2 text-lg font-bold">
             <AlertTriangle
               className="size-5 text-amber-600"
@@ -266,7 +266,7 @@ export function AcademicDashboardPanel({
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="font-display flex items-center gap-2 text-lg font-bold">
             <CalendarRange
               className="size-5 text-blue-600"

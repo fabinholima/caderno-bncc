@@ -65,6 +65,7 @@ import {
   type AssessmentPreset,
 } from './assessment-builder-model';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export type BuilderQuestion = {
   type?: string;
@@ -1426,7 +1427,7 @@ export function AssessmentBuilder({
       {(workspaceId || step !== 0) && (
         <nav
           aria-label="Etapas da elaboração"
-          className="my-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
+          className="my-6 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
         >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <button
@@ -1943,7 +1944,7 @@ export function AssessmentBuilder({
           <section
             className={
               step === 3
-                ? 'rounded-2xl border border-slate-200 bg-white p-5'
+                ? 'rounded-xl border border-slate-200 bg-white p-5'
                 : 'hidden'
             }
           >
@@ -1957,10 +1958,10 @@ export function AssessmentBuilder({
                 </p>
               </div>
               <div className="flex gap-2">
-                <select
+                <NativeSelect
                   value={subjectToAdd}
                   onChange={(event) => setSubjectToAdd(event.target.value)}
-                  className="h-10 min-w-48 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="[&>select]:h-10 min-w-48 [&>select]:text-sm"
                 >
                   <option value="">Adicionar disciplina...</option>
                   {subjects
@@ -1973,7 +1974,7 @@ export function AssessmentBuilder({
                         {item}
                       </option>
                     ))}
-                </select>
+                </NativeSelect>
                 <Button
                   variant="outline"
                   onClick={addSection}
@@ -2101,7 +2102,7 @@ export function AssessmentBuilder({
           <section
             className={
               step === 2
-                ? 'overflow-hidden rounded-2xl border border-slate-200 bg-white'
+                ? 'overflow-hidden rounded-xl border border-slate-200 bg-white'
                 : 'hidden'
             }
           >
@@ -2124,7 +2125,7 @@ export function AssessmentBuilder({
               onChange={(e) => setQuestionSkill(e.target.value)}
             />
             <div className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2 xl:grid-cols-3">
-              <select
+              <NativeSelect
                 aria-label="Formato das questões"
                 value={effectiveQuestionTypeFilter}
                 onChange={async (event) => {
@@ -2185,7 +2186,7 @@ export function AssessmentBuilder({
                   setQuestionTypeFilter(nextType);
                   if (isCompactTemplate(nextTemplate)) setPaper('A4');
                 }}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 <option value="multiple_choice">
                   Múltipla escolha ({questionTypeCounts.multipleChoice})
@@ -2196,27 +2197,27 @@ export function AssessmentBuilder({
                 <option value="essay">
                   Discursivas ({questionTypeCounts.essay})
                 </option>
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Filtrar por disciplina"
                 value={activeSection?.subject || ''}
                 onChange={(event) => selectQuestionSubject(event.target.value)}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 {subjects.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>
                 ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Filtrar por tópico ou objeto de conhecimento"
                 value={questionTopic}
                 onChange={(event) => {
                   setQuestionTopic(event.target.value);
                   setQuestionSubtopic('');
                 }}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 <option value="">Todos os tópicos/objetos</option>
                 {availableTopics.map((item) => (
@@ -2224,13 +2225,13 @@ export function AssessmentBuilder({
                     {item}
                   </option>
                 ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Filtrar por subtópico"
                 value={questionSubtopic}
                 disabled={!availableSubtopics.length}
                 onChange={(event) => setQuestionSubtopic(event.target.value)}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 disabled:bg-slate-100 disabled:text-slate-500"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 <option value="">Todos os subtópicos</option>
                 {availableSubtopics.map((item) => (
@@ -2238,14 +2239,14 @@ export function AssessmentBuilder({
                     {item}
                   </option>
                 ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Filtrar por instituição ou banca"
                 value={questionSourceInstitution}
                 onChange={(event) =>
                   setQuestionSourceInstitution(event.target.value)
                 }
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 <option value="">Todas as instituições</option>
                 {Array.from(
@@ -2261,12 +2262,12 @@ export function AssessmentBuilder({
                       {item}
                     </option>
                   ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Filtrar por ano da prova"
                 value={questionSourceYear}
                 onChange={(event) => setQuestionSourceYear(event.target.value)}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 <option value="">Todos os anos</option>
                 {Array.from(
@@ -2282,28 +2283,28 @@ export function AssessmentBuilder({
                       {item}
                     </option>
                   ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Filtrar por dificuldade"
                 value={questionDifficulty}
                 onChange={(event) => setQuestionDifficulty(event.target.value)}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 <option value="">Todos os níveis</option>
                 <option value="Fácil">Fácil</option>
                 <option value="Média">Média</option>
                 <option value="Difícil">Difícil</option>
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Filtrar por texto-base"
                 value={questionSharedText}
                 onChange={(event) => setQuestionSharedText(event.target.value)}
-                className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                className="[&>select]:h-9 min-w-0 [&>select]:text-xs [&>select]:text-slate-700"
               >
                 <option value="">Com ou sem texto-base</option>
                 <option value="with">Com texto-base</option>
                 <option value="without">Sem texto-base</option>
-              </select>
+              </NativeSelect>
               {(questionTopic ||
                 questionSubtopic ||
                 questionSourceInstitution ||
@@ -2452,7 +2453,7 @@ export function AssessmentBuilder({
           </section>
           {step === 4 && (
             <section className="space-y-5">
-              <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 sm:p-6">
+              <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 sm:p-6">
                 <p className="text-sm font-semibold text-blue-700">
                   Etapa final antes da aplicação
                 </p>
@@ -2593,7 +2594,7 @@ export function AssessmentBuilder({
                           </Button>
                           <label>
                             Pontos{' '}
-                            <input
+                            <Input
                               aria-label={`Pontos da questão ${index + 1}`}
                               type="number"
                               min="0.01"
@@ -2671,7 +2672,7 @@ export function AssessmentBuilder({
           <section
             className={
               step === 1
-                ? 'mx-auto w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7'
+                ? 'mx-auto w-full max-w-5xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7'
                 : 'hidden'
             }
           >
@@ -2693,7 +2694,7 @@ export function AssessmentBuilder({
               <span className="block text-sm font-semibold text-blue-950">
                 Configurações favoritas
               </span>
-              <select
+              <NativeSelect
                 value={selectedPresetId}
                 onChange={(event) => {
                   const preset = presets.find(
@@ -2702,7 +2703,7 @@ export function AssessmentBuilder({
                   if (preset) applyPreset(preset);
                   else setSelectedPresetId('');
                 }}
-                className="mt-2 h-9 w-full rounded-lg border border-blue-200 bg-white px-3 text-sm"
+                className="mt-2 [&>select]:h-9 w-full [&>select]:text-sm"
               >
                 <option value="">Selecionar configuração...</option>
                 {presets.map((preset) => (
@@ -2710,7 +2711,7 @@ export function AssessmentBuilder({
                     {preset.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               <div className="mt-2 flex gap-2">
                 <Input
                   value={presetName}
@@ -2748,8 +2749,8 @@ export function AssessmentBuilder({
               <span className="mb-2 block text-sm font-semibold">
                 Escola cadastrada para o cabeçalho
               </span>
-              <select
-                className="mb-3 w-full rounded-lg border p-2"
+              <NativeSelect
+                className="mb-3 w-full [&>select]:h-10"
                 value={schoolId}
                 onChange={(event) => {
                   const id = event.target.value;
@@ -2770,7 +2771,7 @@ export function AssessmentBuilder({
                     {school.name} — {school.city}/{school.state}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label htmlFor="assessment-institution-name" className="mt-4 block">
               <span className="mb-2 block text-sm font-semibold">
@@ -2846,27 +2847,27 @@ export function AssessmentBuilder({
                 <span className="mb-2 block text-sm font-semibold">
                   Fonte do PDF
                 </span>
-                <select
+                <NativeSelect
                   id="assessment-pdf-font"
                   value={font}
                   onChange={(event) => setFont(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="[&>select]:h-10 w-full [&>select]:text-sm"
                 >
                   {fonts.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
               <label>
                 <span className="mb-2 block text-sm font-semibold">
                   Tamanho
                 </span>
-                <select
+                <NativeSelect
                   value={fontSize}
                   onChange={(event) => setFontSize(Number(event.target.value))}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="[&>select]:h-10 w-full [&>select]:text-sm"
                 >
                   {Array.from({ length: 7 }, (_, index) => index + 10).map(
                     (size) => (
@@ -2875,7 +2876,7 @@ export function AssessmentBuilder({
                       </option>
                     ),
                   )}
-                </select>
+                </NativeSelect>
               </label>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -2936,38 +2937,38 @@ export function AssessmentBuilder({
                 <span className="mb-2 block text-sm font-semibold">
                   Versões
                 </span>
-                <select
+                <NativeSelect
                   value={versions}
                   onChange={(event) => setVersions(Number(event.target.value))}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="[&>select]:h-10 w-full [&>select]:text-sm"
                 >
                   <option value="1">A</option>
                   <option value="2">A e B</option>
                   <option value="3">A, B e C</option>
                   <option value="4">A até D</option>
-                </select>
+                </NativeSelect>
               </label>
               <label>
                 <span className="mb-2 block text-sm font-semibold">Papel</span>
-                <select
+                <NativeSelect
                   value={paper}
                   onChange={(event) =>
                     setPaper(event.target.value as 'A4' | 'A5')
                   }
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="[&>select]:h-10 w-full [&>select]:text-sm"
                 >
                   <option value="A4">A4</option>
                   <option value="A5" disabled={isCompactTemplate(template)}>
                     A5
                   </option>
-                </select>
+                </NativeSelect>
               </label>
             </div>
             <label className="mt-4 block">
               <span className="mb-2 block text-sm font-semibold">
                 Layout de impressão
               </span>
-              <select
+              <NativeSelect
                 value={template}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -2998,14 +2999,14 @@ export function AssessmentBuilder({
                   );
                   setTemplate(next);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                className="[&>select]:h-10 w-full [&>select]:text-sm"
               >
                 {templates.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label} · v{item.version}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               <p className="mt-2 text-xs leading-5 text-slate-500">
                 {templates.find((item) => item.id === template)?.description}
               </p>
@@ -3271,7 +3272,7 @@ export function AssessmentBuilder({
             </div>
           </section>
           {step === 4 && generated && (
-            <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-5">
+            <section className="rounded-xl border border-blue-200 bg-blue-50/70 p-5">
               <div className="flex items-center gap-2 text-blue-900">
                 {generatedVersions.some(
                   (version) =>

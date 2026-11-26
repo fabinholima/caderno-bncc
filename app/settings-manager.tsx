@@ -11,6 +11,7 @@ import { GoogleAccountLink } from './google-account-link';
 import { MaintenanceManager } from './maintenance-manager';
 import { PortalEditorManager } from './portal-editor-manager';
 import { SubscriptionAdmin } from './subscription-admin';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type Subscription = {
   name: string;
@@ -188,7 +189,7 @@ export function SettingsManager({
       )}
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         {canEditCatalog && (
-          <section className="rounded-2xl border bg-white p-5 lg:col-span-2">
+          <section className="rounded-xl border bg-white p-5 lg:col-span-2">
             <h2 className="font-display text-xl font-bold">
               Objetos e subtópicos BNCC
             </h2>
@@ -270,7 +271,7 @@ export function SettingsManager({
             )}
           </section>
         )}
-        <section className="rounded-2xl border bg-white p-5">
+        <section className="rounded-xl border bg-white p-5">
           <div className="flex items-center gap-2">
             <CreditCard className="text-blue-600" />
             <h2 className="font-display text-xl font-bold">Plano e consumo</h2>
@@ -303,7 +304,7 @@ export function SettingsManager({
             <p className="mt-4 text-sm text-slate-500">Carregando plano...</p>
           )}
         </section>
-        <section className="rounded-2xl border bg-white p-5">
+        <section className="rounded-xl border bg-white p-5">
           <div className="flex items-center gap-2">
             <UserPlus className="text-blue-600" />
             <h2 className="font-display text-xl font-bold">
@@ -318,16 +319,16 @@ export function SettingsManager({
                 required
                 placeholder="professor@escola.com"
               />
-              <select
+              <NativeSelect
                 name="role"
-                className="h-10 w-full rounded-lg border bg-white px-3 text-sm"
+                className="[&>select]:h-10 w-full [&>select]:text-sm"
               >
                 <option value="teacher">Professor</option>
                 <option value="coordinator">Coordenador</option>
                 {role === 'admin' && (
                   <option value="admin">Administrador</option>
                 )}
-              </select>
+              </NativeSelect>
               <Button type="submit" className="w-full">
                 Criar convite
               </Button>
@@ -340,7 +341,7 @@ export function SettingsManager({
           )}
         </section>
       </div>
-      <section className="mt-5 rounded-2xl border bg-white p-5">
+      <section className="mt-5 rounded-xl border bg-white p-5">
         <div className="flex items-center gap-2">
           <ShieldCheck className="text-emerald-600" />
           <h2 className="font-display text-xl font-bold">Segurança</h2>

@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api-client';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 export type DraftPayload = {
   input: Record<string, unknown>;
   editor: Record<string, unknown>;
@@ -300,11 +301,11 @@ export function QuestionDraftControls({
       >
         Atualizar rascunhos
       </Button>
-      <select
+      <NativeSelect
         aria-label="Rascunhos salvos"
         value={selected}
         onChange={(e) => setSelected(e.target.value)}
-        className="max-w-xs rounded-lg border p-2 text-xs"
+        className="max-w-xs [&>select]:text-xs [&>select]:h-10"
       >
         <option value="">Retomar rascunho…</option>
         {drafts.map((d) => (
@@ -313,7 +314,7 @@ export function QuestionDraftControls({
             {new Date(d.updated_at).toLocaleString('pt-BR')}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       <Button
         type="button"
         variant="outline"

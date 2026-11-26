@@ -33,6 +33,7 @@ import {
 } from '@/lib/essay-status';
 import { prepareEssayFile } from '@/lib/essay-upload';
 import { EssayScanUpload } from '@/app/essay-scans';
+import { NativeSelect } from '@/components/ui/native-select';
 
 // ---------- Tipos ----------
 
@@ -421,7 +422,7 @@ export function EssayGradingQueue({
         title="Corrigir redações"
         description="Produções recebidas das suas turmas. Abra uma redação para corrigir por competência; a sugestão da IA (quando ligada) aparece ao lado e só vale depois da sua revisão."
       />
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
         <Upload className="size-5 shrink-0" />
         <p className="min-w-0 flex-1">
           <strong>Redações em papel:</strong>{' '}
@@ -503,12 +504,12 @@ export function EssayGradingQueue({
       {loading && !data ? (
         <p className="text-sm text-slate-500">Carregando…</p>
       ) : !data?.items.length ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
           Nenhuma produção encontrada com esses filtros.
         </div>
       ) : (
         <>
-          <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
             {data.items.map((item) => (
               <li key={item.id}>
                 <button
@@ -744,10 +745,7 @@ function EssayArea({
   return (
     <div>
       {handwritten && (
-        <div
-          role="tablist"
-          className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-1 text-sm"
-        >
+        <div role="tablist" className="tab-list mb-3">
           {(
             [
               ['original', 'Original'],
@@ -760,7 +758,7 @@ function EssayArea({
               aria-selected={tab === value}
               type="button"
               onClick={() => setTab(value)}
-              className={`flex-1 rounded-md px-3 py-1.5 font-semibold ${tab === value ? 'bg-white text-[var(--navy)] shadow-sm' : 'text-slate-500'}`}
+              className="tab flex-1"
             >
               {label}
             </button>
@@ -1119,7 +1117,7 @@ function CriterionCard({
   return (
     <section
       aria-labelledby={`criterion-${criterion.id}`}
-      className="rounded-2xl border border-slate-200 bg-white p-4"
+      className="rounded-xl border border-slate-200 bg-white p-4"
     >
       <header className="flex items-start gap-3">
         <span className="font-display flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--navy)] text-sm font-bold text-white">
@@ -1235,8 +1233,8 @@ function CriterionCard({
                   className="flex items-center gap-2 text-xs"
                 >
                   <span className="font-semibold">{observation.label}</span>
-                  <select
-                    className="h-7 rounded-md border border-slate-200 bg-white px-1 text-xs"
+                  <NativeSelect
+                    className="[&>select]:h-7 [&>select]:text-xs"
                     value={String(score.observations[observation.id] || '')}
                     onChange={(event) => {
                       const observations = { ...score.observations };
@@ -1252,7 +1250,7 @@ function CriterionCard({
                         {option.label}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </label>
               ) : (
                 <label
@@ -1520,7 +1518,7 @@ export function EssayGradingScreen({
       <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-12">
         {/* Área A — redação do aluno */}
         <section aria-label="Redação do aluno" className="2xl:col-span-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:sticky lg:top-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 lg:sticky lg:top-4">
             <EssayArea
               key={`${entry.submission?.id}-${entry.transcriptions[0]?.id}`}
               apiUrl={apiUrl}
@@ -1533,7 +1531,7 @@ export function EssayGradingScreen({
         {/* Área B — competências */}
         <section aria-label="Competências" className="space-y-3 2xl:col-span-4">
           {received && entry.aiAvailable && (
-            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3 text-xs text-violet-950">
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs text-violet-950">
               {ai ? (
                 <>
                   <p className="flex items-center gap-1 font-semibold">
@@ -1626,7 +1624,7 @@ export function EssayGradingScreen({
           aria-label="Resumo da correção"
           className="lg:col-span-2 2xl:col-span-3"
         >
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 2xl:sticky 2xl:top-4">
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 2xl:sticky 2xl:top-4">
             <div>
               <p className="text-xs font-semibold text-slate-500">Nota total</p>
               <p className="font-display text-4xl font-bold text-[var(--navy)]">
@@ -2054,7 +2052,7 @@ export function EssayDashboard({
             {cards.map(([label, value, tone]) => (
               <div
                 key={label}
-                className="rounded-2xl border border-slate-200 bg-white p-4"
+                className="rounded-xl border border-slate-200 bg-white p-4"
               >
                 <p className="text-xs font-semibold text-slate-500">{label}</p>
                 <p className={`font-display mt-1 text-3xl font-bold ${tone}`}>
@@ -2064,7 +2062,7 @@ export function EssayDashboard({
             ))}
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <section className="rounded-xl border border-slate-200 bg-white p-4">
               <h2 className="text-sm font-semibold text-[var(--navy)]">
                 Situação das produções
               </h2>
@@ -2100,7 +2098,7 @@ export function EssayDashboard({
                 Abrir fila de correção
               </Button>
             </section>
-            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <section className="rounded-xl border border-slate-200 bg-white p-4">
               <h2 className="text-sm font-semibold text-[var(--navy)]">
                 Média por competência (publicadas)
               </h2>

@@ -17,6 +17,7 @@ import { formString } from '@/lib/form-data';
 import type { ApiBody } from './model';
 import { YearClosingWizard, type ClosingTarget } from './year-closing-wizard';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type AcademicYear = {
   id: string;
@@ -229,7 +230,7 @@ export function AcademicYearsPanel({
       )}
       {canManage ? (
         <form
-          className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-[140px_1fr_1fr_auto] sm:items-end"
+          className="grid gap-3 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-[140px_1fr_1fr_auto] sm:items-end"
           onSubmit={(event) => {
             event.preventDefault();
             void create(event.currentTarget);
@@ -310,13 +311,13 @@ export function AcademicYearsPanel({
             className="grid gap-1 text-sm font-medium"
           >
             Situação
-            <select
+            <NativeSelect
               id="years-filter-status"
               value={statusFilter}
               onChange={(event) =>
                 setStatusFilter(event.target.value as typeof statusFilter)
               }
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+              className="[&>select]:h-9 [&>select]:text-sm"
             >
               <option value="">Todas</option>
               {Object.entries(statusLabel).map(([value, [text]]) => (
@@ -324,7 +325,7 @@ export function AcademicYearsPanel({
                   {text}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           {(yearFilter || statusFilter) && (
             <Button
@@ -367,7 +368,7 @@ export function AcademicYearsPanel({
           return (
             <article
               key={item.id}
-              className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+              className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">

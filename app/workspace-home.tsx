@@ -461,7 +461,7 @@ export function WorkspaceHome({
       ) : null}
 
       {recovery ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
           <h2 className="font-display text-xl font-bold text-[var(--navy)]">
             Organize a recuperação da turma
           </h2>
@@ -542,7 +542,7 @@ export function WorkspaceHome({
           {onboarding ? (
             <section
               aria-labelledby="home-first-steps"
-              className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+              className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2
@@ -608,7 +608,7 @@ export function WorkspaceHome({
                     type="button"
                     key={label}
                     onClick={() => onNavigate(target)}
-                    className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-sm sm:p-5"
+                    className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-sm sm:p-5"
                   >
                     <p className="flex items-center gap-2 text-sm text-slate-600">
                       <Icon
@@ -634,7 +634,7 @@ export function WorkspaceHome({
               <div className="min-w-0 space-y-5">
                 <section
                   aria-labelledby="home-applications"
-                  className="rounded-2xl border border-slate-200 bg-white"
+                  className="rounded-xl border border-slate-200 bg-white"
                 >
                   <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
                     <h2
@@ -721,7 +721,7 @@ export function WorkspaceHome({
 
                 <section
                   aria-labelledby="home-assessments"
-                  className="rounded-2xl border border-slate-200 bg-white"
+                  className="rounded-xl border border-slate-200 bg-white"
                 >
                   <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
                     <h2
@@ -863,7 +863,7 @@ export function WorkspaceHome({
                 {!onboarding && (
                   <section
                     aria-labelledby="home-next"
-                    className="rounded-2xl bg-[var(--navy)] p-5 text-white sm:p-6"
+                    className="rounded-xl bg-[var(--navy)] p-5 text-white sm:p-6"
                   >
                     <p className="flex items-center gap-2 text-sm font-semibold text-[var(--lime)]">
                       <ChartNoAxesCombined
@@ -894,7 +894,7 @@ export function WorkspaceHome({
 
                 <section
                   aria-labelledby="home-questions"
-                  className="rounded-2xl border border-slate-200 bg-white"
+                  className="rounded-xl border border-slate-200 bg-white"
                 >
                   <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
                     <h2

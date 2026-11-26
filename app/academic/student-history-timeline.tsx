@@ -86,7 +86,7 @@ export function StudentHistoryTimeline({
               aria-hidden="true"
               className="absolute -left-[29px] top-4 grid size-4 place-items-center rounded-full border-2 border-white bg-blue-600"
             />
-            <article className="rounded-2xl border border-slate-200 bg-white p-4">
+            <article className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="font-display text-lg font-bold text-[var(--navy)]">
                   {entry.year} · {entry.gradeLevel}
@@ -107,7 +107,9 @@ export function StudentHistoryTimeline({
               </p>
               <p className="text-xs text-slate-500">
                 Entrada em {formatDate(entry.entryDate)}
-                {entry.exitDate ? ` · saída em ${formatDate(entry.exitDate)}` : ''}
+                {entry.exitDate
+                  ? ` · saída em ${formatDate(entry.exitDate)}`
+                  : ''}
               </p>
               {entry.assessments.length ? (
                 <>
@@ -130,7 +132,9 @@ export function StudentHistoryTimeline({
                           </span>
                           <span className="text-xs text-slate-500">
                             {item.subject}
-                            {staffView && item.percent != null && !item.published
+                            {staffView &&
+                            item.percent != null &&
+                            !item.published
                               ? ' · nota não publicada'
                               : ''}
                           </span>
@@ -208,7 +212,10 @@ export function StudentHistoryDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <GraduationCap className="size-5 text-blue-600" aria-hidden="true" />
+            <GraduationCap
+              className="size-5 text-blue-600"
+              aria-hidden="true"
+            />
             Histórico acadêmico · {student?.name}
           </DialogTitle>
           <DialogDescription>
@@ -222,7 +229,10 @@ export function StudentHistoryDialog({
             Carregando histórico…
           </p>
         ) : current.error ? (
-          <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">
+          <p
+            role="alert"
+            className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800"
+          >
             {current.error}
           </p>
         ) : (

@@ -70,6 +70,7 @@ import {
   Select,
 } from './academic/report-tables';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export function AcademicManager({
   apiUrl,
@@ -896,7 +897,7 @@ export function AcademicManager({
   const studentReportPanel = studentReport ? (
     <section
       id="student-report"
-      className="scroll-mt-24 rounded-2xl border border-emerald-200 bg-white p-5"
+      className="scroll-mt-24 rounded-xl border border-emerald-200 bg-white p-5"
     >
       <div className="flex flex-wrap items-center gap-3">
         <StudentPhoto
@@ -1091,7 +1092,7 @@ export function AcademicManager({
         <div
           aria-label="Seções da gestão acadêmica"
           role="tablist"
-          className="-mx-5 mt-6 flex overflow-x-auto border-b border-slate-200 px-5 sm:mx-0 sm:px-0"
+          className="tab-list -mx-5 mt-6 px-5 sm:mx-0 sm:px-0"
         >
           {panelNavigation.map((item) => (
             <button
@@ -1100,7 +1101,7 @@ export function AcademicManager({
               role="tab"
               aria-selected={activePanel === item.id}
               onClick={() => setActivePanel(item.id)}
-              className={`-mb-px flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 text-sm font-semibold transition ${activePanel === item.id ? 'border-[var(--navy)] text-[var(--navy)]' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
+              className="tab"
             >
               <span
                 aria-hidden="true"
@@ -1125,7 +1126,7 @@ export function AcademicManager({
         />
       )}
       {activePanel === 'applications' && (
-        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+        <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5">
           <div className="flex items-center gap-2">
             <CalendarCheck className="size-5 text-blue-600" />
             <h2 className="font-display text-xl font-bold">
@@ -1167,7 +1168,7 @@ export function AcademicManager({
         </section>
       )}
       {activePanel === 'applications' && lastAssignments.length > 0 && (
-        <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <section className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
           <h2 className="font-display text-lg font-bold text-emerald-900">
             Distribuição criada
           </h2>
@@ -1194,7 +1195,7 @@ export function AcademicManager({
       {activePanel === 'applications' && (
         <section
           id="academic-applications-print"
-          className="mt-5 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+          className="mt-5 scroll-mt-24 overflow-hidden rounded-xl border border-slate-200 bg-white"
         >
           <header className="border-b p-4 font-semibold">
             Aplicações e PDFs individuais
@@ -1285,7 +1286,7 @@ export function AcademicManager({
         </section>
       )}
       {activePanel === 'applications' && applicationDetail && (
-        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+        <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-bold">
@@ -1396,7 +1397,7 @@ export function AcademicManager({
         <div
           role="tablist"
           aria-label="Tipo de diagnóstico"
-          className="mt-6 inline-flex rounded-xl border border-slate-200 bg-white p-1"
+          className="tab-list mt-6"
         >
           {(
             [
@@ -1410,7 +1411,7 @@ export function AcademicManager({
               role="tab"
               aria-selected={resultsView === id}
               onClick={() => setResultsView(id)}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${resultsView === id ? 'bg-[var(--navy)] text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              className="tab"
             >
               {label}
             </button>
@@ -1421,7 +1422,7 @@ export function AcademicManager({
         <section
           id="academic-applications"
           aria-labelledby="results-applications-title"
-          className="mt-4 scroll-mt-24 rounded-2xl border border-slate-200 bg-white"
+          className="mt-4 scroll-mt-24 rounded-xl border border-slate-200 bg-white"
         >
           <div className="flex flex-wrap items-end justify-between gap-3 p-5 pb-3">
             <div>
@@ -1438,11 +1439,11 @@ export function AcademicManager({
             <div className="flex flex-wrap items-end gap-2">
               <label className="text-sm font-medium" htmlFor="results-class">
                 Turma
-                <select
+                <NativeSelect
                   id="results-class"
                   value={resultsClassId}
                   onChange={(event) => setResultsClassId(event.target.value)}
-                  className="mt-1 block h-10 min-w-44 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="mt-1 block [&>select]:h-10 min-w-44 [&>select]:text-sm"
                 >
                   <option value="">Todas as turmas</option>
                   {classes.map((item) => (
@@ -1450,7 +1451,7 @@ export function AcademicManager({
                       {item.name}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
               {!standalone && (
                 <Button
@@ -1671,7 +1672,7 @@ export function AcademicManager({
             <section
               id="academic-report"
               aria-labelledby="academic-report-title"
-              className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white"
+              className="mt-5 scroll-mt-24 rounded-xl border border-slate-200 bg-white"
             >
               <div className="flex flex-wrap items-start gap-3 border-b border-slate-100 p-5">
                 <BarChart3
@@ -1821,7 +1822,7 @@ export function AcademicManager({
                 <div
                   role="tablist"
                   aria-label="Seções do relatório"
-                  className="mx-5 flex gap-1 overflow-x-auto border-b border-slate-200"
+                  className="tab-list mx-5"
                 >
                   {tabs.map(([id, label]) => (
                     <button
@@ -1832,7 +1833,7 @@ export function AcademicManager({
                       aria-selected={tab === id}
                       aria-controls={`report-panel-${id}`}
                       onClick={() => setReportTab(id)}
-                      className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-semibold transition ${tab === id ? 'border-[var(--navy)] text-[var(--navy)]' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                      className="tab"
                     >
                       {label}
                     </button>
@@ -2058,7 +2059,7 @@ export function AcademicManager({
       {activePanel === 'results' && resultsView === 'student' && (
         <section
           aria-labelledby="student-progress-title"
-          className="mt-4 rounded-2xl border border-slate-200 bg-white p-5"
+          className="mt-4 rounded-xl border border-slate-200 bg-white p-5"
         >
           <div className="flex items-center gap-2">
             <BarChart3 aria-hidden="true" className="size-5 text-blue-700" />
@@ -2090,7 +2091,7 @@ export function AcademicManager({
               htmlFor="progress-class"
             >
               Turma
-              <select
+              <NativeSelect
                 id="progress-class"
                 value={progressClassId}
                 onChange={(event) => {
@@ -2116,7 +2117,7 @@ export function AcademicManager({
                         ),
                       );
                 }}
-                className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                className="mt-1 block [&>select]:h-10 w-full [&>select]:text-sm"
               >
                 <option value="">Todas as turmas</option>
                 {classes.map((item) => (
@@ -2124,7 +2125,7 @@ export function AcademicManager({
                     {item.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <div className="min-w-0 flex-1">
               <Select
@@ -2263,7 +2264,7 @@ export function AcademicManager({
       {activePanel === 'correction' && (
         <section
           id="academic-correction"
-          className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5"
+          className="mt-5 scroll-mt-24 rounded-xl border border-slate-200 bg-white p-5"
         >
           <h2 className="font-display text-xl font-bold">
             Corrigir cartão-resposta
@@ -2373,7 +2374,7 @@ export function AcademicManager({
           <div
             role="tablist"
             aria-label="Fila de cartões"
-            className="mt-5 flex flex-wrap gap-2 border-b border-slate-200"
+            className="tab-list mt-5"
           >
             {(
               [
@@ -2392,7 +2393,7 @@ export function AcademicManager({
                   role="tab"
                   aria-selected={scanTab === tab}
                   onClick={() => setScanTab(tab)}
-                  className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${scanTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                  className="tab"
                 >
                   {label}
                   <span
@@ -2561,7 +2562,7 @@ export function AcademicManager({
       {activePanel === 'correction' && scanReview && (
         <section
           id="scan-review"
-          className="mt-5 scroll-mt-24 rounded-2xl border border-amber-200 bg-amber-50/40 p-5"
+          className="mt-5 scroll-mt-24 rounded-xl border border-amber-200 bg-amber-50/40 p-5"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -2692,8 +2693,8 @@ export function AcademicManager({
             <div>
               <label className="text-sm font-semibold">
                 Aluno e versão
-                <select
-                  className="mt-2 h-11 w-full rounded-lg border border-slate-200 bg-white px-3"
+                <NativeSelect
+                  className="mt-2 [&>select]:h-11 w-full"
                   value={reviewCandidateId}
                   onChange={(event) => {
                     setReviewCandidateId(event.target.value);
@@ -2708,7 +2709,7 @@ export function AcademicManager({
                       {candidate.versionCode}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
               {scanReview.error && (
                 <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
@@ -2863,7 +2864,7 @@ export function AcademicManager({
               className="block text-sm font-medium text-slate-700"
             >
               Escola
-              <select
+              <NativeSelect
                 id="new-class-school"
                 name="schoolId"
                 required
@@ -2875,7 +2876,7 @@ export function AcademicManager({
                   teacherSchools?.map((school) => school.id).join() ??
                   'carregando'
                 }
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                className="mt-1 [&>select]:h-10 w-full [&>select]:text-sm"
               >
                 {teacherSchools === null ? (
                   <option value="">Carregando escolas…</option>
@@ -2893,7 +2894,7 @@ export function AcademicManager({
                     ))}
                   </>
                 )}
-              </select>
+              </NativeSelect>
             </label>
             {teacherSchools?.length === 0 && (
               <p className="rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">
@@ -2970,7 +2971,7 @@ export function AcademicManager({
         </DialogContent>
       </Dialog>
       {activePanel === 'classes' && (
-        <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <section className="mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white">
           <header className="border-b p-4 font-semibold">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -2990,11 +2991,11 @@ export function AcademicManager({
                   onChange={(event) => setClassSearch(event.target.value)}
                   className="h-9 w-52"
                 />
-                <select
+                <NativeSelect
                   aria-label="Filtrar por etapa"
                   value={classGradeFilter}
                   onChange={(event) => setClassGradeFilter(event.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="[&>select]:h-9 [&>select]:text-sm"
                 >
                   <option value="">Todas as etapas</option>
                   {Array.from(new Set(classes.map((item) => item.grade)))
@@ -3004,12 +3005,12 @@ export function AcademicManager({
                         {grade}
                       </option>
                     ))}
-                </select>
-                <select
+                </NativeSelect>
+                <NativeSelect
                   aria-label="Filtrar por ano letivo"
                   value={classYearFilter}
                   onChange={(event) => setClassYearFilter(event.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  className="[&>select]:h-9 [&>select]:text-sm"
                 >
                   <option value="">Todos os anos</option>
                   {Array.from(new Set(classes.map((item) => item.schoolYear)))
@@ -3019,7 +3020,7 @@ export function AcademicManager({
                         {year}
                       </option>
                     ))}
-                </select>
+                </NativeSelect>
               </div>
             </div>
           </header>

@@ -52,5 +52,14 @@
     "typescript/no-require-imports": "error",
     "typescript/no-unnecessary-type-constraint": "error",
     "typescript/no-unsafe-function-type": "error"
+  },
+  "settings": {
+    "jsx-a11y": {
+      "components": {
+        "Input": "input",
+        "NativeSelect": "select",
+        "Textarea": "textarea"
+      }
+    }
   }
 }

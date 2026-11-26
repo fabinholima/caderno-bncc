@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { notify } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const inviteKey = 'ufaprova:convite';
 
@@ -147,18 +148,18 @@ export function InstitutionSwitcher({
     }
   }
   return (
-    <select
+    <NativeSelect
       aria-label="Instituição ativa"
       value={current.id}
       disabled={busy}
       onChange={(event) => change(event.target.value)}
-      className="max-w-[220px] truncate rounded-md border border-slate-200 bg-white py-0.5 text-xs font-semibold"
+      className="max-w-[220px] [&>select]:text-xs [&>select]:font-semibold [&>select]:h-10"
     >
       {institutions.map((institution) => (
         <option key={institution.id} value={institution.id}>
           {institution.name}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }

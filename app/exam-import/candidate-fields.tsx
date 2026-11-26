@@ -10,6 +10,7 @@ import {
   type PedagogicalDiscipline,
   type PedagogicalTopic,
 } from './model';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export function SelectField({
   name,
@@ -27,20 +28,20 @@ export function SelectField({
   return (
     <label className={fieldLabel}>
       {label}
-      <select
+      <NativeSelect
         name={name}
         value={value}
         onChange={
           onChange ? (event) => onChange(event.target.value) : undefined
         }
-        className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-normal text-slate-900"
+        className="[&>select]:h-9 w-full [&>select]:text-sm [&>select]:font-normal [&>select]:text-slate-900"
       >
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>
             {optionLabel}
           </option>
         ))}
-      </select>
+      </NativeSelect>
     </label>
   );
 }

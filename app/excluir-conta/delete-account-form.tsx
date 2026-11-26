@@ -2,6 +2,7 @@
 /* oxlint-disable next/no-html-link-for-pages -- No app publicado (vinext), o <Link> do Next não navega: o clique fica na mesma página ("RSC prefetch setup error"). Use <a> com navegação completa. */
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { Input } from '@/components/ui/input';
 
 type Me = { user?: { displayName?: string; email?: string | null } };
 type State = 'loading' | 'signed-out' | 'ready' | 'deleted';
@@ -64,7 +65,7 @@ export function DeleteAccountForm() {
     return <p className="text-slate-500">Verificando sua sessão…</p>;
   if (state === 'deleted')
     return (
-      <p className="rounded-2xl bg-green-50 p-4 font-semibold text-green-800">
+      <p className="rounded-xl bg-green-50 p-4 font-semibold text-green-800">
         Sua conta foi excluída e você saiu de todos os aparelhos.
       </p>
     );
@@ -107,7 +108,7 @@ export function DeleteAccountForm() {
       </p>
       <label className="block">
         <span className="text-sm font-semibold">Senha atual</span>
-        <input
+        <Input
           type="password"
           autoComplete="current-password"
           value={password}
@@ -120,7 +121,7 @@ export function DeleteAccountForm() {
         <span className="text-sm font-semibold">
           Digite EXCLUIR para confirmar
         </span>
-        <input
+        <Input
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           autoCapitalize="characters"
@@ -135,7 +136,7 @@ export function DeleteAccountForm() {
       <button
         type="submit"
         disabled={!ready}
-        className="rounded-xl bg-red-700 px-5 py-3 font-semibold text-white disabled:opacity-50"
+        className="rounded-lg bg-red-700 px-5 py-3 font-semibold text-white disabled:opacity-50"
       >
         {busy ? 'Excluindo…' : 'Excluir conta definitivamente'}
       </button>

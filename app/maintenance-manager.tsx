@@ -66,7 +66,7 @@ export function MaintenanceManager({ apiUrl }: { apiUrl: string }) {
     }
   }
   return (
-    <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+    <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-6">
       <h2 className="text-xl font-semibold text-slate-900">
         Manutenção do portal
       </h2>

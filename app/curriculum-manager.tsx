@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export type CurriculumOption = {
   skill_years?: number[] | null;
@@ -767,7 +768,7 @@ export function CurriculumManager({
         {metrics.map(({ value, label, icon: Icon }) => (
           <article
             key={label}
-            className="rounded-2xl border border-slate-200 bg-white p-5"
+            className="rounded-xl border border-slate-200 bg-white p-5"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -783,7 +784,7 @@ export function CurriculumManager({
           </article>
         ))}
       </div>
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-bold text-[var(--navy)]">
@@ -888,7 +889,7 @@ export function CurriculumManager({
         </div>
       </section>
       {educationStage === 'Ensino Médio' && highSchool.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
+        <section className="mt-6 rounded-xl border border-violet-200 bg-violet-50/40 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="font-display text-xl font-bold text-[var(--navy)]">
@@ -1034,7 +1035,7 @@ export function CurriculumManager({
         pedagogicalDisciplines.length > 0 && (
           <section
             id="catalogo-pedagogico"
-            className="mt-6 scroll-mt-4 rounded-2xl border border-blue-200 bg-white p-5"
+            className="mt-6 scroll-mt-4 rounded-xl border border-blue-200 bg-white p-5"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -1086,13 +1087,13 @@ export function CurriculumManager({
                   className="h-fit space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4"
                 >
                   <Field label="Disciplina">
-                    <select
+                    <NativeSelect
                       value={catalogDisciplineId}
                       onChange={(event) => {
                         setCatalogDisciplineId(event.target.value);
                         setCatalogParentId('');
                       }}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      className="[&>select]:h-10 w-full [&>select]:text-sm"
                     >
                       {pedagogicalDisciplines
                         .filter(
@@ -1103,29 +1104,29 @@ export function CurriculumManager({
                             {discipline.name}
                           </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                   </Field>
                   <Field label="Série">
-                    <select
+                    <NativeSelect
                       value={catalogGrade}
                       onChange={(event) => {
                         setCatalogGrade(event.target.value);
                         setCatalogParentId('');
                       }}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      className="[&>select]:h-10 w-full [&>select]:text-sm"
                     >
                       <option>1ª série</option>
                       <option>2ª série</option>
                       <option>3ª série</option>
-                    </select>
+                    </NativeSelect>
                   </Field>
                   <Field label="Nível superior">
-                    <select
+                    <NativeSelect
                       value={catalogParentId}
                       onChange={(event) =>
                         setCatalogParentId(event.target.value)
                       }
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      className="[&>select]:h-10 w-full [&>select]:text-sm"
                     >
                       <option value="">Nenhum — criar tópico</option>
                       {pedagogicalTopics
@@ -1142,7 +1143,7 @@ export function CurriculumManager({
                             {topic.path}
                           </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                   </Field>
                   <Field
                     label={
@@ -1324,7 +1325,7 @@ export function CurriculumManager({
           </section>
         )}
       {educationStage === 'Ensino Fundamental' && (
-        <section className="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-5">
+        <section className="mt-6 rounded-xl border border-cyan-200 bg-cyan-50/40 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-bold text-[var(--navy)]">
@@ -1357,20 +1358,20 @@ export function CurriculumManager({
                 >
                   Matriz e ano escolar
                 </label>
-                <select
+                <NativeSelect
                   id="saeb-matrix"
                   value={selectedSaebMatrix}
                   onChange={(event) =>
                     setSelectedSaebMatrix(event.target.value)
                   }
-                  className="mt-2 h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                  className="mt-2 [&>select]:h-10 w-full [&>select]:text-sm"
                 >
                   {saebMatrices.map((matrix) => (
                     <option key={matrix.id} value={matrix.id}>
                       {matrix.subject} · {matrix.grade_range}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 {saebMatrices.find(
                   (item) => item.id === selectedSaebMatrix,
                 ) && (
@@ -1434,7 +1435,7 @@ export function CurriculumManager({
         </section>
       )}
       <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_430px]">
-        <section className="h-fit overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <section className="h-fit overflow-hidden rounded-xl border border-slate-200 bg-white">
           <header
             className={`flex flex-wrap items-start justify-between gap-3 p-5 ${openSections.map ? 'border-b border-slate-200' : ''}`}
           >
@@ -1525,7 +1526,7 @@ export function CurriculumManager({
             </div>
           </div>
         </section>
-        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5">
+        <aside className="h-fit rounded-xl border border-slate-200 bg-white p-5">
           <div>
             <h2 className="font-display text-xl font-bold text-[var(--navy)]">
               Adicionar classificação
@@ -1563,30 +1564,30 @@ export function CurriculumManager({
                   <Input required name="name" placeholder="Ex.: Química" />
                 </Field>
                 <Field label="Etapa">
-                  <select
+                  <NativeSelect
                     required
                     name="stage"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    className="[&>select]:h-10 w-full [&>select]:text-sm"
                   >
                     <option>{educationStage}</option>
-                  </select>
+                  </NativeSelect>
                 </Field>
               </>
             )}
             {mode === 'object' && (
               <>
                 <Field label="Disciplina">
-                  <select
+                  <NativeSelect
                     required
                     name="subjectId"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    className="[&>select]:h-10 w-full [&>select]:text-sm"
                   >
                     {subjects.map((item) => (
                       <option key={item.subject_id} value={item.subject_id}>
                         {item.subject} — {item.stage}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </Field>
                 <Field label="Objeto de conhecimento">
                   <Input
@@ -1614,10 +1615,10 @@ export function CurriculumManager({
             {mode === 'skill' && (
               <>
                 <Field label="Objeto de conhecimento">
-                  <select
+                  <NativeSelect
                     required
                     name="knowledgeObjectId"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    className="[&>select]:h-10 w-full [&>select]:text-sm"
                   >
                     {objects.map((item) => (
                       <option
@@ -1627,7 +1628,7 @@ export function CurriculumManager({
                         {item.subject} · {item.knowledge_object}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </Field>
                 <Field label="Código BNCC">
                   <Input

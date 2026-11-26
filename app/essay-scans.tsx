@@ -433,7 +433,7 @@ export function EssayScanUpload({
                 setDragging(false);
                 void upload(event.dataTransfer.files);
               }}
-              className={`rounded-2xl border-2 border-dashed p-6 text-center ${dragging ? 'border-[var(--orange)] bg-orange-50' : 'border-slate-300 bg-white'}`}
+              className={`rounded-xl border-2 border-dashed p-6 text-center ${dragging ? 'border-[var(--orange)] bg-orange-50' : 'border-slate-300 bg-white'}`}
             >
               <QrCode className="mx-auto size-8 text-slate-400" />
               <p className="mt-2 font-semibold text-[var(--navy)]">
@@ -485,7 +485,7 @@ export function EssayScanUpload({
           )}
 
           {ready.length > 0 && (
-            <section className="rounded-2xl border border-emerald-200 bg-white p-4">
+            <section className="rounded-xl border border-emerald-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-display text-lg font-bold text-[var(--navy)]">
                   Prontas para registrar
@@ -561,7 +561,7 @@ export function EssayScanUpload({
           )}
 
           {attached.length > 0 && (
-            <details className="rounded-2xl border border-slate-200 bg-white p-4">
+            <details className="rounded-xl border border-slate-200 bg-white p-4">
               <summary className="cursor-pointer text-sm font-semibold text-[var(--navy)]">
                 Páginas identificadas ({attached.length})
               </summary>

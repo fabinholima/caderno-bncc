@@ -55,3 +55,10 @@ html[data-font-scale="2"] { font-size: 125%; }
 .page-title { font-family: var(--font-geist-sans), Arial, sans-serif; font-size: 1.875rem; line-height: 1.15; font-weight: 700; letter-spacing: -.025em; color: var(--navy); }
 @media (min-width: 640px) { .page-title { font-size: 2.25rem; } }
 html.dark .page-title { color: var(--color-slate-950); }
+
+/* Abas: um só desenho (sublinhado) em todas as telas. */
+.tab-list { display: flex; gap: .25rem; overflow-x: auto; border-bottom: 1px solid var(--color-slate-200); scrollbar-width: thin; }
+.tab { margin-bottom: -1px; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: 0 1rem; white-space: nowrap; border-bottom: 2px solid transparent; font-size: .875rem; font-weight: 600; color: var(--color-slate-600); transition: color .15s, border-color .15s; }
+.tab:hover { color: var(--color-slate-900); border-bottom-color: var(--color-slate-300); }
+.tab[aria-selected="true"] { color: var(--navy); border-bottom-color: var(--navy); }
+html.dark .tab[aria-selected="true"] { color: var(--color-slate-950); border-bottom-color: var(--lime); }

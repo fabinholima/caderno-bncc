@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { PrintSheet } from './print-sheet';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 type Candidate = { id: string; name: string; registration: string };
 type Request = {
   id: string;
@@ -146,7 +147,7 @@ export function ClassInvitePanel({
     }
   }
   return (
-    <section className="mt-4 rounded-2xl border bg-white p-5">
+    <section className="mt-4 rounded-xl border bg-white p-5">
       <header className="flex justify-between">
         <h2 className="font-bold">Convidar alunos · {className}</h2>
         <Button variant="outline" onClick={onClose}>
@@ -158,8 +159,8 @@ export function ClassInvitePanel({
       </p>
       <label className="mt-3 block text-sm">
         Escola da turma
-        <select
-          className="mt-1 block w-full rounded border p-2"
+        <NativeSelect
+          className="mt-1 block w-full [&>select]:h-10"
           value={schoolId}
           disabled={!!code || busy}
           onChange={(e) => setSchoolId(e.target.value)}
@@ -170,7 +171,7 @@ export function ClassInvitePanel({
               {s.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
       {code ? (
         <>
@@ -330,9 +331,9 @@ export function ClassInvitePanel({
           </p>
           <label className="block text-sm">
             Cadastro a vincular
-            <select
+            <NativeSelect
               name="studentId"
-              className="mt-1 block w-full rounded border p-2"
+              className="mt-1 block w-full [&>select]:h-10"
             >
               <option value="">
                 {r.linkedStudentId
@@ -350,7 +351,7 @@ export function ClassInvitePanel({
                   {s.name} · matrícula {s.registration}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           <Input
             name="studentName"

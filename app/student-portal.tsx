@@ -116,7 +116,7 @@ export function StudentPortal({
   }
   return (
     <main className="min-h-screen bg-slate-50 p-5">
-      <section className="mx-auto max-w-xl rounded-2xl bg-white p-6 shadow-sm">
+      <section className="mx-auto max-w-xl rounded-xl bg-white p-6 shadow-sm">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Minhas turmas</h1>
           <Button
@@ -304,8 +304,7 @@ export function StudentPortal({
         ))}
         <h2 className="mt-6 font-semibold">Meu histórico acadêmico</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Seus anos letivos, turmas e as notas que os professores já
-          publicaram.
+          Seus anos letivos, turmas e as notas que os professores já publicaram.
         </p>
         <div className="mt-3">
           {history ? (

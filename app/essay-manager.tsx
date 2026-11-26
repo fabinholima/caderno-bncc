@@ -455,7 +455,7 @@ function PreviewDialog({
       className="fixed inset-0 z-50 m-0 flex size-full max-h-none max-w-none items-center justify-center border-0 bg-slate-950/40 p-0 sm:p-4"
       onKeyDown={(event) => event.key === 'Escape' && onClose()}
     >
-      <div className="max-h-dvh w-full max-w-5xl overflow-y-auto bg-white p-4 sm:rounded-2xl">
+      <div className="max-h-dvh w-full max-w-5xl overflow-y-auto bg-white p-4 sm:rounded-xl">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="font-display text-lg font-bold text-[var(--navy)]">
             Pré-visualização
@@ -592,7 +592,7 @@ function PromptLibrary({
       </div>
       <section
         aria-label="Filtros"
-        className="mb-4 grid items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6"
+        className="mb-4 grid items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6"
       >
         <label
           htmlFor="essay-filter-q"
@@ -653,7 +653,7 @@ function PromptLibrary({
       {loading && !items.length ? (
         <p className="text-sm text-slate-500">Carregando temas…</p>
       ) : !items.length ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="font-semibold text-slate-700">
             Nenhum tema encontrado.
           </p>
@@ -666,7 +666,7 @@ function PromptLibrary({
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+              className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 sm:p-5"
             >
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <Badge
@@ -958,7 +958,7 @@ function PromptEditor({
         />
       )}
       <fieldset disabled={readOnly || saving} className="space-y-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
           <h2 className="font-display mb-4 text-lg font-bold text-[var(--navy)]">
             Dados da proposta
           </h2>
@@ -1105,7 +1105,7 @@ function PromptEditor({
             </Field>
           </div>
         </section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-lg font-bold text-[var(--navy)]">
               Textos motivadores
@@ -1132,7 +1132,7 @@ function PromptEditor({
             {prompt.motivatingTexts.map((text, index) => (
               <li
                 key={index}
-                className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4"
+                className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4"
               >
                 <div className="mb-3 flex items-center gap-1">
                   <h3 className="font-bold text-[var(--navy)]">
@@ -1272,7 +1272,7 @@ function PromptEditor({
           </ol>
         </section>
       </fieldset>
-      <div className="sticky bottom-20 z-10 mt-5 flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:bottom-4">
+      <div className="sticky bottom-20 z-10 mt-5 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:bottom-4">
         <Button variant="outline" disabled={saving} onClick={showPreview}>
           <Eye /> Pré-visualizar PDF
         </Button>
@@ -1467,7 +1467,7 @@ function SheetGenerator({
   const current = async () => (blob && !stale ? blob : generate());
   const lines = options.template === 'enem-30-v1' ? 30 : detail?.maxLines || 30;
   const step = (number: number, title: string, children: React.ReactNode) => (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+    <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
       <h2 className="mb-3 flex items-center gap-2 font-semibold text-[var(--navy)]">
         <span className="grid size-6 place-items-center rounded-full bg-[var(--navy)] text-xs text-white">
           {number}
@@ -1632,7 +1632,7 @@ function SheetGenerator({
               title="Pré-visualização da folha de redação"
             />
           ) : (
-            <div className="grid min-h-[320px] place-items-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            <div className="grid min-h-[320px] place-items-center rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
               A pré-visualização mostra o PDF exatamente como será baixado e
               impresso.
             </div>
@@ -1745,7 +1745,7 @@ function ApplyEssay({
       <div>
         <Header title="Aplicar redação" description="Aplicação registrada." />
         <Alert message={error} />
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
           <h2 className="font-display text-lg font-bold text-emerald-900">
             {result.promptTitle}
           </h2>
@@ -1786,7 +1786,7 @@ function ApplyEssay({
         description="Escolha a turma e o tema. Cada aluno ativo recebe uma folha nominal; a proposta fica congelada para o histórico, mesmo que o tema seja editado depois."
       />
       <Alert message={error} />
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Tema *">
             <select
@@ -2196,7 +2196,7 @@ function ApplicationHistory({
       {loading ? (
         <p className="text-sm text-slate-500">Carregando…</p>
       ) : !visible.length ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
           {items.length
             ? 'Só há aplicações canceladas. Use “Mostrar canceladas” para vê-las ou excluí-las.'
             : 'Nenhuma redação aplicada ainda.'}
@@ -2206,7 +2206,7 @@ function ApplicationHistory({
           {visible.map((item) => (
             <li
               key={item.id}
-              className="rounded-2xl border border-slate-200 bg-white"
+              className="rounded-xl border border-slate-200 bg-white"
             >
               <button
                 type="button"

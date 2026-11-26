@@ -107,6 +107,7 @@ import {
   type SaebDescriptor,
 } from './portal-screen-model';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -1689,7 +1690,7 @@ export default function Home() {
               )}
               <section
                 aria-label="Da questão à prova"
-                className="mt-6 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white p-5 shadow-sm sm:p-6"
+                className="mt-6 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white p-5 shadow-sm sm:p-6"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
@@ -1805,7 +1806,7 @@ export default function Home() {
                 ].map(([value, label, note], index) => (
                   <article
                     key={label}
-                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)]"
+                    className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)]"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -1832,7 +1833,7 @@ export default function Home() {
                   </article>
                 ))}
               </div>
-              <section className="relative mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
+              <section className="relative mt-6 rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/4%)]">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 2xl:flex-row 2xl:items-center">
                   <div className="relative min-w-0 flex-1 2xl:min-w-80">
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
@@ -1847,7 +1848,7 @@ export default function Home() {
                     <label className="sr-only" htmlFor="subject">
                       Componente
                     </label>
-                    <select
+                    <NativeSelect
                       id="subject"
                       value={subject}
                       onChange={(e) => {
@@ -1858,7 +1859,7 @@ export default function Home() {
                         setSubtopicFilter('');
                         setTopicDetailFilter('');
                       }}
-                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-200"
+                      className="[&>select]:h-10 [&>select]:text-sm [&>select]:font-medium [&>select]:text-slate-700"
                     >
                       <option value="Todas">Todas as disciplinas</option>
                       {Array.from(
@@ -1879,8 +1880,8 @@ export default function Home() {
                             {item}
                           </option>
                         ))}
-                    </select>
-                    <select
+                    </NativeSelect>
+                    <NativeSelect
                       aria-label="Série ou ano"
                       value={gradeFilter}
                       onChange={(event) => {
@@ -1889,7 +1890,7 @@ export default function Home() {
                         setSubtopicFilter('');
                         setTopicDetailFilter('');
                       }}
-                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      className="[&>select]:h-10 [&>select]:text-sm"
                     >
                       <option value="">Todas as séries</option>
                       {[
@@ -1903,14 +1904,14 @@ export default function Home() {
                         .map((grade) => (
                           <option key={grade}>{grade}</option>
                         ))}
-                    </select>
-                    <select
+                    </NativeSelect>
+                    <NativeSelect
                       aria-label="Tipo de questão"
                       value={bankQuestionTypeFilter}
                       onChange={(event) =>
                         setBankQuestionTypeFilter(event.target.value)
                       }
-                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      className="[&>select]:h-10 [&>select]:text-sm"
                     >
                       <option value="">Todos os tipos</option>
                       <option value="single_choice">
@@ -1921,24 +1922,24 @@ export default function Home() {
                       </option>
                       <option value="true_false">Certo ou errado</option>
                       <option value="essay">Dissertativa</option>
-                    </select>
-                    <select
+                    </NativeSelect>
+                    <NativeSelect
                       aria-label="Texto-base"
                       value={sharedTextFilter}
                       onChange={(event) =>
                         setSharedTextFilter(event.target.value)
                       }
-                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      className="[&>select]:h-10 [&>select]:text-sm"
                     >
                       <option value="">Com ou sem texto-base</option>
                       <option value="with">Com texto-base</option>
                       <option value="without">Sem texto-base</option>
-                    </select>
-                    <select
+                    </NativeSelect>
+                    <NativeSelect
                       aria-label="Situação das questões"
                       value={statusFilter}
                       onChange={(event) => setStatusFilter(event.target.value)}
-                      className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      className="[&>select]:h-10 [&>select]:text-sm"
                     >
                       <option value="">Todas as situações</option>
                       {[
@@ -1950,7 +1951,7 @@ export default function Home() {
                       ].map((status) => (
                         <option key={status}>{status}</option>
                       ))}
-                    </select>
+                    </NativeSelect>
                     <details className="relative">
                       <summary className="flex h-10 cursor-pointer items-center rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700">
                         Mais filtros ▾
@@ -1959,13 +1960,13 @@ export default function Home() {
                         {filterPedagogicalDiscipline &&
                         educationStage === 'Ensino Médio' ? (
                           <>
-                            <select
+                            <NativeSelect
                               aria-label="Competência específica"
                               value={competencyFilter}
                               onChange={(event) =>
                                 setCompetencyFilter(event.target.value)
                               }
-                              className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                              className="[&>select]:h-10 max-w-60 [&>select]:text-sm [&>select]:text-slate-700"
                             >
                               <option value="">Todas as competências</option>
                               {Array.from(
@@ -1983,8 +1984,8 @@ export default function Home() {
                                   Competência {item.competency_number}
                                 </option>
                               ))}
-                            </select>
-                            <select
+                            </NativeSelect>
+                            <NativeSelect
                               aria-label={`Objeto de conhecimento de ${subject}`}
                               value={topicGroupFilter}
                               onChange={(event) => {
@@ -1992,7 +1993,7 @@ export default function Home() {
                                 setSubtopicFilter('');
                                 setTopicDetailFilter('');
                               }}
-                              className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                              className="[&>select]:h-10 max-w-60 [&>select]:text-sm [&>select]:text-slate-700"
                             >
                               <option value="">Todos os objetos</option>
                               {pedagogicalTopics
@@ -2010,8 +2011,8 @@ export default function Home() {
                                     {topic.name}
                                   </option>
                                 ))}
-                            </select>
-                            <select
+                            </NativeSelect>
+                            <NativeSelect
                               aria-label={`Subtópico de ${subject}`}
                               value={subtopicFilter}
                               disabled={!topicGroupFilter}
@@ -2019,7 +2020,7 @@ export default function Home() {
                                 setSubtopicFilter(event.target.value);
                                 setTopicDetailFilter('');
                               }}
-                              className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
+                              className="[&>select]:h-10 max-w-60 [&>select]:text-sm [&>select]:text-slate-700"
                             >
                               <option value="">Todos os subtópicos</option>
                               {pedagogicalTopics
@@ -2043,7 +2044,7 @@ export default function Home() {
                                     {topic.name}
                                   </option>
                                 ))}
-                            </select>
+                            </NativeSelect>
                             {pedagogicalTopics.some(
                               (topic) =>
                                 topic.parent_id ===
@@ -2059,13 +2060,13 @@ export default function Home() {
                                     parent.parent_name === topicGroupFilter,
                                 )?.id,
                             ) && (
-                              <select
+                              <NativeSelect
                                 aria-label={`Detalhamento de ${subject}`}
                                 value={topicDetailFilter}
                                 onChange={(event) =>
                                   setTopicDetailFilter(event.target.value)
                                 }
-                                className="h-10 max-w-64 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                                className="[&>select]:h-10 max-w-64 [&>select]:text-sm [&>select]:text-slate-700"
                               >
                                 <option value="">Todos os detalhamentos</option>
                                 {pedagogicalTopics
@@ -2090,18 +2091,18 @@ export default function Home() {
                                       {topic.name}
                                     </option>
                                   ))}
-                              </select>
+                              </NativeSelect>
                             )}
                           </>
                         ) : (
-                          <select
+                          <NativeSelect
                             aria-label="Objeto de conhecimento"
                             value={knowledgeObjectFilter}
                             onChange={(event) =>
                               setKnowledgeObjectFilter(event.target.value)
                             }
                             disabled={subject === 'Todas'}
-                            className="h-10 max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
+                            className="[&>select]:h-10 max-w-60 [&>select]:text-sm [&>select]:text-slate-700"
                           >
                             <option value="">Todos os objetos</option>
                             {Array.from(
@@ -2125,15 +2126,15 @@ export default function Home() {
                                 {item.knowledge_object}
                               </option>
                             ))}
-                          </select>
+                          </NativeSelect>
                         )}
-                        <select
+                        <NativeSelect
                           aria-label="Instituição ou banca de origem"
                           value={sourceInstitutionFilter}
                           onChange={(event) =>
                             setSourceInstitutionFilter(event.target.value)
                           }
-                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                          className="[&>select]:h-10 [&>select]:text-sm [&>select]:text-slate-700"
                         >
                           <option value="">Todas as instituições</option>
                           {(filterOptions.sourceInstitutions.length
@@ -2150,14 +2151,14 @@ export default function Home() {
                               {item}
                             </option>
                           ))}
-                        </select>
-                        <select
+                        </NativeSelect>
+                        <NativeSelect
                           aria-label="Ano da prova"
                           value={sourceYearFilter}
                           onChange={(event) =>
                             setSourceYearFilter(event.target.value)
                           }
-                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                          className="[&>select]:h-10 [&>select]:text-sm [&>select]:text-slate-700"
                         >
                           <option value="">Todos os anos</option>
                           {(filterOptions.sourceYears.length
@@ -2174,14 +2175,14 @@ export default function Home() {
                               {item}
                             </option>
                           ))}
-                        </select>
-                        <select
+                        </NativeSelect>
+                        <NativeSelect
                           aria-label="Nível de dificuldade"
                           value={difficultyFilter}
                           onChange={(event) =>
                             setDifficultyFilter(event.target.value)
                           }
-                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                          className="[&>select]:h-10 [&>select]:text-sm [&>select]:text-slate-700"
                         >
                           <option value="">Todos os níveis</option>
                           {filterOptions.difficulties.map((item) => (
@@ -2189,7 +2190,7 @@ export default function Home() {
                               {item.label}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </div>
                     </details>
                     {(query ||
@@ -2498,7 +2499,7 @@ export default function Home() {
             open
             aria-modal="true"
             aria-labelledby="dialog-title"
-            className="h-full w-full max-w-[1540px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+            className="h-full w-full max-w-[1540px] overflow-y-auto bg-slate-50 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-xl"
           >
             <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
               <div>
@@ -2626,7 +2627,7 @@ export default function Home() {
                       questão original continuará vinculada à importação.
                     </div>
                   )}
-                  <details className="group rounded-2xl border border-dashed border-blue-200 bg-blue-50/40">
+                  <details className="group rounded-xl border border-dashed border-blue-200 bg-blue-50/40">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-blue-900 marker:content-none">
                       <span className="flex items-center gap-2">
                         <FileInput className="size-4" />
@@ -2677,7 +2678,7 @@ export default function Home() {
                   </details>
                   <section
                     id="question-type"
-                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="scroll-mt-28 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div className="mb-3">
                       <p className="text-sm font-semibold text-blue-600">
@@ -2720,7 +2721,7 @@ export default function Home() {
                   </section>
                   <section
                     id="question-curriculum"
-                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="scroll-mt-28 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div className="mb-3">
                       <p className="text-sm font-semibold text-blue-600">
@@ -2771,7 +2772,7 @@ export default function Home() {
                           <span className="mb-2 block text-sm font-semibold">
                             Área de conhecimento
                           </span>
-                          <select
+                          <NativeSelect
                             value={knowledgeAreaFilter}
                             onChange={(event) => {
                               const area = event.target.value;
@@ -2781,12 +2782,12 @@ export default function Home() {
                               setPedagogicalSubtopicId('');
                               setPedagogicalDetailId('');
                             }}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                            className="[&>select]:h-10 w-full [&>select]:text-sm"
                           >
                             {Object.keys(highSchoolSubjectAreas).map((area) => (
                               <option key={area}>{area}</option>
                             ))}
-                          </select>
+                          </NativeSelect>
                         </label>
                       )}
                       {educationStage === 'Ensino Fundamental' && (
@@ -2794,7 +2795,7 @@ export default function Home() {
                           <span className="mb-2 block text-sm font-semibold">
                             Área de conhecimento
                           </span>
-                          <select
+                          <NativeSelect
                             value={
                               knowledgeAreaFilter in elementarySubjectAreas
                                 ? knowledgeAreaFilter
@@ -2806,19 +2807,19 @@ export default function Home() {
                               setDiscipline(elementarySubjectAreas[area][0]);
                               setKnowledgeObjectId('');
                             }}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                            className="[&>select]:h-10 w-full [&>select]:text-sm"
                           >
                             {Object.keys(elementarySubjectAreas).map((area) => (
                               <option key={area}>{area}</option>
                             ))}
-                          </select>
+                          </NativeSelect>
                         </label>
                       )}
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold">
                           Disciplina
                         </span>
-                        <select
+                        <NativeSelect
                           required
                           name="subject"
                           value={discipline}
@@ -2870,7 +2871,7 @@ export default function Home() {
                               setPedagogicalDetailId('');
                             }
                           }}
-                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                          className="[&>select]:h-10 w-full [&>select]:text-sm"
                         >
                           {[
                             ...new Set([
@@ -2900,7 +2901,7 @@ export default function Home() {
                           ].map((item) => (
                             <option key={item}>{item}</option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </label>
                       {compatibleSaebMatrices.length > 0 && (
                         <div className="space-y-3 rounded-xl border border-cyan-200 bg-cyan-50/40 p-4 sm:col-span-2">
@@ -2921,7 +2922,7 @@ export default function Home() {
                               <span className="mb-2 block text-xs font-semibold text-slate-600">
                                 Matriz
                               </span>
-                              <select
+                              <NativeSelect
                                 id="saeb-matrix"
                                 value={selectedSaebMatrix}
                                 onChange={(event) => {
@@ -2929,20 +2930,20 @@ export default function Home() {
                                   setSelectedSaebDescriptor('');
                                   setSaebInfoOpen(false);
                                 }}
-                                className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                                className="[&>select]:h-10 w-full [&>select]:text-sm"
                               >
                                 {compatibleSaebMatrices.map((matrix) => (
                                   <option key={matrix.id} value={matrix.id}>
                                     {matrix.subject} · {matrix.grade_range}
                                   </option>
                                 ))}
-                              </select>
+                              </NativeSelect>
                             </label>
                             <label htmlFor="saeb-descriptor" className="block">
                               <span className="mb-2 block text-xs font-semibold text-slate-600">
                                 Indicador/descritor
                               </span>
-                              <select
+                              <NativeSelect
                                 id="saeb-descriptor"
                                 name="saebDescriptorId"
                                 value={selectedSaebDescriptor}
@@ -2950,7 +2951,7 @@ export default function Home() {
                                   setSelectedSaebDescriptor(event.target.value);
                                   setSaebInfoOpen(false);
                                 }}
-                                className="h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                                className="[&>select]:h-10 w-full [&>select]:text-sm"
                               >
                                 <option value="">Não vincular descritor</option>
                                 {saebDescriptors.map((descriptor) => (
@@ -2961,7 +2962,7 @@ export default function Home() {
                                     {descriptor.code} · {descriptor.topic}
                                   </option>
                                 ))}
-                              </select>
+                              </NativeSelect>
                             </label>
                           </div>
                           {selectedSaebInfo && (
@@ -2999,7 +3000,7 @@ export default function Home() {
                         <span className="mb-2 block text-sm font-semibold">
                           Ano/Série
                         </span>
-                        <select
+                        <NativeSelect
                           name="grade"
                           value={
                             educationStage === 'Ensino Médio'
@@ -3020,7 +3021,7 @@ export default function Home() {
                                   setSelectedSkillCode('');
                                 }
                           }
-                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                          className="[&>select]:h-10 w-full [&>select]:text-sm"
                         >
                           {(educationStage === 'Ensino Médio'
                             ? ['1ª série', '2ª série', '3ª série']
@@ -3028,7 +3029,7 @@ export default function Home() {
                           ).map((item) => (
                             <option key={item}>{item}</option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </label>
                       {catalogError && (
                         <p
@@ -3072,7 +3073,7 @@ export default function Home() {
                               name="pedagogicalDisciplineId"
                               value={pedagogicalDiscipline.id}
                             />
-                            <select
+                            <NativeSelect
                               required={
                                 !editingQuestionId &&
                                 availableCompetencies.length > 0
@@ -3092,7 +3093,7 @@ export default function Home() {
                                 setSkillInfoOpen(false);
                                 setCompetencyInfoOpen(false);
                               }}
-                              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                              className="[&>select]:h-10 w-full [&>select]:text-sm"
                             >
                               <option value="">Não vinculada</option>
                               {availableCompetencies.map((item) => (
@@ -3103,7 +3104,7 @@ export default function Home() {
                                   Competência {item.competency_number}
                                 </option>
                               ))}
-                            </select>
+                            </NativeSelect>
                             {selectedCompetencyInfo && (
                               <div className="mt-2">
                                 <button
@@ -3142,7 +3143,7 @@ export default function Home() {
                                 <span className="mb-2 block text-sm font-semibold">
                                   Tópico
                                 </span>
-                                <select
+                                <NativeSelect
                                   required={!editingQuestionId}
                                   value={pedagogicalObjectId}
                                   onChange={(event) => {
@@ -3150,7 +3151,7 @@ export default function Home() {
                                     setPedagogicalSubtopicId('');
                                     setPedagogicalDetailId('');
                                   }}
-                                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                                  className="[&>select]:h-10 w-full [&>select]:text-sm"
                                 >
                                   <option value="">Selecione o tópico</option>
                                   {pedagogicalObjectId &&
@@ -3167,13 +3168,13 @@ export default function Home() {
                                       {topic.name}
                                     </option>
                                   ))}
-                                </select>
+                                </NativeSelect>
                               </label>
                               <label className="block">
                                 <span className="mb-2 block text-sm font-semibold">
                                   Subtópico
                                 </span>
-                                <select
+                                <NativeSelect
                                   value={pedagogicalSubtopicId}
                                   onChange={(event) => {
                                     setPedagogicalSubtopicId(
@@ -3181,7 +3182,7 @@ export default function Home() {
                                     );
                                     setPedagogicalDetailId('');
                                   }}
-                                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                                  className="[&>select]:h-10 w-full [&>select]:text-sm"
                                 >
                                   <option value="">Todos/nenhum</option>
                                   {pedagogicalSubtopicOptions.map((topic) => (
@@ -3189,19 +3190,19 @@ export default function Home() {
                                       {topic.name}
                                     </option>
                                   ))}
-                                </select>
+                                </NativeSelect>
                               </label>
                               {pedagogicalDetailOptions.length > 0 && (
                                 <label className="block">
                                   <span className="mb-2 block text-sm font-semibold">
                                     Detalhamento
                                   </span>
-                                  <select
+                                  <NativeSelect
                                     value={pedagogicalDetailId}
                                     onChange={(event) =>
                                       setPedagogicalDetailId(event.target.value)
                                     }
-                                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                                    className="[&>select]:h-10 w-full [&>select]:text-sm"
                                   >
                                     <option value="">Selecione</option>
                                     {pedagogicalDetailOptions.map((topic) => (
@@ -3209,7 +3210,7 @@ export default function Home() {
                                         {topic.name}
                                       </option>
                                     ))}
-                                  </select>
+                                  </NativeSelect>
                                 </label>
                               )}
                               <input
@@ -3243,14 +3244,14 @@ export default function Home() {
                           <span className="mb-2 block text-sm font-semibold">
                             Objeto de conhecimento
                           </span>
-                          <select
+                          <NativeSelect
                             required
                             name="knowledgeObjectId"
                             value={knowledgeObjectId}
                             onChange={(event) =>
                               setKnowledgeObjectId(event.target.value)
                             }
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                            className="[&>select]:h-10 w-full [&>select]:text-sm"
                           >
                             <option value="">
                               Selecione um objeto cadastrado
@@ -3291,7 +3292,7 @@ export default function Home() {
                                   {item.knowledge_object || 'Objeto sem nome'}
                                 </option>
                               ))}
-                          </select>
+                          </NativeSelect>
                         </label>
                       )}
                       {educationStage === 'Ensino Fundamental' &&
@@ -3325,7 +3326,7 @@ export default function Home() {
                         <span className="mb-2 block text-sm font-semibold">
                           Habilidade BNCC
                         </span>
-                        <select
+                        <NativeSelect
                           name="skill"
                           value={selectedSkillCode}
                           onChange={(event) => {
@@ -3342,7 +3343,7 @@ export default function Home() {
                               setCompetencyId(skill.competency_id);
                             setSkillInfoOpen(false);
                           }}
-                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                          className="[&>select]:h-10 w-full [&>select]:text-sm"
                         >
                           <option value="">Não vinculada</option>
                           {selectedSkillCode &&
@@ -3365,7 +3366,7 @@ export default function Home() {
                                 : ''}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                         {discipline === 'Química' && (
                           <span className="mt-1.5 block text-xs text-slate-500">
                             {availableSkills.length} habilidades de Química
@@ -3403,22 +3404,22 @@ export default function Home() {
                         <span className="mb-2 block text-sm font-semibold">
                           Dificuldade
                         </span>
-                        <select
+                        <NativeSelect
                           name="difficulty"
                           key={`difficulty-${importRevision}`}
                           defaultValue={importedDetails.difficulty}
-                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                          className="[&>select]:h-10 w-full [&>select]:text-sm"
                         >
                           <option>Fácil</option>
                           <option>Média</option>
                           <option>Difícil</option>
-                        </select>
+                        </NativeSelect>
                       </label>
                     </div>
                   </section>
                   <section
                     id="question-source"
-                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="scroll-mt-28 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div className="mb-3">
                       <p className="text-sm font-semibold text-blue-600">
@@ -3492,7 +3493,7 @@ export default function Home() {
                   </section>
                   <section
                     id="question-content"
-                    className="scroll-mt-28 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="scroll-mt-28 space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div>
                       <p className="text-sm font-semibold text-blue-600">
@@ -3591,7 +3592,7 @@ export default function Home() {
                   {questionType !== 'essay' && (
                     <section
                       id="question-alternatives"
-                      className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                      className="scroll-mt-28 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                     >
                       <div className="mb-3 flex items-center justify-between">
                         <div>
@@ -3679,7 +3680,7 @@ export default function Home() {
                   )}
                   <section
                     id="question-resolution"
-                    className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="scroll-mt-28 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <p className="mb-3 text-sm font-semibold text-blue-600">
                       {questionType === 'essay' ? 'Etapa 5' : 'Etapa 6'}

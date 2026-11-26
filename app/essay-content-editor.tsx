@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export type EssayImageWidth = 'small' | 'medium' | 'large' | 'full';
 export type EssayContentBlock =
@@ -242,7 +243,7 @@ function TableEditor({
               <tr key={rowIndex}>
                 {Array.from({ length: columns }, (_, column) => (
                   <td key={column} className="border border-slate-200 p-1">
-                    <input
+                    <Input
                       aria-label={`Linha ${rowIndex + 1}, coluna ${column + 1}`}
                       value={row[column] ?? ''}
                       maxLength={500}
@@ -395,20 +396,20 @@ export function ImageFields({
             onChange({ ...value, caption: event.target.value })
           }
         />
-        <select
+        <NativeSelect
           aria-label="Largura da imagem na folha"
           value={width}
           onChange={(event) =>
             onChange({ ...value, width: event.target.value as EssayImageWidth })
           }
-          className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm"
+          className="[&>select]:h-8 [&>select]:text-sm"
         >
           {Object.entries(imageWidthLabels).map(([id, label]) => (
             <option key={id} value={id}>
               {label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
     </div>
   );

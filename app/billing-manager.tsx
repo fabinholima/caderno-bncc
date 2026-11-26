@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Input } from '@/components/ui/input';
 
 type Billing = {
   enabled: boolean;
@@ -180,7 +182,7 @@ export function BillingManager({
   }
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
       aria-labelledby="billing-heading"
     >
       <h2 id="billing-heading" className="font-display text-xl font-bold">
@@ -229,8 +231,8 @@ export function BillingManager({
             <>
               <label className="mt-4 block text-sm">
                 Periodicidade
-                <select
-                  className="ml-3 rounded-lg border p-2"
+                <NativeSelect
+                  className="ml-3 [&>select]:h-10"
                   value={cycle}
                   onChange={(e) => {
                     setCycle(e.target.value as 'monthly' | 'annual');
@@ -239,7 +241,7 @@ export function BillingManager({
                 >
                   <option value="monthly">Mensal</option>
                   <option value="annual">Anual (cobrança única por ano)</option>
-                </select>
+                </NativeSelect>
               </label>
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <label
@@ -248,7 +250,7 @@ export function BillingManager({
                 >
                   Cupom de desconto
                 </label>
-                <input
+                <Input
                   id="subscription-coupon"
                   value={couponCode}
                   onChange={(event) => {

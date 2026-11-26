@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api-client';
 import { notify } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const contextSymbolSnippets: Record<string, string> = {
   '∈': '\\in',
@@ -721,18 +722,18 @@ draw fullcircle scaled 2cm;
             <div className="space-y-3">
               {block.preset && !block.smiles ? (
                 <div className="grid gap-2 md:grid-cols-2">
-                  <select
+                  <NativeSelect
                     value={block.preset}
                     onChange={(event) =>
                       update(index, {
                         preset: event.target.value as 'benzene' | 'cyclohexane',
                       })
                     }
-                    className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    className="[&>select]:h-9 [&>select]:text-sm"
                   >
                     <option value="benzene">Benzeno</option>
                     <option value="cyclohexane">Ciclo-hexano</option>
-                  </select>
+                  </NativeSelect>
                   <Button
                     type="button"
                     variant="outline"

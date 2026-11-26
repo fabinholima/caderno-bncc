@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { isCompactTemplateId } from './academic/model';
+import { NativeSelect } from '@/components/ui/native-select';
 type Assignment = {
   id: string;
   studentName: string;
@@ -189,10 +190,10 @@ export function AssessmentApplicationStep({
               >
                 Turma e escola
               </label>
-              <select
+              <NativeSelect
                 id="application-class"
                 aria-label="Turma da aplicação"
-                className="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-3"
+                className="mt-2 [&>select]:h-11 w-full"
                 value={classId}
                 onChange={(e) => {
                   setClassId(e.target.value);
@@ -211,7 +212,7 @@ export function AssessmentApplicationStep({
                     {c.schoolName ? ` · ${c.schoolName}` : ''}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               {classId && (
                 <p className="mt-2 text-xs text-slate-500">
                   A lista mostra estudantes ativos matriculados na turma

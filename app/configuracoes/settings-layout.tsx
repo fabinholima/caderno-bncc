@@ -121,7 +121,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
   if (identity.role === 'student')
     return (
       <main className="grid min-h-screen place-items-center bg-slate-50 p-5">
-        <section className="max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm">
+        <section className="max-w-md rounded-xl border bg-white p-6 text-center shadow-sm">
           <h1 className="text-xl font-bold text-slate-950">
             Configurações indisponíveis
           </h1>
@@ -295,7 +295,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
           >
             <nav
               aria-label="Seções de configurações"
-              className="h-fit rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"
+              className="h-fit rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
             >
               <p className="hidden px-3 pb-2 pt-2 text-sm font-semibold text-slate-500 lg:block">
                 Conta, escola e plano

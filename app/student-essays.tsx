@@ -650,10 +650,7 @@ function EssayWorkspace({
       {detail.canWrite ? (
         <div className="mt-3 rounded-xl border bg-white p-3">
           {detail.submissionModes.length > 1 && (
-            <div
-              role="tablist"
-              className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-1 text-sm"
-            >
+            <div role="tablist" className="tab-list mb-3">
               {detail.submissionModes.map((value) => (
                 <button
                   key={value}
@@ -661,7 +658,7 @@ function EssayWorkspace({
                   role="tab"
                   aria-selected={mode === value}
                   onClick={() => setMode(value)}
-                  className={`flex-1 rounded-md px-3 py-1.5 font-semibold ${mode === value ? 'bg-white shadow-sm' : 'text-slate-500'}`}
+                  className="tab flex-1"
                 >
                   {value === 'typed' ? 'Digitar' : 'Enviar foto ou PDF'}
                 </button>

@@ -55,6 +55,7 @@ import {
   TrendingDown,
   Receipt,
 } from 'lucide-react';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type Month = {
   month: number;
@@ -180,7 +181,7 @@ export function AdminDashboard({
       className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-8"
     >
       <header className="flex items-start gap-4 border-b border-slate-200 pb-6">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--navy)] text-[var(--lime)] shadow-sm">
+        <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[var(--navy)] text-[var(--lime)] shadow-sm">
           <PageIcon aria-hidden="true" className="size-6" />
         </span>
         <div>
@@ -325,18 +326,18 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <label className="text-sm font-medium" htmlFor="revenue-year">
           Ano
-          <select
+          <NativeSelect
             id="revenue-year"
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="mt-1.5 block h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+            className="mt-1.5 block [&>select]:h-10 [&>select]:text-sm"
           >
             {(report?.years || [year]).map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <Button
           variant="outline"
@@ -375,7 +376,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <article className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <Wallet aria-hidden="true" className="size-4" />
             Receita bruta
@@ -391,7 +392,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
             />
           )}
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <article className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <Undo2 aria-hidden="true" className="size-4" />
             Estornos
@@ -407,7 +408,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
             </p>
           )}
         </article>
-        <article className="col-span-2 rounded-2xl border border-[var(--navy)] bg-[var(--navy)] p-4 text-white sm:p-5 lg:col-span-1">
+        <article className="col-span-2 rounded-xl border border-[var(--navy)] bg-[var(--navy)] p-4 text-white sm:p-5 lg:col-span-1">
           <p className="flex items-center gap-2 text-sm text-slate-300">
             <CircleDollarSign
               aria-hidden="true"
@@ -434,7 +435,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
               </p>
             ))}
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <article className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <BadgeCheck aria-hidden="true" className="size-4" />
             Pagamentos
@@ -450,7 +451,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
             />
           )}
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <article className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <Receipt aria-hidden="true" className="size-4" />
             Ticket médio
@@ -467,7 +468,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
       {!report ? (
         <p
           aria-live="polite"
-          className="rounded-2xl border border-slate-200 bg-white py-12 text-center text-slate-500"
+          className="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500"
         >
           {error ? 'Relatório indisponível.' : 'Carregando relatório…'}
         </p>
@@ -476,7 +477,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
           <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
             <section
               aria-labelledby="revenue-chart-title"
-              className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+              className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id="revenue-chart-title" className="text-lg font-semibold">
@@ -562,7 +563,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
             </section>
             <section
               aria-labelledby="revenue-plans-title"
-              className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+              className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
             >
               <h2 id="revenue-plans-title" className="text-lg font-semibold">
                 Receita por plano
@@ -609,7 +610,7 @@ function RevenueView({ apiUrl }: { apiUrl: string }) {
 
           <section
             aria-labelledby="revenue-table-title"
-            className="rounded-2xl border border-slate-200 bg-white"
+            className="rounded-xl border border-slate-200 bg-white"
           >
             <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
               <h2 id="revenue-table-title" className="text-lg font-semibold">
@@ -1069,7 +1070,7 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
             onClick={() =>
               setFilter((f) => ({ ...f, status: card.key, page: 1 }))
             }
-            className={`rounded-2xl border p-4 text-left transition ${filter.status === card.key ? 'border-[var(--navy)] bg-[var(--navy)] text-white' : 'border-slate-200 bg-white hover:border-blue-300'}`}
+            className={`rounded-xl border p-4 text-left transition ${filter.status === card.key ? 'border-[var(--navy)] bg-[var(--navy)] text-white' : 'border-slate-200 bg-white hover:border-blue-300'}`}
           >
             <p
               className={`text-sm ${filter.status === card.key ? 'text-slate-300' : 'text-slate-500'}`}
@@ -1081,13 +1082,13 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
             </p>
           </button>
         ))}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">Em teste</p>
           <p className="mt-1 text-2xl font-bold tabular-nums">
             {summary?.trialing ?? '—'}
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">Pagantes</p>
           <p className="mt-1 text-2xl font-bold tabular-nums">
             {summary?.paying ?? '—'}
@@ -1096,7 +1097,7 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
       </div>
       <section
         aria-labelledby="accounts-title"
-        className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+        className="rounded-xl border border-slate-200 bg-white shadow-sm"
       >
         <form
           onSubmit={search}
@@ -1129,7 +1130,7 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
             htmlFor="account-status"
           >
             Situação
-            <select
+            <NativeSelect
               id="account-status"
               name="status"
               value={filter.status}
@@ -1140,27 +1141,27 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
                   page: 1,
                 }))
               }
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+              className="mt-1.5 [&>select]:h-10 w-full [&>select]:text-sm"
             >
               <option value="all">Todas</option>
               <option value="active">Ativas</option>
               <option value="blocked">Bloqueadas</option>
               <option value="deleted">Excluídas</option>
-            </select>
+            </NativeSelect>
           </label>
           <label
             className="min-w-36 flex-1 text-sm font-medium"
             htmlFor="account-plan"
           >
             Plano
-            <select
+            <NativeSelect
               id="account-plan"
               name="plan"
               value={filter.plan}
               onChange={(e) =>
                 setFilter((f) => ({ ...f, plan: e.target.value, page: 1 }))
               }
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+              className="mt-1.5 [&>select]:h-10 w-full [&>select]:text-sm"
             >
               <option value="">Todos os planos</option>
               {data?.plans.map((p) => (
@@ -1168,14 +1169,14 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
                   {p.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           <label
             className="min-w-44 flex-1 text-sm font-medium"
             htmlFor="account-sort"
           >
             Ordenar por
-            <select
+            <NativeSelect
               id="account-sort"
               name="sort"
               value={filter.sort}
@@ -1186,14 +1187,14 @@ function SubscribersView({ apiUrl }: { apiUrl: string }) {
                   page: 1,
                 }))
               }
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+              className="mt-1.5 [&>select]:h-10 w-full [&>select]:text-sm"
             >
               {Object.entries(sortLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           <div className="flex gap-2">
             <Button type="submit" disabled={loading} className="h-10">

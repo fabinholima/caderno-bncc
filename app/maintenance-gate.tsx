@@ -71,7 +71,7 @@ export function MaintenanceGate({ children }: { children: ReactNode }) {
         <p className="mb-8 text-2xl font-bold text-slate-900">
           ufa<span className="text-blue-700">prova</span>
         </p>
-        <div className="mx-auto mb-6 grid size-20 place-items-center rounded-3xl bg-blue-100 text-blue-700">
+        <div className="mx-auto mb-6 grid size-20 place-items-center rounded-xl bg-blue-100 text-blue-700">
           <Wrench size={36} aria-hidden="true" />
         </div>
         <h1 className="text-3xl font-bold text-slate-900">

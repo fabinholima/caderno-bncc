@@ -29,6 +29,7 @@ import { apiFetch } from '@/lib/api-client';
 import { StudentPhoto } from './student-photo';
 import { StudentHistoryDialog } from './academic/student-history-timeline';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 // Página "Alunos" organizada como o professor pensa: escola → turma → alunos.
 // Mostra uma turma por vez; cadastro, matrícula e planilha ficam na janela
@@ -294,7 +295,7 @@ export function StudentsWorkspace({
 
   if (!classes.length)
     return (
-      <section className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+      <section className="mt-6 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
         <Users className="mx-auto size-8 text-slate-400" aria-hidden="true" />
         <h2 className="mt-3 text-lg font-semibold">Crie a primeira turma</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -331,7 +332,7 @@ export function StudentsWorkspace({
       {/* Escolas e turmas (no celular, dois seletores) */}
       <nav
         aria-label="Escolas e turmas"
-        className="hidden rounded-2xl border border-slate-200 bg-white p-3 lg:block"
+        className="hidden rounded-xl border border-slate-200 bg-white p-3 lg:block"
       >
         <label htmlFor="students-global-search" className="relative block">
           <span className="sr-only">Buscar aluno em todas as turmas</span>
@@ -448,9 +449,9 @@ export function StudentsWorkspace({
         <div className="mb-3 grid grid-cols-2 gap-2 lg:hidden">
           <label className="text-xs font-semibold text-slate-600">
             Escola
-            <select
+            <NativeSelect
               aria-label="Escola"
-              className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold"
+              className="mt-1 [&>select]:h-11 w-full [&>select]:text-sm [&>select]:font-semibold"
               value={
                 schools.find((s) =>
                   s.classes.some((c) => c.id === selected?.id),
@@ -467,13 +468,13 @@ export function StudentsWorkspace({
                   {school.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           <label className="text-xs font-semibold text-slate-600">
             Turma
-            <select
+            <NativeSelect
               aria-label="Turma"
-              className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold"
+              className="mt-1 [&>select]:h-11 w-full [&>select]:text-sm [&>select]:font-semibold"
               value={selected?.id ?? ''}
               onChange={(event) => choose(event.target.value)}
             >
@@ -486,14 +487,14 @@ export function StudentsWorkspace({
                   {item.name} · {item.students} alunos
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
         </div>
 
         {selected && (
           <section
             aria-labelledby="students-class-title"
-            className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white"
           >
             <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-4 sm:p-5">
               <div className="min-w-0">
@@ -610,11 +611,11 @@ export function StudentsWorkspace({
                         </div>
                       </td>
                       <td className="hidden px-2 py-2.5 md:table-cell">
-                        <select
+                        <NativeSelect
                           aria-label={`Situação de ${student.name}`}
                           value={student.status ?? 'ativo'}
                           disabled={savingStudent !== null}
-                          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
+                          className="[&>select]:text-sm [&>select]:h-10"
                           onChange={(event) =>
                             updateStudent(student, {
                               status: event.target.value as StudentStatus,
@@ -628,7 +629,7 @@ export function StudentsWorkspace({
                               {label}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </td>
                       <td className="hidden px-2 py-2.5 md:table-cell">
                         <label className="inline-flex items-center gap-2 text-sm text-slate-600">
@@ -910,7 +911,7 @@ function AddStudentsDialog({
         <div
           role="tablist"
           aria-label="Forma de adicionar"
-          className="flex flex-wrap gap-2"
+          className="tab-list"
         >
           {tabs.map(([value, label]) => (
             <button
@@ -922,7 +923,7 @@ function AddStudentsDialog({
                 setTab(value);
                 setError('');
               }}
-              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${tab === value ? 'border-blue-300 bg-blue-50 text-blue-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              className="tab"
             >
               {label}
             </button>
@@ -1196,9 +1197,9 @@ function AddStudentsDialog({
                             )}
                           </td>
                           <td className="p-2">
-                            <select
+                            <NativeSelect
                               aria-label={`Situação de ${row.name}`}
-                              className="rounded-md border border-slate-300 bg-white px-2 py-1"
+                              className="[&>select]:h-10"
                               value={row.status}
                               onChange={(event) =>
                                 setPreview((rows) =>
@@ -1219,7 +1220,7 @@ function AddStudentsDialog({
                                   {label}
                                 </option>
                               ))}
-                            </select>
+                            </NativeSelect>
                           </td>
                           <td className="p-2">
                             {row.warning && (

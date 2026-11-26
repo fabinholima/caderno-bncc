@@ -122,7 +122,7 @@ export default function SubscriptionSettingsPage() {
       {usage ? (
         <section
           aria-labelledby="current-plan-heading"
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+          className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -163,7 +163,7 @@ export default function SubscriptionSettingsPage() {
           </p>
         </section>
       ) : !error ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
           Carregando dados do plano…
         </section>
       ) : null}

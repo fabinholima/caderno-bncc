@@ -7,6 +7,7 @@ import {
   type RichContentBlock,
 } from './rich-content-editor';
 import { confirmAction } from '@/lib/confirm';
+import { Input } from '@/components/ui/input';
 
 export type SharedTextSummary = {
   id: string;
@@ -298,7 +299,7 @@ export function SharedTextPicker({
           )}
           <label className="block text-xs font-medium text-slate-600">
             Título (opcional)
-            <input
+            <Input
               className="mt-1 w-full rounded-lg border p-2 text-sm"
               maxLength={300}
               onKeyDown={keepFormOpen}
@@ -320,7 +321,7 @@ export function SharedTextPicker({
           />
           <label className="block text-xs font-medium text-slate-600">
             Fonte / crédito (opcional)
-            <input
+            <Input
               className="mt-1 w-full rounded-lg border p-2 text-sm"
               maxLength={500}
               onKeyDown={keepFormOpen}
@@ -473,7 +474,7 @@ export function SharedTextPicker({
 
       {enabled && !editor && !value && (
         <div className="space-y-2 rounded-lg border bg-white p-3">
-          <input
+          <Input
             type="search"
             onKeyDown={keepFormOpen}
             value={query}

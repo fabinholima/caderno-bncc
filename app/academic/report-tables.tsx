@@ -1,6 +1,7 @@
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { type ApplicationReport } from './model';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export function StudentResultsTable({
   students,
@@ -134,11 +135,11 @@ export function Select({
   items: Array<[string, string]>;
 }) {
   return (
-    <select
+    <NativeSelect
       name={name}
       required
       aria-label={label}
-      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+      className="[&>select]:h-10 w-full [&>select]:text-sm"
     >
       <option value="">{label}</option>
       {items.map(([id, text]) => (
@@ -146,6 +147,6 @@ export function Select({
           {text}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }

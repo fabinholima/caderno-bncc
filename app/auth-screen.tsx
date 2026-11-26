@@ -248,7 +248,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
     <main className="theme-light relative grid min-h-screen place-items-center overflow-hidden bg-[linear-gradient(135deg,#eef2fd_0%,#fbfaf5_55%,#fff8dc_100%)] px-4 py-5 font-sans sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-blue-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -right-20 size-96 rounded-full bg-amber-200/25 blur-3xl" />
-      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur lg:grid-cols-[.9fr_1.1fr]">
+      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-xl border border-white/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur lg:grid-cols-[.9fr_1.1fr]">
         <div className="hidden flex-col justify-between bg-[var(--navy)] p-10 text-white lg:flex">
           <div>
             <p className="text-sm font-semibold text-[var(--lime)]">UfaProva</p>
@@ -268,7 +268,7 @@ export function AuthScreen({ apiUrl }: { apiUrl: string }) {
         </div>
         <div className="p-6 sm:p-9 lg:p-11">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-[var(--navy)] text-[var(--lime)] shadow-lg shadow-blue-950/15">
+            <span className="grid size-11 place-items-center rounded-xl bg-[var(--navy)] text-[var(--lime)] shadow-lg shadow-blue-950/15">
               <BrandMark className="text-xl" />
             </span>
             <div>

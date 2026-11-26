@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { confirmAction } from '@/lib/confirm';
+import { Input } from '@/components/ui/input';
 
 export type School = {
   id?: string;
@@ -804,7 +805,7 @@ export function EducatorProfile({
         <label htmlFor="personal-phone" className={label}>
           Telefone pessoal{' '}
           <span className="font-normal text-slate-600">(opcional)</span>
-          <input
+          <Input
             id="personal-phone"
             className={input}
             type="tel"
@@ -952,7 +953,7 @@ export function EducatorProfile({
           {schools.map((item) => (
             <article
               key={item.id}
-              className={`rounded-2xl border bg-white p-5 shadow-sm ${item.isHeaderDefault ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'}`}
+              className={`rounded-xl border bg-white p-5 shadow-sm ${item.isHeaderDefault ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'}`}
             >
               <div className="flex gap-4">
                 {item.logoDataUrl ? (
@@ -1013,7 +1014,7 @@ export function EducatorProfile({
                 )}
                 <button
                   type="button"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-rose-800 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-rose-800 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700"
                   onClick={() => void removeSchool(item)}
                 >
                   <Trash2 className="size-4" />
@@ -1024,7 +1025,7 @@ export function EducatorProfile({
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
+        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
           <Building2
             className="mx-auto size-9 text-slate-500"
             aria-hidden="true"
@@ -1053,7 +1054,7 @@ export function EducatorProfile({
       className={
         embedded
           ? 'w-full'
-          : 'mx-auto my-6 w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-7'
+          : 'mx-auto my-6 w-full max-w-5xl rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-7'
       }
     >
       {embedded ? (
@@ -1198,7 +1199,7 @@ export function EducatorProfile({
               <div className="space-y-4">
                 <label className={label} htmlFor="school-search">
                   Buscar pelo nome ou código INEP
-                  <input
+                  <Input
                     id="school-search"
                     autoFocus
                     className={input}

@@ -64,6 +64,7 @@ import {
 import { ImportedQuestionTextEditor } from './exam-import/question-text-editor';
 import { AiSuggestionReview } from './exam-import/ai-suggestion-review';
 import { confirmAction } from '@/lib/confirm';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export function ExamImportManager({
   apiUrl,
@@ -1110,7 +1111,7 @@ export function ExamImportManager({
       </p>
       <nav
         aria-label="Etapas da importação"
-        className="mt-6 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-3"
+        className="mt-6 grid gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-3"
       >
         {[
           ['01', 'Enviar documentos', 'Fonte, prova e gabarito'],
@@ -1144,7 +1145,7 @@ export function ExamImportManager({
       )}
 
       {duplicates.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-rose-200 bg-white p-5">
+        <section className="mt-6 rounded-xl border border-rose-200 bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-bold text-[var(--navy)]">
@@ -1226,7 +1227,7 @@ export function ExamImportManager({
         </section>
       )}
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             <FileUp className="size-5 text-blue-700" />
@@ -1568,7 +1569,7 @@ GABARITO: B`}
         </form>
       </section>
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -1605,7 +1606,7 @@ GABARITO: B`}
           ))}
         </div>
         <div
-          className="mt-5 flex flex-wrap gap-2"
+          className="tab-list mt-5"
           role="tablist"
           aria-label="Fila de revisão das importações"
         >
@@ -1616,12 +1617,12 @@ GABARITO: B`}
               ['discarded', 'Descartadas'],
             ] as const
           ).map(([group, label]) => (
-            <Button
+            <button
               key={group}
               type="button"
               role="tab"
               aria-selected={reviewTab === group}
-              variant={reviewTab === group ? 'default' : 'outline'}
+              className="tab"
               onClick={() => {
                 setReviewTab(group);
                 setReviewFilters((current) => ({ ...current, status: '' }));
@@ -1635,10 +1636,10 @@ GABARITO: B`}
                   .length
               }
               )
-            </Button>
+            </button>
           ))}
         </div>
-        <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+        <section className="mt-5 rounded-xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
           <div className="grid items-end gap-2 md:grid-cols-2 xl:grid-cols-6">
             <label htmlFor="import-review-search" className={fieldLabel}>
               Buscar
@@ -2128,9 +2129,9 @@ GABARITO: B`}
                           )}
                           <label className="flex items-center gap-2 text-sm text-slate-700">
                             IA para conversão
-                            <select
+                            <NativeSelect
                               aria-label="IA para conversão"
-                              className="rounded-lg border border-slate-300 bg-white px-3 py-2"
+                              className="[&>select]:h-10"
                               value={aiProviders[item.id] || 'gemini'}
                               disabled={['queued', 'running'].includes(
                                 item.aiJob?.status || '',
@@ -2145,7 +2146,7 @@ GABARITO: B`}
                               <option value="gemini">Gemini</option>
                               <option value="deepseek">DeepSeek</option>
                               <option value="openai">ChatGPT (OpenAI)</option>
-                            </select>
+                            </NativeSelect>
                           </label>
                           {Boolean(item.candidates?.length) && (
                             <Button
@@ -2289,7 +2290,7 @@ GABARITO: B`}
                           ) : (
                             <article
                               key={candidate.id}
-                              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                             >
                               <div className="flex flex-wrap items-center gap-3">
                                 <label className="flex items-center gap-2 text-sm font-semibold">
@@ -2312,7 +2313,7 @@ GABARITO: B`}
                                   />
                                   Questão {candidate.sourceNumber}
                                 </label>
-                                <select
+                                <NativeSelect
                                   aria-label={`Tipo da questão ${candidate.sourceNumber}`}
                                   value={candidate.questionType}
                                   onChange={(event) =>
@@ -2323,7 +2324,7 @@ GABARITO: B`}
                                       setMessage(error.message),
                                     )
                                   }
-                                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs"
+                                  className="[&>select]:h-9 [&>select]:text-xs"
                                 >
                                   <option value="single_choice">
                                     Múltipla escolha · uma resposta
@@ -2335,7 +2336,7 @@ GABARITO: B`}
                                     Certo ou errado · uma afirmação
                                   </option>
                                   <option value="essay">Discursiva</option>
-                                </select>
+                                </NativeSelect>
                                 <span
                                   className={`rounded-full px-3 py-1 text-xs font-semibold ${candidate.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : candidate.status === 'duplicate' ? 'bg-rose-100 text-rose-800' : candidate.status === 'ignored' ? 'bg-slate-200 text-slate-700' : candidate.status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}
                                 >
@@ -2539,7 +2540,7 @@ GABARITO: B`}
                                           className="text-xs font-semibold text-slate-600"
                                         >
                                           {label}
-                                          <input
+                                          <Input
                                             type="number"
                                             min={
                                               field === 'x' || field === 'y'
