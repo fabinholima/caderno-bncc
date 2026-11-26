@@ -883,11 +883,11 @@ export function AcademicManager({
   }> = [
     { id: 'dashboard', label: 'Painel', icon: <BarChart3 /> },
     { id: 'years', label: 'Anos letivos', icon: <CalendarCheck /> },
-    { id: 'classes', label: 'Turmas e escolas', icon: <GraduationCap /> },
+    { id: 'classes', label: 'Turmas', icon: <GraduationCap /> },
     { id: 'students', label: 'Alunos', icon: <Users /> },
     {
       id: 'applications',
-      label: 'Aplicações e impressão',
+      label: 'Aplicações',
       icon: <CalendarCheck />,
     },
     { id: 'correction', label: 'Correção', icon: <Download /> },
@@ -1060,18 +1060,15 @@ export function AcademicManager({
       aria-labelledby="academic-title"
       className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9"
     >
-      <p className="text-xs font-bold uppercase tracking-[.15em] text-blue-600">
-        {standalone ? 'Fluxo de avaliação' : 'Gestão acadêmica'}
-      </p>
       <h1
         id="academic-title"
-        className="font-display mt-1 text-3xl font-bold text-[var(--navy)]"
+        className="font-display text-3xl font-bold text-[var(--navy)]"
       >
         {initialSection === 'reports'
           ? 'Diagnóstico da turma'
           : initialSection === 'correction'
             ? 'Correção'
-            : panelNavigation.find((item) => item.id === activePanel)?.label}
+            : 'Turmas e alunos'}
       </h1>
       <p className="mt-2 text-sm text-slate-500">
         {initialSection === 'reports'
@@ -1099,7 +1096,7 @@ export function AcademicManager({
         <div
           aria-label="Seções da gestão acadêmica"
           role="tablist"
-          className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-4 xl:grid-cols-7"
+          className="-mx-5 mt-6 flex overflow-x-auto border-b border-slate-200 px-5 sm:mx-0 sm:px-0"
         >
           {panelNavigation.map((item) => (
             <button
@@ -1108,7 +1105,7 @@ export function AcademicManager({
               role="tab"
               aria-selected={activePanel === item.id}
               onClick={() => setActivePanel(item.id)}
-              className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${activePanel === item.id ? 'bg-[var(--navy)] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+              className={`-mb-px flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 text-sm font-semibold transition ${activePanel === item.id ? 'border-[var(--navy)] text-[var(--navy)]' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
             >
               <span
                 aria-hidden="true"
@@ -1483,7 +1480,7 @@ export function AcademicManager({
                 <p className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
                   {applications.length
                     ? 'Nenhuma aplicação para esta turma.'
-                    : 'Nenhuma aplicação agendada ainda. Aplique uma avaliação a uma turma em Turmas e alunos › Aplicações e impressão.'}
+                    : 'Nenhuma aplicação agendada ainda. Aplique uma avaliação a uma turma em Turmas e alunos › Aplicações.'}
                 </p>
               );
             return (
@@ -2281,7 +2278,7 @@ export function AcademicManager({
             cartão por página. Cada página é corrigida separadamente; leituras
             duvidosas não interrompem as demais.
           </p>
-          <label className="mt-4 inline-flex cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+          <label className="mt-4 inline-flex cursor-pointer rounded-lg bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--navy)]/90 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--blue)]">
             Enviar cartões
             <input
               className="sr-only"

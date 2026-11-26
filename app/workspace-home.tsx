@@ -306,6 +306,42 @@ export function WorkspaceHome({
           label: 'Abrir banco',
           action: () => onNavigate('Questões'),
         };
+  // Conta nova: até a primeira aplicação, o início mostra os primeiros passos
+  // no lugar dos números (que seriam todos zero).
+  const onboarding = Boolean(data) && !applications.length;
+  const fresh =
+    onboarding && !activeQuestions.length && !data?.assessments.length;
+  const firstSteps = [
+    {
+      title: 'Cadastre ou importe questões',
+      text: 'Escreva o enunciado, as alternativas e a resolução, ou traga questões de uma prova em PDF.',
+      done: activeQuestions.length > 0,
+      label: canEditCatalog ? 'Nova questão' : 'Abrir banco',
+      action: canEditCatalog ? onNewQuestion : () => onNavigate('Questões'),
+    },
+    {
+      title: 'Aprove as questões',
+      text: 'Só questões aprovadas entram na prova. Confira o gabarito e a classificação BNCC.',
+      done: approved > 0,
+      label: 'Revisar questões',
+      action: () => onNavigate('Questões'),
+    },
+    {
+      title: 'Monte a primeira avaliação',
+      text: 'Escolha as questões aprovadas e gere os cadernos de prova e os gabaritos.',
+      done: Boolean(data?.assessments.length),
+      label: 'Montar avaliação',
+      action: () => onNavigate('Avaliações'),
+    },
+    {
+      title: 'Aplique a uma turma',
+      text: 'Gere os PDFs com cartão-resposta para cada aluno e corrija pelo celular.',
+      done: false,
+      label: 'Ir para turmas',
+      action: () => onNavigate('Turmas e alunos'),
+    },
+  ];
+  const currentStep = firstSteps.findIndex((step) => !step.done);
   const stats = [
     {
       label: 'Questões aprovadas',
@@ -502,358 +538,429 @@ export function WorkspaceHome({
         </section>
       ) : (
         <>
-          <section
-            aria-label="Resumo"
-            className="grid grid-cols-2 gap-3 xl:grid-cols-4"
-          >
-            {stats.map(({ label, value, detail, icon: Icon, view: target }) => (
-              <button
-                type="button"
-                key={label}
-                onClick={() => onNavigate(target)}
-                className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-sm sm:p-5"
-              >
-                <p className="flex items-center gap-2 text-sm text-slate-600">
-                  <Icon
-                    className="size-4 text-[var(--blue)]"
-                    aria-hidden="true"
-                  />
-                  {label}
-                </p>
-                <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--navy)] sm:text-3xl">
-                  {data ? value : '—'}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {data ? detail : ' '}
-                </p>
-              </button>
-            ))}
-          </section>
-
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
-            <div className="min-w-0 space-y-5">
-              <section
-                aria-labelledby="home-applications"
-                className="rounded-2xl border border-slate-200 bg-white"
-              >
-                <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
-                  <h2
-                    id="home-applications"
-                    className="font-display text-lg font-bold text-[var(--navy)]"
-                  >
-                    Aplicações recentes
-                  </h2>
-                  <Button
-                    variant="link"
-                    className="h-auto px-0"
-                    onClick={() => onNavigate('Diagnosticar')}
-                  >
-                    Ver todas
-                    <ArrowRight aria-hidden="true" />
-                  </Button>
-                </div>
-                {data && !applications.length ? (
-                  <div className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-600 sm:m-6">
-                    Nenhuma avaliação aplicada ainda. Aplique uma prova a uma
-                    turma para acompanhar PDFs, correção e resultados.
-                    <div>
-                      <Button
-                        variant="outline"
-                        className="mt-3"
-                        onClick={() => onNavigate('Turmas e alunos')}
-                      >
-                        <Users aria-hidden="true" />
-                        Ir para turmas
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-slate-100 px-5 pb-2 sm:px-6">
-                    {applications.slice(0, 4).map((a) => {
-                      const ready = a.students ? a.completed / a.students : 0;
-                      return (
-                        <li
-                          key={a.id}
-                          className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4"
-                        >
-                          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-                            <p className="truncate font-semibold text-slate-900">
-                              {a.title}
-                            </p>
-                            <p className="mt-0.5 text-sm text-slate-600">
-                              {a.className}
-                              {a.scheduledAt
-                                ? ` · ${shortDate(a.scheduledAt)}`
-                                : ''}
-                            </p>
-                          </div>
-                          <div className="w-40 flex-1 sm:flex-none">
-                            <p className="flex justify-between text-xs text-slate-600">
-                              <span>PDFs prontos</span>
-                              <span className="tabular-nums">
-                                {a.completed}/{a.students}
-                              </span>
-                            </p>
-                            <div
-                              className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"
-                              aria-hidden="true"
-                            >
-                              <span
-                                className={`block h-full rounded-full ${ready === 1 ? 'bg-emerald-600' : 'bg-blue-600'}`}
-                                style={{ width: `${ready * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onOpenApplication(a.id)}
-                          >
-                            Relatório
-                            <ArrowRight aria-hidden="true" />
-                          </Button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </section>
-
-              <section
-                aria-labelledby="home-assessments"
-                className="rounded-2xl border border-slate-200 bg-white"
-              >
-                <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
-                  <h2
-                    id="home-assessments"
-                    className="font-display text-lg font-bold text-[var(--navy)]"
-                  >
-                    Avaliações recentes
-                  </h2>
-                  <Button
-                    variant="link"
-                    className="h-auto px-0"
-                    onClick={() => onNavigate('Avaliações')}
-                  >
-                    Ver todas
-                    <ArrowRight aria-hidden="true" />
-                  </Button>
-                </div>
-                {data && !data.assessments.length ? (
-                  <p className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-600 sm:m-6">
-                    Nenhuma avaliação montada ainda.
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-slate-100 px-5 pb-2 sm:px-6">
-                    {data?.assessments.slice(0, 5).map((a) => (
-                      <li key={a.id} className="py-3">
-                        <div className="flex items-center gap-3">
-                          <FileOutput
-                            className="size-4 shrink-0 text-slate-500"
-                            aria-hidden="true"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium text-slate-900">
-                              {a.title}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {[
-                                a.grade,
-                                a.versionCount
-                                  ? `${a.versionCount} ${a.versionCount === 1 ? 'versão' : 'versões'}`
-                                  : '',
-                                shortDate(a.createdAt),
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </p>
-                          </div>
-                          {regeneratingId === a.id && (
-                            <span className="text-xs text-slate-600">
-                              Gerando…
-                            </span>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger
-                              render={
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label={`Mais ações para ${a.title}`}
-                                />
-                              }
-                            >
-                              <MoreHorizontal aria-hidden="true" />
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="min-w-48"
-                            >
-                              <DropdownMenuItem
-                                onClick={() => onNavigate('Avaliações')}
-                              >
-                                <FileOutput />
-                                Abrir avaliações
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={Boolean(regeneratingId)}
-                                onClick={() => regenerateSavedAssessment(a.id)}
-                              >
-                                <RotateCcw />
-                                Gerar PDFs novamente
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                variant="destructive"
-                                disabled={deletingId === a.id}
-                                onClick={() => void deleteSavedAssessment(a)}
-                              >
-                                <Trash2 />
-                                Excluir prova
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        {regenerated?.assessmentId === a.id && (
-                          <div className="mt-3 space-y-3" aria-live="polite">
-                            {regenerated.jobs.some(
-                              (job) =>
-                                job.status === 'queued' ||
-                                job.status === 'running',
-                            ) && (
-                              <p className="text-sm text-slate-600">
-                                Compondo os PDFs no ConTeXt…
-                              </p>
-                            )}
-                            {regenerated.jobs.map((job) =>
-                              job.status === 'completed' ? (
-                                <AssessmentPdfPreview
-                                  key={job.renderJobId}
-                                  apiUrl={apiUrl}
-                                  jobId={job.renderJobId}
-                                  code={job.code}
-                                />
-                              ) : job.status === 'failed' ? (
-                                <p
-                                  key={job.renderJobId}
-                                  role="alert"
-                                  className="text-sm text-rose-700"
-                                >
-                                  Versão {job.code}:{' '}
-                                  {job.error || 'Falha na composição.'}
-                                </p>
-                              ) : null,
-                            )}
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {regenerationError && (
-                  <p role="alert" className="px-6 pb-4 text-sm text-rose-700">
-                    {regenerationError}
-                  </p>
-                )}
-              </section>
-            </div>
-
-            <div className="min-w-0 space-y-5">
-              <section
-                aria-labelledby="home-next"
-                className="rounded-2xl bg-[var(--navy)] p-5 text-white sm:p-6"
-              >
-                <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--lime)]">
-                  <ChartNoAxesCombined className="size-4" aria-hidden="true" />
-                  Próximo passo
-                </p>
+          {onboarding ? (
+            <section
+              aria-labelledby="home-first-steps"
+              className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2
-                  id="home-next"
-                  className="mt-3 font-display text-xl font-bold leading-snug"
+                  id="home-first-steps"
+                  className="font-display text-xl font-bold text-[var(--navy)]"
                 >
-                  {next.title}
+                  Primeiros passos
                 </h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                  {next.text}
+                <p className="text-sm text-slate-600">
+                  {firstSteps.filter((step) => step.done).length} de{' '}
+                  {firstSteps.length} concluídos
                 </p>
-                <Button
-                  disabled={!data}
-                  onClick={next.action}
-                  className="mt-4 bg-[var(--lime)] text-[var(--navy)] hover:bg-[var(--lime)]/90"
-                >
-                  {next.label}
-                  <ArrowRight aria-hidden="true" />
-                </Button>
-              </section>
+              </div>
+              <ol className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {firstSteps.map((step, index) => {
+                  const now = index === currentStep;
+                  return (
+                    <li
+                      key={step.title}
+                      aria-current={now ? 'step' : undefined}
+                      className={`flex flex-col rounded-xl border p-4 ${now ? 'border-[var(--navy)] ring-1 ring-[var(--navy)]' : 'border-slate-200'}`}
+                    >
+                      <span
+                        className={`grid size-8 place-items-center rounded-full text-sm font-bold ${step.done ? 'bg-[var(--lime)] text-[var(--navy)]' : now ? 'bg-[var(--navy)] text-white' : 'bg-slate-100 text-slate-600'}`}
+                      >
+                        {step.done ? (
+                          <CircleCheck className="size-4" aria-label="Feito" />
+                        ) : (
+                          index + 1
+                        )}
+                      </span>
+                      <h3
+                        className={`mt-3 font-semibold ${step.done ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-900'}`}
+                      >
+                        {step.title}
+                      </h3>
+                      <p className="mt-1 flex-1 text-sm text-slate-600">
+                        {step.text}
+                      </p>
+                      {!step.done && (
+                        <Button
+                          variant={now ? 'default' : 'outline'}
+                          className="mt-4 self-start"
+                          onClick={step.action}
+                        >
+                          {step.label}
+                          {now && <ArrowRight aria-hidden="true" />}
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ) : (
+            <section
+              aria-label="Resumo"
+              className="grid grid-cols-2 gap-3 xl:grid-cols-4"
+            >
+              {stats.map(
+                ({ label, value, detail, icon: Icon, view: target }) => (
+                  <button
+                    type="button"
+                    key={label}
+                    onClick={() => onNavigate(target)}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-sm sm:p-5"
+                  >
+                    <p className="flex items-center gap-2 text-sm text-slate-600">
+                      <Icon
+                        className="size-4 text-[var(--blue)]"
+                        aria-hidden="true"
+                      />
+                      {label}
+                    </p>
+                    <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--navy)] sm:text-3xl">
+                      {data ? value : '—'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {data ? detail : ' '}
+                    </p>
+                  </button>
+                ),
+              )}
+            </section>
+          )}
 
-              <section
-                aria-labelledby="home-questions"
-                className="rounded-2xl border border-slate-200 bg-white"
-              >
-                <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
-                  <h2
-                    id="home-questions"
-                    className="font-display text-lg font-bold text-[var(--navy)]"
-                  >
-                    Questões recentes
-                  </h2>
-                  <Button
-                    variant="link"
-                    className="h-auto px-0"
-                    onClick={() => onNavigate('Questões')}
-                  >
-                    Abrir banco
-                    <ArrowRight aria-hidden="true" />
-                  </Button>
-                </div>
-                {data && !activeQuestions.length ? (
-                  <p className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-600 sm:m-6">
-                    Nenhuma questão no banco ainda.
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-slate-100 px-5 pb-2 sm:px-6">
-                    {activeQuestions.slice(0, 5).map((q) => {
-                      const status =
-                        questionStatus[q.status] || questionStatus.Rascunho;
-                      const StatusIcon = status.icon;
-                      return (
-                        <li key={q.id}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              canEditCatalog
-                                ? onEditQuestion(q.id)
-                                : onNavigate('Questões')
-                            }
-                            className="block w-full py-3 text-left"
+          {!fresh && (
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
+              <div className="min-w-0 space-y-5">
+                <section
+                  aria-labelledby="home-applications"
+                  className="rounded-2xl border border-slate-200 bg-white"
+                >
+                  <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
+                    <h2
+                      id="home-applications"
+                      className="font-display text-lg font-bold text-[var(--navy)]"
+                    >
+                      Aplicações recentes
+                    </h2>
+                    <Button
+                      variant="link"
+                      className="h-auto px-0"
+                      onClick={() => onNavigate('Diagnosticar')}
+                    >
+                      Ver todas
+                      <ArrowRight aria-hidden="true" />
+                    </Button>
+                  </div>
+                  {data && !applications.length ? (
+                    <div className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-600 sm:m-6">
+                      Nenhuma avaliação aplicada ainda. Aplique uma prova a uma
+                      turma para acompanhar PDFs, correção e resultados.
+                      <div>
+                        <Button
+                          variant="outline"
+                          className="mt-3"
+                          onClick={() => onNavigate('Turmas e alunos')}
+                        >
+                          <Users aria-hidden="true" />
+                          Ir para turmas
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-slate-100 px-5 pb-2 sm:px-6">
+                      {applications.slice(0, 4).map((a) => {
+                        const ready = a.students ? a.completed / a.students : 0;
+                        return (
+                          <li
+                            key={a.id}
+                            className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4"
                           >
-                            <span className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-semibold text-[var(--blue)]">
-                                {q.code} · {q.subject}
-                              </span>
-                              <span
-                                className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}
+                            <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+                              <p className="truncate font-semibold text-slate-900">
+                                {a.title}
+                              </p>
+                              <p className="mt-0.5 text-sm text-slate-600">
+                                {a.className}
+                                {a.scheduledAt
+                                  ? ` · ${shortDate(a.scheduledAt)}`
+                                  : ''}
+                              </p>
+                            </div>
+                            <div className="w-40 flex-1 sm:flex-none">
+                              <p className="flex justify-between text-xs text-slate-600">
+                                <span>PDFs prontos</span>
+                                <span className="tabular-nums">
+                                  {a.completed}/{a.students}
+                                </span>
+                              </p>
+                              <div
+                                className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"
+                                aria-hidden="true"
                               >
-                                <StatusIcon
-                                  className="size-3.5"
-                                  aria-hidden="true"
+                                <span
+                                  className={`block h-full rounded-full ${ready === 1 ? 'bg-emerald-600' : 'bg-blue-600'}`}
+                                  style={{ width: `${ready * 100}%` }}
                                 />
-                                {q.status}
-                              </span>
-                            </span>
-                            {q.statement && (
-                              <span className="mt-1 line-clamp-2 block text-sm text-slate-700">
-                                {questionBankSummary(q.statement)}
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onOpenApplication(a.id)}
+                            >
+                              Relatório
+                              <ArrowRight aria-hidden="true" />
+                            </Button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+
+                <section
+                  aria-labelledby="home-assessments"
+                  className="rounded-2xl border border-slate-200 bg-white"
+                >
+                  <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
+                    <h2
+                      id="home-assessments"
+                      className="font-display text-lg font-bold text-[var(--navy)]"
+                    >
+                      Avaliações recentes
+                    </h2>
+                    <Button
+                      variant="link"
+                      className="h-auto px-0"
+                      onClick={() => onNavigate('Avaliações')}
+                    >
+                      Ver todas
+                      <ArrowRight aria-hidden="true" />
+                    </Button>
+                  </div>
+                  {data && !data.assessments.length ? (
+                    <p className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-600 sm:m-6">
+                      Nenhuma avaliação montada ainda.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100 px-5 pb-2 sm:px-6">
+                      {data?.assessments.slice(0, 5).map((a) => (
+                        <li key={a.id} className="py-3">
+                          <div className="flex items-center gap-3">
+                            <FileOutput
+                              className="size-4 shrink-0 text-slate-500"
+                              aria-hidden="true"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-slate-900">
+                                {a.title}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {[
+                                  a.grade,
+                                  a.versionCount
+                                    ? `${a.versionCount} ${a.versionCount === 1 ? 'versão' : 'versões'}`
+                                    : '',
+                                  shortDate(a.createdAt),
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                            </div>
+                            {regeneratingId === a.id && (
+                              <span className="text-xs text-slate-600">
+                                Gerando…
                               </span>
                             )}
-                          </button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={`Mais ações para ${a.title}`}
+                                  />
+                                }
+                              >
+                                <MoreHorizontal aria-hidden="true" />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="min-w-48"
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => onNavigate('Avaliações')}
+                                >
+                                  <FileOutput />
+                                  Abrir avaliações
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={Boolean(regeneratingId)}
+                                  onClick={() =>
+                                    regenerateSavedAssessment(a.id)
+                                  }
+                                >
+                                  <RotateCcw />
+                                  Gerar PDFs novamente
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={deletingId === a.id}
+                                  onClick={() => void deleteSavedAssessment(a)}
+                                >
+                                  <Trash2 />
+                                  Excluir prova
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          {regenerated?.assessmentId === a.id && (
+                            <div className="mt-3 space-y-3" aria-live="polite">
+                              {regenerated.jobs.some(
+                                (job) =>
+                                  job.status === 'queued' ||
+                                  job.status === 'running',
+                              ) && (
+                                <p className="text-sm text-slate-600">
+                                  Compondo os PDFs no ConTeXt…
+                                </p>
+                              )}
+                              {regenerated.jobs.map((job) =>
+                                job.status === 'completed' ? (
+                                  <AssessmentPdfPreview
+                                    key={job.renderJobId}
+                                    apiUrl={apiUrl}
+                                    jobId={job.renderJobId}
+                                    code={job.code}
+                                  />
+                                ) : job.status === 'failed' ? (
+                                  <p
+                                    key={job.renderJobId}
+                                    role="alert"
+                                    className="text-sm text-rose-700"
+                                  >
+                                    Versão {job.code}:{' '}
+                                    {job.error || 'Falha na composição.'}
+                                  </p>
+                                ) : null,
+                              )}
+                            </div>
+                          )}
                         </li>
-                      );
-                    })}
-                  </ul>
+                      ))}
+                    </ul>
+                  )}
+                  {regenerationError && (
+                    <p role="alert" className="px-6 pb-4 text-sm text-rose-700">
+                      {regenerationError}
+                    </p>
+                  )}
+                </section>
+              </div>
+
+              <div className="min-w-0 space-y-5">
+                {!onboarding && (
+                  <section
+                    aria-labelledby="home-next"
+                    className="rounded-2xl bg-[var(--navy)] p-5 text-white sm:p-6"
+                  >
+                    <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--lime)]">
+                      <ChartNoAxesCombined
+                        className="size-4"
+                        aria-hidden="true"
+                      />
+                      Próximo passo
+                    </p>
+                    <h2
+                      id="home-next"
+                      className="mt-3 font-display text-xl font-bold leading-snug"
+                    >
+                      {next.title}
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                      {next.text}
+                    </p>
+                    <Button
+                      disabled={!data}
+                      onClick={next.action}
+                      className="mt-4 bg-[var(--lime)] text-[var(--navy)] hover:bg-[var(--lime)]/90"
+                    >
+                      {next.label}
+                      <ArrowRight aria-hidden="true" />
+                    </Button>
+                  </section>
                 )}
-              </section>
+
+                <section
+                  aria-labelledby="home-questions"
+                  className="rounded-2xl border border-slate-200 bg-white"
+                >
+                  <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-6">
+                    <h2
+                      id="home-questions"
+                      className="font-display text-lg font-bold text-[var(--navy)]"
+                    >
+                      Questões recentes
+                    </h2>
+                    <Button
+                      variant="link"
+                      className="h-auto px-0"
+                      onClick={() => onNavigate('Questões')}
+                    >
+                      Abrir banco
+                      <ArrowRight aria-hidden="true" />
+                    </Button>
+                  </div>
+                  {data && !activeQuestions.length ? (
+                    <p className="m-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-600 sm:m-6">
+                      Nenhuma questão no banco ainda.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100 px-5 pb-2 sm:px-6">
+                      {activeQuestions.slice(0, 5).map((q) => {
+                        const status =
+                          questionStatus[q.status] || questionStatus.Rascunho;
+                        const StatusIcon = status.icon;
+                        return (
+                          <li key={q.id}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                canEditCatalog
+                                  ? onEditQuestion(q.id)
+                                  : onNavigate('Questões')
+                              }
+                              className="block w-full py-3 text-left"
+                            >
+                              <span className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-semibold text-[var(--blue)]">
+                                  {q.code} · {q.subject}
+                                </span>
+                                <span
+                                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}
+                                >
+                                  <StatusIcon
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                  />
+                                  {q.status}
+                                </span>
+                              </span>
+                              {q.statement && (
+                                <span className="mt-1 line-clamp-2 block text-sm text-slate-700">
+                                  {questionBankSummary(q.statement)}
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

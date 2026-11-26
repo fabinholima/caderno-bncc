@@ -25,7 +25,14 @@ import { apiFetch } from '@/lib/api-client';
 export type CurriculumOption = {
   skill_years?: number[] | null;
   skill_grade_range?: string | null;
-  subject_metadata?: {competencies?: Array<{id:string;tipo:string;numero:number;texto:string}>} | null;
+  subject_metadata?: {
+    competencies?: Array<{
+      id: string;
+      tipo: string;
+      numero: number;
+      texto: string;
+    }>;
+  } | null;
   subject_id: string;
   subject: string;
   stage: string;
@@ -143,7 +150,9 @@ export function CurriculumManager({
   const [mode, setMode] = useState<Mode>('skill');
   // As seções longas começam recolhidas: a página tinha dezenas de milhares de
   // pixels de altura com tudo aberto.
-  const [openSections, setOpenSections] = useState<Record<PlanningSection, boolean>>({
+  const [openSections, setOpenSections] = useState<
+    Record<PlanningSection, boolean>
+  >({
     content: false,
     areas: false,
     catalog: false,
@@ -255,10 +264,20 @@ export function CurriculumManager({
       .catch(() => undefined);
   }, [apiUrl, selectedSaebMatrix]);
   useEffect(() => {
-    void Promise.resolve().then(refreshPedagogicalDisciplines).catch(() => undefined);
+    void Promise.resolve()
+      .then(refreshPedagogicalDisciplines)
+      .catch(() => undefined);
     const refresh = () => {
       if (document.visibilityState === 'visible') {
-        void Promise.resolve().then(refreshPedagogicalTopics).catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
+        void Promise.resolve()
+          .then(refreshPedagogicalTopics)
+          .catch((error) =>
+            setCatalogMessage(
+              error instanceof Error
+                ? error.message
+                : 'Não foi possível carregar o catálogo.',
+            ),
+          );
       }
     };
     refresh();
@@ -271,8 +290,10 @@ export function CurriculumManager({
   }, [apiUrl, refreshPedagogicalDisciplines, refreshPedagogicalTopics]);
 
   useEffect(() => {
-    const disciplines = pedagogicalDisciplines.filter(item => item.stage === educationStage);
-    if (!disciplines.some(item => item.id === catalogDisciplineId)) {
+    const disciplines = pedagogicalDisciplines.filter(
+      (item) => item.stage === educationStage,
+    );
+    if (!disciplines.some((item) => item.id === catalogDisciplineId)) {
       // oxlint-disable-next-line react-compiler -- Reset dependent selection when the catalog options change.
       setCatalogDisciplineId(disciplines[0]?.id || '');
       setCatalogParentId('');
@@ -280,9 +301,16 @@ export function CurriculumManager({
   }, [pedagogicalDisciplines, educationStage, catalogDisciplineId]);
 
   useEffect(() => {
-    if (catalogParentId && !pedagogicalTopics.some(topic =>
-      topic.id === catalogParentId && topic.discipline_id === catalogDisciplineId &&
-      topic.grade_range === catalogGrade && (topic.effective_active ?? topic.active))) {
+    if (
+      catalogParentId &&
+      !pedagogicalTopics.some(
+        (topic) =>
+          topic.id === catalogParentId &&
+          topic.discipline_id === catalogDisciplineId &&
+          topic.grade_range === catalogGrade &&
+          (topic.effective_active ?? topic.active),
+      )
+    ) {
       // oxlint-disable-next-line react-compiler -- Clear a parent topic that became invalid after filtering.
       setCatalogParentId('');
     }
@@ -315,13 +343,17 @@ export function CurriculumManager({
       try {
         await refreshPedagogicalTopics();
       } catch {
-        setCatalogMessage('Item salvo, mas não foi possível atualizar a lista. Recarregue a página antes de cadastrar novamente.');
+        setCatalogMessage(
+          'Item salvo, mas não foi possível atualizar a lista. Recarregue a página antes de cadastrar novamente.',
+        );
         return;
       }
       setCatalogMessage('Item adicionado ao catálogo institucional.');
       setMessage('Item adicionado ao catálogo institucional.');
     } catch (error) {
-      setCatalogMessage(error instanceof Error ? error.message : 'Erro no cadastro.');
+      setCatalogMessage(
+        error instanceof Error ? error.message : 'Erro no cadastro.',
+      );
       setMessage(error instanceof Error ? error.message : 'Erro no cadastro.');
     } finally {
       setCatalogSaving(false);
@@ -354,7 +386,9 @@ export function CurriculumManager({
       await refreshPedagogicalTopics();
       setCatalogMessage('Nome atualizado.');
     } catch (error) {
-      setCatalogMessage(error instanceof Error ? error.message : 'Erro na edição.');
+      setCatalogMessage(
+        error instanceof Error ? error.message : 'Erro na edição.',
+      );
     } finally {
       setCatalogSaving(false);
     }
@@ -367,7 +401,9 @@ export function CurriculumManager({
       await refreshPedagogicalTopics();
       setCatalogMessage(topic.active ? 'Item arquivado.' : 'Item reativado.');
     } catch (error) {
-      setCatalogMessage(error instanceof Error ? error.message : 'Erro na alteração.');
+      setCatalogMessage(
+        error instanceof Error ? error.message : 'Erro na alteração.',
+      );
     } finally {
       setCatalogSaving(false);
     }
@@ -379,36 +415,59 @@ export function CurriculumManager({
     while (previousSize !== expectedTopicIds.size) {
       previousSize = expectedTopicIds.size;
       for (const item of pedagogicalTopics) {
-        if (item.parent_id && expectedTopicIds.has(item.parent_id)) expectedTopicIds.add(item.id);
+        if (item.parent_id && expectedTopicIds.has(item.parent_id))
+          expectedTopicIds.add(item.id);
       }
     }
     const descendants = expectedTopicIds.size - 1;
-    if (!window.confirm(`Excluir definitivamente “${topic.name}”${descendants ? ` e seus ${descendants} subtópico(s)/detalhamento(s)` : ''}? Esta ação não pode ser desfeita. Itens vinculados a questões não serão excluídos.`)) return;
+    if (
+      !window.confirm(
+        `Excluir definitivamente “${topic.name}”${descendants ? ` e seus ${descendants} subtópico(s)/detalhamento(s)` : ''}? Esta ação não pode ser desfeita. Itens vinculados a questões não serão excluídos.`,
+      )
+    )
+      return;
     setCatalogSaving(true);
     setCatalogMessage('');
     try {
-      const response = await apiFetch(`${apiUrl}/api/curriculum/pedagogical-topics/${topic.id}`, {
-        method:'DELETE',headers:{'content-type':'application/json'},
-        body:JSON.stringify({expectedTopicIds:[...expectedTopicIds]}),
-      });
-      const body = await response.json() as {error?:string};
-      if (!response.ok) throw new Error(body.error || 'Não foi possível excluir o item.');
-      setPedagogicalTopics(current=>current.filter(item=>!expectedTopicIds.has(item.id)));
+      const response = await apiFetch(
+        `${apiUrl}/api/curriculum/pedagogical-topics/${topic.id}`,
+        {
+          method: 'DELETE',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ expectedTopicIds: [...expectedTopicIds] }),
+        },
+      );
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok)
+        throw new Error(body.error || 'Não foi possível excluir o item.');
+      setPedagogicalTopics((current) =>
+        current.filter((item) => !expectedTopicIds.has(item.id)),
+      );
       if (expectedTopicIds.has(catalogParentId)) setCatalogParentId('');
       setCatalogMessage('Item excluído do catálogo.');
     } catch (error) {
-      setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível excluir o item.');
-    } finally { setCatalogSaving(false); }
+      setCatalogMessage(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível excluir o item.',
+      );
+    } finally {
+      setCatalogSaving(false);
+    }
   }
 
   async function moveCatalogTopic(topic: PedagogicalTopic, direction: -1 | 1) {
     setCatalogSaving(true);
     try {
-      await patchCatalogTopic(topic.id, { move: direction === -1 ? 'up' : 'down' });
+      await patchCatalogTopic(topic.id, {
+        move: direction === -1 ? 'up' : 'down',
+      });
       await refreshPedagogicalTopics();
       setCatalogMessage('Ordem atualizada.');
     } catch (error) {
-      setCatalogMessage(error instanceof Error ? error.message : 'Erro na ordenação.');
+      setCatalogMessage(
+        error instanceof Error ? error.message : 'Erro na ordenação.',
+      );
     } finally {
       setCatalogSaving(false);
     }
@@ -490,9 +549,11 @@ export function CurriculumManager({
   const pedagogicalObjectCount = pedagogicalTopics.filter(
     (item) => item.active && item.depth === 0,
   ).length;
-  const visibleCatalogTopics = pedagogicalTopics.filter(topic =>
-    topic.discipline_id === catalogDisciplineId && topic.grade_range === catalogGrade &&
-    (catalogShowArchived || (topic.effective_active ?? topic.active)),
+  const visibleCatalogTopics = pedagogicalTopics.filter(
+    (topic) =>
+      topic.discipline_id === catalogDisciplineId &&
+      topic.grade_range === catalogGrade &&
+      (catalogShowArchived || (topic.effective_active ?? topic.active)),
   );
   const metrics: Array<{ value: number; label: string; icon: LucideIcon }> = [
     {
@@ -524,7 +585,12 @@ export function CurriculumManager({
     Geografia: 'Ciências Humanas',
   };
   const highSchoolSubjectsByArea: Record<string, string[]> = {
-    'em-area-lgg': ['Língua Portuguesa', 'Arte', 'Educação Física', 'Língua Inglesa'],
+    'em-area-lgg': [
+      'Língua Portuguesa',
+      'Arte',
+      'Educação Física',
+      'Língua Inglesa',
+    ],
     'em-area-mat': ['Matemática'],
     'em-area-cnt': ['Biologia', 'Física', 'Química'],
     'em-area-chs': ['História', 'Geografia', 'Sociologia', 'Filosofia'],
@@ -648,9 +714,6 @@ export function CurriculumManager({
     <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">
-            Planejamento curricular
-          </p>
           <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
             Estrutura BNCC
           </h1>
@@ -732,37 +795,97 @@ export function CurriculumManager({
             </p>
           </div>
           <Badge variant="outline">{educationStage}</Badge>
-          <SectionToggle open={openSections.content} controls="planejamento-content" label="Conteúdo curricular" onToggle={() => toggleSection('content')} />
+          <SectionToggle
+            open={openSections.content}
+            controls="planejamento-content"
+            label="Conteúdo curricular"
+            onToggle={() => toggleSection('content')}
+          />
         </div>
         <div id="planejamento-content" hidden={!openSections.content}>
-        {educationStage === 'Ensino Fundamental' ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {subjects.map((item) => {
-              const subjectObjects = objects.filter((object) => object.subject_id === item.subject_id);
-              return <article key={item.subject_id} className="rounded-xl border border-slate-200 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">{fundamentalAreaBySubject[item.subject] || 'Componente curricular'}</p>
-                <h3 className="mt-1 font-semibold text-[var(--navy)]">{item.subject}</h3>
-                <p className="mt-1 text-xs text-slate-500">{subjectObjects.length} objeto(s) de conhecimento</p>
-                <ul className="mt-3 space-y-1 text-sm text-slate-600">
-                  {subjectObjects.slice(0, 8).map((object) => <li key={object.knowledge_object_id}>• {object.knowledge_object}{object.grade_range ? ` · ${object.grade_range}` : ''}</li>)}
-                  {!subjectObjects.length && <li className="text-xs text-slate-500">Objetos ainda não cadastrados.</li>}
-                </ul>
-              </article>;
-            })}
-          </div>
-        ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {[...new Map(highSchool.map((item) => [item.area_source_key, item])).values()].map((area) => {
-              const skills = highSchool.filter((item) => item.area_source_key === area.area_source_key);
-              return <article key={area.area_source_key} className="rounded-xl border border-violet-100 bg-violet-50/30 p-4">
-                <h3 className="font-semibold text-[var(--navy)]">{area.area}</h3>
-                <p className="mt-1 text-xs text-slate-600">{highSchoolSubjectsByArea[area.area_source_key]?.join(' · ')}</p>
-                <p className="mt-1 text-xs text-slate-500">{new Set(skills.map((item) => item.skill_code)).size} habilidades oficiais</p>
-                <div className="mt-3 flex flex-wrap gap-1">{[...new Set(skills.map((item) => item.skill_code))].slice(0, 12).map((code) => <Badge key={code} variant="outline" className="font-mono text-xs">{code}</Badge>)}</div>
-              </article>;
-            })}
-          </div>
-        )}
+          {educationStage === 'Ensino Fundamental' ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {subjects.map((item) => {
+                const subjectObjects = objects.filter(
+                  (object) => object.subject_id === item.subject_id,
+                );
+                return (
+                  <article
+                    key={item.subject_id}
+                    className="rounded-xl border border-slate-200 p-4"
+                  >
+                    <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                      {fundamentalAreaBySubject[item.subject] ||
+                        'Componente curricular'}
+                    </p>
+                    <h3 className="mt-1 font-semibold text-[var(--navy)]">
+                      {item.subject}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {subjectObjects.length} objeto(s) de conhecimento
+                    </p>
+                    <ul className="mt-3 space-y-1 text-sm text-slate-600">
+                      {subjectObjects.slice(0, 8).map((object) => (
+                        <li key={object.knowledge_object_id}>
+                          • {object.knowledge_object}
+                          {object.grade_range ? ` · ${object.grade_range}` : ''}
+                        </li>
+                      ))}
+                      {!subjectObjects.length && (
+                        <li className="text-xs text-slate-500">
+                          Objetos ainda não cadastrados.
+                        </li>
+                      )}
+                    </ul>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {[
+                ...new Map(
+                  highSchool.map((item) => [item.area_source_key, item]),
+                ).values(),
+              ].map((area) => {
+                const skills = highSchool.filter(
+                  (item) => item.area_source_key === area.area_source_key,
+                );
+                return (
+                  <article
+                    key={area.area_source_key}
+                    className="rounded-xl border border-violet-100 bg-violet-50/30 p-4"
+                  >
+                    <h3 className="font-semibold text-[var(--navy)]">
+                      {area.area}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {highSchoolSubjectsByArea[area.area_source_key]?.join(
+                        ' · ',
+                      )}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {new Set(skills.map((item) => item.skill_code)).size}{' '}
+                      habilidades oficiais
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {[...new Set(skills.map((item) => item.skill_code))]
+                        .slice(0, 12)
+                        .map((code) => (
+                          <Badge
+                            key={code}
+                            variant="outline"
+                            className="font-mono text-xs"
+                          >
+                            {code}
+                          </Badge>
+                        ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
       {educationStage === 'Ensino Médio' && highSchool.length > 0 && (
@@ -784,119 +907,127 @@ export function CurriculumManager({
               {new Set(highSchool.map((item) => item.skill_code)).size}{' '}
               habilidades
             </Badge>
-            <SectionToggle open={openSections.areas} controls="planejamento-areas" label="Áreas oficiais do Ensino Médio" onToggle={() => toggleSection('areas')} />
+            <SectionToggle
+              open={openSections.areas}
+              controls="planejamento-areas"
+              label="Áreas oficiais do Ensino Médio"
+              onToggle={() => toggleSection('areas')}
+            />
           </div>
           <div id="planejamento-areas" hidden={!openSections.areas}>
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
-            {[
-              ...new Map(
-                highSchool.map((item) => [item.competency_id, item]),
-              ).values(),
-            ].map((competency) => (
-              <article
-                key={competency.competency_id}
-                className="rounded-xl border border-violet-100 bg-white p-4"
-              >
-                <p className="text-xs font-bold uppercase tracking-wider text-violet-700">
-                  {competency.area} · Competência {competency.competency_number}
-                </p>
-                <p
-                  className="mt-2 line-clamp-4 text-xs leading-5 text-slate-600"
-                  title={competency.competency_description}
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              {[
+                ...new Map(
+                  highSchool.map((item) => [item.competency_id, item]),
+                ).values(),
+              ].map((competency) => (
+                <article
+                  key={competency.competency_id}
+                  className="rounded-xl border border-violet-100 bg-white p-4"
                 >
-                  {competency.competency_description}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {highSchool
-                    .filter(
-                      (item) => item.competency_id === competency.competency_id,
-                    )
-                    .map((item) => (
-                      <Badge
-                        key={item.skill_code}
-                        variant="outline"
-                        title={item.skill_description}
-                        className="font-mono text-violet-700"
-                      >
-                        {item.skill_code}
-                      </Badge>
-                    ))}
-                </div>
-              </article>
-            ))}
-          </div>
-          <p className="mt-4 text-xs leading-5 text-slate-500">
-            “Química” será uma etiqueta pedagógica local aplicada às habilidades
-            pertinentes; ela não altera a autoria oficial da área.
-          </p>
-          <div className="mt-5 border-t border-violet-200 pt-5">
-            {!chemistry ? (
-              <Button
-                type="button"
-                disabled={!apiUrl || chemistrySaving}
-                onClick={activateChemistry}
-                className="bg-violet-700 text-white hover:bg-violet-800"
-              >
-                <Plus /> Ativar módulo de Química
-              </Button>
-            ) : (
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-[var(--navy)]">
-                      Curadoria de Química
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Marque somente as habilidades que a instituição trabalhará
-                      em Química.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    disabled={chemistrySaving}
-                    onClick={saveChemistrySkills}
+                  <p className="text-xs font-bold uppercase tracking-wider text-violet-700">
+                    {competency.area} · Competência{' '}
+                    {competency.competency_number}
+                  </p>
+                  <p
+                    className="mt-2 line-clamp-4 text-xs leading-5 text-slate-600"
+                    title={competency.competency_description}
                   >
-                    {chemistrySaving ? 'Salvando...' : 'Salvar seleção'}
-                  </Button>
-                </div>
-                <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {[
-                    ...new Map(
-                      natureHighSchool.map((item) => [item.skill_id, item]),
-                    ).values(),
-                  ].map((skill) => (
-                    <label
-                      key={skill.skill_id}
-                      aria-label={`${skill.skill_code} ${skill.skill_description}`}
-                      className="flex gap-2 rounded-lg border border-violet-100 bg-white p-3 text-xs"
+                    {competency.competency_description}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {highSchool
+                      .filter(
+                        (item) =>
+                          item.competency_id === competency.competency_id,
+                      )
+                      .map((item) => (
+                        <Badge
+                          key={item.skill_code}
+                          variant="outline"
+                          title={item.skill_description}
+                          className="font-mono text-violet-700"
+                        >
+                          {item.skill_code}
+                        </Badge>
+                      ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+            <p className="mt-4 text-xs leading-5 text-slate-500">
+              “Química” será uma etiqueta pedagógica local aplicada às
+              habilidades pertinentes; ela não altera a autoria oficial da área.
+            </p>
+            <div className="mt-5 border-t border-violet-200 pt-5">
+              {!chemistry ? (
+                <Button
+                  type="button"
+                  disabled={!apiUrl || chemistrySaving}
+                  onClick={activateChemistry}
+                  className="bg-violet-700 text-white hover:bg-violet-800"
+                >
+                  <Plus /> Ativar módulo de Química
+                </Button>
+              ) : (
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-[var(--navy)]">
+                        Curadoria de Química
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Marque somente as habilidades que a instituição
+                        trabalhará em Química.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={chemistrySaving}
+                      onClick={saveChemistrySkills}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedChemistrySkills.has(skill.skill_id)}
-                        onChange={(event) =>
-                          setSelectedChemistrySkills((current) => {
-                            const next = new Set(current);
-                            if (event.target.checked) next.add(skill.skill_id);
-                            else next.delete(skill.skill_id);
-                            return next;
-                          })
-                        }
-                        className="mt-0.5 size-4 accent-violet-700"
-                      />
-                      <span>
-                        <strong className="font-mono text-violet-700">
-                          {skill.skill_code}
-                        </strong>
-                        <span className="mt-1 line-clamp-3 block leading-5 text-slate-600">
-                          {skill.skill_description}
+                      {chemistrySaving ? 'Salvando...' : 'Salvar seleção'}
+                    </Button>
+                  </div>
+                  <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {[
+                      ...new Map(
+                        natureHighSchool.map((item) => [item.skill_id, item]),
+                      ).values(),
+                    ].map((skill) => (
+                      <label
+                        key={skill.skill_id}
+                        aria-label={`${skill.skill_code} ${skill.skill_description}`}
+                        className="flex gap-2 rounded-lg border border-violet-100 bg-white p-3 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedChemistrySkills.has(skill.skill_id)}
+                          onChange={(event) =>
+                            setSelectedChemistrySkills((current) => {
+                              const next = new Set(current);
+                              if (event.target.checked)
+                                next.add(skill.skill_id);
+                              else next.delete(skill.skill_id);
+                              return next;
+                            })
+                          }
+                          className="mt-0.5 size-4 accent-violet-700"
+                        />
+                        <span>
+                          <strong className="font-mono text-violet-700">
+                            {skill.skill_code}
+                          </strong>
+                          <span className="mt-1 line-clamp-3 block leading-5 text-slate-600">
+                            {skill.skill_description}
+                          </span>
                         </span>
-                      </span>
-                    </label>
-                  ))}
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
           </div>
         </section>
       )}
@@ -917,134 +1048,174 @@ export function CurriculumManager({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" size="sm"
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   disabled={catalogLoading || catalogSaving}
                   onClick={() => {
                     setCatalogMessage('');
                     void refreshPedagogicalTopics()
                       .then(() => setCatalogMessage('Catálogo atualizado.'))
-                      .catch(error => setCatalogMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo.'));
-                  }}>
+                      .catch((error) =>
+                        setCatalogMessage(
+                          error instanceof Error
+                            ? error.message
+                            : 'Não foi possível carregar o catálogo.',
+                        ),
+                      );
+                  }}
+                >
                   <RefreshCw className={catalogLoading ? 'animate-spin' : ''} />
                   {catalogLoading ? 'Atualizando...' : 'Atualizar catálogo'}
                 </Button>
-                {role === 'teacher' && <Badge variant="outline">Consulta para professor</Badge>}
+                {role === 'teacher' && (
+                  <Badge variant="outline">Consulta para professor</Badge>
+                )}
               </div>
-              <SectionToggle open={openSections.catalog} controls="planejamento-catalog" label="Objetos e subtópicos institucionais" onToggle={() => toggleSection('catalog')} />
+              <SectionToggle
+                open={openSections.catalog}
+                controls="planejamento-catalog"
+                label="Objetos e subtópicos institucionais"
+                onToggle={() => toggleSection('catalog')}
+              />
             </div>
             <div id="planejamento-catalog" hidden={!openSections.catalog}>
-            <div className="mt-5 grid gap-5 lg:grid-cols-[360px_1fr]">
-              <form
-                onSubmit={createCatalogTopic}
-                className="h-fit space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4"
-              >
-                <Field label="Disciplina">
-                  <select
-                    value={catalogDisciplineId}
-                    onChange={(event) => {
-                      setCatalogDisciplineId(event.target.value);
-                      setCatalogParentId('');
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                  >
-                    {pedagogicalDisciplines.filter((discipline) => discipline.stage === educationStage).map((discipline) => (
-                      <option key={discipline.id} value={discipline.id}>
-                        {discipline.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Série">
-                  <select
-                    value={catalogGrade}
-                    onChange={(event) => {
-                      setCatalogGrade(event.target.value);
-                      setCatalogParentId('');
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                  >
-                    <option>1ª série</option>
-                    <option>2ª série</option>
-                    <option>3ª série</option>
-                  </select>
-                </Field>
-                <Field label="Nível superior">
-                  <select
-                    value={catalogParentId}
-                    onChange={(event) => setCatalogParentId(event.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                  >
-                    <option value="">Nenhum — criar tópico</option>
-                    {pedagogicalTopics
-                      .filter(
-                        (topic) =>
-                          (topic.effective_active ?? topic.active) &&
-                          topic.discipline_id === catalogDisciplineId &&
-                          topic.grade_range === catalogGrade &&
-                          topic.depth < 2,
-                      )
-                      .map((topic) => (
-                        <option key={topic.id} value={topic.id}>
-                          {'— '.repeat(topic.depth)}
-                          {topic.path}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-                <Field
-                  label={
-                    catalogParentId
-                      ? 'Nome do subtópico/detalhamento'
-                      : 'Nome do objeto'
-                  }
+              <div className="mt-5 grid gap-5 lg:grid-cols-[360px_1fr]">
+                <form
+                  onSubmit={createCatalogTopic}
+                  className="h-fit space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4"
                 >
-                  <Input
-                    id="catalog-topic-name"
-                    value={catalogName}
-                    onChange={(event) => setCatalogName(event.target.value)}
-                    required
-                    minLength={2}
-                    maxLength={120}
-                    placeholder="Digite o nome"
-                    disabled={role === 'teacher'}
-                  />
-                </Field>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={
-                    role === 'teacher' || catalogSaving || !catalogDisciplineId || !catalogName.trim()
-                  }
-                >
-                  <Plus /> {catalogSaving ? 'Salvando...' : 'Adicionar item'}
-                </Button>
-                {catalogMessage && <output  className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">{catalogMessage}</output>}
-              </form>
-              <div>
-                {role !== 'teacher' && <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
-                  <input type="checkbox" checked={catalogShowArchived} onChange={event=>setCatalogShowArchived(event.target.checked)} />
-                  Mostrar arquivados
-                </label>}
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {(['1ª série', '2ª série', '3ª série'] as const).map(
-                    (grade) => (
-                      <Button
-                        key={grade}
-                        type="button"
-                        size="sm"
-                        variant={catalogGrade === grade ? 'default' : 'outline'}
-                        onClick={() => {
-                          setCatalogGrade(grade);
-                          setCatalogParentId('');
-                        }}
-                      >
-                        {grade}
-                      </Button>
-                    ),
+                  <Field label="Disciplina">
+                    <select
+                      value={catalogDisciplineId}
+                      onChange={(event) => {
+                        setCatalogDisciplineId(event.target.value);
+                        setCatalogParentId('');
+                      }}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      {pedagogicalDisciplines
+                        .filter(
+                          (discipline) => discipline.stage === educationStage,
+                        )
+                        .map((discipline) => (
+                          <option key={discipline.id} value={discipline.id}>
+                            {discipline.name}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                  <Field label="Série">
+                    <select
+                      value={catalogGrade}
+                      onChange={(event) => {
+                        setCatalogGrade(event.target.value);
+                        setCatalogParentId('');
+                      }}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option>1ª série</option>
+                      <option>2ª série</option>
+                      <option>3ª série</option>
+                    </select>
+                  </Field>
+                  <Field label="Nível superior">
+                    <select
+                      value={catalogParentId}
+                      onChange={(event) =>
+                        setCatalogParentId(event.target.value)
+                      }
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option value="">Nenhum — criar tópico</option>
+                      {pedagogicalTopics
+                        .filter(
+                          (topic) =>
+                            (topic.effective_active ?? topic.active) &&
+                            topic.discipline_id === catalogDisciplineId &&
+                            topic.grade_range === catalogGrade &&
+                            topic.depth < 2,
+                        )
+                        .map((topic) => (
+                          <option key={topic.id} value={topic.id}>
+                            {'— '.repeat(topic.depth)}
+                            {topic.path}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                  <Field
+                    label={
+                      catalogParentId
+                        ? 'Nome do subtópico/detalhamento'
+                        : 'Nome do objeto'
+                    }
+                  >
+                    <Input
+                      id="catalog-topic-name"
+                      value={catalogName}
+                      onChange={(event) => setCatalogName(event.target.value)}
+                      required
+                      minLength={2}
+                      maxLength={120}
+                      placeholder="Digite o nome"
+                      disabled={role === 'teacher'}
+                    />
+                  </Field>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={
+                      role === 'teacher' ||
+                      catalogSaving ||
+                      !catalogDisciplineId ||
+                      !catalogName.trim()
+                    }
+                  >
+                    <Plus /> {catalogSaving ? 'Salvando...' : 'Adicionar item'}
+                  </Button>
+                  {catalogMessage && (
+                    <output className="block rounded-lg border border-blue-100 bg-white p-3 text-sm text-blue-900">
+                      {catalogMessage}
+                    </output>
                   )}
-                </div>
-                <div className="space-y-2">
-                  {visibleCatalogTopics.map((topic) => (
+                </form>
+                <div>
+                  {role !== 'teacher' && (
+                    <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={catalogShowArchived}
+                        onChange={(event) =>
+                          setCatalogShowArchived(event.target.checked)
+                        }
+                      />
+                      Mostrar arquivados
+                    </label>
+                  )}
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {(['1ª série', '2ª série', '3ª série'] as const).map(
+                      (grade) => (
+                        <Button
+                          key={grade}
+                          type="button"
+                          size="sm"
+                          variant={
+                            catalogGrade === grade ? 'default' : 'outline'
+                          }
+                          onClick={() => {
+                            setCatalogGrade(grade);
+                            setCatalogParentId('');
+                          }}
+                        >
+                          {grade}
+                        </Button>
+                      ),
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {visibleCatalogTopics.map((topic) => (
                       <article
                         key={topic.id}
                         className={`flex items-center gap-2 rounded-lg border p-3 ${topic.active ? 'border-slate-200 bg-white' : 'border-dashed border-slate-300 bg-slate-50 opacity-60'}`}
@@ -1053,8 +1224,18 @@ export function CurriculumManager({
                         <ChevronRight className="size-4 shrink-0 text-blue-500" />
                         <span className="min-w-0 flex-1 text-sm font-medium">
                           {topic.name}
-                          <small className="ml-2 font-normal text-slate-500">{['Tópico', 'Subtópico', 'Detalhamento'][topic.depth]}</small>
-                          {topic.active && topic.effective_active === false && <small className="ml-2 text-amber-700">Nível superior arquivado</small>}
+                          <small className="ml-2 font-normal text-slate-500">
+                            {
+                              ['Tópico', 'Subtópico', 'Detalhamento'][
+                                topic.depth
+                              ]
+                            }
+                          </small>
+                          {topic.active && topic.effective_active === false && (
+                            <small className="ml-2 text-amber-700">
+                              Nível superior arquivado
+                            </small>
+                          )}
                           {!topic.active && (
                             <small className="ml-2 text-slate-500">
                               Arquivado
@@ -1063,11 +1244,24 @@ export function CurriculumManager({
                         </span>
                         {role !== 'teacher' && (
                           <div className="flex shrink-0 gap-1">
-                            {topic.depth < 2 && (topic.effective_active ?? topic.active) && <Button
-                              type="button" size="icon" variant="ghost" disabled={catalogSaving}
-                              aria-label={`Adicionar ${topic.depth === 0 ? 'subtópico' : 'detalhamento'} em ${topic.name}`}
-                              onClick={() => { setCatalogParentId(topic.id); document.getElementById('catalog-topic-name')?.focus(); }}
-                            ><Plus /></Button>}
+                            {topic.depth < 2 &&
+                              (topic.effective_active ?? topic.active) && (
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  disabled={catalogSaving}
+                                  aria-label={`Adicionar ${topic.depth === 0 ? 'subtópico' : 'detalhamento'} em ${topic.name}`}
+                                  onClick={() => {
+                                    setCatalogParentId(topic.id);
+                                    document
+                                      .getElementById('catalog-topic-name')
+                                      ?.focus();
+                                  }}
+                                >
+                                  <Plus />
+                                </Button>
+                              )}
                             <Button
                               type="button"
                               size="icon"
@@ -1108,19 +1302,25 @@ export function CurriculumManager({
                             >
                               <EyeOff />
                             </Button>
-                            <Button type="button" size="icon" variant="ghost"
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
                               className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                              aria-label={`Excluir ${topic.name}`} title="Excluir definitivamente"
-                              disabled={catalogSaving} onClick={()=>void deleteCatalogTopic(topic)}>
+                              aria-label={`Excluir ${topic.name}`}
+                              title="Excluir definitivamente"
+                              disabled={catalogSaving}
+                              onClick={() => void deleteCatalogTopic(topic)}
+                            >
                               <Trash2 />
                             </Button>
                           </div>
                         )}
                       </article>
                     ))}
+                  </div>
                 </div>
               </div>
-            </div>
             </div>
           </section>
         )}
@@ -1142,171 +1342,188 @@ export function CurriculumManager({
             >
               Fonte oficial: Inep
             </Badge>
-            <SectionToggle open={openSections.saeb} controls="planejamento-saeb" label="Descritores do SAEB" onToggle={() => toggleSection('saeb')} />
+            <SectionToggle
+              open={openSections.saeb}
+              controls="planejamento-saeb"
+              label="Descritores do SAEB"
+              onToggle={() => toggleSection('saeb')}
+            />
           </div>
           <div id="planejamento-saeb" hidden={!openSections.saeb}>
-          <div className="mt-4 grid gap-4 lg:grid-cols-[300px_1fr]">
-            <div>
-              <label
-                htmlFor="saeb-matrix"
-                className="text-xs font-bold uppercase tracking-wider text-slate-500"
-              >
-                Matriz e ano escolar
-              </label>
-              <select
-                id="saeb-matrix"
-                value={selectedSaebMatrix}
-                onChange={(event) => setSelectedSaebMatrix(event.target.value)}
-                className="mt-2 h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
-              >
-                {saebMatrices.map((matrix) => (
-                  <option key={matrix.id} value={matrix.id}>
-                    {matrix.subject} · {matrix.grade_range}
-                  </option>
-                ))}
-              </select>
-              {saebMatrices.find((item) => item.id === selectedSaebMatrix) && (
-                <div className="mt-3 rounded-xl border border-cyan-100 bg-white p-3 text-xs leading-5 text-slate-600">
-                  <p>
-                    <strong>{saebDescriptors.length}</strong> descritores
-                    carregados
-                  </p>
-                  <p>
-                    {new Set(saebDescriptors.map((item) => item.topic_id))
-                      .size ||
-                      saebMatrices.find(
-                        (item) => item.id === selectedSaebMatrix,
-                      )?.topic_count}{' '}
-                    temas
-                  </p>
-                  <a
-                    href={
-                      saebMatrices.find(
-                        (item) => item.id === selectedSaebMatrix,
-                      )?.source_url
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-block font-semibold text-cyan-800 underline"
-                  >
-                    Consultar documento do Inep
-                  </a>
-                </div>
-              )}
-            </div>
-            <div className="max-h-[430px] space-y-2 overflow-y-auto pr-1">
-              {saebDescriptors.map((descriptor) => (
-                <article
-                  key={descriptor.id}
-                  className="rounded-xl border border-cyan-100 bg-white p-3"
+            <div className="mt-4 grid gap-4 lg:grid-cols-[300px_1fr]">
+              <div>
+                <label
+                  htmlFor="saeb-matrix"
+                  className="text-xs font-bold uppercase tracking-wider text-slate-500"
                 >
-                  <div className="flex items-start gap-3">
-                    <Badge className="shrink-0 bg-cyan-800 font-mono text-white">
-                      {descriptor.code}
-                    </Badge>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-cyan-800">
-                        {descriptor.topic}
-                      </p>
-                      <p className="mt-1 text-sm leading-5 text-slate-700">
-                        {descriptor.description}
-                      </p>
-                    </div>
+                  Matriz e ano escolar
+                </label>
+                <select
+                  id="saeb-matrix"
+                  value={selectedSaebMatrix}
+                  onChange={(event) =>
+                    setSelectedSaebMatrix(event.target.value)
+                  }
+                  className="mt-2 h-10 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm"
+                >
+                  {saebMatrices.map((matrix) => (
+                    <option key={matrix.id} value={matrix.id}>
+                      {matrix.subject} · {matrix.grade_range}
+                    </option>
+                  ))}
+                </select>
+                {saebMatrices.find(
+                  (item) => item.id === selectedSaebMatrix,
+                ) && (
+                  <div className="mt-3 rounded-xl border border-cyan-100 bg-white p-3 text-xs leading-5 text-slate-600">
+                    <p>
+                      <strong>{saebDescriptors.length}</strong> descritores
+                      carregados
+                    </p>
+                    <p>
+                      {new Set(saebDescriptors.map((item) => item.topic_id))
+                        .size ||
+                        saebMatrices.find(
+                          (item) => item.id === selectedSaebMatrix,
+                        )?.topic_count}{' '}
+                      temas
+                    </p>
+                    <a
+                      href={
+                        saebMatrices.find(
+                          (item) => item.id === selectedSaebMatrix,
+                        )?.source_url
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-block font-semibold text-cyan-800 underline"
+                    >
+                      Consultar documento do Inep
+                    </a>
                   </div>
-                </article>
-              ))}
-              {!saebDescriptors.length && (
-                <p className="rounded-xl border border-dashed border-cyan-200 bg-white p-5 text-sm text-slate-500">
-                  Importe as matrizes oficiais para visualizar os descritores.
-                </p>
-              )}
+                )}
+              </div>
+              <div className="max-h-[430px] space-y-2 overflow-y-auto pr-1">
+                {saebDescriptors.map((descriptor) => (
+                  <article
+                    key={descriptor.id}
+                    className="rounded-xl border border-cyan-100 bg-white p-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Badge className="shrink-0 bg-cyan-800 font-mono text-white">
+                        {descriptor.code}
+                      </Badge>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-cyan-800">
+                          {descriptor.topic}
+                        </p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                          {descriptor.description}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+                {!saebDescriptors.length && (
+                  <p className="rounded-xl border border-dashed border-cyan-200 bg-white p-5 text-sm text-slate-500">
+                    Importe as matrizes oficiais para visualizar os descritores.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
           </div>
         </section>
       )}
       <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_430px]">
         <section className="h-fit overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <header className={`flex flex-wrap items-start justify-between gap-3 p-5 ${openSections.map ? 'border-b border-slate-200' : ''}`}>
+          <header
+            className={`flex flex-wrap items-start justify-between gap-3 p-5 ${openSections.map ? 'border-b border-slate-200' : ''}`}
+          >
             <div>
-            <h2 className="font-display text-xl font-bold text-[var(--navy)]">
-              Mapa curricular
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Relações disponíveis para classificar novas questões
-            </p>
+              <h2 className="font-display text-xl font-bold text-[var(--navy)]">
+                Mapa curricular
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Relações disponíveis para classificar novas questões
+              </p>
             </div>
-            <SectionToggle open={openSections.map} controls="planejamento-map" label="Mapa curricular" onToggle={() => toggleSection('map')} />
+            <SectionToggle
+              open={openSections.map}
+              controls="planejamento-map"
+              label="Mapa curricular"
+              onToggle={() => toggleSection('map')}
+            />
           </header>
           <div id="planejamento-map" hidden={!openSections.map}>
-          <div className="divide-y divide-slate-100">
-            {subjects.map((subject) => (
-              <div key={subject.subject_id} className="p-5">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-[var(--navy)]">
-                    {subject.subject}
-                  </span>
-                  <Badge variant="secondary">{subject.stage}</Badge>
-                </div>
-                <div className="mt-3 space-y-3">
-                  {objects
-                    .filter((item) => item.subject_id === subject.subject_id)
-                    .map((object) => (
-                      <div
-                        key={object.knowledge_object_id}
-                        className="rounded-xl border border-slate-200 bg-slate-50/60 p-4"
-                      >
-                        <div className="flex gap-2">
-                          <ChevronRight className="mt-0.5 size-4 shrink-0 text-blue-500" />
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {object.knowledge_object}
-                            </p>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {object.grade_range}
-                            </p>
+            <div className="divide-y divide-slate-100">
+              {subjects.map((subject) => (
+                <div key={subject.subject_id} className="p-5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[var(--navy)]">
+                      {subject.subject}
+                    </span>
+                    <Badge variant="secondary">{subject.stage}</Badge>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {objects
+                      .filter((item) => item.subject_id === subject.subject_id)
+                      .map((object) => (
+                        <div
+                          key={object.knowledge_object_id}
+                          className="rounded-xl border border-slate-200 bg-slate-50/60 p-4"
+                        >
+                          <div className="flex gap-2">
+                            <ChevronRight className="mt-0.5 size-4 shrink-0 text-blue-500" />
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">
+                                {object.knowledge_object}
+                              </p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {object.grade_range}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {stageItems
-                            .filter(
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {stageItems
+                              .filter(
+                                (item) =>
+                                  item.knowledge_object_id ===
+                                    object.knowledge_object_id &&
+                                  item.skill_code,
+                              )
+                              .map((skill) => (
+                                <Badge
+                                  key={skill.skill_code}
+                                  variant="outline"
+                                  title={skill.skill_description || ''}
+                                  className="border-violet-200 bg-white font-mono text-violet-700"
+                                >
+                                  {skill.skill_code}
+                                </Badge>
+                              ))}
+                            {!stageItems.some(
                               (item) =>
                                 item.knowledge_object_id ===
                                   object.knowledge_object_id && item.skill_code,
-                            )
-                            .map((skill) => (
-                              <Badge
-                                key={skill.skill_code}
-                                variant="outline"
-                                title={skill.skill_description || ''}
-                                className="border-violet-200 bg-white font-mono text-violet-700"
-                              >
-                                {skill.skill_code}
-                              </Badge>
-                            ))}
-                          {!stageItems.some(
-                            (item) =>
-                              item.knowledge_object_id ===
-                                object.knowledge_object_id && item.skill_code,
-                          ) && (
-                            <span className="text-xs text-slate-500">
-                              Nenhuma habilidade vinculada
-                            </span>
-                          )}
+                            ) && (
+                              <span className="text-xs text-slate-500">
+                                Nenhuma habilidade vinculada
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  {!objects.some(
-                    (item) => item.subject_id === subject.subject_id,
-                  ) && (
-                    <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
-                      Cadastre o primeiro objeto de conhecimento.
-                    </p>
-                  )}
+                      ))}
+                    {!objects.some(
+                      (item) => item.subject_id === subject.subject_id,
+                    ) && (
+                      <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                        Cadastre o primeiro objeto de conhecimento.
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           </div>
         </section>
         <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5">

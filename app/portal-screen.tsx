@@ -1410,7 +1410,9 @@ export default function Home() {
                 current={identity.institution}
                 institutions={identity.institutions}
               />
-              <p className="text-xs text-slate-500">Ano letivo 2026</p>
+              <p className="text-xs text-slate-500">
+                Ano letivo {new Date().getFullYear()}
+              </p>
             </div>
           </div>
         </header>
@@ -1636,9 +1638,6 @@ export default function Home() {
             <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
               <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
                 <div>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">
-                    Banco institucional
-                  </p>
                   <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
                     Banco de questões
                   </h1>

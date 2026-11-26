@@ -1400,9 +1400,6 @@ export function AssessmentBuilder({
     <div className="mx-auto max-w-[1450px] px-5 py-7 sm:px-8 sm:py-9">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-[.15em] text-[var(--blue)]">
-            Montagem e versões
-          </p>
           <h1 className="font-display text-3xl font-bold tracking-[-.03em] text-[var(--navy)] sm:text-[38px]">
             Elaborar prova
           </h1>

@@ -1097,9 +1097,6 @@ export function ExamImportManager({
 
   return (
     <section className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <p className="text-xs font-bold uppercase tracking-[.15em] text-blue-700">
-        Curadoria editorial
-      </p>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <h1 className="font-display mt-1 text-3xl font-bold text-[var(--navy)]">
           Importar provas
